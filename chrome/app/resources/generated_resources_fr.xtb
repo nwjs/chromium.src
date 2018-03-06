@@ -239,7 +239,6 @@
 <translation id="1367951781824006909">Choisir un fichier</translation>
 <translation id="136802136832547685">Aucun utilisateur supervisé à ajouter à cet appareil.</translation>
 <translation id="1368265273904755308">Signaler un problème</translation>
-<translation id="1368832886055348810">De gauche à droite</translation>
 <translation id="1370646789215800222">Supprimer le profil utilisateur ?</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 élément à supprimer}one{# élément à supprimer}other{# éléments à supprimer}}</translation>
 <translation id="1372841398847029212">Synchroniser avec votre compte</translation>
@@ -403,7 +402,6 @@
 <translation id="1608626060424371292">Supprimer cet utilisateur</translation>
 <translation id="1609170755653088773">Synchroniser ce mot de passe avec votre iPhone</translation>
 <translation id="1609862759711084604">Utilisateur précédent</translation>
-<translation id="1611557582955786626">Connectez-vous pour profiter d'une expérience de navigation personnalisée et synchroniser vos données sur plusieurs appareils</translation>
 <translation id="1611584202130317952">Flux d'accès interrompu. Veuillez réessayer ou contacter le propriétaire/l'administrateur de l'appareil.</translation>
 <translation id="1611649489706141841">suivant</translation>
 <translation id="1611704746353331382">Exporter les favoris vers un fichier HTML…</translation>
@@ -571,7 +569,6 @@
 <translation id="1856715684130786728">Ajouter un emplacement…</translation>
 <translation id="1856813161013948396">Désactivez l'écran de verrouillage en appuyant sur le lecteur d'empreinte digitale. Cliquez pour configurer.</translation>
 <translation id="1858585891038687145">Considérer ce certificat comme fiable pour identifier les développeurs de logiciels</translation>
-<translation id="1859234291848436338">Sens de l'écriture</translation>
 <translation id="1861262398884155592">Ce dossier est vide</translation>
 <translation id="1864111464094315414">Connexion</translation>
 <translation id="1864400682872660285">Plus froid</translation>
@@ -1245,7 +1242,6 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2889925978073739256">Continuer à bloquer l'exécution hors bac à sable des plug-ins</translation>
 <translation id="2890678560483811744">Plage de pages hors limite</translation>
 <translation id="2893168226686371498">Navigateur par défaut</translation>
-<translation id="2893453364759632532">Fenêtre vers le bas</translation>
 <translation id="289644616180464099">La carte SIM est verrouillée</translation>
 <translation id="289695669188700754">ID de clé : <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">Voulez-vous vraiment ouvrir <ph name="TAB_COUNT" /> onglets ?</translation>
@@ -1358,7 +1354,6 @@ Pour en savoir plus, consultez notre <ph name="BEGIN_LINK" />Centre d'aide<ph na
 <translation id="304567287000691532">Partage d'écran</translation>
 <translation id="3046910703532196514">Page Web, complète</translation>
 <translation id="304826556400666995">Réactiver le son des onglets</translation>
-<translation id="3051523411789012618">Fenêtre vers le haut</translation>
 <translation id="3053013834507634016">Utilisation de la clé du certificat</translation>
 <translation id="3057861065630527966">Sauvegarder vos photos et vos vidéos</translation>
 <translation id="3060379269883947824">Activer "Sélectionner pour prononcer"</translation>
@@ -1388,7 +1383,6 @@ Pour en savoir plus, consultez notre <ph name="BEGIN_LINK" />Centre d'aide<ph na
 <translation id="3090193911106258841">Accès à l'entrée audio et vidéo en cours…</translation>
 <translation id="3090819949319990166">Impossible de copier le fichier crx externe dans <ph name="TEMP_CRX_FILE" />.</translation>
 <translation id="3090871774332213558">"<ph name="DEVICE_NAME" />" associé.</translation>
-<translation id="3097628171361913691">Décompression de fichiers .zip</translation>
 <translation id="3100609564180505575">Modules (<ph name="TOTAL_COUNT" />). Conflits connus : <ph name="BAD_COUNT" />, conflits probables : <ph name="SUSPICIOUS_COUNT" /></translation>
 <translation id="3101709781009526431">Date et heure</translation>
 <translation id="3108967419958202225">Sélectionner...</translation>
@@ -1903,7 +1897,7 @@ Pour en savoir plus, consultez notre <ph name="BEGIN_LINK" />Centre d'aide<ph na
 <translation id="3869917919960562512">Index erroné.</translation>
 <translation id="3872991219937722530">Libérez de l'espace disque, car l'appareil risque de ne plus répondre.</translation>
 <translation id="3878840326289104869">Création de l'utilisateur supervisé en cours</translation>
-<translation id="3879748587602334249">Gestionnaire de téléchargement</translation>
+<translation id="3879748587602334249">Gest. de tél.</translation>
 <translation id="3888550877729210209">Prise de notes avec <ph name="LOCK_SCREEN_APP_NAME" /></translation>
 <translation id="3892414795099177503">Ajouter une connexion OpenVPN/L2TP…</translation>
 <translation id="3893536212201235195">Consulter et modifier vos paramètres d'accessibilité</translation>
@@ -2161,7 +2155,6 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4336032328163998280">Échec de l'opération de copie. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Pour les journaux réseau, consultez la page suivante : <ph name="DEVICE_LOG_LINK" /></translation>
 <translation id="4337028641069424358">Pour télécharger et utiliser des applications Android, vous devez d'abord installer une mise à jour. Vous ne pouvez pas utiliser votre appareil pendant la mise à jour. Votre <ph name="DEVICE_TYPE" /> redémarrera une fois l'installation terminée.</translation>
-<translation id="4338683191474220626">Fenêtre vers la gauche</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> souhaite communiquer avec l'application "<ph name="EXTENSION_NAME" />".</translation>
 <translation id="4342311272543222243">Une erreur liée au module de plate-forme sécurisée s'est produite</translation>
 <translation id="4345587454538109430">Configurer...</translation>
@@ -2313,7 +2306,6 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4615586811063744755">aucun cookie sélectionné</translation>
 <translation id="4617270414136722281">Options d'extension</translation>
 <translation id="4619615317237390068">Onglets d'autres appareils</translation>
-<translation id="4620809267248568679">Ce paramètre est appliqué par une extension.</translation>
 <translation id="4624768044135598934">Opération réussie !</translation>
 <translation id="4625078469366263107">Activer l'application</translation>
 <translation id="4627427111733173920">Cookies bloqués</translation>
@@ -3309,7 +3301,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6169666352732958425">Impossible de caster le bureau</translation>
 <translation id="6171948306033499786">Suspendre l'impression</translation>
 <translation id="6175314957787328458">GUID de domaine Microsoft</translation>
-<translation id="6176032031541598434">Fenêtre active transférée vers l'écran du bas</translation>
 <translation id="6178664161104547336">Sélectionner un certificat</translation>
 <translation id="6181431612547969857">Téléchargement bloqué</translation>
 <translation id="6181803575025675566">Contrôlez comment cela fonctionne dans <ph name="LINK_START" />Paramètres<ph name="LINK_END" />.</translation>
@@ -3660,7 +3651,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6736045498964449756">Petit problème… Les mots de passe ne correspondent pas.</translation>
 <translation id="6736243959894955139">Adresse</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />]</translation>
-<translation id="673970589316422346">Bien que vous ne puissiez plus accéder à votre ancien profil, vous pouvez le supprimer.</translation>
 <translation id="6739923123728562974">Afficher le raccourci sur le Bureau</translation>
 <translation id="6740234557573873150">Fichier <ph name="FILE_NAME" /> suspendu</translation>
 <translation id="6742339027238151589">Accessible aux scripts</translation>
@@ -3794,7 +3784,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6970856801391541997">Imprimer des pages spécifiques</translation>
 <translation id="6972180789171089114">Audio/Vidéo</translation>
 <translation id="6973630695168034713">Dossiers</translation>
-<translation id="6974053822202609517">De droite à gauche</translation>
 <translation id="6976108581241006975">Console JavaScript</translation>
 <translation id="6977381486153291903">Version du micrologiciel</translation>
 <translation id="6978121630131642226">Moteurs de recherche</translation>
@@ -3958,7 +3947,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7221869452894271364">Actualiser cette page</translation>
 <translation id="7222232353993864120">Adresse e-mail</translation>
 <translation id="7222373446505536781">F11</translation>
-<translation id="722363467515709460">Activer la loupe</translation>
 <translation id="7223775956298141902">Aucune extension n'est installée.</translation>
 <translation id="7225179976675429563">Type de réseau manquant.</translation>
 <translation id="7228479291753472782">Manipule des paramètres qui déterminent si les sites Web peuvent utiliser des fonctionnalités telles que la géolocalisation, le microphone, l'appareil photo, etc.</translation>
@@ -4214,7 +4202,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7639178625568735185">OK</translation>
 <translation id="764017888128728"><ph name="PASSWORD_MANAGER_BRAND" /> vous connecte automatiquement aux sites éligibles avec les mots de passe que vous avez enregistrés.</translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (propriétaire)</translation>
-<translation id="7647231681210854996">Fenêtre active transférée vers l'écran de droite</translation>
 <translation id="7648992873808071793">Stocker les fichiers sur cet appareil</translation>
 <translation id="7649070708921625228">Aide</translation>
 <translation id="7650511557061837441">"<ph name="TRIGGERING_EXTENSION_NAME" />" souhaite supprimer "<ph name="EXTENSION_NAME" />".</translation>
@@ -4674,7 +4661,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8371695176452482769">Parlez maintenant.</translation>
 <translation id="8372369524088641025">Clé WEP incorrecte</translation>
 <translation id="8373553483208508744">Couper le son des onglets</translation>
-<translation id="8377870760189106701">Fenêtre vers la droite</translation>
 <translation id="8378285435971754261">Activez les services de localisation de Google afin de permettre aux applications de déterminer rapidement et précisément votre position, et ainsi d'économiser la batterie. Des données de localisation anonymes sont envoyées à Google, même quand aucune application n'est exécutée. <ph name="BEGIN_LINK1" />En savoir plus<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Gérer les paramètres de l'appareil photo…</translation>
 <translation id="8382913212082956454">Copi&amp;er l'adresse e-mail</translation>
@@ -4888,7 +4874,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="871476437400413057">Mots de passe Google enregistrés</translation>
 <translation id="8714838604780058252">Graphiques d'arrière-plan</translation>
 <translation id="8719653885894320876">Échec du téléchargement de <ph name="PLUGIN_NAME" /></translation>
-<translation id="8721669057562068233">Fenêtre active transférée vers l'écran du haut</translation>
 <translation id="8723829621484579639">Sous-cadres de navigation privée pour : <ph name="PARENT_SITE" /></translation>
 <translation id="8724859055372736596">&amp;Afficher dans le dossier</translation>
 <translation id="8725066075913043281">Réessayer</translation>
@@ -4932,7 +4917,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8785622406424941542">Stylet</translation>
 <translation id="8787254343425541995">Autoriser les proxys pour les réseaux partagés</translation>
 <translation id="8791534160414513928">Envoyer une demande "Interdire le suivi" pendant la navigation</translation>
-<translation id="8792609692701651064">Fenêtre active transférée vers l'écran de gauche</translation>
 <translation id="8794025342371547160">IP limitée</translation>
 <translation id="879413103056696865">Lors de l'utilisation du point d'accès, votre <ph name="PHONE_NAME" /> :</translation>
 <translation id="8795916974678578410">Nouvelle fenêtre</translation>

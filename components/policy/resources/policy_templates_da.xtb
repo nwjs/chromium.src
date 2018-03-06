@@ -617,7 +617,6 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
           Politikkens værdi skal angives i millisekunder. Værdierne reduceres, så de er mindre end eller lig med skærmslukforsinkelsen (hvis angivet) og inaktivitetsforsinkelsen.</translation>
 <translation id="2987155890997901449">Aktivér ARC</translation>
 <translation id="2987227569419001736">Kontrollér brugen af Web Bluetooth API</translation>
-<translation id="3001534538097271560">Hvis denne politik angives som Falsk, forhindres brugerne i at sende visse former for systemoplysninger og sideindhold til Googles servere. Hvis denne indstilling er angivet som Sand eller ikke er angivet, kan brugerne sende visse former for systemoplysninger og sideindhold til Beskyttet browsing som en hjælp til at registrere skadelige apps og websites. Se https://developers.google.com/safe-browsing for flere oplysninger om Beskyttet browsing.</translation>
 <translation id="3016255526521614822">Hvidlistedeapps til notatskrivning er tilladt på <ph name="PRODUCT_OS_NAME" />-låseskærmen</translation>
 <translation id="3030000825273123558">Aktivér metrics-rapportering</translation>
 <translation id="3034580675120919256">Giver dig mulighed for at angive, om websites må køre JavaScript. Kørsel af JavaScript kan enten være tilladt for alle websites eller nægtet for alle websites. Hvis denne politik ikke angives, anvendes "AllowJavaScript", og brugeren vil kunne ændre det.</translation>
@@ -728,7 +727,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
       </translation>
 <translation id="3414260318408232239">Hvis denne politik ikke konfigureres, anvender <ph name="PRODUCT_NAME" /> en standardminimumversion, som er TLS 1.0.
 
-      Den kan også angives til en af følgende værdier: "tls1", "tls1.1" eller "tls1.2". Når der er angivet en værdi, vil <ph name="PRODUCT_NAME" /> ikke anvende SSL/TLS-versioner, der er mindre end den angivne version. Ukendte værdier ignoreres.</translation>
+      Den kan også angives til en af følgende værdier: "tls1", "tls1.1" eller "tls1.2". Når der er angivet en værdi, anvender <ph name="PRODUCT_NAME" /> ikke SSL/TLS-versioner, der er mindre end den angivne version. Ukendte værdier ignoreres.</translation>
 <translation id="3417418267404583991">Hvis denne politik er angivet til sand eller ikke er konfigureret, aktiverer <ph name="PRODUCT_OS_NAME" /> gæstelogins. Gæstelogins er anonyme brugersessioner, der ikke kræver en adgangskode,
 
       Hvis denne politik er angivet til falsk, vil <ph name="PRODUCT_OS_NAME" /> ikke tillade, at der startes gæstesessioner.</translation>

@@ -239,7 +239,6 @@
 <translation id="1367951781824006909">Pilih file</translation>
 <translation id="136802136832547685">Tidak ada pengguna yang dilindungi untuk ditambahkan ke perangkat ini.</translation>
 <translation id="1368265273904755308">Laporkan masalah</translation>
-<translation id="1368832886055348810">Kiri ke Kanan</translation>
 <translation id="1370646789215800222">Hapus orang?</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 item yang akan dihapus}other{# item yang akan dihapus}}</translation>
 <translation id="1372841398847029212">Sinkronkan ke akun Anda</translation>
@@ -403,7 +402,6 @@
 <translation id="1608626060424371292">Hapus pengguna ini</translation>
 <translation id="1609170755653088773">Sinkronkan sandi ini ke iPhone Anda</translation>
 <translation id="1609862759711084604">Pengguna sebelumnya</translation>
-<translation id="1611557582955786626">Login untuk mendapatkan pengalaman browsing yang dipersonalisasi, yang disinkronkan di seluruh perangkat</translation>
 <translation id="1611584202130317952">Proses provisioning terganggu. Harap coba lagi atau hubungi administrator atau pemilik perangkat.</translation>
 <translation id="1611649489706141841">maju</translation>
 <translation id="1611704746353331382">Ekspor Bookmark ke file HTML...</translation>
@@ -566,12 +564,11 @@
 <translation id="184823282865851239">Blokir jika situs cenderung menampilkan iklan mengganggu</translation>
 <translation id="1849186935225320012">Halaman ini memiliki kontrol penuh perangkat MIDI.</translation>
 <translation id="1850508293116537636">Putar &amp;searah jarum jam</translation>
-<translation id="1851361118452499663">Fotoku</translation>
+<translation id="1851361118452499663">Foto Saya</translation>
 <translation id="1852799913675865625">Terdapat kesalahan saat mencoba membaca file: <ph name="ERROR_TEXT" />.</translation>
 <translation id="1856715684130786728">+ lokasi...</translation>
 <translation id="1856813161013948396">Lewati layar kunci dengan hanya menge-tap sensor sidik jari. Klik untuk mengonfigurasi.</translation>
 <translation id="1858585891038687145">Mempercayai sertifikat ini untuk mengidentifikasi pembuat software</translation>
-<translation id="1859234291848436338">Arah Penulisan</translation>
 <translation id="1861262398884155592">Folder ini kosong</translation>
 <translation id="1864111464094315414">Masuk</translation>
 <translation id="1864400682872660285">Dingin</translation>
@@ -1245,7 +1242,6 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="2889925978073739256">Lanjutkan pemblokiran plugin yang tidak dimasukkan kotak pasir</translation>
 <translation id="2890678560483811744">Di luar referensi halaman batas</translation>
 <translation id="2893168226686371498">Browser default</translation>
-<translation id="2893453364759632532">Jendela ke bawah</translation>
 <translation id="289644616180464099">Kartu SIM terkunci</translation>
 <translation id="289695669188700754">ID Kunci: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">Anda yakin ingin membuka <ph name="TAB_COUNT" /> tab?</translation>
@@ -1358,7 +1354,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="304567287000691532">Membagikan layar</translation>
 <translation id="3046910703532196514">Halaman Web, Lengkap</translation>
 <translation id="304826556400666995">Nonaktifkan Tab</translation>
-<translation id="3051523411789012618">Jendela ke atas</translation>
 <translation id="3053013834507634016">Penggunaan Kunci Sertifikat</translation>
 <translation id="3057861065630527966">Cadangkan foto dan video</translation>
 <translation id="3060379269883947824">Aktifkan fitur klik untuk diucapkan</translation>
@@ -1388,7 +1383,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="3090193911106258841">Mengakses masukan audio dan video</translation>
 <translation id="3090819949319990166">Tidak dapat menyalin file crx eksternal ke <ph name="TEMP_CRX_FILE" />.</translation>
 <translation id="3090871774332213558">"<ph name="DEVICE_NAME" />" disandingkan</translation>
-<translation id="3097628171361913691">Pemasang File Zip</translation>
 <translation id="3100609564180505575">Modul (<ph name="TOTAL_COUNT" />) - Konflik yang dikenal: <ph name="BAD_COUNT" />, dicurigai: <ph name="SUSPICIOUS_COUNT" /></translation>
 <translation id="3101709781009526431">Tanggal dan waktu</translation>
 <translation id="3108967419958202225">Pilih...</translation>
@@ -2161,7 +2155,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="4336032328163998280">Operasi penyalinan gagal. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Untuk log jaringan, lihat: <ph name="DEVICE_LOG_LINK" /></translation>
 <translation id="4337028641069424358">Untuk mendownload dan menggunakan aplikasi Android, Anda harus menginstal update terlebih dahulu. Saat perangkat sedang diupdate, Anda tidak dapat menggunakannya. Perangkat <ph name="DEVICE_TYPE" /> akan dinyalakan ulang setelah proses instal selesai.</translation>
-<translation id="4338683191474220626">Jendela ke kiri</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> ingin berkomunikasi dengan aplikasi "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4342311272543222243">Ups, kesalahan TPM.</translation>
 <translation id="4345587454538109430">Konfigurasikan...</translation>
@@ -2313,7 +2306,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="4615586811063744755">tidak ada cookie yang dipilih</translation>
 <translation id="4617270414136722281">Opsi ekstensi</translation>
 <translation id="4619615317237390068">Tab dari perangkat lain</translation>
-<translation id="4620809267248568679">Setelan ini diberlakukan oleh ekstensi.</translation>
 <translation id="4624768044135598934">Berhasil!</translation>
 <translation id="4625078469366263107">Aktifkan Aplikasi</translation>
 <translation id="4627427111733173920">Cookie diblokir</translation>
@@ -3308,7 +3300,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="6169666352732958425">Tidak dapat mentransmisi desktop.</translation>
 <translation id="6171948306033499786">Jeda pencetakan</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
-<translation id="6176032031541598434">Jendela aktif dipindahkan ke layar di bawah</translation>
 <translation id="6178664161104547336">Pilih sertifikat</translation>
 <translation id="6181431612547969857">Download diblokir</translation>
 <translation id="6181803575025675566">Kontrol cara kerjanya di <ph name="LINK_START" />Setelan<ph name="LINK_END" />.</translation>
@@ -3659,7 +3650,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="6736045498964449756">Aduh, sandi tidak cocok!</translation>
 <translation id="6736243959894955139">Alamat</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />]</translation>
-<translation id="673970589316422346">Meskipun tidak lagi dapat mengakses profil lama, Anda dapat menghapusnya.</translation>
 <translation id="6739923123728562974">Tampilkan pintasan desktop</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> dijeda</translation>
 <translation id="6742339027238151589">Dapat diakses ke skrip</translation>
@@ -3793,7 +3783,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="6970856801391541997">Cetak Halaman Khusus</translation>
 <translation id="6972180789171089114">Audio/Video</translation>
 <translation id="6973630695168034713">Folder</translation>
-<translation id="6974053822202609517">Kanan ke Kiri</translation>
 <translation id="6976108581241006975">Konsol JavaScript</translation>
 <translation id="6977381486153291903">Revisi firmware</translation>
 <translation id="6978121630131642226">Mesin Telusur</translation>
@@ -3957,7 +3946,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="7221869452894271364">Muat ulang halaman ini</translation>
 <translation id="7222232353993864120">Alamat Email</translation>
 <translation id="7222373446505536781">F11</translation>
-<translation id="722363467515709460">Aktifkan kaca pembesar layar</translation>
 <translation id="7223775956298141902">Payah... Anda tidak memiliki ekstensi :-(</translation>
 <translation id="7225179976675429563">Jenis jaringan hilang</translation>
 <translation id="7228479291753472782">Memanipulasi setelan yang menentukan apakah situs web dapat menggunakan fitur seperti geolokasi, mikrofon, kamera, dll.</translation>
@@ -4213,7 +4201,6 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="7639178625568735185">Mengerti!</translation>
 <translation id="764017888128728"><ph name="PASSWORD_MANAGER_BRAND" /> otomatis memasukkan Anda ke situs yang memenuhi syarat menggunakan sandi tersimpan.</translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (pemilik)</translation>
-<translation id="7647231681210854996">Jendela aktif dipindahkan ke layar kanan</translation>
 <translation id="7648992873808071793">Menyimpan file pada perangkat ini</translation>
 <translation id="7649070708921625228">Bantuan</translation>
 <translation id="7650511557061837441">"<ph name="TRIGGERING_EXTENSION_NAME" />" ingin menghapus "<ph name="EXTENSION_NAME" />".</translation>
@@ -4673,7 +4660,6 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8371695176452482769">Bicaralah sekarang</translation>
 <translation id="8372369524088641025">Kunci WEP yang buruk</translation>
 <translation id="8373553483208508744">Nonaktifkan tab</translation>
-<translation id="8377870760189106701">Jendela ke kanan</translation>
 <translation id="8378285435971754261">Biarkan layanan lokasi Google membantu aplikasi menemukan lokasi Anda dengan cepat dan akurat, sehingga dapat menghemat penggunaan baterai. Data lokasi anonim akan dikirim ke Google, meski tidak ada aplikasi yang berjalan. <ph name="BEGIN_LINK1" />Pelajari Lebih Lanjut<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Kelola setelan kamera...</translation>
 <translation id="8382913212082956454">Salin alamat &amp;email</translation>
@@ -4887,7 +4873,6 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="871476437400413057">Sandi yang disimpan Google</translation>
 <translation id="8714838604780058252">Grafis latar belakang</translation>
 <translation id="8719653885894320876">Gagal mendownload <ph name="PLUGIN_NAME" /></translation>
-<translation id="8721669057562068233">Jendela aktif dipindahkan ke layar di atas</translation>
 <translation id="8723829621484579639">Subkerangka mode Penyamaran untuk: <ph name="PARENT_SITE" /></translation>
 <translation id="8724859055372736596">&amp;Tampilkan dalam Folder</translation>
 <translation id="8725066075913043281">Coba lagi</translation>
@@ -4931,7 +4916,6 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8785622406424941542">Stilus</translation>
 <translation id="8787254343425541995">Memungkinkan proxy untuk jaringan bersama</translation>
 <translation id="8791534160414513928">Kirim permintaan "Jangan Lacak" bersama dengan traffic akses internet</translation>
-<translation id="8792609692701651064">Jendela aktif dipindahkan ke layar kiri</translation>
 <translation id="8794025342371547160">IP Terbatas</translation>
 <translation id="879413103056696865">Saat hotspot aktif, <ph name="PHONE_NAME" /> Anda akan:</translation>
 <translation id="8795916974678578410">Jendela Baru</translation>

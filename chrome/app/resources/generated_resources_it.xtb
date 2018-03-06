@@ -239,7 +239,6 @@
 <translation id="1367951781824006909">Scegli un file</translation>
 <translation id="136802136832547685">Nessun utente supervisionato da aggiungere a questo dispositivo.</translation>
 <translation id="1368265273904755308">Consente di segnalare un problema</translation>
-<translation id="1368832886055348810">Da sinistra a destra</translation>
 <translation id="1370646789215800222">Rimuovere la persona?</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 elemento da rimuovere}other{# elementi da rimuovere}}</translation>
 <translation id="1372841398847029212">Sincronizza con il tuo account</translation>
@@ -403,7 +402,6 @@
 <translation id="1608626060424371292">Rimuovi questo utente</translation>
 <translation id="1609170755653088773">Sincronizza questa password con l'iPhone</translation>
 <translation id="1609862759711084604">Utente precedente</translation>
-<translation id="1611557582955786626">Accedi per un'esperienza di navigazione personalizzata e sincronizzata sui tuoi dispositivi</translation>
 <translation id="1611584202130317952">Il flusso di provisioning è stato interrotto. Riprova oppure contatta l'amministratore o il proprietario del dispositivo.</translation>
 <translation id="1611649489706141841">avanti</translation>
 <translation id="1611704746353331382">Esporta i preferiti in file HTML...</translation>
@@ -571,7 +569,6 @@
 <translation id="1856715684130786728">Aggiungi posizione...</translation>
 <translation id="1856813161013948396">Salta la schermata di blocco toccando semplicemente il sensore di impronte digitali. Fai clic per configurare.</translation>
 <translation id="1858585891038687145">Considera attendibile questo certificato per l'identificazione dei creatori di software</translation>
-<translation id="1859234291848436338">Direzione di scrittura</translation>
 <translation id="1861262398884155592">Questa cartella è vuota</translation>
 <translation id="1864111464094315414">Accesso</translation>
 <translation id="1864400682872660285">Più fredda</translation>
@@ -1244,7 +1241,6 @@ Non credo che questo sito debba essere bloccato.</translation>
 <translation id="2889925978073739256">Continua a bloccare i plug-in senza sandbox</translation>
 <translation id="2890678560483811744">Riferimento pagina oltre i limiti</translation>
 <translation id="2893168226686371498">Browser predefinito</translation>
-<translation id="2893453364759632532">Sposta la finestra in basso</translation>
 <translation id="289644616180464099">La scheda SIM è bloccata</translation>
 <translation id="289695669188700754">ID chiave: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">Aprire <ph name="TAB_COUNT" /> schede?</translation>
@@ -1357,7 +1353,6 @@ Per ulteriori informazioni, visita il nostro <ph name="BEGIN_LINK" />Centro assi
 <translation id="304567287000691532">Condivisione dello schermo in corso</translation>
 <translation id="3046910703532196514">Pagina web, completa</translation>
 <translation id="304826556400666995">Riattiva audio schede</translation>
-<translation id="3051523411789012618">Sposta la finestra in alto</translation>
 <translation id="3053013834507634016">Uso della chiave del certificato</translation>
 <translation id="3057861065630527966">Effettua il backup di foto e video</translation>
 <translation id="3060379269883947824">Attiva Seleziona per ascoltare</translation>
@@ -1387,7 +1382,6 @@ Per ulteriori informazioni, visita il nostro <ph name="BEGIN_LINK" />Centro assi
 <translation id="3090193911106258841">Accesso all'input audio e video in corso</translation>
 <translation id="3090819949319990166">Impossibile copiare il file crx esterno su <ph name="TEMP_CRX_FILE" />.</translation>
 <translation id="3090871774332213558">"<ph name="DEVICE_NAME" />" accoppiato</translation>
-<translation id="3097628171361913691">Zip File Installer</translation>
 <translation id="3100609564180505575">Moduli (<ph name="TOTAL_COUNT" />). Conflitti conosciuti: <ph name="BAD_COUNT" />, sospettati: <ph name="SUSPICIOUS_COUNT" /></translation>
 <translation id="3101709781009526431">Data e ora</translation>
 <translation id="3108967419958202225">Scegli...</translation>
@@ -2158,7 +2152,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4336032328163998280">Operazione di copia non riuscita. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Per i log di rete, vedi: <ph name="DEVICE_LOG_LINK" /></translation>
 <translation id="4337028641069424358">Per scaricare e utilizzare le app Android, devi prima installare un aggiornamento. Mentre il tuo dispositivo viene aggiornato, non puoi utilizzarlo. Il dispositivo <ph name="DEVICE_TYPE" /> verrà riavviato una volta completata l'installazione.</translation>
-<translation id="4338683191474220626">Sposta la finestra a sinistra</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> vuole comunicare con l'app "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4342311272543222243">Spiacenti, errore TPM.</translation>
 <translation id="4345587454538109430">Configura...</translation>
@@ -2310,7 +2303,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4615586811063744755">nessun cookie selezionato</translation>
 <translation id="4617270414136722281">Opzioni estensione</translation>
 <translation id="4619615317237390068">Schede di altri dispositivi</translation>
-<translation id="4620809267248568679">Questa impostazione è applicata da un'estensione.</translation>
 <translation id="4624768044135598934">Operazione riuscita.</translation>
 <translation id="4625078469366263107">Attiva app</translation>
 <translation id="4627427111733173920">Cookie bloccati</translation>
@@ -3304,7 +3296,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6169666352732958425">Impossibile trasmettere il desktop.</translation>
 <translation id="6171948306033499786">Metti in pausa la stampa</translation>
 <translation id="6175314957787328458">GUID di dominio Microsoft</translation>
-<translation id="6176032031541598434">Finestra attiva spostata nello schermo sotto</translation>
 <translation id="6178664161104547336">Seleziona un certificato</translation>
 <translation id="6181431612547969857">Download bloccato</translation>
 <translation id="6181803575025675566">Controlla come funziona nelle <ph name="LINK_START" />Impostazioni<ph name="LINK_END" />.</translation>
@@ -3655,7 +3646,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6736045498964449756">Spiacenti, le password non corrispondono.</translation>
 <translation id="6736243959894955139">Indirizzo</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />]</translation>
-<translation id="673970589316422346">Anche se non puoi più accedere al tuo vecchio profilo, puoi rimuoverlo.</translation>
 <translation id="6739923123728562974">Mostra collegamento sul desktop</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> in pausa</translation>
 <translation id="6742339027238151589">Accessibile allo script</translation>
@@ -3789,7 +3779,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6970856801391541997">Stampa pagine specifiche</translation>
 <translation id="6972180789171089114">Audio/video</translation>
 <translation id="6973630695168034713">Cartelle</translation>
-<translation id="6974053822202609517">Da destra a sinistra</translation>
 <translation id="6976108581241006975">Console JavaScript</translation>
 <translation id="6977381486153291903">Revisione firmware</translation>
 <translation id="6978121630131642226">Motori di ricerca</translation>
@@ -3953,7 +3942,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="7221869452894271364">Ricarica questa pagina</translation>
 <translation id="7222232353993864120">Indirizzo email</translation>
 <translation id="7222373446505536781">F11</translation>
-<translation id="722363467515709460">Attiva ingrandimento dello schermo</translation>
 <translation id="7223775956298141902">Non hai estensioni :-(</translation>
 <translation id="7225179976675429563">Tipo di rete mancante</translation>
 <translation id="7228479291753472782">Manipola le impostazioni che specificano se i siti web possono utilizzare funzioni come geolocalizzazione, microfono, fotocamera e così via.</translation>
@@ -4200,7 +4188,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="7639178625568735185">Ok.</translation>
 <translation id="764017888128728"><ph name="PASSWORD_MANAGER_BRAND" /> ti consente di accedere automaticamente ai siti idonei con le password salvate.</translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (proprietario)</translation>
-<translation id="7647231681210854996">Finestra attiva spostata nello schermo a destra</translation>
 <translation id="7648992873808071793">Memorizzare file sul dispositivo</translation>
 <translation id="7649070708921625228">Guida</translation>
 <translation id="7650511557061837441">"<ph name="TRIGGERING_EXTENSION_NAME" />" desidera rimuovere "<ph name="EXTENSION_NAME" />".</translation>
@@ -4660,7 +4647,6 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8371695176452482769">Parla adesso</translation>
 <translation id="8372369524088641025">Chiave WEP non valida</translation>
 <translation id="8373553483208508744">Disattiva audio schede</translation>
-<translation id="8377870760189106701">Finestra a destra</translation>
 <translation id="8378285435971754261">Consenti al servizio di geolocalizzazione di Google di aiutare le app a rilevare la tua posizione in modo veloce e preciso, riducendo allo stesso tempo il consumo di batteria. A Google verranno inviati dati anonimi sulla posizione, anche quando non ci sono app in esecuzione. <ph name="BEGIN_LINK1" />Ulteriori informazioni<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Gestisci le impostazioni della videocamera...</translation>
 <translation id="8382913212082956454">Copia indirizzo &amp;email</translation>
@@ -4874,7 +4860,6 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="871476437400413057">Password Google salvate</translation>
 <translation id="8714838604780058252">Grafica in background</translation>
 <translation id="8719653885894320876">Download di <ph name="PLUGIN_NAME" /> non riuscito</translation>
-<translation id="8721669057562068233">Finestra attiva spostata nello schermo sopra</translation>
 <translation id="8723829621484579639">Frame secondari modalità di navigazione in incognito per: <ph name="PARENT_SITE" /></translation>
 <translation id="8724859055372736596">Mo&amp;stra nella cartella</translation>
 <translation id="8725066075913043281">Riprova</translation>
@@ -4918,7 +4903,6 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8785622406424941542">Stilo</translation>
 <translation id="8787254343425541995">Consenti proxy per reti condivise</translation>
 <translation id="8791534160414513928">Invia una richiesta "Non tenere traccia" con il tuo traffico di navigazione</translation>
-<translation id="8792609692701651064">Finestra attiva spostata nello schermo a sinistra</translation>
 <translation id="8794025342371547160">IP limitato</translation>
 <translation id="879413103056696865">Quando l'hotspot è attivo, il tuo <ph name="PHONE_NAME" />:</translation>
 <translation id="8795916974678578410">Nuova finestra</translation>

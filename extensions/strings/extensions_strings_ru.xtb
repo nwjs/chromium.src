@@ -17,6 +17,7 @@
 <translation id="27822970480436970">Этому расширению не удалось изменить сетевой запрос, так как при этом возник конфликт с другим расширением.</translation>
 <translation id="2903070246402204397">Расширение <ph name="EXTENSION_NAME" /> (идентификатор: <ph name="EXTENSION_ID" />) заблокировано администратором. <ph name="ADMIN_INFO" /></translation>
 <translation id="2988488679308982380">Не удается установить пакет: "<ph name="ERROR_CODE" />"</translation>
+<translation id="3097628171361913691">Распаковщик ZIP-файлов</translation>
 <translation id="3115238746683532089">Неизвестный продукт <ph name="PRODUCT_ID" /> от поставщика <ph name="VENDOR_ID" /> (серийный номер <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Не удалось переместить CRX-файл. Убедитесь, что он не используется.</translation>
 <translation id="3163201441334626963">Неизвестный продукт <ph name="PRODUCT_ID" /> от поставщика <ph name="VENDOR_ID" /></translation>

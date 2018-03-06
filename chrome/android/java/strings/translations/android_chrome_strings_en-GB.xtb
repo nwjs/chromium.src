@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Never saved</translation>
 <translation id="1068672505746868501">Never translate pages in <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> – <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">You are signing out of an account managed by <ph name="DOMAIN_NAME" />. This will delete the Chrome data stored on this device, but the data will remain in your Google Account.</translation>
 <translation id="1105960400813249514">Screen Capture</translation>
 <translation id="1111673857033749125">Bookmarks saved on your other devices will appear here.</translation>
@@ -533,7 +534,6 @@ However, you aren’t invisible. Going incognito doesn’t hide your browsing fr
 <translation id="5809361687334836369">{HOURS,plural, =1{# hour ago}other{# hours ago}}</translation>
 <translation id="5817918615728894473">Pair</translation>
 <translation id="583281660410589416">Unknown</translation>
-<translation id="5832934273103296195">Expanded – Click to collapse</translation>
 <translation id="5833984609253377421">Share link</translation>
 <translation id="583891442612896534">Chrome is unable to reach Google servers for data compression. Your data savings may be limited.</translation>
 <translation id="584615158992327102">access downloads, bookmarks and history.</translation>
@@ -554,7 +554,6 @@ However, you aren’t invisible. Going incognito doesn’t hide your browsing fr
 <translation id="5962718611393537961">Tap to collapse</translation>
 <translation id="5974562976030145789">'Downloads' is moving. Next time, pull the address bar up.</translation>
 <translation id="6000066717592683814">Keep Google</translation>
-<translation id="6031101910111098835">Collapsed – Click to expand</translation>
 <translation id="6039379616847168523">Jump to the next tab</translation>
 <translation id="6040143037577758943">Close</translation>
 <translation id="6042308850641462728">More</translation>
@@ -641,6 +640,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="6701279291835318271">Security Reports</translation>
 <translation id="6710213216561001401">Previous</translation>
 <translation id="6738867403308150051">Downloading…</translation>
+<translation id="6746124502594467657">Move down</translation>
 <translation id="6762156594045689028">To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" /></translation>
 <translation id="6770414673596662518">Chrome’s Safe Browsing system will also be used to detect malicious pages and protect you from phishing, malware and harmful downloads.</translation>
 <translation id="6776813977906306442">Download videos to watch later using the Download button</translation>
@@ -684,6 +684,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="7063006564040364415">Could not connect to the sync server.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 selected}other{# selected}}</translation>
 <translation id="7077143737582773186">SD Card</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> selected. Options available near top of the screen</translation>
 <translation id="7121362699166175603">Clears history and autocompletions in the address bar. Your Google account may have other forms of browsing history at <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Allow for current search engine</translation>
 <translation id="7138678301420049075">Other</translation>
@@ -695,6 +696,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="7191430249889272776">Tab opened in background.</translation>
 <translation id="723171743924126238">Select images</translation>
 <translation id="7243308994586599757">Options available near bottom of the screen</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> selected</translation>
 <translation id="7251326866581677552">Blocked from some sites</translation>
 <translation id="7253272406652746122">Add a Google account from the Accounts page in your device’s Settings app.</translation>
 <translation id="7274013316676448362">Blocked site</translation>
@@ -833,6 +835,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="857509777403223202">More articles will appear soon. Enjoy your evening!</translation>
 <translation id="857943718398505171">Allowed (recommended)</translation>
 <translation id="8583805026567836021">Clearing account data</translation>
+<translation id="8609465669617005112">Move up</translation>
 <translation id="8616006591992756292">Your Google account may have other forms of browsing history at <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="8617240290563765734">Open the suggested URL specified in the downloaded content?</translation>
 <translation id="862875433388403934">Content (films, music, etc.) downloaded in other applications may no longer be playable until those applications re-acquire licences based on a new device credential. To obtain new licences, connect to the Internet and play your downloaded content.</translation>

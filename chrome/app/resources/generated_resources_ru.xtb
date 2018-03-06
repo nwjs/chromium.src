@@ -239,7 +239,6 @@
 <translation id="1367951781824006909">Выберите файл</translation>
 <translation id="136802136832547685">Контролируемых профилей нет.</translation>
 <translation id="1368265273904755308">Сообщить о проблеме</translation>
-<translation id="1368832886055348810">Слева направо</translation>
 <translation id="1370646789215800222">Удалить пользователя?</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{Будет удален один объект}one{Будет удален # объект}few{Будет удалено # объекта}many{Будет удалено # объектов}other{Будет удалено # объекта}}</translation>
 <translation id="1372841398847029212">Синхронизировать с моим аккаунтом</translation>
@@ -402,7 +401,6 @@
 <translation id="1608626060424371292">Удалить профиль</translation>
 <translation id="1609170755653088773">Синхронизируйте этот пароль с iPhone</translation>
 <translation id="1609862759711084604">Предыдущий пользователь</translation>
-<translation id="1611557582955786626">Войдите в браузер Chrome, чтобы вам было удобнее пользоваться им на всех ваших устройствах.</translation>
 <translation id="1611584202130317952">Синхронизация прервана. Повторите попытку либо свяжитесь с владельцем устройства или администратором.</translation>
 <translation id="1611649489706141841">вперед</translation>
 <translation id="1611704746353331382">Экспорт закладок в файл HTML</translation>
@@ -570,7 +568,6 @@
 <translation id="1856715684130786728">Добавить папку...</translation>
 <translation id="1856813161013948396">Для разблокировки экрана коснитесь сканера отпечатков пальцев. Нажмите, чтобы настроить.</translation>
 <translation id="1858585891038687145">Доверять этому сертификату при идентификации производителей ПО</translation>
-<translation id="1859234291848436338">Направление письма</translation>
 <translation id="1861262398884155592">Папка пуста</translation>
 <translation id="1864111464094315414">Вход</translation>
 <translation id="1864400682872660285">Холоднее</translation>
@@ -1246,7 +1243,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2889925978073739256">Всегда блокировать плагины вне тестовой среды</translation>
 <translation id="2890678560483811744">Размер страницы больше максимально допустимого</translation>
 <translation id="2893168226686371498">Браузер по умолчанию</translation>
-<translation id="2893453364759632532">Окно: вниз</translation>
 <translation id="289644616180464099">SIM-карта заблокирована</translation>
 <translation id="289695669188700754">Идентификатор ключа: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">Вы действительно хотите открыть столько вкладок (<ph name="TAB_COUNT" />)?</translation>
@@ -1359,7 +1355,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="304567287000691532">Совместный доступ к экрану</translation>
 <translation id="3046910703532196514">Веб-страница полностью</translation>
 <translation id="304826556400666995">Включить звук на вкладках</translation>
-<translation id="3051523411789012618">Окно: вверх</translation>
 <translation id="3053013834507634016">Использование ключа сертификата</translation>
 <translation id="3057861065630527966">Создать резервные копии фото и видео</translation>
 <translation id="3060379269883947824">Включить озвучивание при нажатии</translation>
@@ -1389,7 +1384,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3090193911106258841">Доступ к аудио- и видеовходу</translation>
 <translation id="3090819949319990166">Не удалось скопировать внешний файл CRX в <ph name="TEMP_CRX_FILE" />.</translation>
 <translation id="3090871774332213558">Подключено устройство: <ph name="DEVICE_NAME" /></translation>
-<translation id="3097628171361913691">Распаковщик ZIP-файлов</translation>
 <translation id="3100609564180505575">Модули (<ph name="TOTAL_COUNT" />) – Известных конфликтов: <ph name="BAD_COUNT" />; подозрительных: <ph name="SUSPICIOUS_COUNT" /></translation>
 <translation id="3101709781009526431">Дата и время</translation>
 <translation id="3108967419958202225">Выберите...</translation>
@@ -2162,7 +2156,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4336032328163998280">Не удалось выполнить копирование. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">Просмотреть сетевые журналы можно на странице <ph name="DEVICE_LOG_LINK" /></translation>
 <translation id="4337028641069424358">Чтобы скачивать и использовать приложения Android, необходимо установить обновление. Во время установки пользоваться устройством нельзя. После обновления <ph name="DEVICE_TYPE" /> перезагрузится автоматически.</translation>
-<translation id="4338683191474220626">Окно: влево</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> запрашивает доступ к приложению "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4342311272543222243">Ошибка доверенного платформенного модуля.</translation>
 <translation id="4345587454538109430">Настройка...</translation>
@@ -2314,7 +2307,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4615586811063744755">файлы cookie не выбраны</translation>
 <translation id="4617270414136722281">Параметры расширений</translation>
 <translation id="4619615317237390068">Вкладки с других устройств</translation>
-<translation id="4620809267248568679">Этот параметр определяется расширением.</translation>
 <translation id="4624768044135598934">Получилось!</translation>
 <translation id="4625078469366263107">Включить приложение</translation>
 <translation id="4627427111733173920">Файлы cookie заблокированы</translation>
@@ -3309,7 +3301,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6169666352732958425">Не удается транслировать рабочий стол</translation>
 <translation id="6171948306033499786">Приостановить печать</translation>
 <translation id="6175314957787328458">Идентификатор GUID домена Microsoft</translation>
-<translation id="6176032031541598434">Активное окно перемещено на нижний экран</translation>
 <translation id="6178664161104547336">Выбор сертификата</translation>
 <translation id="6181431612547969857">Скачивание запрещено</translation>
 <translation id="6181803575025675566">Эти параметры можно изменить в <ph name="LINK_START" />настройках<ph name="LINK_END" />.</translation>
@@ -3660,7 +3651,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6736045498964449756">Пароли не совпадают!</translation>
 <translation id="6736243959894955139">Адрес</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />]</translation>
-<translation id="673970589316422346">У вас больше нет доступа к старому профилю, но вы можете его удалить.</translation>
 <translation id="6739923123728562974">Показывать ярлык на рабочем столе</translation>
 <translation id="6740234557573873150">Скачивание файла "<ph name="FILE_NAME" />" приостановлено</translation>
 <translation id="6742339027238151589">Доступно для скрипта</translation>
@@ -3794,7 +3784,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6970856801391541997">Печать выбранных страниц</translation>
 <translation id="6972180789171089114">Аудио/видео</translation>
 <translation id="6973630695168034713">Папки</translation>
-<translation id="6974053822202609517">Справа налево</translation>
 <translation id="6976108581241006975">Консоль JavaScript</translation>
 <translation id="6977381486153291903">Версия встроенного ПО</translation>
 <translation id="6978121630131642226">Поисковые системы</translation>
@@ -3958,7 +3947,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7221869452894271364">Обновить эту страницу</translation>
 <translation id="7222232353993864120">Адрес электронной почты</translation>
 <translation id="7222373446505536781">F11</translation>
-<translation id="722363467515709460">Включить экранную лупу</translation>
 <translation id="7223775956298141902">Расширения отсутствуют</translation>
 <translation id="7225179976675429563">Не указан тип сети</translation>
 <translation id="7228479291753472782">Изменение настроек, управляющих доступом сайтов к геоданным, микрофону, камере и другим функциям.</translation>
@@ -4214,7 +4202,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7639178625568735185">Готово!</translation>
 <translation id="764017888128728">С помощью <ph name="PASSWORD_MANAGER_BRAND" /> вы будете автоматически входить на сайты, для которых сохранили пароли.</translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (владелец)</translation>
-<translation id="7647231681210854996">Активное окно перемещено на правый экран</translation>
 <translation id="7648992873808071793">сохранение файлов на этом устройстве</translation>
 <translation id="7649070708921625228">Справка</translation>
 <translation id="7650511557061837441">Расширение "<ph name="TRIGGERING_EXTENSION_NAME" />" пытается удалить расширение "<ph name="EXTENSION_NAME" />".</translation>
@@ -4674,7 +4661,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8371695176452482769">Говорите</translation>
 <translation id="8372369524088641025">Недопустимый ключ WEP</translation>
 <translation id="8373553483208508744">Отключить звук на вкладках</translation>
-<translation id="8377870760189106701">Перенести окно вправо</translation>
 <translation id="8378285435971754261">Google будет помогать приложениям быстро и точно определять ваше местоположение и при этом экономить заряд батареи. Анонимные геоданные будут отправляться в Google, даже когда приложения не запущены. <ph name="BEGIN_LINK1" />Подробнее…<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">Настройки камеры</translation>
 <translation id="8382913212082956454">Копировать &amp;адрес электронной почты</translation>
@@ -4888,7 +4874,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="871476437400413057">Сохраненные пароли Google</translation>
 <translation id="8714838604780058252">Фон</translation>
 <translation id="8719653885894320876">Ошибка скачивания плагина <ph name="PLUGIN_NAME" /></translation>
-<translation id="8721669057562068233">Активное окно перемещено на верхний экран</translation>
 <translation id="8723829621484579639">Субфреймы в режиме инкогнито для сайта <ph name="PARENT_SITE" /></translation>
 <translation id="8724859055372736596">Показать в папке</translation>
 <translation id="8725066075913043281">Повторить попытку</translation>
@@ -4932,7 +4917,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8785622406424941542">Стилус</translation>
 <translation id="8787254343425541995">Использовать прокси-серверы для общих сетей</translation>
 <translation id="8791534160414513928">Отправлять запрет на отслеживание для исходящего трафика</translation>
-<translation id="8792609692701651064">Активное окно перемещено на левый экран</translation>
 <translation id="8794025342371547160">Ограниченный IP</translation>
 <translation id="879413103056696865">Когда вы включите точку доступа, устройство "<ph name="PHONE_NAME" />":</translation>
 <translation id="8795916974678578410">Новое окно</translation>

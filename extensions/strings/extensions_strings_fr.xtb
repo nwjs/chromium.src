@@ -17,6 +17,7 @@
 <translation id="27822970480436970">Cette extension n'a pas réussi à modifier une requête réseau, car la modification était en conflit avec une autre extension.</translation>
 <translation id="2903070246402204397">L'administrateur a bloqué l'extension <ph name="EXTENSION_NAME" /> (ID : <ph name="EXTENSION_ID" />). <ph name="ADMIN_INFO" /></translation>
 <translation id="2988488679308982380">Impossible d'installer le package : "<ph name="ERROR_CODE" />"</translation>
+<translation id="3097628171361913691">Décompression de fichiers .zip</translation>
 <translation id="3115238746683532089">Produit inconnu <ph name="PRODUCT_ID" /> du fournisseur <ph name="VENDOR_ID" /> (numéro de série : <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Échec lors du remplacement du fichier CRX. Vérifiez qu'il n'est pas en cours d'utilisation.</translation>
 <translation id="3163201441334626963">Produit inconnu <ph name="PRODUCT_ID" /> du fournisseur <ph name="VENDOR_ID" /></translation>

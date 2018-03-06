@@ -17,6 +17,7 @@
 <translation id="27822970480436970">Това разширение не успя да промени заявка от мрежата, защото промяната влезе в конфликт с друго разширение.</translation>
 <translation id="2903070246402204397">Разширението <ph name="EXTENSION_NAME" /> (идентификационен номер <ph name="EXTENSION_ID" />) е блокирано от администратора. <ph name="ADMIN_INFO" /></translation>
 <translation id="2988488679308982380">Пакетът не можа да се инсталира: „<ph name="ERROR_CODE" />“</translation>
+<translation id="3097628171361913691">Инсталиране на компресирани файлове</translation>
 <translation id="3115238746683532089">Неизвестен продукт <ph name="PRODUCT_ID" /> от доставчик <ph name="VENDOR_ID" /> (сериен номер <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Замяната на crx файла не бе успешна. Проверете дали не се използва.</translation>
 <translation id="3163201441334626963">Неизвестен продукт <ph name="PRODUCT_ID" /> от доставчик <ph name="VENDOR_ID" /></translation>

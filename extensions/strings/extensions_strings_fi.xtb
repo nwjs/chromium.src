@@ -17,6 +17,7 @@
 <translation id="27822970480436970">Tämä laajennus ei voinut muuttaa verkkopyyntöä, koska muutos on ristiriidassa toisen laajennuksen kanssa.</translation>
 <translation id="2903070246402204397"><ph name="EXTENSION_NAME" /> (tunnus <ph name="EXTENSION_ID" />) on järjestelmänvalvojan estämä. <ph name="ADMIN_INFO" /></translation>
 <translation id="2988488679308982380">Paketin <ph name="ERROR_CODE" /> asentaminen epäonnistui.</translation>
+<translation id="3097628171361913691">Zip-tiedostojen purkaja</translation>
 <translation id="3115238746683532089">Tuntematon tuote <ph name="PRODUCT_ID" /> toimittajalta <ph name="VENDOR_ID" /> (sarjanumero <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">CRX-tiedoston korvaaminen epäonnistui. Tarkista, onko tiedosto käytössä.</translation>
 <translation id="3163201441334626963">Tuntematon tuote <ph name="PRODUCT_ID" /> toimittajalta <ph name="VENDOR_ID" /></translation>

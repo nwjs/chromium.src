@@ -17,6 +17,7 @@
 <translation id="27822970480436970">Овај додатак није успео да измени захтев мреже јер измена није усаглашена са другим додатком.</translation>
 <translation id="2903070246402204397">Администратор је блокирао <ph name="EXTENSION_NAME" /> (ИД додатка је „<ph name="EXTENSION_ID" />“). <ph name="ADMIN_INFO" /></translation>
 <translation id="2988488679308982380">Инсталација пакета није била могућа: „<ph name="ERROR_CODE" />“</translation>
+<translation id="3097628171361913691">Инсталирање zip датотека</translation>
 <translation id="3115238746683532089">Непознати производ <ph name="PRODUCT_ID" /> продавца <ph name="VENDOR_ID" /> (серијски број <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Замена crx датотеке није успела. Проверите да ли се датотека користи.</translation>
 <translation id="3163201441334626963">Непознати производ <ph name="PRODUCT_ID" /> продавца <ph name="VENDOR_ID" /></translation>

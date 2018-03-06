@@ -17,6 +17,7 @@
 <translation id="27822970480436970">Ovo proširenje nije uspjelo izmijeniti mrežni zahtjev jer je izmjena u sukobu s drugim proširenjem.</translation>
 <translation id="2903070246402204397"><ph name="EXTENSION_NAME" /> (ID proširenja "<ph name="EXTENSION_ID" />") blokirao je administrator. <ph name="ADMIN_INFO" /></translation>
 <translation id="2988488679308982380">Nije moguće instaliranje paketa: "<ph name="ERROR_CODE" />"</translation>
+<translation id="3097628171361913691">Program za instaliranje zip datoteka</translation>
 <translation id="3115238746683532089">Nepoznati proizvod <ph name="PRODUCT_ID" /> dobavljača <ph name="VENDOR_ID" /> (serijski broj <ph name="SERIAL_NUMBER" />)</translation>
 <translation id="3144135466825225871">Zamjena CRX datoteke nije uspjela. Provjerite je li datoteka u upotrebi.</translation>
 <translation id="3163201441334626963">Nepoznati proizvod <ph name="PRODUCT_ID" /> dobavljača <ph name="VENDOR_ID" /></translation>

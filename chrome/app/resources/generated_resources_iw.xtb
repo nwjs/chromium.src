@@ -239,7 +239,6 @@
 <translation id="1367951781824006909">בחר קובץ</translation>
 <translation id="136802136832547685">לא נמצאו משתמשים בפיקוח שניתן להוסיף למכשיר זה.</translation>
 <translation id="1368265273904755308">דווח על בעיה</translation>
-<translation id="1368832886055348810">משמאל לימין</translation>
 <translation id="1370646789215800222">האם להסיר את המשתמש?</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{פריט אחד להסרה}two{# פריטים להסרה}many{# פריטים להסרה}other{# פריטים להסרה}}</translation>
 <translation id="1372841398847029212">סנכרון עם החשבון שלך</translation>
@@ -400,7 +399,6 @@
 <translation id="1608626060424371292">הסר את המשתמש הזה</translation>
 <translation id="1609170755653088773">‏סנכרון הסיסמה הזו עם מכשיר iPhone שלך</translation>
 <translation id="1609862759711084604">המשתמש הקודם</translation>
-<translation id="1611557582955786626">כניסה לחשבון תאפשר לך ליהנות מחוויית גלישה מותאמת אישית שתסונכרן בין המכשירים שלך</translation>
 <translation id="1611584202130317952">תהליך הקצאת הגישה הופסק. יש לנסות שוב, או לפנות לבעלי המכשיר או למנהל המערכת.</translation>
 <translation id="1611649489706141841">קדימה</translation>
 <translation id="1611704746353331382">‏יצוא סימניות לקובץ HTML...</translation>
@@ -568,7 +566,6 @@
 <translation id="1856715684130786728">הוסף מיקום...</translation>
 <translation id="1856813161013948396">אפשר לדלג על מסך הנעילה באמצעות הקשה על חיישן טביעות האצבע. לחץ כדי להגדיר.</translation>
 <translation id="1858585891038687145">תן אמון באישור זה לזיהוי מפתחי תוכנה</translation>
-<translation id="1859234291848436338">כיוון כתיבה</translation>
 <translation id="1861262398884155592">התיקייה הזו ריקה</translation>
 <translation id="1864111464094315414">התחבר</translation>
 <translation id="1864400682872660285">קריר יותר</translation>
@@ -793,7 +790,7 @@
 <translation id="222931766245975952">הקובץ נקטע</translation>
 <translation id="2230051135190148440">CHAP</translation>
 <translation id="2230062665678605299">לא ניתן ליצור את התיקיה "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
-<translation id="223106756035922488">לחיצה תציג את הדודל היומי</translation>
+<translation id="223106756035922488">לצפייה בדודל היומי</translation>
 <translation id="2231238007119540260">אם אתה מוחק אישור שרת, אתה משחזר את בדיקות האבטחה הרגילות לשרת זה ודורש שהוא ישתמש באישור חוקי.</translation>
 <translation id="2232876851878324699">הקובץ הכיל אישור אחד, שלא יובא:</translation>
 <translation id="2233502537820838181">&amp;מידע נוסף</translation>
@@ -1018,13 +1015,13 @@
     והנתונים של המשתמש בפיקוח לא יעברו איתו למכשירים אחרים באמצעות סנכרון Chrome. הגדרת משתמש בפיקוח חלה על מכשיר זה בלבד.</translation>
 <translation id="258932246702879617">בחר באפשרות <ph name="BEGIN_BOLD" />הצמד לשורת המשימות<ph name="END_BOLD" /></translation>
 <translation id="259421303766146093">בטל הגדלה</translation>
-<translation id="2594999711683503743">‏חפש ב-Google או הקלד כתובת אתר</translation>
+<translation id="2594999711683503743">זה המקום לחפש את מה שמעניין אותך או להקליד כתובת של אתר ספציפי</translation>
 <translation id="2597852038534460976">‏Chrome לא יכול לגשת לטפטים. התחבר לרשת.</translation>
 <translation id="2600115369439982409">קבצים ותוכנות:</translation>
 <translation id="2603115962224169880">ניקוי המחשב</translation>
 <translation id="2603463522847370204">פתח בחלון &amp;גלישה בסתר</translation>
 <translation id="2604255671529671813">שגיאת חיבור רשת</translation>
-<translation id="2606246518223360146">קשר את נתונים</translation>
+<translation id="2606246518223360146">קישור נתונים</translation>
 <translation id="2607101320794533334">פרטי מפתח ציבורי של נושא</translation>
 <translation id="2607459012323956820">המנהל עדיין יכול להציג את ההגדרות ואת היסטוריית הגלישה של משתמש מבוקר זה בכתובת <ph name="BEGIN_LINK" /><ph name="DISPLAY_LINK" /><ph name="END_LINK" />.</translation>
 <translation id="2608770217409477136">השתמש בהגדרות ברירת המחדל</translation>
@@ -1242,7 +1239,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="2889925978073739256">המשך לחסום יישומי פלאגין שאינם בארגז חול</translation>
 <translation id="2890678560483811744">התייחסות לדף מחוץ לטווח</translation>
 <translation id="2893168226686371498">דפדפן ברירת מחדל</translation>
-<translation id="2893453364759632532">הזזת חלון מטה</translation>
 <translation id="289644616180464099">‏כרטיס ה-SIM נעול</translation>
 <translation id="289695669188700754">מזהה מפתח: <ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">האם אתה בטוח שברצונך לפתוח כרטיסיות <ph name="TAB_COUNT" />?</translation>
@@ -1355,7 +1351,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="304567287000691532">משתף את המסך</translation>
 <translation id="3046910703532196514">דף אינטרנט, שלם</translation>
 <translation id="304826556400666995">ביטול השתקת כרטיסיות</translation>
-<translation id="3051523411789012618">הזזת חלון כלפי מטה</translation>
 <translation id="3053013834507634016">שימוש במפתח אישור </translation>
 <translation id="3057861065630527966">גבה את התמונות והסרטונים</translation>
 <translation id="3060379269883947824">הפעלת הקראה</translation>
@@ -1385,7 +1380,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="3090193911106258841">גישה לקלט אודיו ווידאו</translation>
 <translation id="3090819949319990166">‏לא ניתן להעתיק קובץ crx חיצוני ל-<ph name="TEMP_CRX_FILE" />.</translation>
 <translation id="3090871774332213558">"<ph name="DEVICE_NAME" />" מותאם</translation>
-<translation id="3097628171361913691">‏מתקין קובצי Zip</translation>
 <translation id="3100609564180505575">מודולים (<ph name="TOTAL_COUNT" />) - התנגשויות ידועות: <ph name="BAD_COUNT" />, חשודות: <ph name="SUSPICIOUS_COUNT" /></translation>
 <translation id="3101709781009526431">תאריך ושעה</translation>
 <translation id="3108967419958202225">בחר...</translation>
@@ -2157,7 +2151,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4336032328163998280">פעולת ההעתקה נכשלה. <ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">ליומני רשת, ראה: <ph name="DEVICE_LOG_LINK" /></translation>
 <translation id="4337028641069424358">‏עליך להתקין את העדכון כדי להוריד אפליקציות Android ולהשתמש בהן. לא תוכל להשתמש במכשיר בזמן ההתקנה. כשההתקנה תסתיים, מחשב <ph name="DEVICE_TYPE" /> יופעל מחדש.</translation>
-<translation id="4338683191474220626">הזזת חלון שמאלה</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> רוצה לתקשר עם האפליקציה "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4342311272543222243">‏אופס, טעות של TPM.</translation>
 <translation id="4345587454538109430">הגדר...</translation>
@@ -2309,7 +2302,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4615586811063744755">‏לא נבחר קובץ Cookie</translation>
 <translation id="4617270414136722281">אפשרויות של תוספים</translation>
 <translation id="4619615317237390068">כרטיסיות ממכשירים אחרים</translation>
-<translation id="4620809267248568679">הגדרה זו נאכפת על ידי תוסף.</translation>
 <translation id="4624768044135598934">הצלחה!</translation>
 <translation id="4625078469366263107">הפעל יישום</translation>
 <translation id="4627427111733173920">‏קובצי Cookie נחסמו</translation>
@@ -3305,7 +3297,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6169666352732958425">לא ניתן להעביר מהמחשב השולחני.</translation>
 <translation id="6171948306033499786">השהה הדפסה</translation>
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
-<translation id="6176032031541598434">החלון הפעיל הועבר אל מתחת לאזור התצוגה</translation>
 <translation id="6178664161104547336">בחר אישור</translation>
 <translation id="6181431612547969857">ההורדה נחסמה</translation>
 <translation id="6181803575025675566">אפשר לשנות את הגדרות הסנכרון דרך <ph name="LINK_START" />הגדרות<ph name="LINK_END" />.</translation>
@@ -3656,7 +3647,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6736045498964449756">אופס, הסיסמאות אינן תואמות!</translation>
 <translation id="6736243959894955139">כתובת</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> ‏[<ph name="ISSUED_TO" />]‏</translation>
-<translation id="673970589316422346">למרות שכבר אין לך גישה לפרופיל הישן, אפשר להסיר אותו.</translation>
 <translation id="6739923123728562974">הצג קיצור דרך בשולחן העבודה</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> הושהה</translation>
 <translation id="6742339027238151589">נגיש לסקריפט</translation>
@@ -3790,7 +3780,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6970856801391541997">הדפסת דפים ספציפיים</translation>
 <translation id="6972180789171089114">אודיו/וידאו</translation>
 <translation id="6973630695168034713">תיקיות</translation>
-<translation id="6974053822202609517">מימין לשמאל</translation>
 <translation id="6976108581241006975">‏לוח JavaScript</translation>
 <translation id="6977381486153291903">שכתוב קושחה</translation>
 <translation id="6978121630131642226">מנועי חיפוש</translation>
@@ -3954,7 +3943,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7221869452894271364">רענן את הדף</translation>
 <translation id="7222232353993864120">כתובת אימייל</translation>
 <translation id="7222373446505536781">F11</translation>
-<translation id="722363467515709460">הפעל את מגדיל התצוגה</translation>
 <translation id="7223775956298141902">אוי... אין לך תוספים :-(</translation>
 <translation id="7225179976675429563">חסר סוג רשת</translation>
 <translation id="7228479291753472782">שינוי הגדרות שמציינות אם אתרים יכולים להשתמש בתכונות כגון מיקום גיאוגרפי, מיקרופון, מצלמה ועוד</translation>
@@ -4202,7 +4190,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7639178625568735185">הבנתי</translation>
 <translation id="764017888128728"><ph name="PASSWORD_MANAGER_BRAND" /> מכניס אותך באופן אוטומטי לאתרים כשירים באמצעות סיסמאות ששמרת.</translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" /> (בעלים)</translation>
-<translation id="7647231681210854996">החלון הפעיל הועבר אל מימין לאזור התצוגה</translation>
 <translation id="7648992873808071793">לאחסן קבצים במכשיר הזה</translation>
 <translation id="7649070708921625228">עזרה</translation>
 <translation id="7650511557061837441">"<ph name="TRIGGERING_EXTENSION_NAME" />" רוצה להסיר את "<ph name="EXTENSION_NAME" />".</translation>
@@ -4661,7 +4648,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8371695176452482769">דבר עכשיו</translation>
 <translation id="8372369524088641025">‏מקש WEP גרוע</translation>
 <translation id="8373553483208508744">השתק כרטיסיות</translation>
-<translation id="8377870760189106701">חלון לימין</translation>
 <translation id="8378285435971754261">‏אפשר לשירות המיקום של Google לעזור לאפליקציות למצוא את המיקום שלך במהירות ובאופן מדויק. מצב זה עשוי לצמצם את צריכת הסוללה. נתוני מיקום אנונימיים יישלחו אל Google, גם אם אין יישומים פעילים. <ph name="BEGIN_LINK1" />למידע נוסף<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">נהל הגדרות מצלמה...</translation>
 <translation id="8382913212082956454">העתק &amp;כתובת אימייל</translation>
@@ -4875,7 +4861,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="871476437400413057">‏סיסמאות שמורות ב-Google</translation>
 <translation id="8714838604780058252">גרפיקת רקע</translation>
 <translation id="8719653885894320876">הורדת <ph name="PLUGIN_NAME" /> נכשלה</translation>
-<translation id="8721669057562068233">החלון הפעיל הועבר אל מעל לאזור התצוגה</translation>
 <translation id="8723829621484579639">תת-מסגרות במצב גלישה בסתר של: <ph name="PARENT_SITE" /></translation>
 <translation id="8724859055372736596">&amp;הצג בתיקייה</translation>
 <translation id="8725066075913043281">נסה שוב</translation>
@@ -4919,7 +4904,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8785622406424941542">סטיילוס</translation>
 <translation id="8787254343425541995">‏אפשר שרתי proxy עבור רשתות משותפות</translation>
 <translation id="8791534160414513928">שלח בקשת 'ללא מעקב' יחד עם תנועת הגלישה שלך</translation>
-<translation id="8792609692701651064">החלון הפעיל הועבר אל משמאל לאזור התצוגה</translation>
 <translation id="8794025342371547160">‏IP מוגבל</translation>
 <translation id="879413103056696865">כשהנקודה לשיתוף אינטרנט מופעלת, ה-<ph name="PHONE_NAME" /> יבצע את הפעולות הבאות:</translation>
 <translation id="8795916974678578410">חלון חדש</translation>

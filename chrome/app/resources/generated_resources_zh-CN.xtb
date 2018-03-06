@@ -239,7 +239,6 @@
 <translation id="1367951781824006909">选择文件</translation>
 <translation id="136802136832547685">没有任何可添加到此设备中的受监管用户。</translation>
 <translation id="1368265273904755308">报告问题</translation>
-<translation id="1368832886055348810">从左向右</translation>
 <translation id="1370646789215800222">要移除用户吗？</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{将移除 1 项内容}other{将移除 # 项内容}}</translation>
 <translation id="1372841398847029212">同步到您的帐号中</translation>
@@ -400,7 +399,6 @@
 <translation id="1608626060424371292">移除此用户</translation>
 <translation id="1609170755653088773">将此密码同步到您的 iPhone</translation>
 <translation id="1609862759711084604">上一位用户</translation>
-<translation id="1611557582955786626">登录后即可畅享合乎个人需求的浏览体验，并可在不同设备间保持同步</translation>
 <translation id="1611584202130317952">配置流程中断了。请重试，或与您的设备所有者/管理员联系。</translation>
 <translation id="1611649489706141841">前进</translation>
 <translation id="1611704746353331382">将书签导出到 HTML 文件...</translation>
@@ -568,7 +566,6 @@
 <translation id="1856715684130786728">添加位置…</translation>
 <translation id="1856813161013948396">轻触指纹传感器即可略过锁定屏幕。点按一下即可进行配置。</translation>
 <translation id="1858585891038687145">信任该证书，以便标识软件编写者的身份</translation>
-<translation id="1859234291848436338">书写方向</translation>
 <translation id="1861262398884155592">此文件夹中没有内容</translation>
 <translation id="1864111464094315414">登录</translation>
 <translation id="1864400682872660285">冷色调</translation>
@@ -1241,7 +1238,6 @@
 <translation id="2889925978073739256">继续拦截未经过沙盒屏蔽的插件</translation>
 <translation id="2890678560483811744">页面引用超出范围</translation>
 <translation id="2893168226686371498">默认浏览器</translation>
-<translation id="2893453364759632532">下移窗口</translation>
 <translation id="289644616180464099">SIM 卡已被锁定</translation>
 <translation id="289695669188700754">密钥 ID：<ph name="KEY_ID" /></translation>
 <translation id="2897878306272793870">是否确实要打开 <ph name="TAB_COUNT" /> 个标签页？</translation>
@@ -1354,7 +1350,6 @@
 <translation id="304567287000691532">正在共享屏幕</translation>
 <translation id="3046910703532196514">网页，全部</translation>
 <translation id="304826556400666995">将所有标签页取消静音</translation>
-<translation id="3051523411789012618">上移窗口</translation>
 <translation id="3053013834507634016">证书密钥用法</translation>
 <translation id="3057861065630527966">备份您的照片和视频</translation>
 <translation id="3060379269883947824">启用“随选朗读”</translation>
@@ -1384,7 +1379,6 @@
 <translation id="3090193911106258841">正在存取音频和视频输入</translation>
 <translation id="3090819949319990166">无法将外部 crx 文件复制到 <ph name="TEMP_CRX_FILE" />。</translation>
 <translation id="3090871774332213558">“<ph name="DEVICE_NAME" />”已配对</translation>
-<translation id="3097628171361913691">Zip 文件安装程序</translation>
 <translation id="3100609564180505575">模块数 (<ph name="TOTAL_COUNT" />) - 已知冲突数：<ph name="BAD_COUNT" />，可疑冲突数：<ph name="SUSPICIOUS_COUNT" /></translation>
 <translation id="3101709781009526431">日期和时间</translation>
 <translation id="3108967419958202225">选择...</translation>
@@ -2154,7 +2148,6 @@
 <translation id="4336032328163998280">复制操作失败。<ph name="ERROR_MESSAGE" /></translation>
 <translation id="4336979451636460645">如需查看网络日志，请点击以下链接：<ph name="DEVICE_LOG_LINK" /></translation>
 <translation id="4337028641069424358">要下载并使用 Android 应用，请先安装更新。设备更新期间，您无法使用设备。安装完毕后，<ph name="DEVICE_TYPE" /> 将重启。</translation>
-<translation id="4338683191474220626">左移窗口</translation>
 <translation id="4340515029017875942"><ph name="ORIGIN" /> 希望与“<ph name="EXTENSION_NAME" />”应用通信</translation>
 <translation id="4342311272543222243">糟糕！出现 TPM 错误。</translation>
 <translation id="4345587454538109430">配置...</translation>
@@ -2306,7 +2299,6 @@
 <translation id="4615586811063744755">未选择任何 Cookie</translation>
 <translation id="4617270414136722281">扩展程序选项</translation>
 <translation id="4619615317237390068">从其他设备打开的标签页</translation>
-<translation id="4620809267248568679">此设置是由扩展程序强制设置的。</translation>
 <translation id="4624768044135598934">成功！</translation>
 <translation id="4625078469366263107">启用应用</translation>
 <translation id="4627427111733173920">已拦截 Cookie</translation>
@@ -3295,7 +3287,6 @@
 <translation id="6169666352732958425">无法投射桌面。</translation>
 <translation id="6171948306033499786">暂停打印</translation>
 <translation id="6175314957787328458">Microsoft 域 GUID</translation>
-<translation id="6176032031541598434">活动窗口已移至下方显示屏</translation>
 <translation id="6178664161104547336">选择证书</translation>
 <translation id="6181431612547969857">下载已被阻止</translation>
 <translation id="6181803575025675566">您可在<ph name="LINK_START" />设置<ph name="LINK_END" />中控制该功能的运作方式。</translation>
@@ -3645,7 +3636,6 @@
 <translation id="6736045498964449756">糟糕，密码不正确！</translation>
 <translation id="6736243959894955139">地址</translation>
 <translation id="6736329909263487977"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />]</translation>
-<translation id="673970589316422346">既然您已无法再访问自己的旧个人资料，不妨将其移除。</translation>
 <translation id="6739923123728562974">显示桌面快捷方式</translation>
 <translation id="6740234557573873150">“<ph name="FILE_NAME" />”已暂停</translation>
 <translation id="6742339027238151589">脚本可访问</translation>
@@ -3779,7 +3769,6 @@
 <translation id="6970856801391541997">打印特定页面</translation>
 <translation id="6972180789171089114">音频/视频</translation>
 <translation id="6973630695168034713">文件夹</translation>
-<translation id="6974053822202609517">从右向左</translation>
 <translation id="6976108581241006975">JavaScript 控制台</translation>
 <translation id="6977381486153291903">固件版本</translation>
 <translation id="6978121630131642226">搜索引擎</translation>
@@ -3943,7 +3932,6 @@
 <translation id="7221869452894271364">重新加载此页</translation>
 <translation id="7222232353993864120">电子邮件地址</translation>
 <translation id="7222373446505536781">F11</translation>
-<translation id="722363467515709460">启用放大镜</translation>
 <translation id="7223775956298141902">啊哦，您没有任何扩展程序 :-(</translation>
 <translation id="7225179976675429563">缺少网络类型</translation>
 <translation id="7228479291753472782">管理用于指定网站可否使用地理位置信息、麦克风、摄像头等功能的设置</translation>
@@ -4190,7 +4178,6 @@
 <translation id="7639178625568735185">知道了！</translation>
 <translation id="764017888128728"><ph name="PASSWORD_MANAGER_BRAND" /> 会使用您保存的密码让您自动登录到符合条件的网站。</translation>
 <translation id="7645176681409127223"><ph name="USER_NAME" />（所有者）</translation>
-<translation id="7647231681210854996">活动窗口已移至右侧显示屏</translation>
 <translation id="7648992873808071793">在此设备上存储文件</translation>
 <translation id="7649070708921625228">帮助</translation>
 <translation id="7650511557061837441">“<ph name="TRIGGERING_EXTENSION_NAME" />”想要移除“<ph name="EXTENSION_NAME" />”。</translation>
@@ -4650,7 +4637,6 @@
 <translation id="8371695176452482769">请开始说话</translation>
 <translation id="8372369524088641025">WEP 密钥错误</translation>
 <translation id="8373553483208508744">将所有标签页静音</translation>
-<translation id="8377870760189106701">向右移动窗口</translation>
 <translation id="8378285435971754261">让 Google 的位置信息服务协助应用快速准确地找到您的位置，从而减少电量消耗。系统会将匿名位置数据发送给 Google（即使未运行任何应用）。<ph name="BEGIN_LINK1" />了解详情<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">管理摄像头设置…</translation>
 <translation id="8382913212082956454">复制电子邮件地址(&amp;E)</translation>
@@ -4864,7 +4850,6 @@
 <translation id="871476437400413057">Google 保存的密码</translation>
 <translation id="8714838604780058252">背景图形</translation>
 <translation id="8719653885894320876"><ph name="PLUGIN_NAME" /> 下载失败</translation>
-<translation id="8721669057562068233">活动窗口已移至上方显示屏</translation>
 <translation id="8723829621484579639">以下网址的隐身辅助框架：<ph name="PARENT_SITE" /></translation>
 <translation id="8724859055372736596">在文件夹中显示(&amp;S)</translation>
 <translation id="8725066075913043281">重试</translation>
@@ -4908,7 +4893,6 @@
 <translation id="8785622406424941542">触控笔</translation>
 <translation id="8787254343425541995">允许共享网络使用代理</translation>
 <translation id="8791534160414513928">随浏览流量一起发送“不跟踪”请求</translation>
-<translation id="8792609692701651064">活动窗口已移至左侧显示屏</translation>
 <translation id="8794025342371547160">受限 IP</translation>
 <translation id="879413103056696865">开启热点后，您的 <ph name="PHONE_NAME" /> 将会：</translation>
 <translation id="8795916974678578410">打开新的窗口</translation>
