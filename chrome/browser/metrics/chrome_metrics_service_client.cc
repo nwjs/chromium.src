@@ -612,12 +612,16 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
   metrics_service_->RegisterMetricsProvider(
       base::MakeUnique<metrics::SamplingMetricsProvider>());
 
+#if 0
   metrics_service_->RegisterMetricsProvider(
       base::MakeUnique<translate::TranslateRankerMetricsProvider>());
+#endif
 
+#if 1
   metrics_service_->RegisterMetricsProvider(
       base::MakeUnique<metrics::ComponentMetricsProvider>(
           g_browser_process->component_updater()));
+#endif
 
 #if defined(OS_ANDROID)
   metrics_service_->RegisterMetricsProvider(
@@ -685,6 +689,7 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
   metrics_service_->RegisterMetricsProvider(
       base::MakeUnique<HttpsEngagementMetricsProvider>());
 
+#if 0
   metrics_service_->RegisterMetricsProvider(
       base::MakeUnique<CertificateReportingMetricsProvider>());
 
@@ -692,6 +697,8 @@ void ChromeMetricsServiceClient::RegisterMetricsServiceProviders() {
   metrics_service_->RegisterMetricsProvider(
       base::MakeUnique<UpgradeMetricsProvider>());
 #endif  //! defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+
+#endif
 }
 
 void ChromeMetricsServiceClient::RegisterUKMProviders() {

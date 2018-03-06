@@ -7,6 +7,8 @@
 
 #include <string>
 
+#include "base/files/file_path.h"
+
 #include "content/common/content_export.h"
 #include "third_party/WebKit/common/net/ip_address_space.mojom.h"
 #include "third_party/WebKit/public/platform/WebContentSecurityPolicy.h"
@@ -20,7 +22,7 @@ namespace content {
 // the UI thread and be used for comparison in SharedWorkerDevToolsManager.
 class CONTENT_EXPORT SharedWorkerInstance {
  public:
-  SharedWorkerInstance(
+  SharedWorkerInstance(bool is_node_js, const base::FilePath& root_path,
       const GURL& url,
       const std::string& name,
       const url::Origin& constructor_origin,
@@ -41,6 +43,8 @@ class CONTENT_EXPORT SharedWorkerInstance {
   bool Matches(const SharedWorkerInstance& other) const;
 
   // Accessors.
+  bool nodejs() const { return is_node_js_; }
+  const base::FilePath& root_path() const { return root_path_; }
   const GURL& url() const { return url_; }
   const std::string name() const { return name_; }
   const url::Origin& constructor_origin() const { return constructor_origin_; }
@@ -58,6 +62,8 @@ class CONTENT_EXPORT SharedWorkerInstance {
   }
 
  private:
+  bool is_node_js_;
+  const base::FilePath root_path_;
   const GURL url_;
   const std::string name_;
 

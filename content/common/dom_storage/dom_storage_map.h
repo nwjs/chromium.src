@@ -26,6 +26,7 @@ class CONTENT_EXPORT DOMStorageMap
  public:
   DOMStorageMap(size_t quota, bool only_keys);
   explicit DOMStorageMap(size_t quota);
+  static void SetQuotaOverride(size_t quota) {quota_override_ = quota; }
 
   unsigned Length() const;
   base::NullableString16 Key(unsigned index);
@@ -62,8 +63,8 @@ class CONTENT_EXPORT DOMStorageMap
   size_t storage_used() const { return storage_used_; }
   size_t memory_used() const { return memory_used_; }
   size_t quota() const { return quota_; }
-  void set_quota(size_t quota) { quota_ = quota; }
   bool has_only_keys() const { return has_only_keys_; }
+  void set_quota(size_t quota) { quota_ = quota > quota_override_ ? quota : quota_override_; }
 
   static size_t CountBytes(const DOMStorageValuesMap& values);
 
@@ -99,6 +100,7 @@ class CONTENT_EXPORT DOMStorageMap
   size_t memory_used_;
   size_t quota_;
   const bool has_only_keys_;
+  static size_t quota_override_;
 };
 
 }  // namespace content

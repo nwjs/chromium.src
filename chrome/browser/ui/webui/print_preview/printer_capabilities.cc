@@ -104,17 +104,21 @@ std::string GetUserFriendlyName(const std::string& printer_name) {
 }
 #endif
 
-void PrintersToValues(const PrinterList& printer_list,
+} // namespace
+} // namespace printing
+
+namespace chrome {
+void PrintersToValues(const printing::PrinterList& printer_list,
                       base::ListValue* printers) {
-  for (const PrinterBasicInfo& printer : printer_list) {
+  for (const printing::PrinterBasicInfo& printer : printer_list) {
     auto printer_info = std::make_unique<base::DictionaryValue>();
-    printer_info->SetString(kSettingDeviceName, printer.printer_name);
+    printer_info->SetString(printing::kSettingDeviceName, printer.printer_name);
 
     const auto printer_name_description = GetPrinterNameAndDescription(printer);
     const std::string& printer_name = printer_name_description.first;
     const std::string& printer_description = printer_name_description.second;
-    printer_info->SetString(kSettingPrinterName, printer_name);
-    printer_info->SetString(kSettingPrinterDescription, printer_description);
+    printer_info->SetString(printing::kSettingPrinterName, printer_name);
+    printer_info->SetString(printing::kSettingPrinterDescription, printer_description);
 
     auto options = std::make_unique<base::DictionaryValue>();
     for (const auto opt_it : printer.options)
@@ -125,7 +129,7 @@ void PrintersToValues(const PrinterList& printer_list,
         base::ContainsKey(printer.options, kCUPSEnterprisePrinter) &&
             printer.options.at(kCUPSEnterprisePrinter) == kValueTrue);
 
-    printer_info->Set(kSettingPrinterOptions, std::move(options));
+    printer_info->Set(printing::kSettingPrinterOptions, std::move(options));
 
     printers->Append(std::move(printer_info));
 
@@ -134,6 +138,10 @@ void PrintersToValues(const PrinterList& printer_list,
   }
 }
 
+}  // namespace chrome
+
+namespace printing {
+namespace {
 template <typename Predicate>
 base::Value GetFilteredList(const base::Value* list, Predicate pred) {
   auto out_list = list->Clone();
@@ -172,7 +180,9 @@ void SystemDialogDone(const base::Value& error) {
 }
 
 }  // namespace
+} // namespace printing
 
+namespace printing {
 std::pair<std::string, std::string> GetPrinterNameAndDescription(
     const PrinterBasicInfo& printer) {
 #if defined(OS_MACOSX) || defined(OS_CHROMEOS)
@@ -226,7 +236,7 @@ void ConvertPrinterListForCallback(
     PrinterHandler::GetPrintersDoneCallback done_callback,
     const PrinterList& printer_list) {
   base::ListValue printers;
-  PrintersToValues(printer_list, &printers);
+  chrome::PrintersToValues(printer_list, &printers);
 
   VLOG(1) << "Enumerate printers finished, found " << printers.GetSize()
           << " printers";

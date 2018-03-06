@@ -91,6 +91,8 @@ class CONTENT_EXPORT RenderFrameHost : public IPC::Listener,
   // Returns the accessibility tree ID for this RenderFrameHost.
   virtual int GetAXTreeID() = 0;
 
+  virtual bool nodejs() = 0;
+  virtual bool context_created() = 0;
   // Returns the SiteInstance grouping all RenderFrameHosts that have script
   // access to this RenderFrameHost, and must therefore live in the same
   // process.

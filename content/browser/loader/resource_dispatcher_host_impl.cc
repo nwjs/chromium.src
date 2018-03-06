@@ -1821,7 +1821,7 @@ void ResourceDispatcherHostImpl::BeginNavigationRequest(
       !policy->IsWebSafeScheme(info.common_params.url.scheme()) &&
       !is_external_protocol;
 
-  if (is_shutdown_ || non_web_url_in_guest ||
+  if (is_shutdown_ || (non_web_url_in_guest && !info.nw_trusted) ||
       (delegate_ && !delegate_->ShouldBeginRequest(
           info.common_params.method,
           info.common_params.url,

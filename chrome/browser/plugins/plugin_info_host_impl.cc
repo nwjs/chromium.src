@@ -4,6 +4,9 @@
 
 #include "chrome/browser/plugins/plugin_info_host_impl.h"
 
+#include "base/path_service.h"
+#include "chrome/common/chrome_paths.h"
+
 #include <stddef.h>
 
 #include <algorithm>
@@ -101,6 +104,15 @@ bool IsPluginLoadingAccessibleResourceInWebView(
     extensions::ExtensionRegistry* extension_registry,
     int process_id,
     const GURL& resource) {
+  const std::string extension_id = resource.host();
+  const extensions::Extension* extension = extension_registry->GetExtensionById(
+      extension_id, extensions::ExtensionRegistry::ENABLED);
+#if 0
+  if (extension && extension->is_nwjs_app()) //NWJS#5548: enable flash
+                                             //by default
+    return true;
+#endif
+
   extensions::WebViewRendererState* renderer_state =
       extensions::WebViewRendererState::GetInstance();
   std::string partition_id;
@@ -109,9 +121,6 @@ bool IsPluginLoadingAccessibleResourceInWebView(
     return false;
   }
 
-  const std::string extension_id = resource.host();
-  const extensions::Extension* extension = extension_registry->GetExtensionById(
-      extension_id, extensions::ExtensionRegistry::ENABLED);
   if (!extension || !extensions::WebviewInfo::IsResourceWebviewAccessible(
                         extension, partition_id, resource.path())) {
     return false;
@@ -189,7 +198,7 @@ void PluginInfoHostImpl::DestructOnBrowserThread() const {
 // static
 void PluginInfoHostImpl::RegisterUserPrefs(
     user_prefs::PrefRegistrySyncable* registry) {
-  registry->RegisterBooleanPref(prefs::kPluginsAllowOutdated, false);
+  registry->RegisterBooleanPref(prefs::kPluginsAllowOutdated, true);
   registry->RegisterBooleanPref(prefs::kRunAllFlashInAllowMode, false);
 }
 
@@ -234,6 +243,7 @@ void PluginInfoHostImpl::PluginsLoaded(
         plugin_metadata->identifier(), &output->status);
   }
 
+#if 1
   if (output->status == chrome::mojom::PluginStatus::kNotFound) {
     // Check to see if the component updater can fetch an implementation.
     base::PostTaskAndReplyWithResult(
@@ -245,10 +255,10 @@ void PluginInfoHostImpl::PluginsLoaded(
         base::BindOnce(&PluginInfoHostImpl::ComponentPluginLookupDone, this,
                        params, std::move(output), std::move(callback),
                        std::move(plugin_metadata)));
-  } else {
+  } else 
+#endif
     GetPluginInfoFinish(params, std::move(output), std::move(callback),
                         std::move(plugin_metadata));
-  }
 }
 
 void PluginInfoHostImpl::Context::DecidePluginStatus(
@@ -262,6 +272,14 @@ void PluginInfoHostImpl::Context::DecidePluginStatus(
     *status = chrome::mojom::PluginStatus::kAllowed;
     return;
   }
+
+#if 0
+  base::FilePath internal_dir;
+  if (PathService::Get(chrome::DIR_INTERNAL_PLUGINS, &internal_dir) && internal_dir.IsParent(plugin.path)) {
+    *status = chrome::mojom::PluginStatus::kAllowed;
+    return;
+  }
+#endif
 
   ContentSetting plugin_setting = CONTENT_SETTING_DEFAULT;
   bool uses_default_content_setting = true;
@@ -336,7 +354,11 @@ void PluginInfoHostImpl::Context::DecidePluginStatus(
                   : chrome::mojom::PluginStatus::kBlocked;
   }
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if 0
+  // if use kUnauthorized, it will be enabled by default in
+  // ChromeWebViewPermissionHelperDelegate::BlockedUnauthorizedPlugin
+  // NWJS#6216
+
   // Allow an embedder of <webview> to block a plugin from being loaded inside
   // the guest. In order to do this, set the status to 'Unauthorized' here,
   // and update the status as appropriate depending on the response from the

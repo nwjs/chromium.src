@@ -9,6 +9,8 @@
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "third_party/WebKit/public/web/WebSharedWorkerConnectListener.h"
 
+#include "content/public/renderer/content_renderer_client.h"
+
 namespace content {
 
 SharedWorkerRepository::SharedWorkerRepository(
@@ -18,6 +20,7 @@ SharedWorkerRepository::SharedWorkerRepository(
 SharedWorkerRepository::~SharedWorkerRepository() = default;
 
 void SharedWorkerRepository::Connect(
+    bool isNodeJS,
     const blink::WebURL& url,
     const blink::WebString& name,
     DocumentID document_id,
@@ -32,6 +35,7 @@ void SharedWorkerRepository::Connect(
     interface_provider_->GetInterface(mojo::MakeRequest(&connector_));
 
   mojom::SharedWorkerInfoPtr info(mojom::SharedWorkerInfo::New(
+      isNodeJS, GetContentClient()->renderer()->GetRootPath(),
       url, name.Utf8(), content_security_policy.Utf8(),
       content_security_policy_type, creation_address_space));
 
