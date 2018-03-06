@@ -28,6 +28,7 @@
 #include "chrome/browser/chromeos/tpm_firmware_update.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/ui/ash/ash_util.h"
+#include "chrome/browser/ui/ash/tablet_mode_client.h"
 #include "chrome/browser/ui/webui/chromeos/login/oobe_ui.h"
 #include "chrome/browser/ui/webui/chromeos/login/signin_screen_handler.h"
 #include "chrome/common/channel_info.h"
@@ -97,9 +98,14 @@ CoreOobeHandler::CoreOobeHandler(OobeUI* oobe_ui,
   } else {
     NOTIMPLEMENTED();
   }
+
+  TabletModeClient* tablet_mode_client = TabletModeClient::Get();
+  tablet_mode_client->AddObserver(this);
 }
 
-CoreOobeHandler::~CoreOobeHandler() {}
+CoreOobeHandler::~CoreOobeHandler() {
+  TabletModeClient::Get()->RemoveObserver(this);
+}
 
 void CoreOobeHandler::DeclareLocalizedValues(
     ::login::LocalizedValuesBuilder* builder) {
@@ -150,6 +156,11 @@ void CoreOobeHandler::Initialize() {
   UpdateDeviceRequisition();
   UpdateKeyboardState();
   UpdateClientAreaSize();
+}
+
+void CoreOobeHandler::GetAdditionalParameters(base::DictionaryValue* dict) {
+  dict->SetKey("isInTabletMode",
+               base::Value(TabletModeClient::Get()->tablet_mode_enabled()));
 }
 
 void CoreOobeHandler::RegisterMessages() {
@@ -495,6 +506,10 @@ void CoreOobeHandler::UpdateKeyboardState() {
     ShowControlBar(!is_keyboard_shown);
     SetVirtualKeyboardShown(is_keyboard_shown);
   }
+}
+
+void CoreOobeHandler::OnTabletModeToggled(bool enabled) {
+  CallJSOrDefer("setTabletModeState", enabled);
 }
 
 void CoreOobeHandler::UpdateClientAreaSize() {
