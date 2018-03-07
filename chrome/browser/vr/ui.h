@@ -42,6 +42,7 @@ struct UiInitialState {
   bool skips_redraw_when_not_dirty = false;
   bool assets_available = false;
   bool supports_selection = true;
+  bool needs_keyboard_update = false;
 };
 
 // This class manages all GLThread owned objects and GL rendering for VrShell.
