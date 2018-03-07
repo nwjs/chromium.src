@@ -1091,7 +1091,7 @@ TEST_F(UiTest, TransientToastsWithDelayedFirstFrame) {
 
 TEST_F(UiTest, DefaultBackgroundWhenNoAssetAvailable) {
   UiInitialState state;
-  state.assets_available = false;
+  state.assets_supported = false;
   CreateScene(state);
 
   EXPECT_FALSE(IsVisible(k2dBrowsingTexturedBackground));
@@ -1101,7 +1101,7 @@ TEST_F(UiTest, DefaultBackgroundWhenNoAssetAvailable) {
 
 TEST_F(UiTest, TextureBackgroundAfterAssetLoaded) {
   UiInitialState state;
-  state.assets_available = true;
+  state.assets_supported = true;
   CreateScene(state);
 
   EXPECT_FALSE(IsVisible(k2dBrowsingTexturedBackground));
