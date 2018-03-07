@@ -81,10 +81,6 @@ void VrGLThread::Init() {
     }
   }
 
-  if (ui_initial_state_.assets_available) {
-    LoadAssets();
-  }
-
   vr_shell_gl_ = std::make_unique<VrShellGl>(
       this, std::move(ui), gvr_api_, reprojected_rendering_, daydream_support_,
       ui_initial_state_.in_web_vr, pause_content_);
@@ -275,8 +271,9 @@ void VrGLThread::StopAutocomplete() {
 }
 
 void VrGLThread::LoadAssets() {
-  AssetsLoader::GetInstance()->Load(
-      base::BindOnce(&VrGLThread::OnAssetsLoaded, base::Unretained(this)));
+  DCHECK(OnGlThread());
+  main_thread_task_runner_->PostTask(
+      FROM_HERE, base::BindOnce(&VrShell::LoadAssets, weak_vr_shell_));
 }
 
 void VrGLThread::SetFullscreen(bool enabled) {
@@ -417,6 +414,23 @@ void VrGLThread::OnAssetsComponentReady() {
                                 weak_browser_ui_));
 }
 
+void VrGLThread::OnAssetsLoaded(AssetsLoadStatus status,
+                                std::unique_ptr<Assets> assets,
+                                const base::Version& component_version) {
+  DCHECK(OnMainThread());
+  task_runner()->PostTask(
+      FROM_HERE,
+      base::BindOnce(&BrowserUiInterface::OnAssetsLoaded, weak_browser_ui_,
+                     status, std::move(assets), component_version));
+}
+
+void VrGLThread::OnAssetsUnavailable() {
+  DCHECK(OnMainThread());
+  task_runner()->PostTask(
+      FROM_HERE, base::BindOnce(&BrowserUiInterface::OnAssetsUnavailable,
+                                weak_browser_ui_));
+}
+
 void VrGLThread::ShowSoftInput(bool show) {
   DCHECK(OnMainThread());
   task_runner()->PostTask(FROM_HERE,
@@ -441,15 +455,6 @@ bool VrGLThread::OnMainThread() const {
 
 bool VrGLThread::OnGlThread() const {
   return task_runner()->BelongsToCurrentThread();
-}
-
-void VrGLThread::OnAssetsLoaded(AssetsLoadStatus status,
-                                std::unique_ptr<Assets> assets,
-                                const base::Version& component_version) {
-  vr_shell_gl_->OnAssetsLoaded(status, std::move(assets), component_version);
-  main_thread_task_runner_->PostTask(
-      FROM_HERE, base::BindOnce(&VrShell::OnAssetsLoaded, weak_vr_shell_,
-                                status, component_version));
 }
 
 }  // namespace vr
