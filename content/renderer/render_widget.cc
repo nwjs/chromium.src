@@ -1854,7 +1854,7 @@ void RenderWidget::OnDeviceScaleFactorChanged() {
   if (IsUseZoomForDSFEnabled())
     compositor_->SetPaintedDeviceScaleFactor(GetOriginalDeviceScaleFactor());
   else
-    compositor_->SetDeviceScaleFactor(device_scale_factor_);
+    compositor_->SetDeviceScaleFactor(GetOriginalDeviceScaleFactor());
 }
 
 void RenderWidget::OnRepaint(gfx::Size size_to_paint) {
