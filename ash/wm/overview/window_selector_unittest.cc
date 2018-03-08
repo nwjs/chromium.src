@@ -2146,9 +2146,6 @@ TEST_F(WindowSelectorTest, ExtremeWindowBounds) {
 
 // Tests window list animation states are correctly updated.
 TEST_F(WindowSelectorTest, SetWindowListAnimationStates) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kAshEnableNewOverviewAnimations);
-
   gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
   std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
@@ -2190,9 +2187,6 @@ TEST_F(WindowSelectorTest, SetWindowListAnimationStates) {
 // Tests window list animation states are correctly updated with selected
 // window.
 TEST_F(WindowSelectorTest, SetWindowListAnimationStatesWithSelectedWindow) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kAshEnableNewOverviewAnimations);
-
   gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
   std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
@@ -2229,9 +2223,6 @@ TEST_F(WindowSelectorTest, SetWindowListAnimationStatesWithSelectedWindow) {
 // Tests OverviewWindowAnimationObserver can handle deleted window.
 TEST_F(WindowSelectorTest,
        OverviewWindowAnimationObserverCanHandleDeletedWindow) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kAshEnableNewOverviewAnimations);
-
   gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
   std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
@@ -2272,9 +2263,6 @@ TEST_F(WindowSelectorTest,
 
 // Tests can handle OverviewWindowAnimationObserver was deleted.
 TEST_F(WindowSelectorTest, HandleOverviewWindowAnimationObserverWasDeleted) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kAshEnableNewOverviewAnimations);
-
   gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
   std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
@@ -2312,9 +2300,6 @@ TEST_F(WindowSelectorTest, HandleOverviewWindowAnimationObserverWasDeleted) {
 // Tests can handle |gained_active| window is not in the |window_grid| when
 // OnWindowActivated.
 TEST_F(WindowSelectorTest, HandleActiveWindowNotInWindowGrid) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kAshEnableNewOverviewAnimations);
-
   gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
   std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
@@ -2354,9 +2339,6 @@ TEST_F(WindowSelectorTest, HandleActiveWindowNotInWindowGrid) {
 // animations.
 // Fails consistently; see https://crbug.com/812497.
 TEST_F(WindowSelectorTest, DISABLED_HandleAlwaysOnTopWindow) {
-  base::CommandLine::ForCurrentProcess()->AppendSwitch(
-      switches::kAshEnableNewOverviewAnimations);
-
   gfx::Rect bounds(0, 0, 400, 400);
   std::unique_ptr<aura::Window> window1(CreateWindow(bounds));
   std::unique_ptr<aura::Window> window2(CreateWindow(bounds));
