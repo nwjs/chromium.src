@@ -7,6 +7,9 @@
 namespace ash {
 namespace features {
 
+const base::Feature kDisplayMoveWindowAccels{"DisplayMoveWindowAccels",
+                                             base::FEATURE_ENABLED_BY_DEFAULT};
+
 const base::Feature kDockedMagnifier{"DockedMagnifier",
                                      base::FEATURE_ENABLED_BY_DEFAULT};
 
@@ -18,6 +21,10 @@ const base::Feature kNewOverviewAnimations{"NewOverviewAnimations",
 
 const base::Feature kSystemTrayUnified{"SystemTrayUnified",
                                        base::FEATURE_DISABLED_BY_DEFAULT};
+
+bool IsDisplayMoveWindowAccelsEnabled() {
+  return base::FeatureList::IsEnabled(kDisplayMoveWindowAccels);
+}
 
 bool IsDockedMagnifierEnabled() {
   return base::FeatureList::IsEnabled(kDockedMagnifier);

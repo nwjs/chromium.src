@@ -47,11 +47,6 @@ const char kAshDisableTouchExplorationMode[] =
 // TODO(oshima): Remove this once the feature is launched. crbug.com/749713.
 const char kAshEnableV1AppBackButton[] = "ash-enable-v1-app-back-button";
 
-// Enables move window between displays accelerators.
-// TODO(warx): Remove this once the feature is launched. crbug.com/773749.
-const char kAshEnableDisplayMoveWindowAccels[] =
-    "ash-enable-display-move-window-accels";
-
 // Enables key bindings to scroll magnified screen.
 const char kAshEnableMagnifierKeyScroller[] =
     "ash-enable-magnifier-key-scroller";
@@ -173,11 +168,6 @@ const char kSuppressMessageCenterPopups[] = "suppress-message-center-popups";
 // By default we use classic IME (i.e. InputMethodChromeOS) in kMus. This flag
 // enables the IME service (i.e. InputMethodMus) instead.
 const char kUseIMEService[] = "use-ime-service";
-
-bool IsDisplayMoveWindowAccelsEnabled() {
-  return base::CommandLine::ForCurrentProcess()->HasSwitch(
-      kAshEnableDisplayMoveWindowAccels);
-}
 
 bool IsNightLightEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
