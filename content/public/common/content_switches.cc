@@ -772,6 +772,9 @@ const char kSingleProcess[]                 = "single-process";
 // process consolidation, not isolation). You probably want this one.
 const char kSitePerProcess[]                = "site-per-process";
 
+// Disables enabling site isolation (i.e., --site-per-process) via field trial.
+const char kDisableSiteIsolationTrials[] = "disable-site-isolation-trials";
+
 // Skips reencoding bitmaps as PNGs when the encoded data is unavailable
 // during SKP capture.  This allows for obtaining an accurate sample of
 // the types of images on the web, rather than being weighted towards PNGs
