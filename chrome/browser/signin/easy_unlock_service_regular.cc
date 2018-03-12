@@ -92,6 +92,7 @@ EasyUnlockServiceRegular::EasyUnlockServiceRegular(
     std::unique_ptr<EasyUnlockNotificationController> notification_controller)
     : EasyUnlockService(profile),
       turn_off_flow_status_(EasyUnlockService::IDLE),
+      scoped_crypt_auth_device_manager_observer_(this),
       will_unlock_using_easy_unlock_(false),
       lock_screen_last_shown_timestamp_(base::TimeTicks::Now()),
       deferring_device_load_(false),
@@ -505,7 +506,7 @@ void EasyUnlockServiceRegular::InitializeInternal() {
                                               GetAccountId());
     }
 
-    GetCryptAuthDeviceManager()->AddObserver(this);
+    scoped_crypt_auth_device_manager_observer_.Add(GetCryptAuthDeviceManager());
     LoadRemoteDevices();
     StartPromotionManager();
   }
@@ -525,8 +526,7 @@ void EasyUnlockServiceRegular::ShutdownInternal() {
 
   turn_off_flow_status_ = EasyUnlockService::IDLE;
   proximity_auth::ScreenlockBridge::Get()->RemoveObserver(this);
-  if (GetCryptAuthDeviceManager())
-    GetCryptAuthDeviceManager()->RemoveObserver(this);
+  scoped_crypt_auth_device_manager_observer_.RemoveAll();
 }
 
 bool EasyUnlockServiceRegular::IsAllowedInternal() const {
