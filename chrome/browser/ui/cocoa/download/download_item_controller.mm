@@ -126,6 +126,7 @@ class DownloadShelfContextMenuMac : public DownloadShelfContextMenu {
   [self updateExperienceSamplingEvent:ExperienceSamplingEvent::kIgnore];
   [[NSNotificationCenter defaultCenter] removeObserver:self];
   [progressView_ setController:nil];
+  [progressView_ setTarget:nil];
   [[self view] removeFromSuperview];
   [super dealloc];
 }
