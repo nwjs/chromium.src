@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">നിങ്ങളുടെ അവസാന പ്രവർത്തനം പഴയപടിയാക്കുക</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 മുതൽ 8 വരെ</translation>
 <translation id="3837047332182291558">കീബോഡ് കൂടുതൽ തെളിച്ചമുള്ളതാക്കുക (ബാക്ക്‌ലൈറ്റ് കീബോഡുകൾക്കായി മാത്രം)</translation>
-<translation id="385051799172605136">പിന്നോട്ട്</translation>
 <translation id="3976863468609830880">നിങ്ങളുടെ ഷെൽഫിലെ അവസാനത്തെ ചിഹ്നം ക്ലിക്ക് ചെയ്യുക</translation>
 <translation id="4035482366624727273">പേജിലെ എല്ലാം തിരഞ്ഞെടുക്കുക</translation>
 <translation id="4060703249685950734">നിങ്ങൾ ഒടുവിൽ അവസാനിപ്പിച്ച ടാബ് അല്ലെങ്കിൽ വിൻഡോ വീണ്ടും തുറക്കുക</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">വിലാസ ബാർ ഉപയോഗിച്ച് വരി ഹൈലൈറ്റ് ചെയ്യുക</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> അല്ലെങ്കിൽ <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">കീബോഡ് കുറുക്കുവഴി സഹായി കാണുക</translation>
-<translation id="4599963776114295076">വിലാസ ബാറിൽ ഒരു വെബ് വിലാസം (URL) ടൈപ്പ് ചെയ്യുക, തുടർന്ന് <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> അമർത്തുക</translation>
 <translation id="4628718545549558538">സ്‌റ്റാറ്റസ് ഏരിയ തുറക്കുക (നിങ്ങളുടെ അക്കൗണ്ട് ചിത്രം ദൃശ്യമാകുന്ന സ്ഥലം)</translation>
 <translation id="4642092649622328492">ഭാഗിക സ്‌ക്രീൻഷോട്ട് എടുക്കുക</translation>
 <translation id="4725377341024374454">നിങ്ങളുടെ ഷെൽഫിലെ ഹൈലൈറ്റ് ചെയ്ത ബട്ടൺ തുറക്കുക</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">ഉപയോഗസഹായി</translation>
 <translation id="7020813747703216897">പൊരുത്തമുള്ള ഫലങ്ങളൊന്നും കണ്ടെത്തിയില്ല</translation>
 <translation id="7025325401470358758">അടുത്ത പാൻ</translation>
-<translation id="7272373489634936181">കുറുക്കുവഴികൾക്കായി തിരയുക</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> അല്ലെങ്കിൽ <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">അടുത്ത അക്ഷരം ഇല്ലാതാക്കുക (ഫോർവേഡ് ഡിലീറ്റ്)</translation>
 <translation id="766326951329901120">ക്ലിപ്‌ബോർഡിൽ നിന്നുള്ള ഉള്ളടക്കം സാധാരണ വാചകമായി ഒട്ടിക്കുക</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, തുടർന്ന് <ph name="SPACE" /> അല്ലെങ്കിൽ <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">ബ്രൗസറിൽ ഒരു ഫയൽ തുറക്കുക</translation>
 <translation id="7917881398263220094">നിങ്ങളുടെ നിലവിലെ പേജ് ലോഡ് ചെയ്യുന്നത് നിർത്തുക</translation>
-<translation id="8004192919599017226">തിരയൽ ആരംഭിക്കുക...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> അല്ലെങ്കിൽ <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">ഡോക്യുമെന്റിന്റെ തുടക്കത്തിലേക്ക് പോവുക</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> അല്ലെങ്കിൽ <ph name="E" /></translation>

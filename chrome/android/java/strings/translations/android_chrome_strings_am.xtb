@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">ማንነት የማያሳውቅ</translation>
 <translation id="10614374240317010">በጭራሽ አልተቀመጠም</translation>
 <translation id="1068672505746868501">በ<ph name="SOURCE_LANGUAGE" /> ውስጥ ገጾችን በጭራሽ አትተርጉም</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">በ <ph name="DOMAIN_NAME" />ከሚቀናበር መለያ ዘግተው እየወጡ ነው። ይሄ በዚህ መሣሪያ ላይ የተከማቸውን የChrome ውሂብ ይሰርዘዋል፣ ነገር ግን ውሂቡ በእርስዎ የGoogle መለያ ውስጥ እንዳለ ይቀራል።</translation>
 <translation id="1105960400813249514">የማያ ገጽ ቀረጻ</translation>
 <translation id="1111673857033749125">በሌሎች መሣሪያዎችዎ ላይ የተቀመጡ ዕልባቶችዎ እዚህ ብቅ ይላሉ።</translation>
@@ -683,6 +684,7 @@
 <translation id="7063006564040364415">ከማመሳሰያ አገልጋዩ ጋር መገናኘት አልተቻለም።</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 ተመርጧል}one{# ተመርጠዋል}other{# ተመርጠዋል}}</translation>
 <translation id="7077143737582773186">ኤስዲ ካርድ</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> ተመርጠዋል።  አማራጮች ከማያ ገጹ አናት አጠገብ ይገኛሉ</translation>
 <translation id="7121362699166175603">በአድራሻ አሞሌው ላይ ታሪክን እና ራስ-ማጠናቀቆችን ያጸዳል። የእርስዎ Google መለያ <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> ላይ ሌሎች የአሰሳ ታሪክ አይነቶች ሊኖሩት ይችላል።</translation>
 <translation id="7128222689758636196">አሁን ላለው የፍለጋ ፕሮግራም ፍቀድ</translation>
 <translation id="7138678301420049075">ሌላ</translation>
@@ -694,6 +696,7 @@
 <translation id="7191430249889272776">ትር ጀርባ ላይ ተከፍቷል።</translation>
 <translation id="723171743924126238">ምስሎችን ይምረጡ</translation>
 <translation id="7243308994586599757">አማራጮች ከማያ ገጹ ግርጌ አጠገብ ይገኛሉ</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> ተመርጠዋል</translation>
 <translation id="7251326866581677552">ከአንዳንድ ጣቢያዎች ታግደዋል</translation>
 <translation id="7253272406652746122">በመሣሪያዎ ቅንብሮች መተግበሪያ ውስጥ ካለው የመለያዎች ገጽ ሆነው የGoogle መለያ ያክሉ።</translation>
 <translation id="7274013316676448362">የታገደ ጣቢያ</translation>

@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Navegação anónima</translation>
 <translation id="10614374240317010">Nunca guardadas</translation>
 <translation id="1068672505746868501">Nunca traduzir páginas em <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> – <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Está a terminar sessão numa conta gerida por <ph name="DOMAIN_NAME" />. Esta ação elimina os dados do Chrome armazenados neste dispositivo, mas os dados permanecem na sua Conta Google.</translation>
 <translation id="1105960400813249514">Ecrã a ser capturado...</translation>
 <translation id="1111673857033749125">Os marcadores guardados nos seus outros dispositivos são apresentados aqui.</translation>
@@ -165,7 +166,7 @@ Tem de ter a Localização e o Bluetooth ativados para poder utilizar a Web fís
 <translation id="2433507940547922241">Aspeto</translation>
 <translation id="2440823041667407902">Acesso à localização</translation>
 <translation id="2450083983707403292">Pretende começar a transferir <ph name="FILE_NAME" /> novamente?</translation>
-<translation id="2476578072172137802">Definições do site</translation>
+<translation id="2476578072172137802">Definições de sites</translation>
 <translation id="2482878487686419369">Notificações</translation>
 <translation id="2490674006498621843">Puxe a barra de ferramentas para cima de forma a encontrar os seus ficheiros e páginas nas transferências.</translation>
 <translation id="2496180316473517155">Histórico de navegação</translation>
@@ -683,6 +684,7 @@ Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios
 <translation id="7063006564040364415">Não foi possível estabelecer ligação ao servidor de sincronização.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 selecionado}other{# selecionados}}</translation>
 <translation id="7077143737582773186">Cartão SD</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> selecionado(s). Opções disponíveis junto à parte superior do ecrã.</translation>
 <translation id="7121362699166175603">Limpa o histórico e os preenchimentos automáticos na barra de endereço. A sua Conta Google pode ter outras formas do histórico de navegação em <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Permitir o motor de pesquisa atual</translation>
 <translation id="7138678301420049075">Outros</translation>
@@ -694,6 +696,7 @@ Por exemplo, alguns Sites podem responder a este pedido ao mostrar-lhe anúncios
 <translation id="7191430249889272776">Separador aberto em segundo plano.</translation>
 <translation id="723171743924126238">Selecionar imagens</translation>
 <translation id="7243308994586599757">Opções disponíveis junto à parte inferior do ecrã</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> selecionado(s).</translation>
 <translation id="7251326866581677552">Bloqueados em alguns sites</translation>
 <translation id="7253272406652746122">Adicione uma Conta Google na página Contas na aplicação Definições do dispositivo.</translation>
 <translation id="7274013316676448362">Site bloqueado</translation>

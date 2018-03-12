@@ -152,6 +152,11 @@
 <translation id="1503487916067509762">Enables third-party software injection blocking</translation>
 <translation id="1504431521196476721">Remote Attestation</translation>
 <translation id="1509692106376861764">This policy has been retired as of <ph name="PRODUCT_NAME" /> version 29.</translation>
+<translation id="1519337829779572350">This setting is deprecated, use SafeBrowsingExtendedReportingEnabled instead. Enabling or disabling SafeBrowsingExtendedReportingEnabled is equivalent to setting SafeBrowsingExtendedReportingOptInAllowed to False.
+
+      Setting this policy to false stops users from choosing to send some system information and page content to Google servers. If this setting is true or not configured, then users will be allowed to send some system information and page content to Safe Browsing to help detect dangerous apps and sites.
+
+      See https://developers.google.com/safe-browsing for more info on SafeBrowsing.</translation>
 <translation id="1522425503138261032">Allow sites to track the users' physical location</translation>
 <translation id="152657506688053119">List of alternative URLs for the default search provider</translation>
 <translation id="1530812829012954197">Always render the following URL patterns in the host browser</translation>
@@ -297,6 +302,14 @@
       This policy setting enables notifications to inform the user that a browser relaunch is recommended or required. If not set, <ph name="PRODUCT_NAME" /> indicates to the user that a relaunch is needed via subtle changes to its menu. If set to 'Recommended', a recurring warning will be shown to the user that a relaunch is recommended. The user can dismiss this warning to defer the relaunch. If set to 'Required', a recurring warning will be shown to the user indicating that a browser relaunch will be forced once the notification period passes. This period is seven days by default, and may be configured via the <ph name="RELAUNCH_NOTIFICATION_PERIOD_POLICY_NAME" /> policy setting.
 
       The user's session is restored following the relaunch.</translation>
+<translation id="2075434678547407637">Allows you to control if videos can play automatically (without user consent) with audio content in <ph name="PRODUCT_NAME" />.
+
+      If the policy is set to True, <ph name="PRODUCT_NAME" /> is allowed to auto-play media.
+      If the policy is set to False, <ph name="PRODUCT_NAME" /> is not allowed to auto-play media.
+      By default, <ph name="PRODUCT_NAME" /> is not allowed to auto-play media.
+
+      Note that if <ph name="PRODUCT_NAME" /> is running and this policy changes, it will be applied only to new opened tabs. Therefore some tabs might still observe the previous behaviour.
+      </translation>
 <translation id="2077129598763517140">Use hardware acceleration when available</translation>
 <translation id="2077273864382355561">Screen off delay when running on battery power</translation>
 <translation id="2082205219176343977">Configure minimum allowed Chrome version for the device.</translation>
@@ -1082,6 +1095,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
       If this policy is not set then the user can choose to show or hide the apps shortcut from the bookmark bar context menu.
 
       If this policy is configured then the user can't change it, and the apps shortcut is always shown or never shown.</translation>
+<translation id="4432762137771104529">Enable Safe Browsing Extended Reporting</translation>
 <translation id="443454694385851356">Legacy (insecure)</translation>
 <translation id="443665821428652897">Clear site data on browser shutdown (deprecated)</translation>
 <translation id="4439336120285389675">Specify a list of deprecated web platform features to re-enable temporarily.
@@ -1306,6 +1320,19 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
       Note that passwords might get older than the specified number of days if the client has been offline for a longer period of time.</translation>
 <translation id="5105313908130842249">Screen lock delay when running on battery power</translation>
+<translation id="5106504910236139235">Enables <ph name="PRODUCT_NAME" />'s Safe Browsing Extended Reporting and prevents users from changing this setting.
+
+      Extended Reporting sends some system information and page content to Google servers to help detect dangerous apps and sites.
+
+      If the setting is set to true, then reports will be created and sent whenever necessary (such as when a security interstitial is shown).
+
+      If the setting is set to false, reports will never be sent.
+
+      If this policy is set to true or false, the user will not be able to modify the setting.
+
+      If this policy is left unset, the user will be able to change the setting and decide whether to send reports or not.
+
+      See https://developers.google.com/safe-browsing for more info on SafeBrowsing.</translation>
 <translation id="5108031557082757679">Disabled enterprise device printers</translation>
 <translation id="5130288486815037971">Whether RC4 cipher suites in TLS are enabled</translation>
 <translation id="5141670636904227950">Set the default screen magnifier type enabled on the login screen</translation>
@@ -2073,6 +2100,7 @@ If this setting is not set, <ph name="PRODUCT_NAME" /> will allow the user to co
 
       If this policy is not set, automatic clean-up uses the default built-in strategy. Currently, it is the 'RemoveLRUIfDormant' strategy.</translation>
 <translation id="7336878834592315572">Keep cookies for the duration of the session.</translation>
+<translation id="733838170182967492">Allows media auto-play</translation>
 <translation id="7340034977315324840">Report device activity times</translation>
 <translation id="7343497214039883642">Enterprise printer configuration file for devices</translation>
 <translation id="7384999953864505698">Allows QUIC protocol</translation>

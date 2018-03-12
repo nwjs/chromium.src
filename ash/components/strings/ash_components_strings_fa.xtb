@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">واگرد آخرین عمل</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> ۱ تا ۸</translation>
 <translation id="3837047332182291558">روشن‌تر کردن صفحه‌کلید (فقط برای صفحه‌کلیدهایی که نور پس‌زمینه دارند)</translation>
-<translation id="385051799172605136">بازگشت</translation>
 <translation id="3976863468609830880">کلیک کردن آخرین نماد در قفسه</translation>
 <translation id="4035482366624727273">انتخاب همه چیز در صفحه</translation>
 <translation id="4060703249685950734">دوباره باز کردن آخرین برگه یا پنجره‌ای که بسته بودید</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">برجسته‌سازی ردیف با نوار نشانی</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> یا <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">مشاهده راهنمای میان‌برهای صفحه‌کلید</translation>
-<translation id="4599963776114295076">‏نشانی وبی (URL) را در نوار نشانی تایپ کنید و سپس <ph name="ENTER" /><ph name="SEPARATOR" /><ph name="ALT" /> را فشار دهید</translation>
 <translation id="4628718545549558538">باز کردن ناحیه نشانگر وضعیت (جایی که تصویر حسابتان نشان داده می‌شود)</translation>
 <translation id="4642092649622328492">گرفتن عکس از قسمتی از صفحه‌نمایش</translation>
 <translation id="4725377341024374454">بازکردن دکمه برجسته شده روی قفسه شما</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">قابلیت دسترسی</translation>
 <translation id="7020813747703216897">هیچ نتیجه منطبقی پیدا نشد</translation>
 <translation id="7025325401470358758">چارچوب بعدی</translation>
-<translation id="7272373489634936181">جستجوی میان‌برها</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> یا <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">حذف حرف بعدی (حذف بعدی)</translation>
 <translation id="766326951329901120">جای‌گذاری محتوا از کلیپ‌بورد به عنوان نوشتار ساده</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> و سپس <ph name="SPACE" /> یا <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">باز کردن فایل در مرورگر</translation>
 <translation id="7917881398263220094">توقف بارگیری صفحه کنونی</translation>
-<translation id="8004192919599017226">شروع جستجو…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> یا <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">رفتن به ابتدای سند</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> یا <ph name="E" /></translation>

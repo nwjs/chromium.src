@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">તમારી છેલ્લી ક્રિયા રદ કરો</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 થી 8</translation>
 <translation id="3837047332182291558">કીબોર્ડને બ્રાઇટ બનાવો (માત્ર બૅકલિટ કીબોર્ડ માટે)</translation>
-<translation id="385051799172605136">પાછળ</translation>
 <translation id="3976863468609830880">તમારા શેલ્ફ પરના છેલ્લા આઇકન પર ક્લિક કરો</translation>
 <translation id="4035482366624727273">આ પેજ પરનું બધું પસંદ કરો</translation>
 <translation id="4060703249685950734">તમે બંધ કરેલ છેલ્લું ટૅબ અથવા વિંડો ફરીથી ખોલો</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">ઍડ્રેસ બારવાળી પંક્તિને હાઇલાઇટ કરો</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> અથવા <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">કીબોર્ડ શૉર્ટકટ સહાયક જુઓ</translation>
-<translation id="4599963776114295076">ઍડ્રેસ બારમાં વેબ ઍડ્રેસ (URL) ટાઇપ કરો, પછી <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> દબાવો</translation>
 <translation id="4628718545549558538">સ્ટેટસ એરિયા ખોલો (જ્યાં તમારું એકાઉન્ટનું ચિત્ર દેખાય છે ત્યાં ક્લિક કરો)</translation>
 <translation id="4642092649622328492">આંશિક સ્ક્રીનશૉટ લો</translation>
 <translation id="4725377341024374454">તમારા શેલ્ફ પર હાઇલાઇટ કરેલ બટન ખોલો</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">ઍક્સેસિબિલિટી</translation>
 <translation id="7020813747703216897">કોઈ મેળ ખાતા પરિણામો મળ્યાં નથી</translation>
 <translation id="7025325401470358758">આગલી પૅન</translation>
-<translation id="7272373489634936181">શૉર્ટકટ શોધો</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> અથવા <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">આગલો અક્ષર ડિલીટ કરો (ફૉર્વર્ડ ડિલીટ કરો)</translation>
 <translation id="766326951329901120">ક્લિપબોર્ડમાંના કન્ટેન્ટને સાદી ટેક્સ્ટ તરીકે પેસ્ટ કરો</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, પછી <ph name="SPACE" /> અથવા <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">બ્રાઉઝરમાં ફાઇલ ખોલો</translation>
 <translation id="7917881398263220094">તમારા વર્તમાન પેજને લોડ કરવાનું રોકો</translation>
-<translation id="8004192919599017226">શોધ શરૂ કરો…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> અથવા <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">દસ્તાવેજની શરૂઆત પર જાઓ</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> અથવા <ph name="E" /></translation>

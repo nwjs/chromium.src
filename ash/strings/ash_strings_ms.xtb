@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Tekan Ctrl+Shift+Q dua kali untuk keluar.</translation>
 <translation id="3893630138897523026">ChromeVox (maklum balas dituturkan)</translation>
 <translation id="3899995891769452915">Input suara</translation>
+<translation id="3900355044994618856">Sesi anda akan tamat dalam <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Menyambung ke <ph name="NAME" /></translation>
 <translation id="394485226368336402">Tetapan audio</translation>
 <translation id="397105322502079400">Mengira...</translation>
@@ -252,6 +253,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="7066646422045619941">Rangkaian ini dilumpuhkan oleh pentadbir anda.</translation>
 <translation id="7067196344162293536">Auto putar</translation>
 <translation id="7098389117866926363">Peranti USB-C (port kiri di belakang)</translation>
+<translation id="7131634465328662194">Anda akan dilog keluar secara automatik.</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358">Kembali kepada peleraian lama dalam <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Mikrofon belakang</translation>
@@ -308,6 +310,7 @@ Gunakan ciri ini dengan akaun yang anda percaya sahaja.</translation>
 <translation id="8484916590211895857"><ph name="NAME" />: Menyambung semula...</translation>
 <translation id="8517041960877371778"><ph name="DEVICE_TYPE" /> anda mungkin tidak akan dicas semasa dihidupkan.</translation>
 <translation id="8639760480004882931">Berbaki <ph name="PERCENTAGE" /></translation>
+<translation id="8649101189709089199">Pilih untuk Bercakap</translation>
 <translation id="8652175077544655965">Tutup tetapan</translation>
 <translation id="8673028979667498656">270°</translation>
 <translation id="8676770494376880701">Pengecas berkuasa rendah disambungkan</translation>

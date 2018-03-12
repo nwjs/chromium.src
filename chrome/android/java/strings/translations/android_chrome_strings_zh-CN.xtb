@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">隐身</translation>
 <translation id="10614374240317010">一律不保存</translation>
 <translation id="1068672505746868501">一律不翻译源语言为<ph name="SOURCE_LANGUAGE" />的网页</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">您要退出某个由 <ph name="DOMAIN_NAME" /> 管理的帐号。这会导致系统删除此设备上存储的 Chrome 数据，但这些数据仍会保留在您的 Google 帐号中。</translation>
 <translation id="1105960400813249514">屏幕截图</translation>
 <translation id="1111673857033749125">您在其他设备上保存的书签将列在此处。</translation>
@@ -683,6 +684,7 @@
 <translation id="7063006564040364415">无法连接到同步服务器。</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{已选择 1 项}other{已选择 # 项}}</translation>
 <translation id="7077143737582773186">SD 卡</translation>
+<translation id="7087918508125750058">已选择 <ph name="ITEM_COUNT" /> 项。选项位于屏幕顶部附近</translation>
 <translation id="7121362699166175603">清除历史记录和地址栏中的自动填充项。您的 Google 帐号在 <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> 上可能有其他形式的浏览记录。</translation>
 <translation id="7128222689758636196">适用于当前的搜索引擎</translation>
 <translation id="7138678301420049075">其他</translation>
@@ -694,6 +696,7 @@
 <translation id="7191430249889272776">标签页已在后台打开。</translation>
 <translation id="723171743924126238">选择图片</translation>
 <translation id="7243308994586599757">选项在靠近屏幕底部的位置</translation>
+<translation id="7250468141469952378">已选择 <ph name="ITEM_COUNT" /> 项</translation>
 <translation id="7251326866581677552">已阻止在部分网站中显示广告</translation>
 <translation id="7253272406652746122">请在设备的“设置”应用中，通过“帐号”页面添加 Google 帐号。</translation>
 <translation id="7274013316676448362">禁止访问的网站</translation>

@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">De laatst uitgevoerde actie ongedaan maken</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 tot en met 8</translation>
 <translation id="3837047332182291558">Toetsenbord helderder maken (alleen voor toetsenborden met achtergrondverlichting)</translation>
-<translation id="385051799172605136">Vorige</translation>
 <translation id="3976863468609830880">Klikken op het laatste pictogram op de plank</translation>
 <translation id="4035482366624727273">Alles op de pagina selecteren</translation>
 <translation id="4060703249685950734">Het laatste tabblad of venster dat je hebt gesloten, opnieuw openen</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">De rij met de adresbalk markeren</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> of <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Help voor sneltoetsen openen</translation>
-<translation id="4599963776114295076">Typ een webadres (URL) in de adresbalk en druk vervolgens op <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Het statusgedeelte openen (waar je accountafbeelding wordt weergegeven)</translation>
 <translation id="4642092649622328492">Gedeeltelijk screenshot maken</translation>
 <translation id="4725377341024374454">De gemarkeerde knop op je plank openen</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Toegankelijkheid</translation>
 <translation id="7020813747703216897">Geen overeenkomende resultaten gevonden</translation>
 <translation id="7025325401470358758">Volgend deelvenster</translation>
-<translation id="7272373489634936181">Zoeken naar sneltoetsen</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> of <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">De volgende letter verwijderen (vooruit verwijderen)</translation>
 <translation id="766326951329901120">Content vanaf het klembord plakken als platte tekst</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, en dan <ph name="SPACE" /> of <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Een bestand openen in de browser</translation>
 <translation id="7917881398263220094">Het laden van de huidige pagina stoppen</translation>
-<translation id="8004192919599017226">Zoeken starten...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> of <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Naar het begin van het document gaan</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> of <ph name="E" /></translation>

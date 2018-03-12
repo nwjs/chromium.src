@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Опозовите последњу радњу</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> од 1 до 8</translation>
 <translation id="3837047332182291558">Повећајте осветљеност тастатуре (само за тастатуре са позадинским осветљењем)</translation>
-<translation id="385051799172605136">Назад</translation>
 <translation id="3976863468609830880">Кликните на последњу икону на полици</translation>
 <translation id="4035482366624727273">Изаберите све ставке на страници</translation>
 <translation id="4060703249685950734">Поново отворите картицу или прозор који су последњи затворени</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Истакните ред са траком за адресу</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> или <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Прегледајте помоћ за тастерске пречице</translation>
-<translation id="4599963776114295076">У траку за адресу унесите веб-адресу (URL), па притисните <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Отворите област статуса (где је слика налога)</translation>
 <translation id="4642092649622328492">Направите делимичан снимак екрана</translation>
 <translation id="4725377341024374454">Отворите истакнуто дугме на полици</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Приступачност</translation>
 <translation id="7020813747703216897">Нисмо пронашли ниједан одговарајући резултат</translation>
 <translation id="7025325401470358758">Следећи оквир</translation>
-<translation id="7272373489634936181">Претражите пречице</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> или <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Избришите следеће слово (брисање унапред)</translation>
 <translation id="766326951329901120">Налепите садржај из привремене меморије као обичан текст</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, па <ph name="SPACE" /> или <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Отворите датотеку у прегледачу</translation>
 <translation id="7917881398263220094">Зауставите учитавање тренутне странице</translation>
-<translation id="8004192919599017226">Започни претрагу...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> или <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Идите на почетак документа</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> или <ph name="E" /></translation>

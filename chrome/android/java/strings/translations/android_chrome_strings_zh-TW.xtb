@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">無痕模式</translation>
 <translation id="10614374240317010">一律不儲存</translation>
 <translation id="1068672505746868501">一律不翻譯<ph name="SOURCE_LANGUAGE" />網頁</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">您即將登出由 <ph name="DOMAIN_NAME" /> 所管理的帳戶。儲存在這個裝置上的 Chrome 資料將因此遭到刪除，但這些資料仍會保留在您的 Google 帳戶中。</translation>
 <translation id="1105960400813249514">螢幕擷取</translation>
 <translation id="1111673857033749125">儲存在您其他裝置上的書籤會顯示在這裡。</translation>
@@ -683,6 +684,7 @@
 <translation id="7063006564040364415">無法連線至同步處理伺服器。</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{已選取 1 個項目}other{已選取 # 個項目}}</translation>
 <translation id="7077143737582773186">SD 卡</translation>
+<translation id="7087918508125750058">已選取 <ph name="ITEM_COUNT" /> 個項目。選項位於畫面頂端</translation>
 <translation id="7121362699166175603">將歷史紀錄和自動即時查詢從網址列中清除。你的 Google 帳戶可能會儲存其他形式的瀏覽紀錄，請參閱 <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />。</translation>
 <translation id="7128222689758636196">對目前的搜尋引擎開放</translation>
 <translation id="7138678301420049075">其他</translation>
@@ -694,6 +696,7 @@
 <translation id="7191430249889272776">已在背景開啟分頁。</translation>
 <translation id="723171743924126238">選取圖片</translation>
 <translation id="7243308994586599757">選項在接近畫面底部的位置</translation>
+<translation id="7250468141469952378">已選取 <ph name="ITEM_COUNT" /> 個項目</translation>
 <translation id="7251326866581677552">封鎖部分網站的廣告</translation>
 <translation id="7253272406652746122">在裝置的「設定」應用程式中，透過「帳戶」頁面新增 Google 帳戶。</translation>
 <translation id="7274013316676448362">已封鎖網站</translation>

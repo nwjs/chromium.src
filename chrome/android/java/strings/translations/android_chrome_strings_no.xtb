@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Inkognito</translation>
 <translation id="10614374240317010">Aldri lagret</translation>
 <translation id="1068672505746868501">Oversett aldri sider på <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> – <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Du er i ferd med å logge av en konto som er administrert av <ph name="DOMAIN_NAME" />. Dette fører til at Chrome-data som er lagret på enheten, slettes. Dataene er imidlertid fortsatt lagret i Google-kontoen din.</translation>
 <translation id="1105960400813249514">Skjermdump</translation>
 <translation id="1111673857033749125">Bokmerker som er lagret på de andre enhetene dine, vises her.</translation>
@@ -683,6 +684,7 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="7063006564040364415">Kunne ikke koble til synkroniseringstjeneren.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 er valgt}other{# er valgt}}</translation>
 <translation id="7077143737582773186">SD-kort</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> er valgt. Du finner alternativer oppe på skjermen</translation>
 <translation id="7121362699166175603">Tømmer loggen og fjerner autofullføringer i adressefeltet. Det kan hende Google-kontoen din har andre typer nettlesingslogger på <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Tillat for den aktive søkemotoren</translation>
 <translation id="7138678301420049075">Annet</translation>
@@ -694,6 +696,7 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="7191430249889272776">En fane ble åpnet i bakgrunnen.</translation>
 <translation id="723171743924126238">Velg bilder</translation>
 <translation id="7243308994586599757">Du finner alternativer ved bunnen av skjermen</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> er valgt</translation>
 <translation id="7251326866581677552">Blokkert på noen nettsteder</translation>
 <translation id="7253272406652746122">Legg til en Google-konto på Kontoer-siden i Innstillinger-appen på enheten din.</translation>
 <translation id="7274013316676448362">Blokkert nettsted</translation>

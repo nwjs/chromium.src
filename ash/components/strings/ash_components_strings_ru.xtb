@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Отменить последнее действие</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> клавиши от 1 до 8</translation>
 <translation id="3837047332182291558">Увеличить яркость клавиатуры (для клавиатур с подсветкой)</translation>
-<translation id="385051799172605136">Назад</translation>
 <translation id="3976863468609830880">Открыть последний значок на панели запуска</translation>
 <translation id="4035482366624727273">Выделить весь контент на странице</translation>
 <translation id="4060703249685950734">Открыть последнюю закрытую вкладку или последнее закрытое окно</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Выделить ряд с адресной строкой</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> или <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Открыть страницу справки по быстрым клавишам</translation>
-<translation id="4599963776114295076">Ввести веб-адрес (URL) в адресной строке и нажать <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Открыть панель состояния (на которой расположено изображение профиля)</translation>
 <translation id="4642092649622328492">Сделать скриншот части экрана</translation>
 <translation id="4725377341024374454">Открыть выделенную кнопку на панели запуска</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Специальные возможности</translation>
 <translation id="7020813747703216897">Ничего не найдено.</translation>
 <translation id="7025325401470358758">Следующая панель</translation>
-<translation id="7272373489634936181">Поиск быстрых клавиш</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> или <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Удалить следующую букву (удаление вперед)</translation>
 <translation id="766326951329901120">Вставить содержимое из буфера обмена в виде обычного текста</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, затем <ph name="SPACE" /> или <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Открыть файл в браузере</translation>
 <translation id="7917881398263220094">Прервать загрузку страницы</translation>
-<translation id="8004192919599017226">Начать поиск…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> или <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Перейти к началу документа</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> или <ph name="E" /></translation>

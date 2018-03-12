@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Nooit opgeslagen</translation>
 <translation id="1068672505746868501">Pagina's in het <ph name="SOURCE_LANGUAGE" /> nooit vertalen</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Je logt uit van een account dat wordt beheerd door <ph name="DOMAIN_NAME" />. Hiermee worden de Chrome-gegevens verwijderd die zijn opgeslagen op dit apparaat, maar de gegevens blijven bewaard in je Google-account.</translation>
 <translation id="1105960400813249514">Schermopname</translation>
 <translation id="1111673857033749125">Bladwijzers die je op andere apparaten hebt opgeslagen, worden hier weergegeven.</translation>
@@ -683,6 +684,7 @@ Zo kunnen sommige websites op dit verzoek reageren door advertenties weer te gev
 <translation id="7063006564040364415">Kan geen verbinding maken met synchronisatieserver.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 geselecteerd}other{# geselecteerd}}</translation>
 <translation id="7077143737582773186">SD-kaart</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> geselecteerd. Opties beschikbaar bovenaan het scherm.</translation>
 <translation id="7121362699166175603">Hiermee worden de geschiedenis en automatische aanvullingen voor de adresbalk gewist. Er kunnen andere vormen van browsegeschiedenis zijn opgeslagen voor je Google-account op <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Toestaan voor huidige zoekmachine</translation>
 <translation id="7138678301420049075">Overige</translation>
@@ -694,6 +696,7 @@ Zo kunnen sommige websites op dit verzoek reageren door advertenties weer te gev
 <translation id="7191430249889272776">Tabblad op de achtergrond geopend.</translation>
 <translation id="723171743924126238">Afbeeldingen selecteren</translation>
 <translation id="7243308994586599757">Opties beschikbaar onder aan het scherm</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> geselecteerd</translation>
 <translation id="7251326866581677552">Geblokkeerd voor bepaalde sites</translation>
 <translation id="7253272406652746122">Voeg een Google-account toe via de pagina Accounts in de app Instellingen van je apparaat.</translation>
 <translation id="7274013316676448362">Geblokkeerde site</translation>

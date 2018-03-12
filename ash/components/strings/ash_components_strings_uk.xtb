@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Відмінити останню дію</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> від 1 до 8</translation>
 <translation id="3837047332182291558">Збільшити яскравість клавіатури (лише для клавіатур із підсвічуванням)</translation>
-<translation id="385051799172605136">Назад</translation>
 <translation id="3976863468609830880">Натиснути останній значок на полиці</translation>
 <translation id="4035482366624727273">Виділити все на сторінці</translation>
 <translation id="4060703249685950734">Знову відкрити останню закриту вкладку або вікно</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Виділити адресний рядок</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> або <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Показати довідник із комбінацій клавіш</translation>
-<translation id="4599963776114295076">Введіть веб-адресу (URL-адресу) в адресному рядку й натисніть <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Відкрити панель стану (де розташоване зображення облікового запису)</translation>
 <translation id="4642092649622328492">Зробити частковий знімок екрана</translation>
 <translation id="4725377341024374454">Натиснути виділену кнопку на полиці</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Доступність</translation>
 <translation id="7020813747703216897">Відповідних результатів не знайдено</translation>
 <translation id="7025325401470358758">Наступна панель</translation>
-<translation id="7272373489634936181">Пошук комбінацій клавіш</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> або <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Видалити наступну літеру (видалення вперед)</translation>
 <translation id="766326951329901120">Вставити вміст із буфера обміну як простий текст</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, а тоді <ph name="SPACE" /> або <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Відкрити файл у веб-переглядачі</translation>
 <translation id="7917881398263220094">Припинити завантаження поточної сторінки</translation>
-<translation id="8004192919599017226">Почати пошук…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> або <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Перейти на початок документа</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> або <ph name="E" /></translation>

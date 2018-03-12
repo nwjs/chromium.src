@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">„Инкогнито“</translation>
 <translation id="10614374240317010">Незапазвани никога</translation>
 <translation id="1068672505746868501">Страниците на <ph name="SOURCE_LANGUAGE" /> да не се превеждат</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> – <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Излизате от профил, управляван от <ph name="DOMAIN_NAME" />. Съхраняваните на това устройство данни в Chrome ще се изтрият, но ще останат в профила ви в Google.</translation>
 <translation id="1105960400813249514">Заснемане на екрана</translation>
 <translation id="1111673857033749125">Тук ще се показват отметките, които сте запазили на другите си устройства.</translation>
@@ -683,6 +684,7 @@
 <translation id="7063006564040364415">Не можа да се установи връзка със синхронизиращия сървър.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{Избран е 1 елемент}other{Избрани са # елемента}}</translation>
 <translation id="7077143737582773186">SD карта</translation>
+<translation id="7087918508125750058">Избрани: <ph name="ITEM_COUNT" />. Налице са опции близо до горната част на екрана</translation>
 <translation id="7121362699166175603">Изчиства историята и автоматичните довършвания в адресната лента. В профила ви в Google може да има други видове история на сърфиране, съхранявани на адрес <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Разрешаване за текущата търсеща машина</translation>
 <translation id="7138678301420049075">Друго</translation>
@@ -694,6 +696,7 @@
 <translation id="7191430249889272776">Разделът е отворен на заден план.</translation>
 <translation id="723171743924126238">Избиране на изображения</translation>
 <translation id="7243308994586599757">Опциите са в долната част на екрана</translation>
+<translation id="7250468141469952378">Избрани: <ph name="ITEM_COUNT" /></translation>
 <translation id="7251326866581677552">Блокиране за някои сайтове</translation>
 <translation id="7253272406652746122">Добавете профил в Google от страницата „Профили“ в приложението Настройки на устройството ви.</translation>
 <translation id="7274013316676448362">Блокиран сайт</translation>

@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">시크릿</translation>
 <translation id="10614374240317010">저장되지 않음</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" />로 된 페이지는 번역하지 않음</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870"><ph name="DOMAIN_NAME" />에서 관리하는 계정에서 로그아웃합니다. 로그아웃하면 이 기기에 저장된 Chrome 데이터는 삭제되지만 Google 계정에는 데이터가 남습니다.</translation>
 <translation id="1105960400813249514">화면 캡처</translation>
 <translation id="1111673857033749125">다른 기기에서 저장한 북마크가 여기에 표시됩니다.</translation>
@@ -683,6 +684,7 @@
 <translation id="7063006564040364415">동기화 서버에 연결할 수 없습니다.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1개 선택됨}other{#개 선택됨}}</translation>
 <translation id="7077143737582773186">SD 카드</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" />개 선택됨. 화면 상단에서 옵션 선택 가능</translation>
 <translation id="7121362699166175603">검색주소창에 저장된 방문 기록과 자동 완성 내역을 지웁니다. Google 계정의 내 활동(<ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />)에는 인터넷 사용 기록이 다른 형식으로 남아 있을 수도 있습니다.</translation>
 <translation id="7128222689758636196">현재 검색 엔진에 허용</translation>
 <translation id="7138678301420049075">기타</translation>
@@ -694,6 +696,7 @@
 <translation id="7191430249889272776">탭이 백그라운드에 열림</translation>
 <translation id="723171743924126238">이미지 선택</translation>
 <translation id="7243308994586599757">화면 하단에서 옵션 선택 가능</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" />개 선택됨</translation>
 <translation id="7251326866581677552">일부 사이트에서 차단됨</translation>
 <translation id="7253272406652746122">기기 설정 앱의 계정 페이지에서 Google 계정을 추가하세요.</translation>
 <translation id="7274013316676448362">차단된 사이트</translation>

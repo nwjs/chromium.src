@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Kichupo fiche</translation>
 <translation id="10614374240317010">Haijahifadhiwa kamwe</translation>
 <translation id="1068672505746868501">Usiwahi kutafsiri kurasa katika lugha ya <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Unaondoka katika akaunti inayodhibitiwa na <ph name="DOMAIN_NAME" />. Hii itafuta data ya Chrome iliyohifadhiwa kwenye kifaa hiki, lakini data itasalia katika Akaunti yako ya Google.</translation>
 <translation id="1105960400813249514">Piga Picha ya Skrini</translation>
 <translation id="1111673857033749125">Alamisho zilizohifadhiwa katika vifaa vyako vingine zitaonekana hapa.</translation>
@@ -683,6 +684,7 @@ Kwa mfano, baadhi ya tovuti zinaweza kujibu ombi hili kwa kukuonyesha matangazo 
 <translation id="7063006564040364415">Haikuweza kuunganisha kwenye seva ya usawazishaji.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 kimechaguliwa}other{# vimechaguliwa}}</translation>
 <translation id="7077143737582773186">Kadi ya SD</translation>
+<translation id="7087918508125750058">Imechagua <ph name="ITEM_COUNT" />. Chaguo zinapatikana karibu na sehemu ya juu ya skrini</translation>
 <translation id="7121362699166175603">Hufuta historia na ukamilishaji kiotomatiki kwenye sehemu ya anwani. Huenda Akaunti yako ya Google ikawa na aina nyingine za historia ya kuvinjari kwenye <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Ruhusu kwa mtambo wa sasa wa kutafuta</translation>
 <translation id="7138678301420049075">Nyingine</translation>
@@ -694,6 +696,7 @@ Kwa mfano, baadhi ya tovuti zinaweza kujibu ombi hili kwa kukuonyesha matangazo 
 <translation id="7191430249889272776">Kichupo kimefunguliwa chini chini.</translation>
 <translation id="723171743924126238">Chagua picha</translation>
 <translation id="7243308994586599757">Chaguo zinapatikana karibu na sehemu ya chini ya skrini</translation>
+<translation id="7250468141469952378">Imechagua <ph name="ITEM_COUNT" /></translation>
 <translation id="7251326866581677552">Imezuiwa kwenye baadhi ya tovuti</translation>
 <translation id="7253272406652746122">Ongeza Akaunti ya Google kutoka kwenye ukurasa wa Akaunti katika programu ya Mipangilio ya kifaa chako.</translation>
 <translation id="7274013316676448362">Tovuti imezuiwa</translation>

@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">I-undo ang iyong huling pagkilos</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 hanggang 8</translation>
 <translation id="3837047332182291558">Gawing mas maliwanag ang keyboard (para lang sa mga keyboard na may backlight)</translation>
-<translation id="385051799172605136">Bumalik</translation>
 <translation id="3976863468609830880">I-click ang huling icon sa iyong shelf</translation>
 <translation id="4035482366624727273">Piliin ang lahat ng nasa page</translation>
 <translation id="4060703249685950734">Buksang muli ang huling tab o window na isinara mo</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">I-highlight ang row na may address bar</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> o <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Tingnan ang Helper sa Keyboard Shortcut</translation>
-<translation id="4599963776114295076">Mag-type ng address sa web (URL) sa address bar, pagkatapos ay pindutin ang <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Buksan ang lugar ng status (kung saan lumalabas ang iyong larawan sa account)</translation>
 <translation id="4642092649622328492">Kumuha ng screenshot ng bahagi ng screen</translation>
 <translation id="4725377341024374454">Buksan ang naka-highlight na button sa iyong shelf</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Pagiging Maa-access</translation>
 <translation id="7020813747703216897">Walang nahanap na tumutugmang resulta</translation>
 <translation id="7025325401470358758">Susunod na pane</translation>
-<translation id="7272373489634936181">Maghanap ng mga shortcut</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> o <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">I-delete ang susunod na titik (forward na pag-delete)</translation>
 <translation id="766326951329901120">I-paste ang content mula sa clipboard bilang plain text</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, pagkatapos ay <ph name="SPACE" /> o <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Magbukas ng file sa browser</translation>
 <translation id="7917881398263220094">Ihinto ang pag-load ng iyong kasalukuyang page</translation>
-<translation id="8004192919599017226">Simulan ang paghahanap...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> o <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Pumunta sa simula ng dokumento</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> o <ph name="E" /></translation>

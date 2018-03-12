@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, then <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> or <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Go to next tab</translation>
 <translation id="2010818616644390445">Go to the last tab in the window</translation>
+<translation id="2088054208777350526">Search for keyboard shortcuts</translation>
 <translation id="2145908266289632567">Text Editing</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 through =</translation>
 <translation id="2181097965834437145">Show or hide the bookmarks bar</translation>
@@ -62,8 +63,8 @@
 <translation id="3751033133896282964">Undo your last action</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 to 8</translation>
 <translation id="3837047332182291558">Make keyboard brighter (for backlit keyboards only)</translation>
-<translation id="385051799172605136">Back</translation>
 <translation id="3976863468609830880">Click the last icon on your shelf</translation>
+<translation id="4026843240379844265">Move active window between displays</translation>
 <translation id="4035482366624727273">Select everything on the page</translation>
 <translation id="4060703249685950734">Reopen the last tab or window that you closed</translation>
 <translation id="4090342722461256974">Press and hold <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" />, tap <ph name="TAB" /> until you get to the window that you want to open, then release.</translation>
@@ -72,7 +73,6 @@
 <translation id="4141203561740478845">Highlight the row with the address bar</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> or <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">See Keyboard Shortcut Helper</translation>
-<translation id="4599963776114295076">Type a web address (URL) in the address bar, then press <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Open the status area (where your account picture appears)</translation>
 <translation id="4642092649622328492">Take partial screenshot</translation>
 <translation id="4725377341024374454">Open the highlighted button on your shelf</translation>
@@ -126,7 +126,7 @@
 <translation id="6981982820502123353">Accessibility</translation>
 <translation id="7020813747703216897">No matching results found</translation>
 <translation id="7025325401470358758">Next pane</translation>
-<translation id="7272373489634936181">Search for shortcuts</translation>
+<translation id="7237562915163138771">Type a web address in the address bar, then press <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> or <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Delete the next letter (forward delete)</translation>
 <translation id="766326951329901120">Paste content from the clipboard as plain text</translation>
@@ -134,7 +134,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, then <ph name="SPACE" /> or <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Open a file in the browser</translation>
 <translation id="7917881398263220094">Stop the loading of your current page</translation>
-<translation id="8004192919599017226">Start search…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> or <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Go to beginning of document</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> or <ph name="E" /></translation>
@@ -143,6 +142,7 @@
 <translation id="8388247778047144397">Drag the link to a blank area on the tab strip</translation>
 <translation id="8389638407792712197">Open new window</translation>
 <translation id="8429696719963529183">Use F keys (F1 to F12)</translation>
+<translation id="8537650670971624753">Exit search mode</translation>
 <translation id="85690795166292698">Open the link in a new tab</translation>
 <translation id="8609384513243082612">Open new tab</translation>
 <translation id="8644639153978066712">Display hidden files in the Files app</translation>

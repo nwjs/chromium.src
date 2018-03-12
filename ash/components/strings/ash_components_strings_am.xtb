@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">የመጨረሻዎን እርምጃ ይቀልብሱ</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> ከ1 እስከ 8</translation>
 <translation id="3837047332182291558">የቁልፍ ሰሌዳን ይበልጥ ብሩህ ያድርጉ (የጀርባ ብርሃን ላላቸው ቁልፍ ሰሌዳዎች ብቻ)</translation>
-<translation id="385051799172605136">ተመለስ</translation>
 <translation id="3976863468609830880">በእርስዎ መደርደሪያ ላይ የመጨረሻውን አዶ ጠቅ ያድርጉ</translation>
 <translation id="4035482366624727273">በገጹ ላይ ሁሉንም ነገር ይምረጡ</translation>
 <translation id="4060703249685950734">የዘጉትን የመጨረሻው ትር ወይም መስኮት ዳግም ይክፈቱ</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">የአድራሻ አሞሌው ያለውን ረድፍ ያድምቁ</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> ወይም <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">የቁልፍ ሰሌዳ አቋራጭ አጋዥን ይመልከቱ</translation>
-<translation id="4599963776114295076">በአድራሻ አሞሌው ውስጥ የድር አድራሻ (ዩአርኤል) ይተይቡ፣ ከዚያ <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> ይጫኑ</translation>
 <translation id="4628718545549558538">የሁኔታ አካባቢን ይክፈቱ (የመለያ ሥዕልዎ ብቅ የሚልበት ቦታ)</translation>
 <translation id="4642092649622328492">ከፊል ቅጽበታዊ ገጽ ዕይታን ያንሱ</translation>
 <translation id="4725377341024374454">በእርስዎ መደርደሪያ ላይ የደመቀውን አዝራር ይክፈቱ</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">ተደራሽነት</translation>
 <translation id="7020813747703216897">ምንም ተዛማጅ ውጤቶች አልተገኙም</translation>
 <translation id="7025325401470358758">ቀጣይ ንጥል</translation>
-<translation id="7272373489634936181">አቋራጮችን ይፈልጉ</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> ወይም <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">ቀጣዩን ፊደል ይሰርዙ (ወደፊት ስረዛ)</translation>
 <translation id="766326951329901120">ይዘትን ከቅንጥብ ሰሌዳው ላይ እንደ ዝርግ ጽሑፍ ለጥፍ</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />፣ ከዚያ <ph name="SPACE" /> ወይም <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">አንድ ፋይል በአሳሹ ውስጥ ይክፈቱ</translation>
 <translation id="7917881398263220094">የአሁኑን ገጽዎ መጫን ያስቁሙ</translation>
-<translation id="8004192919599017226">ፍለጋ ይጀምሩ...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> ወይም <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">ወደ የሰነድ መጀመሪያ ይሂዱ</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> ወይም <ph name="E" /></translation>

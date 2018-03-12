@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">गुप्त</translation>
 <translation id="10614374240317010">कभी नहीं सहेजा गया</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" /> भाषा के पेज का कभी भी अनुवाद न करें</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">आप <ph name="DOMAIN_NAME" /> द्वारा प्रबंधित खाते से प्रस्थान कर रहे हैं. इससे इस डिवाइस पर संग्रहित Chrome डेटा हट जाएगा, लेकिन डेटा आपके Google खाते में बना रहेगा.</translation>
 <translation id="1105960400813249514">स्‍क्रीन कैप्‍चर</translation>
 <translation id="1111673857033749125">आपके अन्‍य डिवाइस पर सहेजे गए बुकमार्क यहां दिखाई देंगे.</translation>
@@ -683,6 +684,7 @@
 <translation id="7063006564040364415">समन्‍वयन सर्वर से कनेक्‍ट नहीं किया जा सका.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 चुना गया}one{# चुने गए}other{# चुने गए}}</translation>
 <translation id="7077143737582773186">SD कार्ड</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> चुने गए.  विकल्प, स्क्रीन के ऊपरी भाग के पास उपलब्ध हैं</translation>
 <translation id="7121362699166175603">पता बार में स्वत: पूर्णता और इतिहास को हटाता है. आपके Google खाते में <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> पर अन्य प्रकार के ब्राउज़िंग इतिहास हो सकतेे हैं.</translation>
 <translation id="7128222689758636196">वर्तमान खोज इंजन के लिए अनुमति दें</translation>
 <translation id="7138678301420049075">अन्य</translation>
@@ -694,6 +696,7 @@
 <translation id="7191430249889272776">पृष्ठभूमि में टैब खोला गया.</translation>
 <translation id="723171743924126238">फ़ोटो चुनें</translation>
 <translation id="7243308994586599757">विकल्‍प स्‍क्रीन के नीचे उपलब्‍ध हैं</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> चुने गए</translation>
 <translation id="7251326866581677552">कुछ साइटों से ब्लॉक है</translation>
 <translation id="7253272406652746122">अपने डिवाइस के सेटिंग ऐप्लिकेशन में खाते पेज से कोई Google खाता जोड़ें.</translation>
 <translation id="7274013316676448362">अवरोधित साइट</translation>

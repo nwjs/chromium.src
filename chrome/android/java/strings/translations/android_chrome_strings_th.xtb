@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">โหมดไม่ระบุตัวตน</translation>
 <translation id="10614374240317010">ไม่เคยบันทึก</translation>
 <translation id="1068672505746868501">ไม่ต้องแปลหน้าเว็บภาษา<ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">คุณกำลังออกจากระบบบัญชีที่จัดการโดย <ph name="DOMAIN_NAME" /> การออกจากระบบจะลบข้อมูล Chrome ที่จัดเก็บในอุปกรณ์นี้ แต่ข้อมูลดังกล่าวจะยังคงอยู่ในบัญชี Google ของคุณ</translation>
 <translation id="1105960400813249514">จับภาพหน้าจอ</translation>
 <translation id="1111673857033749125">บุ๊กมาร์กที่บันทึกไว้ในอุปกรณ์เครื่องอื่นๆ ของคุณจะปรากฏที่นี่</translation>
@@ -683,6 +684,7 @@
 <translation id="7063006564040364415">ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์การซิงค์</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{เลือก 1 รายการ}other{เลือก # รายการ}}</translation>
 <translation id="7077143737582773186">การ์ด SD</translation>
+<translation id="7087918508125750058">เลือกไว้ <ph name="ITEM_COUNT" /> รายการ ตัวเลือกอยู่ตรงบริเวณด้านบนของหน้าจอ</translation>
 <translation id="7121362699166175603">ล้างประวัติและการเติมข้อความอัตโนมัติในแถบที่อยู่เว็บ บัญชี Google อาจมีประวัติการท่องเว็บรูปแบบอื่นๆ ที่ <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /></translation>
 <translation id="7128222689758636196">อนุญาตสำหรับเครื่องมือค้นหาปัจจุบัน</translation>
 <translation id="7138678301420049075">อื่นๆ</translation>
@@ -694,6 +696,7 @@
 <translation id="7191430249889272776">แท็บเปิดในพื้นหลัง</translation>
 <translation id="723171743924126238">เลือกภาพ</translation>
 <translation id="7243308994586599757">มีตัวเลือกอยู่ทางด้านล่างของหน้าจอ</translation>
+<translation id="7250468141469952378">เลือกไว้ <ph name="ITEM_COUNT" /> รายการ</translation>
 <translation id="7251326866581677552">บล็อกจากบางไซต์</translation>
 <translation id="7253272406652746122">เพิ่มบัญชี Google จากหน้า "บัญชี" ในแอปการตั้งค่าของอุปกรณ์</translation>
 <translation id="7274013316676448362">เว็บไซต์ที่ถูกบล็อก</translation>

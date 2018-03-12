@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, a zatim <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> ili <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Prelazak na sljedeću karticu</translation>
 <translation id="2010818616644390445">Prelazak na zadnju karticu u prozoru</translation>
+<translation id="2088054208777350526">Pretraživanje tipkovnih prečaca</translation>
 <translation id="2145908266289632567">Uređivanje teksta</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> od 1 do =</translation>
 <translation id="2181097965834437145">Prikaz ili sakrivanje trake oznaka</translation>
@@ -62,8 +63,8 @@
 <translation id="3751033133896282964">Poništavanje posljednje radnje</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> od 1 do 8</translation>
 <translation id="3837047332182291558">Pojačavanje osvjetljenja tipkovnice (samo za tipkovnice s pozadinskim osvjetljenjem)</translation>
-<translation id="385051799172605136">Natrag</translation>
 <translation id="3976863468609830880">Klik na posljednju ikonu na polici</translation>
+<translation id="4026843240379844265">Premještanje aktivnog prozora s jednog zaslona na drugi</translation>
 <translation id="4035482366624727273">Odabir svega na stranici</translation>
 <translation id="4060703249685950734">Ponovno otvaranje zadnje zatvorene kartice ili prozora</translation>
 <translation id="4090342722461256974">Pritisnite i zadržite <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" /> te dodirujte stavku <ph name="TAB" /> dok se ne otvori željeni prozor, a zatim otpustite pritisak.</translation>
@@ -72,7 +73,6 @@
 <translation id="4141203561740478845">Isticanje retka s adresnom trakom</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> ili <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Pregled pomoći za tipkovne prečace</translation>
-<translation id="4599963776114295076">Unesite web-adresu (URL) u adresnu traku, pa pritisnite <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Kliknite područje statusa (na mjestu na kojem se prikazuje slika računa)</translation>
 <translation id="4642092649622328492">Snimanje dijela zaslona</translation>
 <translation id="4725377341024374454">Otvaranje istaknutog gumba na polici</translation>
@@ -126,7 +126,7 @@
 <translation id="6981982820502123353">Pristupačnost</translation>
 <translation id="7020813747703216897">Nisu pronađeni rezultati</translation>
 <translation id="7025325401470358758">Sljedeće okno</translation>
-<translation id="7272373489634936181">Pretraživanje prečaca</translation>
+<translation id="7237562915163138771">Unesite web-adresu u adresnu traku, a zatim pritisnite <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> ili <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Brisanje sljedećeg slova (brisanje unaprijed)</translation>
 <translation id="766326951329901120">Lijepljenje sadržaja iz međuspremnika kao običnog teksta</translation>
@@ -134,7 +134,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, a zatim <ph name="SPACE" /> ili <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Otvaranje datoteke u pregledniku</translation>
 <translation id="7917881398263220094">Prekid učitavanja trenutačne stranice</translation>
-<translation id="8004192919599017226">Pokretanje pretraživanja...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> ili <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Prelazak na početak dokumenta</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> ili <ph name="E" /></translation>
@@ -143,6 +142,7 @@
 <translation id="8388247778047144397">Povucite vezu na prazno područje na vrpci kartica</translation>
 <translation id="8389638407792712197">Otvaranje novog prozora</translation>
 <translation id="8429696719963529183">Upotreba F tipki (od F1 to F12)</translation>
+<translation id="8537650670971624753">Izlaz iz načina pretraživanja</translation>
 <translation id="85690795166292698">Otvaranje veze u novoj kartici</translation>
 <translation id="8609384513243082612">Otvaranje nove kartice</translation>
 <translation id="8644639153978066712">Prikazivanje skrivenih datoteka u aplikaciji Datoteke</translation>

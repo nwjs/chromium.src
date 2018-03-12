@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Penyamaran</translation>
 <translation id="10614374240317010">Jangan pernah disimpan</translation>
 <translation id="1068672505746868501">Jangan pernah menerjemahkan halaman dalam <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Anda keluar dari akun yang dikelola oleh <ph name="DOMAIN_NAME" />. Tindakan ini akan menghapus data Chrome yang tersimpan di perangkat ini, namun data akan tetap berada di Akun Google Anda.</translation>
 <translation id="1105960400813249514">Screenshot</translation>
 <translation id="1111673857033749125">Bookmark yang tersimpan di perangkat lainnya akan muncul di sini.</translation>
@@ -683,6 +684,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="7063006564040364415">Tidak dapat menyambung ke server sinkronisasi.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 dipilih}other{# dipilih}}</translation>
 <translation id="7077143737582773186">Kartu Secure Digital</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> dipilih. Opsi yang tersedia di dekat bagian atas layar</translation>
 <translation id="7121362699166175603">Menghapus histori dan pelengkapan otomatis di kolom URL. Akun Google Anda mungkin memiliki bentuk histori browsing lainnya di <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Mengizinkan mesin telusur saat ini</translation>
 <translation id="7138678301420049075">Lainnya</translation>
@@ -694,6 +696,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="7191430249889272776">Tab dibuka di latar belakang.</translation>
 <translation id="723171743924126238">Pilih gambar</translation>
 <translation id="7243308994586599757">Opsi terdapat di dekat bagian bawah layar</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> dipilih</translation>
 <translation id="7251326866581677552">Diblokir dari beberapa situs</translation>
 <translation id="7253272406652746122">Tambahkan Akun Google dari halaman Akun di aplikasi Setelan pada perangkat.</translation>
 <translation id="7274013316676448362">Situs yang diblokir</translation>

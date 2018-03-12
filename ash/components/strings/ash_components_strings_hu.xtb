@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Utolsó művelet visszavonása</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1-től 8-ig</translation>
 <translation id="3837047332182291558">Billentyűzet megvilágításának erősítése (csak háttérvilágítással rendelkező billentyűzeteknél)</translation>
-<translation id="385051799172605136">Vissza</translation>
 <translation id="3976863468609830880">A polcon lévő utolsó ikonra kattintás</translation>
 <translation id="4035482366624727273">Minden kijelölése az oldalon</translation>
 <translation id="4060703249685950734">A legutóbb bezárt lap vagy ablak újbóli megnyitása</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">A címsáv sorának kiemelése</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> vagy <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">A billentyűparancsokat ismertető súgó megtekintése</translation>
-<translation id="4599963776114295076">Gépelje be a címsávba az internetcímet (URL), majd nyomja meg az <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> billentyűt</translation>
 <translation id="4628718545549558538">Az állapotsor megnyitása (ahol fiókja képe látható)</translation>
 <translation id="4642092649622328492">Részleges képernyőkép készítése</translation>
 <translation id="4725377341024374454">A kiemelt gomb megnyitása a polcon</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Kisegítő lehetőségek</translation>
 <translation id="7020813747703216897">Nincs megfelelő találat</translation>
 <translation id="7025325401470358758">Következő ablaktábla</translation>
-<translation id="7272373489634936181">Billentyűparancsok keresése</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> vagy <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Következő betű törlése (előre törlés)</translation>
 <translation id="766326951329901120">Tartalom beillesztése a vágólapról egyszerű szövegként</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, majd <ph name="SPACE" /> vagy <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Fájl megnyitása a böngészőben</translation>
 <translation id="7917881398263220094">Az aktuális oldal betöltésének leállítása</translation>
-<translation id="8004192919599017226">Keresés indítása…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> vagy <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Ugrás a dokumentum elejére</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> vagy <ph name="E" /></translation>

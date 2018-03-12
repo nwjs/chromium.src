@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">உங்கள் கடைசிச் செயலைச் செயல்தவிர்க்கும்</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 முதல் 8 வரை</translation>
 <translation id="3837047332182291558">விசைப்பலகையைப் பிரகாசமாக்கும் (பின்னணி வெளிச்சம் கொண்ட விசைப்பலகைகளுக்கு மட்டும்)</translation>
-<translation id="385051799172605136">முந்தைய பக்கம்</translation>
 <translation id="3976863468609830880">உங்கள் ஷெல்ஃபில் கடைசி ஐகானைக் கிளிக் செய்யும்</translation>
 <translation id="4035482366624727273">பக்கத்தில் உள்ள எல்லாவற்றையும் தேர்ந்தெடுக்கும்</translation>
 <translation id="4060703249685950734">நீங்கள் கடையாக மூடிய தாவல் அல்லது சாளரத்தை மீண்டும் திறக்கும்</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">முகவரிப் பட்டியைக் கொண்ட வரிசையைத் தனிப்படுத்தும்</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> அல்லது <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">கீபோர்ட் ஷார்ட்கட் உதவியைக் காட்டும்</translation>
-<translation id="4599963776114295076">முகவரிப் பட்டியில் வலை முகவரியைத் (URL) தட்டச்சு செய்து, <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" />ஐ அழுத்தவும்</translation>
 <translation id="4628718545549558538">உங்கள் கணக்கின் படம் தோன்றக்கூடிய நிலைப் பகுதியைத் திறக்கும்</translation>
 <translation id="4642092649622328492">பகுதியளவு ஸ்கிரீன்ஷாட்டை எடுக்கும்</translation>
 <translation id="4725377341024374454">உங்கள் ஷெல்ஃபில் தனிப்படுத்தப்பட்ட பொத்தானைத் திறக்கும்</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">அணுகல் தன்மை</translation>
 <translation id="7020813747703216897">பொருந்தும் முடிவுகள் எதுவுமில்லை</translation>
 <translation id="7025325401470358758">அடுத்த பலகம்</translation>
-<translation id="7272373489634936181">குறுக்குவழிகளைத் தேடவும்</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> அல்லது <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">அடுத்த எழுத்தை நீக்கும் (முன்னோக்கி நீக்குதல்)</translation>
 <translation id="766326951329901120">கிளிப்போர்டிலிருந்து உள்ளடக்கத்தை எளிய உரையாக ஒட்டும்</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, பின்னர் <ph name="SPACE" /> அல்லது <ph name="ENTER" />ஐ அழுத்தவும்</translation>
 <translation id="7787242579016742662">உலாவியில் கோப்பைத் திறக்கும்</translation>
 <translation id="7917881398263220094">உங்கள் தற்போதைய பக்கத்தை ஏற்றுவதை நிறுத்தும்</translation>
-<translation id="8004192919599017226">தேடலைத் தொடங்கு...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> அல்லது <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">ஆவணத்தின் தொடக்கத்திற்குச் செல்லும்</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> அல்லது <ph name="E" /></translation>

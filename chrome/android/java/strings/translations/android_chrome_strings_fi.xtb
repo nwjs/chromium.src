@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Ei tallenneta</translation>
 <translation id="1068672505746868501">Älä koskaan käännä kielellä <ph name="SOURCE_LANGUAGE" /> kirjoitettuja sivuja.</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> – <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Olet kirjautumassa ulos tilistä, jota hallinnoi <ph name="DOMAIN_NAME" />. Laitteelle tallennetut Chrome-tiedot poistetaan, mutta ne säilytetään Google-tililläsi.</translation>
 <translation id="1105960400813249514">Kuvakaappaus</translation>
 <translation id="1111673857033749125">Muilla laitteilla tallentamasi kirjanmerkit näytetään täällä.</translation>
@@ -683,6 +684,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7063006564040364415">Synkronointipalvelimeen ei saada yhteyttä.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 valittu}other{# valittu}}</translation>
 <translation id="7077143737582773186">Secure Digital</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> valittu. Toimintoja on käytettävissä näytön yläosassa.</translation>
 <translation id="7121362699166175603">Tyhjentää historian ja osoitekentän automaattiset täydennykset. Google-tililläsi voi olla muita selaushistoriatietoja osoitteessa <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Salli nykyiselle hakukoneelle</translation>
 <translation id="7138678301420049075">Muu</translation>
@@ -694,6 +696,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7191430249889272776">Välilehti avattiin taustalla.</translation>
 <translation id="723171743924126238">Valitse kuvat</translation>
 <translation id="7243308994586599757">Asetukset löytyvät näytön alalaidasta.</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> valittu</translation>
 <translation id="7251326866581677552">Joidenkin sivustojen mainokset estetty</translation>
 <translation id="7253272406652746122">Lisää Google-tili laitteen Asetukset-sovelluksen Tilit-sivulla.</translation>
 <translation id="7274013316676448362">Estetty sivusto</translation>

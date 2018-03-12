@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">আপনার শেষ অ্যাকশনটি আগের অবস্থায় ফেরান</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> ১ থেকে ৮ পর্যন্ত</translation>
 <translation id="3837047332182291558">কীবোর্ডের উজ্জ্বলতা বাড়ান (ব্যাকলিট কীবোর্ডের জন্য)</translation>
-<translation id="385051799172605136">ফিরুন</translation>
 <translation id="3976863468609830880">আপনার শেল্ফে শেষ আইকনটি ক্লিক করুন</translation>
 <translation id="4035482366624727273">পৃষ্ঠাতে থাকা সবকিছুই বেছে নিন</translation>
 <translation id="4060703249685950734">আপনার বন্ধ করা শেষ ট্যাব অথবা উইন্ডোটি খুলুন</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">অ্যাড্রেস বার সহ সারিটি হাইলাইট করুন</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> অথবা <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">কীবোর্ড শর্টকাট সহায়তাকারী দেখুন</translation>
-<translation id="4599963776114295076">অ্যাড্রেস বারে ওয়েব অ্যাড্রেস (URL) টাইপ করুন, তারপর <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> টিপুন</translation>
 <translation id="4628718545549558538">স্ট্যাটাস এলাকা খুলুন (যেখানে আপনার অ্যাকাউন্টের ছবি দেখানো হয়)</translation>
 <translation id="4642092649622328492">আংশিক স্ক্রিনশট নিন</translation>
 <translation id="4725377341024374454">আপনার শেল্ফে হাইলাইট করা বোতামটি খুলুন</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">অ্যাক্সেযোগ্যতা</translation>
 <translation id="7020813747703216897">মিলে যাওয়া কোনও ফলাফল খুঁজে পাওয়া যায়নি</translation>
 <translation id="7025325401470358758">পরবর্তী ফলক</translation>
-<translation id="7272373489634936181">শর্টকাটগুলি খুঁজুন</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> অথবা <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">পরের অক্ষরটি মুছুন (সামনের দিকে মুছুন)</translation>
 <translation id="766326951329901120">ক্লিপবোর্ড থেকে সাধারণ টেক্সট হিসেবে কন্টেন্ট পেস্ট করুন</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, তারপর <ph name="SPACE" /> অথবা <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">ব্রাউজারে একটি ফাইল খুলুন</translation>
 <translation id="7917881398263220094">আমার বর্তমান পৃষ্ঠা লোড হওয়া বন্ধ করুন</translation>
-<translation id="8004192919599017226">খুঁজুন...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> অথবা <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">ডকুমেন্টের শুরুতে যান</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> অথবা <ph name="E" /></translation>

@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Ẩn danh</translation>
 <translation id="10614374240317010">Không bao giờ lưu</translation>
 <translation id="1068672505746868501">Không bao giờ dịch các trang viết bằng <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Bạn đang đăng xuất tài khoản do <ph name="DOMAIN_NAME" /> quản lý. Thao tác này sẽ xóa dữ liệu Chrome được lưu trữ trên thiết bị này nhưng dữ liệu sẽ vẫn còn trong tài khoản Google của bạn.</translation>
 <translation id="1105960400813249514">Chụp ảnh màn hình</translation>
 <translation id="1111673857033749125">Dấu trang được lưu trên thiết bị khác của bạn sẽ xuất hiện tại đây.</translation>
@@ -683,6 +684,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="7063006564040364415">Không thể kết nối với máy chủ đồng bộ hóa.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{Đã chọn 1 mục}other{Đã chọn # mục}}</translation>
 <translation id="7077143737582773186">Thẻ SD</translation>
+<translation id="7087918508125750058">Đã chọn <ph name="ITEM_COUNT" /> mục. Bạn có thể sử dụng các tùy chọn ở gần đầu màn hình</translation>
 <translation id="7121362699166175603">Xóa lịch sử và tự động hoàn thành trong thanh địa chỉ. Tài khoản Google của bạn có thể có các dạng lịch sử duyệt web khác tại <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Cho phép đối với công cụ tìm kiếm hiện tại</translation>
 <translation id="7138678301420049075">Khác</translation>
@@ -694,6 +696,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="7191430249889272776">Tab được mở dưới nền.</translation>
 <translation id="723171743924126238">Chọn hình ảnh</translation>
 <translation id="7243308994586599757">Có các tùy chọn ở gần cuối màn hình</translation>
+<translation id="7250468141469952378">Đã chọn <ph name="ITEM_COUNT" /> mục</translation>
 <translation id="7251326866581677552">Đã chặn khỏi một số trang web</translation>
 <translation id="7253272406652746122">Thêm Tài khoản Google từ trang Tài khoản trong ứng dụng Cài đặt trên thiết bị của bạn.</translation>
 <translation id="7274013316676448362">Trang web bị chặn</translation>

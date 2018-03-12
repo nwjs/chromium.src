@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Annuler la dernière action</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" />1 à 8</translation>
 <translation id="3837047332182291558">Augmenter la luminosité du clavier (claviers rétroéclairés uniquement)</translation>
-<translation id="385051799172605136">Retour</translation>
 <translation id="3976863468609830880">Cliquer sur la dernière icône de l'étagère</translation>
 <translation id="4035482366624727273">Sélectionner tout le contenu de la page</translation>
 <translation id="4060703249685950734">Rouvrir l'onglet ou la fenêtre que vous venez de fermer</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Mettre en surbrillance la ligne de la barre d'adresse</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> ou <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Consulter l'aide relative aux raccourcis clavier</translation>
-<translation id="4599963776114295076">Saisissez une adresse Web (URL) dans la barre d'adresse, puis appuyez sur <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Ouvrir la zone d'état (là où se trouve la photo de votre compte)</translation>
 <translation id="4642092649622328492">Faire une capture d'écran partielle</translation>
 <translation id="4725377341024374454">Ouvrir le bouton mis en surbrillance sur l'étagère</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Accessibilité</translation>
 <translation id="7020813747703216897">Aucun résultat ne correspond à votre recherche</translation>
 <translation id="7025325401470358758">Volet suivant</translation>
-<translation id="7272373489634936181">Rechercher des raccourcis</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> ou <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Supprimer la lettre suivante (suppression avant)</translation>
 <translation id="766326951329901120">Coller le contenu du Presse-papiers en texte brut</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, puis <ph name="SPACE" /> ou <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Ouvrir un fichier dans le navigateur</translation>
 <translation id="7917881398263220094">Arrêter le chargement de la page active</translation>
-<translation id="8004192919599017226">Lancer la recherche…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> ou <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Accéder au début du document</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> ou <ph name="E" /></translation>

@@ -1142,7 +1142,6 @@
 <translation id="2737363922397526254">Σύμπτυξη...</translation>
 <translation id="2737492745329609575">Έναρξη ρύθμισης</translation>
 <translation id="2738771556149464852">Όχι αργότερα από</translation>
-<translation id="2739046699559178272">Αποθήκευση και συνέχεια</translation>
 <translation id="2739191690716947896">Εντοπισμός σφαλμάτων</translation>
 <translation id="2739240477418971307">Αλλαγή των ρυθμίσεων προσβασιμότητας</translation>
 <translation id="2740393541869613458">ελέγξτε τους ιστότοπους που επισκέφτηκε ο εποπτευόμενος χρήστης και</translation>
@@ -1901,7 +1900,6 @@
 <translation id="3856800405688283469">Επιλογή ζώνης ώρας</translation>
 <translation id="3856921555429624101">Η μέτρηση της χρήσης δεδομένων έληξε</translation>
 <translation id="3857228364945137633">Δοκιμάστε το Smart Lock, για να ξεκλειδώσετε το <ph name="DEVICE_TYPE" /> χωρίς κωδικό πρόσβασης, όταν το τηλέφωνό σας είναι κοντά.</translation>
-<translation id="3857732810083914482">Η εξατομίκευση είναι απενεργοποιημένη. Μπορείτε να αλλάξετε αυτήν τη ρύθμιση στη διεύθυνση myaccount.google.com.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860381078714302691">Καλώς ήρθατε στο Hangouts Meet</translation>
 <translation id="3862134173397075045">Καλώς ήρθατε στην εμπειρία Μετάδοσης στο Chrome!</translation>
@@ -3333,7 +3331,6 @@
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="6178664161104547336">Επιλογή πιστοποιητικού</translation>
 <translation id="6181431612547969857">Η λήψη αποκλείστηκε</translation>
-<translation id="6181803575025675566">Ελέγξτε τον τρόπο λειτουργίας στις <ph name="LINK_START" />Ρυθμίσεις<ph name="LINK_END" />.</translation>
 <translation id="6185132558746749656">Τοποθεσία συσκευής</translation>
 <translation id="6185696379715117369">Page up</translation>
 <translation id="6189412234224385711">Άνοιγμα με <ph name="EXTENSION_NAME" /></translation>
@@ -3685,7 +3682,6 @@
 <translation id="6739923123728562974">Εμφάνιση συντόμευσης επιφάνειας εργασίας</translation>
 <translation id="6740234557573873150">Το αρχείο <ph name="FILE_NAME" /> τέθηκε σε παύση</translation>
 <translation id="6742339027238151589">Δυνατότητα πρόσβασης από το σενάριο</translation>
-<translation id="6743841972744298686">Ρυθμίσεις συγχρονισμού</translation>
 <translation id="6745592621698551453">Ενημέρωση τώρα</translation>
 <translation id="6746124502594467657">Μετακίνηση προς τα κάτω</translation>
 <translation id="674632704103926902">Ενεργοποίηση μεταφοράς με πάτημα</translation>
@@ -3913,7 +3909,6 @@
 <translation id="7108338896283013870">Απόκρυψη</translation>
 <translation id="7108634116785509031">Ο ιστότοπος <ph name="HOST" /> επιθυμεί να χρησιμοποιήσει την κάμερα σας</translation>
 <translation id="7108668606237948702">enter</translation>
-<translation id="7112978678959880812">Η εξατομίκευση είναι ενεργή. Μπορείτε να αλλάξετε αυτήν τη ρύθμιση στη διεύθυνση myaccount.google.com.</translation>
 <translation id="7113502843173351041">Κοινοποίηση της διεύθυνσής σας ηλεκτρονικού ταχυδρομείου</translation>
 <translation id="7114054701490058191">Οι κωδικοί πρόσβασης δεν ταιριάζουν</translation>
 <translation id="7117228822971127758">Δοκιμάστε ξανά αργότερα</translation>
@@ -4815,7 +4810,6 @@
 <translation id="8581809080475256101">Πατήστε για να μεταβείτε προς τα εμπρός στο μενού περιβάλλοντος για να δείτε το ιστορικό</translation>
 <translation id="8584280235376696778">&amp;Άνοιγμα βίντεο σε νέα καρτέλα</translation>
 <translation id="8588866096426746242">Εμφάνιση στατιστικών στοιχείων προφίλ</translation>
-<translation id="8589652987924574405">Οι σελιδοδείκτες, το ιστορικό, οι κωδικοί πρόσβασης και άλλες ρυθμίσεις σας θα συγχρονιστούν με τον Λογαριασμό σας Google ώστε η χρήση τους να είναι δυνατή σε όλες τις συσκευές σας. Μπορείτε να αλλάξετε αυτήν τη ρύθμιση από τις Ρυθμίσεις.</translation>
 <translation id="8590375307970699841">Ρύθμιση αυτόματων ενημερώσεων</translation>
 <translation id="8594908476761052472">Λήψη βίντεο</translation>
 <translation id="8596540852772265699">Προσαρμοσμένα αρχεία</translation>
@@ -5090,7 +5084,6 @@
 <translation id="9024127637873500333">Άνοιγμα σε &amp;Νέα Καρτέλα</translation>
 <translation id="9024331582947483881">πλήρης οθόνη</translation>
 <translation id="9025098623496448965">Εντάξει, θέλω να επιστρέψω στην οθόνη σύνδεσης</translation>
-<translation id="902659348151742535">Η Google μπορεί να χρησιμοποιεί το ιστορικό περιήγησής σας για την εξατομίκευση της Αναζήτησης, των διαφημίσεων και άλλων υπηρεσιών Google.</translation>
 <translation id="9026731007018893674">αρχείο λήψης</translation>
 <translation id="9027146684281895941">Επιβλέψτε αυτό το άτομο για να ελέγξετε και να προβάλετε τους ιστότοπους που επισκέπτεται από το Λογαριασμό σας Google.</translation>
 <translation id="9027459031423301635">Άνοιγμα Συνδέσμου σε Νέα Καρτέ&amp;λα</translation>

@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Son işleminizi geri alır</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 ile 8 arasındaki tuşlar</translation>
 <translation id="3837047332182291558">Klavyenin ışığını açar (yalnızca arkadan aydınlatmalı klavyeler için)</translation>
-<translation id="385051799172605136">Geri</translation>
 <translation id="3976863468609830880">Rafınızdaki son simgeyi tıklar</translation>
 <translation id="4035482366624727273">Sayfadaki her şeyi seçer</translation>
 <translation id="4060703249685950734">Kapattığınız son sekmeyi veya pencereyi yeniden açar</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Adres çubuğu satırını vurgular</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> veya <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Klavye Kısayolu Yardımcısı'nı gösterir</translation>
-<translation id="4599963776114295076">Adres çubuğuna bir web adresi (URL) yazın, ardından <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> tuşlarına basın</translation>
 <translation id="4628718545549558538">Hesap resminizin görüntülendiği durum alanını açar</translation>
 <translation id="4642092649622328492">Kısmi ekran görüntüsü alır</translation>
 <translation id="4725377341024374454">Rafınızda vurgulanan düğmeyi açar</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Erişilebilirlik</translation>
 <translation id="7020813747703216897">Eşleşen sonuç bulunamadı</translation>
 <translation id="7025325401470358758">Sonraki bölme</translation>
-<translation id="7272373489634936181">Kısayol ara</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> veya <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Sonraki harfi siler (ileri doğru silme)</translation>
 <translation id="766326951329901120">Panodaki içeriği düz metin olarak yapıştırır</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, daha sonra <ph name="SPACE" /> veya <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Bir dosyayı tarayıcıda açar</translation>
 <translation id="7917881398263220094">Geçerli sayfanızın yüklenmesini durdurur</translation>
-<translation id="8004192919599017226">Aramayı başlat...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> veya <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Dokümanın başına gider</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> veya <ph name="E" /></translation>

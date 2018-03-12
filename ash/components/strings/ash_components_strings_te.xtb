@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">మీ చివరి చర్యను రద్దు చేయండి</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 నుండి 8</translation>
 <translation id="3837047332182291558">కీబోర్డ్‌ని మరింత ప్రకాశవంతం చేయండి (నేపథ్య కాంతి ఉన్న కీబోర్డ్‌లకు మాత్రమే)</translation>
-<translation id="385051799172605136">వెనుకకు</translation>
 <translation id="3976863468609830880">మీ అరలోని చివరి చిహ్నాన్ని క్లిక్ చేయండి</translation>
 <translation id="4035482366624727273">పేజీలోని ప్రతిదాన్ని ఎంచుకోండి</translation>
 <translation id="4060703249685950734">మీరు మూసివేసిన చివరి ట్యాబ్ లేదా విండోని తిరిగి తెరవండి</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">చిరునామా బార్‌తో అడ్డు వరుసని హైలైట్ చేయండి</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> లేదా <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">కీబోర్డ్ షార్ట్‌కట్ హెల్పర్‌ని చూడండి</translation>
-<translation id="4599963776114295076">చిరునామా బార్‌లో వెబ్ చిరునామా (URL)ని టైప్ చేసి, ఆపై <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" />ని నొక్కండి</translation>
 <translation id="4628718545549558538">స్థితి ప్రాంతాన్ని తెరవండి (మీ ఖాతా చిత్రం కనిపించే స్థలం)</translation>
 <translation id="4642092649622328492">పాక్షిక స్క్రీన్‌షాట్ తీసుకోండి</translation>
 <translation id="4725377341024374454">మీ అరలో హైలైట్ చేసిన బటన్‌ని తెరవండి</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">ప్రాప్యత</translation>
 <translation id="7020813747703216897">సరిపోలే ఫలితాలు ఏవీ కనుగొనబడలేదు</translation>
 <translation id="7025325401470358758">తదుపరి పేన్</translation>
-<translation id="7272373489634936181">షార్ట్‌కట్‌ల కోసం శోధించండి</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> లేదా <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">తదుపరి అక్షరాన్ని తొలగించండి (ముందుకు తొలగింపు)</translation>
 <translation id="766326951329901120">క్లిప్‌బోర్డ్ నుండి కంటెంట్‌ను సాదా వచనంగా అతికించండి</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, ఆపై <ph name="SPACE" /> లేదా <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">బ్రౌజర్‌లో ఫైల్‌ను తెరవండి</translation>
 <translation id="7917881398263220094">మీ ప్రస్తుత పేజీ లోడ్ కాకుండా ఆపివేయండి</translation>
-<translation id="8004192919599017226">శోధనను ప్రారంభించండి...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> లేదా <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">పత్రం ప్రారంభం వద్దకు వెళ్లండి</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> లేదా <ph name="E" /></translation>

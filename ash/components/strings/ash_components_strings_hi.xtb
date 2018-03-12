@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">अपनी पिछली कार्रवाई को पहले जैसा करें</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 से 8 तक</translation>
 <translation id="3837047332182291558">कीबोर्ड की रोशनी बढ़ाएं (सिर्फ़ बैकलिट कीबोर्ड के लिए)</translation>
-<translation id="385051799172605136">वापस</translation>
 <translation id="3976863468609830880">अपनी अलमारी पर आखिरी आइकॉन पर क्लिक करें</translation>
 <translation id="4035482366624727273">पेज पर सब कुछ चुनें</translation>
 <translation id="4060703249685950734">अपना बंद किया गया आखिरी टैब या विंडो फिर से खोलें</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">पता बार वाली पंक्‍ति हाइलाइट करें</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> या <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">कीबोर्ड शॉर्टकट सहायक देखें</translation>
-<translation id="4599963776114295076">पता बार में कोई वेब पता (यूआरएल) लिखें, फिर <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> दबाएं</translation>
 <translation id="4628718545549558538">हाल बताने वाली जगह खोलें (जहां आपके खाते की तस्वीर दिखाई देती है)</translation>
 <translation id="4642092649622328492">आंशिक स्क्रीनशॉट लें</translation>
 <translation id="4725377341024374454">अपनी अलमारी पर हाइलाइट किया गया बटन खोलें</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">पहुंच क्षमता</translation>
 <translation id="7020813747703216897">मिलान करने वाला कोई नतीजा नहीं मिला</translation>
 <translation id="7025325401470358758">अगला फलक</translation>
-<translation id="7272373489634936181">शॉर्टकट खोजें</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> या <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">अगला अक्षर मिटाएं (आगे से मिटाएं)</translation>
 <translation id="766326951329901120">क्लिपबोर्ड की सामग्री सादे पाठ की तरह चिपकाएं</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, फिर <ph name="SPACE" /> या <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">ब्राउज़र में फ़ाइल खोलें</translation>
 <translation id="7917881398263220094">अपने अभी वाले पेज को लोड होने से रोकें</translation>
-<translation id="8004192919599017226">खोज शुरू करें...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> या <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">दस्‍तावेज़ की शुरुआत में जाएं</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> या <ph name="E" /></translation>

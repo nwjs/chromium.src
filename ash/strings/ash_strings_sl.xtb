@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Dvakrat pritisnite Ctrl + Shift + Q, če se želite odjaviti.</translation>
 <translation id="3893630138897523026">ChromeVox (izgovorjava povratnih informacij)</translation>
 <translation id="3899995891769452915">Glasovni vnos</translation>
+<translation id="3900355044994618856">Seja se bo končala čez <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Vzpostavljanje povezave z omrežjem <ph name="NAME" /></translation>
 <translation id="394485226368336402">Nastavitve zvoka</translation>
 <translation id="397105322502079400">Izračunavanje …</translation>
@@ -252,6 +253,7 @@ Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
 <translation id="7066646422045619941">To omrežje je onemogočil skrbnik.</translation>
 <translation id="7067196344162293536">Samodejno sukanje</translation>
 <translation id="7098389117866926363">Naprava USB-C (vrata levo zadaj)</translation>
+<translation id="7131634465328662194">Samodejno boste odjavljeni.</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Ponastavitev na prejšnjo ločljivost čez <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Zadnji mikrofon</translation>
@@ -308,6 +310,7 @@ Uporabljajte to funkcijo samo z računi, ki jim zaupate.</translation>
 <translation id="8484916590211895857"><ph name="NAME" />: Vnovično vzpostavljanje povezave ...</translation>
 <translation id="8517041960877371778">Akumulator naprave <ph name="DEVICE_TYPE" /> se morda ne bo polnil, medtem ko je naprava vklopljena.</translation>
 <translation id="8639760480004882931">Še <ph name="PERCENTAGE" /> %</translation>
+<translation id="8649101189709089199">Izberite in poslušajte</translation>
 <translation id="8652175077544655965">Zapiranje nastavitev</translation>
 <translation id="8673028979667498656">270°</translation>
 <translation id="8676770494376880701">Priključen je nizkoenergijski polnilnik</translation>

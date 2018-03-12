@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">마지막 작업 실행취소</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1부터 8</translation>
 <translation id="3837047332182291558">키보드 밝게(백라이트 키보드만 해당)</translation>
-<translation id="385051799172605136">뒤로</translation>
 <translation id="3976863468609830880">실행기의 마지막 아이콘 클릭</translation>
 <translation id="4035482366624727273">페이지 내용 모두 선택</translation>
 <translation id="4060703249685950734">마지막으로 닫았던 탭이나 창 다시 열기</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">검색주소창에서 행 강조표시</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> 또는 <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">단축키 도우미 보기</translation>
-<translation id="4599963776114295076">검색주소창에 웹 주소(URL)를 입력한 다음 <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" />를 누름</translation>
 <translation id="4628718545549558538">상태 영역(계정 사진이 표시되는 위치) 열기</translation>
 <translation id="4642092649622328492">부분 스크린샷 찍기</translation>
 <translation id="4725377341024374454">실행기의 강조표시된 버튼 열기</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">접근성</translation>
 <translation id="7020813747703216897">일치하는 결과 없음</translation>
 <translation id="7025325401470358758">다음 창</translation>
-<translation id="7272373489634936181">단축키 검색</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> 또는 <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">다음 글자를 삭제(앞으로 삭제)</translation>
 <translation id="766326951329901120">클립보드의 콘텐츠를 일반 텍스트로 붙여넣기</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />을 누르고 <ph name="SPACE" /> 또는 <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">브라우저에서 파일 열기</translation>
 <translation id="7917881398263220094">현재 페이지 로드를 중지</translation>
-<translation id="8004192919599017226">검색 시작...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> 또는 <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">문서 처음으로 이동</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> 또는 <ph name="E" /></translation>

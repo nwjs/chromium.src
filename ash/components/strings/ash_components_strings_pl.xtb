@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Cofnij ostatnią czynność</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> od 1 do 8</translation>
 <translation id="3837047332182291558">Rozjaśnij klawiaturę (dotyczy tylko klawiatur podświetlanych)</translation>
-<translation id="385051799172605136">Wstecz</translation>
 <translation id="3976863468609830880">Kliknij ostatnią ikonę na półce</translation>
 <translation id="4035482366624727273">Zaznacz całą zawartość strony</translation>
 <translation id="4060703249685950734">Przywróć ostatnią zamkniętą kartę lub ostatnie zamknięte okno</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Zaznacz wiersz z paskiem adresu</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> lub <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Wyświetl pomoc do skrótów klawiszowych</translation>
-<translation id="4599963776114295076">Wpisz adres internetowy (URL) w pasku adresu i naciśnij <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Otwórz pasek stanu (tam, gdzie widać obraz konta)</translation>
 <translation id="4642092649622328492">Zrób zrzut części ekranu</translation>
 <translation id="4725377341024374454">Otwórz zaznaczony przycisk na półce</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Ułatwienia dostępu</translation>
 <translation id="7020813747703216897">Nie znaleziono pasujących wyników</translation>
 <translation id="7025325401470358758">Następny panel</translation>
-<translation id="7272373489634936181">Wyszukaj skróty</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> lub <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Usuń następny znak (usuwanie do przodu)</translation>
 <translation id="766326951329901120">Wklej zawartość schowka jako zwykły tekst</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, a następnie <ph name="SPACE" /> lub <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Otwórz plik w przeglądarce</translation>
 <translation id="7917881398263220094">Zatrzymaj wczytywanie bieżącej strony</translation>
-<translation id="8004192919599017226">Rozpocznij wyszukiwanie…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> lub <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Przejdź na początek dokumentu</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> lub <ph name="E" /></translation>

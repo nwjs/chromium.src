@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">التراجع عن الإجراء الأخير</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 إلى 8</translation>
 <translation id="3837047332182291558">زيادة سطوع لوحة المفاتيح (للوحات المفاتيح المزودة بإضاءة خلفية فقط)</translation>
-<translation id="385051799172605136">الرجوع إلى الوراء</translation>
 <translation id="3976863468609830880">النقر على الرمز الأخير على الرف</translation>
 <translation id="4035482366624727273">تحديد كل محتوى الصفحة</translation>
 <translation id="4060703249685950734">إعادة فتح آخر علامة تبويب أو نافذة أغلقتها</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">تحديد الصف الذي يتضمن شريط العناوين</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> أو <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">الاطلاع على "مساعد اختصارات لوحة المفاتيح"</translation>
-<translation id="4599963776114295076">‏اكتب عنوان الويب (URL) في شريط العناوين، ثم اضغط على <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">فتح منطقة الحالة (التي تظهر فيها صورة الحساب)</translation>
 <translation id="4642092649622328492">أخذ لقطة شاشة جزئية</translation>
 <translation id="4725377341024374454">فتح الزر المُحدَّد على الرف</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">إمكانية الدخول</translation>
 <translation id="7020813747703216897">لم يتم العثور على أي نتائج مطابقة.</translation>
 <translation id="7025325401470358758">الجزء التالي</translation>
-<translation id="7272373489634936181">البحث عن اختصارات</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> أو <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">حذف الحرف التالي (حذف باتجاه الأمام)</translation>
 <translation id="766326951329901120">لصق المحتوى من الحافظة كنص عادي</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />، ثم <ph name="SPACE" /> أو <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">فتح ملف في المتصفح</translation>
 <translation id="7917881398263220094">إيقاف تحميل الصفحة الحالية</translation>
-<translation id="8004192919599017226">جارٍ بدء البحث...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> أو <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">الانتقال إلى بداية المستند</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> أو <ph name="E" /></translation>

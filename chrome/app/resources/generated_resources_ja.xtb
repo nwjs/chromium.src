@@ -1131,7 +1131,6 @@
 <translation id="2737363922397526254">折りたたむ...</translation>
 <translation id="2737492745329609575">設定を開始</translation>
 <translation id="2738771556149464852">終了時刻</translation>
-<translation id="2739046699559178272">保存して続行</translation>
 <translation id="2739191690716947896">デバッグ</translation>
 <translation id="2739240477418971307">ユーザー補助設定の変更</translation>
 <translation id="2740393541869613458">監視対象ユーザーがどのウェブサイトにアクセスしたかを確認する</translation>
@@ -1886,7 +1885,6 @@
 <translation id="3856800405688283469">タイムゾーンを選択</translation>
 <translation id="3856921555429624101">データ使用量の測定が終了しました</translation>
 <translation id="3857228364945137633">Smart Lock を使用すると、スマートフォンが近くにあるときに、パスワードを入力しなくても <ph name="DEVICE_TYPE" /> のロックを解除できます。</translation>
-<translation id="3857732810083914482">カスタマイズがオフになっています。この設定は myaccount.google.com で変更できます。</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860381078714302691">ハングアウト Meet へようこそ</translation>
 <translation id="3862134173397075045">Chrome のキャスト エクスペリエンスへようこそ</translation>
@@ -3303,7 +3301,6 @@
 <translation id="6175314957787328458">Microsoft ドメイン GUID</translation>
 <translation id="6178664161104547336">証明書の選択</translation>
 <translation id="6181431612547969857">ダウンロードがブロックされました</translation>
-<translation id="6181803575025675566">この動作は [<ph name="LINK_START" />設定<ph name="LINK_END" />] で管理できます。</translation>
 <translation id="6185132558746749656">デバイスの位置情報</translation>
 <translation id="6185696379715117369">ページ内を上に移動</translation>
 <translation id="6189412234224385711"><ph name="EXTENSION_NAME" /> で開く</translation>
@@ -3654,7 +3651,6 @@
 <translation id="6739923123728562974">デスクトップ ショートカットを表示</translation>
 <translation id="6740234557573873150"><ph name="FILE_NAME" /> を一時停止しました</translation>
 <translation id="6742339027238151589">スクリプトにアクセス可能</translation>
-<translation id="6743841972744298686">同期設定</translation>
 <translation id="6745592621698551453">今すぐ更新</translation>
 <translation id="6746124502594467657">下に移動</translation>
 <translation id="674632704103926902">タップによるドラッグを有効にする</translation>
@@ -3882,7 +3878,6 @@
 <translation id="7108338896283013870">非表示</translation>
 <translation id="7108634116785509031"><ph name="HOST" /> から、カメラの使用許可を求められています</translation>
 <translation id="7108668606237948702">Enter</translation>
-<translation id="7112978678959880812">カスタマイズがオンになっています。この設定は myaccount.google.com で変更できます。</translation>
 <translation id="7113502843173351041">メールアドレスの読み取り</translation>
 <translation id="7114054701490058191">パスワードが一致しません</translation>
 <translation id="7117228822971127758">しばらくしてからもう一度お試しください</translation>
@@ -4782,7 +4777,6 @@
 <translation id="8581809080475256101">ボタンを押して次に進みます。履歴を表示するにはコンテキスト メニューを選択します</translation>
 <translation id="8584280235376696778">動画を新しいタブで開く(&amp;O)</translation>
 <translation id="8588866096426746242">プロフィール統計情報を表示</translation>
-<translation id="8589652987924574405">ブックマーク、履歴、パスワード、その他の設定が Google アカウントに同期され、どの端末でも利用できるようになります。この動作は [設定] で変更できます。</translation>
 <translation id="8590375307970699841">自動更新を設定</translation>
 <translation id="8594908476761052472">動画を撮影</translation>
 <translation id="8596540852772265699">カスタム ファイル</translation>
@@ -5055,7 +5049,6 @@
 <translation id="9024127637873500333">新しいタブで開く(&amp;O)</translation>
 <translation id="9024331582947483881">全画面表示</translation>
 <translation id="9025098623496448965">ログイン画面に戻る</translation>
-<translation id="902659348151742535">検索、広告、その他の Google サービスをカスタマイズする目的で、Google が閲覧履歴を使用することがあります。</translation>
 <translation id="9026731007018893674">ダウンロード</translation>
 <translation id="9027146684281895941">このユーザーを監視し、ユーザーがアクセスするウェブサイトを自分の Google アカウントから管理、表示できるようにする。</translation>
 <translation id="9027459031423301635">新しいタブで開く(&amp;T)</translation>

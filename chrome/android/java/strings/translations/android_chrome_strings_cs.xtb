@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Anonymní režim</translation>
 <translation id="10614374240317010">Nikdy se neukládají</translation>
 <translation id="1068672505746868501">Stránky v jazyce <ph name="SOURCE_LANGUAGE" /> nikdy nepřekládat</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> – <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Odhlašujete se z účtu, který je spravován doménou <ph name="DOMAIN_NAME" />. Data prohlížeče Chrome uložená v tomto zařízení touto akcí smažete, avšak v účtu Google tato data zůstanou.</translation>
 <translation id="1105960400813249514">Snímky obrazovky</translation>
 <translation id="1111673857033749125">Zde se objeví záložky, které jste si uložili v ostatních zařízeních.</translation>
@@ -683,6 +684,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="7063006564040364415">K synchronizačnímu serveru se nelze připojit.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{Vybráno: 1}few{Vybráno: #}many{Vybráno: #}other{Vybráno: #}}</translation>
 <translation id="7077143737582773186">SD karta</translation>
+<translation id="7087918508125750058">Vybrané položky: <ph name="ITEM_COUNT" />. Možnosti jsou k dispozici u horního okraje obrazovky</translation>
 <translation id="7121362699166175603">Vymaže historii a automatická dokončení v adresním řádku. Na stránce <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> mohou být k dispozici další druhy historie prohlížení zaznamenané ve vašem účtu Google.</translation>
 <translation id="7128222689758636196">Povolit pro aktuální vyhledávač</translation>
 <translation id="7138678301420049075">Ostatní</translation>
@@ -694,6 +696,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="7191430249889272776">Karta je otevřena na pozadí.</translation>
 <translation id="723171743924126238">Vyberte fotky</translation>
 <translation id="7243308994586599757">Možnosti jsou k dispozici ve spodní části obrazovky</translation>
+<translation id="7250468141469952378">Vybráno: <ph name="ITEM_COUNT" /></translation>
 <translation id="7251326866581677552">Blokováno na všech webech</translation>
 <translation id="7253272406652746122">Přidejte účet Google ze stránky Účty v aplikaci Nastavení svého zařízení.</translation>
 <translation id="7274013316676448362">Blokovaný web</translation>

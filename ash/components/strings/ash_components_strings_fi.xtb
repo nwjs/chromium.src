@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Kumoa viimeisin toiminto</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1–8</translation>
 <translation id="3837047332182291558">Lisää näppäimistön kirkkautta (jos se on taustavalaistu)</translation>
-<translation id="385051799172605136">Edellinen</translation>
 <translation id="3976863468609830880">Klikkaa hyllyn viimeistä kuvaketta</translation>
 <translation id="4035482366624727273">Valitse koko sivun sisältö</translation>
 <translation id="4060703249685950734">Avaa viimeisin suljettu välilehti tai ikkuna</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Korosta osoitepalkkirivi</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> tai <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Avaa pikanäppäinapuri</translation>
-<translation id="4599963776114295076">Kirjoita verkko-osoite (URL) osoitepalkkiin, ja paina sitten <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" />.</translation>
 <translation id="4628718545549558538">Avaa tila-alue, jossa tilikuvasi näkyy</translation>
 <translation id="4642092649622328492">Ota osittainen kuvakaappaus</translation>
 <translation id="4725377341024374454">Avaa hyllyn korostettu painike</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Esteettömyys</translation>
 <translation id="7020813747703216897">Hakua vastaavia tuloksia ei löytynyt.</translation>
 <translation id="7025325401470358758">Seuraava ruutu</translation>
-<translation id="7272373489634936181">Hae pikanäppäimiä</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> tai <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Poista seuraava kirjain (eteenpäin poistaminen)</translation>
 <translation id="766326951329901120">Liitä leikepöydän sisältö vain teksti ‑muodossa</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, sitten <ph name="SPACE" /> tai <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Avaa tiedosto selaimessa</translation>
 <translation id="7917881398263220094">Pysäytä nykyisen sivun lataaminen</translation>
-<translation id="8004192919599017226">Aloita haku…</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> tai <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Siirry dokumentin alkuun</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> tai <ph name="E" /></translation>

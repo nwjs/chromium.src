@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Anuliuoti paskutinį veiksmą</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> nuo 1 iki 8</translation>
 <translation id="3837047332182291558">Pašviesinti klaviatūrą (skirta tik klaviatūroms su foniniu apšvietimu)</translation>
-<translation id="385051799172605136">Grįžti</translation>
 <translation id="3976863468609830880">Spustelėti paskutinę piktogramą lentynoje</translation>
 <translation id="4035482366624727273">Pasirinkti viską puslapyje</translation>
 <translation id="4060703249685950734">Iš naujo atidaryti paskutinį uždarytą skirtuką arba langą</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Paryškinti eilutę su adreso juosta</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> arba <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Žr. sparčiųjų klavišų pagalbos priemonę</translation>
-<translation id="4599963776114295076">Įveskite žiniatinklio adresą (URL) adreso juostoje, tada paspauskite <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Atidaryti būsenos sritį (kur rodoma paskyros nuotrauka)</translation>
 <translation id="4642092649622328492">Padaryti dalinę ekrano kopiją</translation>
 <translation id="4725377341024374454">Atidaryti paryškintą mygtuką lentynoje</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Pritaikymas neįgaliesiems</translation>
 <translation id="7020813747703216897">Nerasta atitinkamų rezultatų</translation>
 <translation id="7025325401470358758">Kitas polangis</translation>
-<translation id="7272373489634936181">Ieškoti sparčiųjų klavišų</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> arba <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Ištrinti kitą raidę (ištrinti į priekį)</translation>
 <translation id="766326951329901120">Įklijuoti turinį iš iškarpinės kaip grynąjį tekstą</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, tada <ph name="SPACE" /> arba <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Atidaryti failą naršyklėje</translation>
 <translation id="7917881398263220094">Sustabdyti dabartinio puslapio įkėlimą</translation>
-<translation id="8004192919599017226">Pradėti paiešką...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> arba <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Eiti į dokumento pradžią</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> arba <ph name="E" /></translation>

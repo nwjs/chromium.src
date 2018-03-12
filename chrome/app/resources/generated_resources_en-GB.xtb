@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Sleep when lid is closed</translation>
 <translation id="1115018219887494029">Smart Lock for Chromebook (beta)</translation>
 <translation id="1116694919640316211">About</translation>
+<translation id="1116779635164066733">This setting is enforced by the '<ph name="NAME" />' extension.</translation>
 <translation id="1119069657431255176">Bzip2 compressed tar archive</translation>
 <translation id="1119447706177454957">Internal error</translation>
 <translation id="1122198203221319518">&amp;Tools</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Rename</translation>
 <translation id="1175364870820465910">&amp;Print...</translation>
 <translation id="117624967391683467">Copying <ph name="FILE_NAME" />...</translation>
+<translation id="1177138678118607465">Google may use your browsing history to personalise Search, ads and other Google services. You can change this at anytime at myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Customised</translation>
 <translation id="1178581264944972037">Pause</translation>
 <translation id="1181037720776840403">Remove</translation>
@@ -1141,7 +1143,6 @@ I don't think this site should be blocked!</translation>
 <translation id="2737363922397526254">Collapse...</translation>
 <translation id="2737492745329609575">Start setup</translation>
 <translation id="2738771556149464852">Not After</translation>
-<translation id="2739046699559178272">Save and continue</translation>
 <translation id="2739191690716947896">Debug</translation>
 <translation id="2739240477418971307">Change your accessibility settings</translation>
 <translation id="2740393541869613458">review websites the supervised user has visited, and</translation>
@@ -1900,7 +1901,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="3856800405688283469">Select Time Zone</translation>
 <translation id="3856921555429624101">Data use measuring has ended</translation>
 <translation id="3857228364945137633">Try Smart Lock to unlock your <ph name="DEVICE_TYPE" /> without a password when your phone is nearby.</translation>
-<translation id="3857732810083914482">Personalisation is off. You can change this at myaccount.google.com.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860381078714302691">Welcome to Hangouts Meet</translation>
 <translation id="3862134173397075045">Welcome to the Cast experience in Chrome!</translation>
@@ -2613,6 +2613,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="5063480226653192405">Usage</translation>
 <translation id="5067867186035333991">Ask if <ph name="HOST" /> wants to access your microphone</translation>
 <translation id="5068918910148307423">Do not allow recently closed sites to finish sending and receiving data</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> for <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Adjust cursor size</translation>
 <translation id="5072836811783999860">Show managed bookmarks</translation>
 <translation id="5074318175948309511">This page may need to be reloaded before the new settings take effect.</translation>
@@ -3331,7 +3332,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="6175314957787328458">Microsoft Domain GUID</translation>
 <translation id="6178664161104547336">Select a certificate</translation>
 <translation id="6181431612547969857">Download blocked</translation>
-<translation id="6181803575025675566">Control how this works in <ph name="LINK_START" />Settings<ph name="LINK_END" />.</translation>
 <translation id="6185132558746749656">Device Location</translation>
 <translation id="6185696379715117369">Page up</translation>
 <translation id="6189412234224385711">Open with <ph name="EXTENSION_NAME" /></translation>
@@ -3512,6 +3512,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="645705751491738698">Continue blocking JavaScript</translation>
 <translation id="6458308652667395253">Manage JavaScript blocking...</translation>
 <translation id="6459488832681039634">Use Selection for Find</translation>
+<translation id="6459799433792303855">Active window moved to another display.</translation>
 <translation id="6460601847208524483">Find Next</translation>
 <translation id="6462082050341971451">Are you still there?</translation>
 <translation id="6463795194797719782">&amp;Edit</translation>
@@ -3597,6 +3598,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="6596745167571172521">Disable caps lock</translation>
 <translation id="6596816719288285829">IP Address</translation>
 <translation id="6597017209724497268">Samples</translation>
+<translation id="6602353599068390226">move window to another display</translation>
 <translation id="6602956230557165253">Use left and right arrow keys to navigate.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Not yet rated by any users.</translation>
@@ -3683,7 +3685,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="6739923123728562974">Show desktop shortcut</translation>
 <translation id="6740234557573873150">Paused <ph name="FILE_NAME" /></translation>
 <translation id="6742339027238151589">Accessible to script</translation>
-<translation id="6743841972744298686">Sync settings</translation>
 <translation id="6745592621698551453">Update now</translation>
 <translation id="6746124502594467657">Move down</translation>
 <translation id="674632704103926902">Enable tap dragging</translation>
@@ -3911,7 +3912,6 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="7108338896283013870">Hide</translation>
 <translation id="7108634116785509031"><ph name="HOST" /> wants to use your camera</translation>
 <translation id="7108668606237948702">enter</translation>
-<translation id="7112978678959880812">Personalisation is on. You can change this at myaccount.google.com.</translation>
 <translation id="7113502843173351041">Know your email address</translation>
 <translation id="7114054701490058191">Passwords don't match</translation>
 <translation id="7117228822971127758">Please try again later</translation>
@@ -3921,6 +3921,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="7119389851461848805">power</translation>
 <translation id="7120865473764644444">Couldn't connect to the sync server. Retrying...</translation>
 <translation id="7121362699166175603">Clears history and autocompletions in the address bar. Your Google account may have other forms of browsing history at <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">No longer supported</translation>
 <translation id="71243390042171582">Updated <ph name="MINUTES" />min ago</translation>
 <translation id="7124929488592184705">Error printing <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;search Drive&lt;/em&gt;</translation>
@@ -4178,6 +4179,9 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="7544853251252956727">Shuffle</translation>
 <translation id="7545415673537747415">Control how Google uses your browsing history to personalise Search, ads and other Google services from <ph name="BEGIN_LINK" />Google Activity Controls<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Warning: your <ph name="PRODUCT_NAME" /> settings are stored on a network drive. This may result in slowdowns, crashes or even loss of data.</translation>
+<translation id="7547483330017600937">Develop on your <ph name="DEVICE_TYPE" />. You can run your favourite native apps and command-line tools seamlessly and securely.
+
+Installing the <ph name="APP_NAME" /> will download <ph name="DOWNLOAD_SIZE" /> of data.</translation>
 <translation id="7548856833046333824">Fizzy</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> download unsuccessful</translation>
@@ -4376,6 +4380,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="786073089922909430">Service: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Downloads</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> – Paired</translation>
+<translation id="7870730066603611552">Review sync options following setup</translation>
 <translation id="7870790288828963061">No Kiosk apps with newer version found. Nothing to update. Please remove the USB stick.</translation>
 <translation id="7874357055309047713">Always run on all sites</translation>
 <translation id="7877451762676714207">Unknown server error. Please try again, or contact the server administrator.</translation>
@@ -4813,7 +4818,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="8581809080475256101">Press to go forward, context menu to see history</translation>
 <translation id="8584280235376696778">&amp;Open video in new tab</translation>
 <translation id="8588866096426746242">Show profile stats</translation>
-<translation id="8589652987924574405">Your bookmarks, history, passwords and other settings will be synced to your Google Account so that you can use them on all your devices. You can always change this later in your settings.</translation>
 <translation id="8590375307970699841">Set up automatic updates</translation>
 <translation id="8594908476761052472">Capture video</translation>
 <translation id="8596540852772265699">Customised Files</translation>
@@ -5090,7 +5094,6 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="9024127637873500333">&amp;Open in New Tab</translation>
 <translation id="9024331582947483881">full screen</translation>
 <translation id="9025098623496448965">OK, Take me back to sign-in screen</translation>
-<translation id="902659348151742535">Google may use your browsing history to personalise Search, ads and other Google services.</translation>
 <translation id="9026731007018893674">download</translation>
 <translation id="9027146684281895941">Supervise this person to control and view the websites they visit from your Google Account.</translation>
 <translation id="9027459031423301635">Open Link in New &amp;Tab</translation>
@@ -5126,6 +5129,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="9066782832737749352">Text-to-Speech</translation>
 <translation id="9070219033670098627">Switch person</translation>
 <translation id="907148966137935206">Do not allow any site to show pop-ups (recommended)</translation>
+<translation id="9071637495340542136">Installing <ph name="APP_NAME" />…</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> automatically signs you in to eligible sites and apps with passwords that you saved.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

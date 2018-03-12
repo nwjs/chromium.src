@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">Incognito</translation>
 <translation id="10614374240317010">Hindi kailanman nag-save</translation>
 <translation id="1068672505746868501">Huwag kailanman isalin ang mga page sa <ph name="SOURCE_LANGUAGE" /></translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870">Nagsa-sign out ka sa isang account na pinamamahalaan ng <ph name="DOMAIN_NAME" />. Ide-delete nito ang data ng Chrome na nakaimbak sa device na ito, ngunit mananatili ang data sa iyong Google Account.</translation>
 <translation id="1105960400813249514">Screen Capture</translation>
 <translation id="1111673857033749125">Dito lalabas ang mga naka-save na bookmark sa iba mo pang mga device.</translation>
@@ -683,6 +684,7 @@ Halimbawa, maaaring tumugon ang ilang website sa kahilingang ito sa pamamagitan 
 <translation id="7063006564040364415">Hindi makakonekta sa server ng pag-sync.</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 ang napili}one{# ang napili}other{# ang napili}}</translation>
 <translation id="7077143737582773186">SD Card</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> ang napili.  Available ang mga opsyon malapit sa itaas ng screen</translation>
 <translation id="7121362699166175603">Kini-clear ang history at mga autocompletion sa address bar. Maaaring may iba pang anyo ng history ng pag-browse ang iyong Google Account sa <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
 <translation id="7128222689758636196">Payagan para sa kasalukuyang search engine</translation>
 <translation id="7138678301420049075">Iba pa</translation>
@@ -694,6 +696,7 @@ Halimbawa, maaaring tumugon ang ilang website sa kahilingang ito sa pamamagitan 
 <translation id="7191430249889272776">Binuksan ang tab sa background.</translation>
 <translation id="723171743924126238">Pumili ng mga larawan</translation>
 <translation id="7243308994586599757">May mga opsyon malapit sa ibaba ng screen</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> ang napili</translation>
 <translation id="7251326866581677552">Naka-block sa ilang site</translation>
 <translation id="7253272406652746122">Magdagdag ng Google Account mula sa page na Mga Account sa app na Mga Setting ng iyong device.</translation>
 <translation id="7274013316676448362">Naka-block na site</translation>

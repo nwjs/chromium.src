@@ -62,7 +62,6 @@
 <translation id="3751033133896282964">Desfés la darrera acció</translation>
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> de l'1 al 8</translation>
 <translation id="3837047332182291558">Augmenta la brillantor del teclat (només als teclats retroil·luminats)</translation>
-<translation id="385051799172605136">Enrere</translation>
 <translation id="3976863468609830880">Fes clic a la darrera icona del prestatge</translation>
 <translation id="4035482366624727273">Selecciona tot el contingut de la pàgina</translation>
 <translation id="4060703249685950734">Torna a obrir la darrera pestanya o finestra que s'ha tancat</translation>
@@ -72,7 +71,6 @@
 <translation id="4141203561740478845">Destaca la fila on hi ha la barra d'adreces</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> o <ph name="ENTER" /></translation>
 <translation id="4556221320735744018">Consulta l'ajuda de les tecles de drecera</translation>
-<translation id="4599963776114295076">Escriu l'adreça web (URL) a la barra d'adreces i, a continuació, prem <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="4628718545549558538">Obre l'àrea d'estat (on es mostra la imatge del compte)</translation>
 <translation id="4642092649622328492">Fes una captura de pantalla parcial</translation>
 <translation id="4725377341024374454">Obre el botó destacat del prestatge</translation>
@@ -126,7 +124,6 @@
 <translation id="6981982820502123353">Accessibilitat</translation>
 <translation id="7020813747703216897">No s'ha trobat cap resultat coincident</translation>
 <translation id="7025325401470358758">Subfinestra següent</translation>
-<translation id="7272373489634936181">Cerca dreceres</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> o <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Suprimeix la lletra següent (supressió cap endavant)</translation>
 <translation id="766326951329901120">Enganxa el contingut del porta-retalls com a text sense format</translation>
@@ -134,7 +131,6 @@
 <translation id="7730490981846175479"><ph name="SHIFT" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> i després <ph name="SPACE" /> o <ph name="ENTER" /></translation>
 <translation id="7787242579016742662">Obre un fitxer al navegador</translation>
 <translation id="7917881398263220094">Atura la càrrega de la pàgina actual</translation>
-<translation id="8004192919599017226">Inicia la cerca...</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> o <ph name="MINUS" /></translation>
 <translation id="8130528849632411619">Ves al principi del document</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> o <ph name="E" /></translation>
