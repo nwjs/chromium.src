@@ -42,10 +42,12 @@ void ChromeCrashReporterClient::InitializeCrashReportingForProcess() {
 
   std::wstring process_type = install_static::GetSwitchValueFromCommandLine(
       ::GetCommandLine(), install_static::kProcessType);
+  std::wstring disable_crash_handler = install_static::GetSwitchValueFromCommandLine(
+    ::GetCommandLine(), L"disable-crash-handler");
   // Don't set up Crashpad crash reporting in the Crashpad handler itself, nor
   // in the fallback crash handler for the Crashpad handler process.
   if (process_type != install_static::kCrashpadHandler &&
-      process_type != install_static::kFallbackHandler) {
+      process_type != install_static::kFallbackHandler && disable_crash_handler != L"true") {
     crash_reporter::SetCrashReporterClient(instance);
 
     std::wstring user_data_dir;
@@ -172,11 +174,11 @@ bool ChromeCrashReporterClient::GetCrashMetricsLocation(
 }
 
 bool ChromeCrashReporterClient::IsRunningUnattended() {
-  return install_static::HasEnvironmentVariable16(install_static::kHeadless);
+  return !enable_upload_;
 }
 
 bool ChromeCrashReporterClient::GetCollectStatsConsent() {
-  return install_static::GetCollectStatsConsent();
+  return true; // install_static::GetCollectStatsConsent();
 }
 
 bool ChromeCrashReporterClient::GetCollectStatsInSample() {

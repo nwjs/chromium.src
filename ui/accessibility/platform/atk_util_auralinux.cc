@@ -110,6 +110,7 @@ bool AtkUtilAuraLinux::ShouldEnableAccessibility() {
 }
 
 void AtkUtilAuraLinux::InitializeAsync() {
+#if 0
   static bool initialized = false;
 
   if (initialized || !ShouldEnableAccessibility())
@@ -121,6 +122,7 @@ void AtkUtilAuraLinux::InitializeAsync() {
   g_type_class_unref(g_type_class_ref(ATK_UTIL_AURALINUX_TYPE));
 
   PlatformInitializeAsync();
+#endif
 }
 
 void AtkUtilAuraLinux::InitializeForTesting() {

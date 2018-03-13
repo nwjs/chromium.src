@@ -281,12 +281,14 @@ ChromeDownloadManagerDelegate::~ChromeDownloadManagerDelegate() {
 void ChromeDownloadManagerDelegate::SetDownloadManager(DownloadManager* dm) {
   download_manager_ = dm;
 
+#if 0
   safe_browsing::SafeBrowsingService* sb_service =
       g_browser_process->safe_browsing_service();
   if (sb_service && !profile_->IsOffTheRecord()) {
     // Include this download manager in the set monitored by safe browsing.
     sb_service->AddDownloadManager(dm);
   }
+#endif
 }
 
 void ChromeDownloadManagerDelegate::Shutdown() {
@@ -555,6 +557,7 @@ download::InProgressCache* ChromeDownloadManagerDelegate::GetInProgressCache() {
 
 void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
     base::FilePath* filename) {
+#if 0
   safe_browsing::FileTypePolicies* file_type_policies =
       safe_browsing::FileTypePolicies::GetInstance();
 
@@ -565,6 +568,7 @@ void ChromeDownloadManagerDelegate::SanitizeSavePackageResourceName(
   base::FilePath default_filename = base::FilePath::FromUTF8Unsafe(
       l10n_util::GetStringUTF8(IDS_DEFAULT_DOWNLOAD_FILENAME));
   *filename = filename->AddExtension(default_filename.BaseName().value());
+#endif
 }
 
 void ChromeDownloadManagerDelegate::OpenDownloadUsingPlatformHandler(

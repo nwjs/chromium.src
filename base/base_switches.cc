@@ -133,4 +133,5 @@ const char kEnableCrashReporterForTesting[] =
 const char kMadviseRandomExecutableCode[] = "madvise-random-executable-code";
 #endif
 
+const char kNWJS[] = "nwjs";
 }  // namespace switches

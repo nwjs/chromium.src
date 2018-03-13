@@ -587,12 +587,16 @@ void CrxInstaller::CheckInstall() {
 
   policy_check_ = std::make_unique<PolicyCheck>(profile_, extension());
   requirements_check_ = std::make_unique<RequirementsChecker>(extension());
+#if 0
   blacklist_check_ =
       std::make_unique<BlacklistCheck>(Blacklist::Get(profile_), extension_);
+#endif
 
   check_group_->AddCheck(policy_check_.get());
   check_group_->AddCheck(requirements_check_.get());
+#if 0
   check_group_->AddCheck(blacklist_check_.get());
+#endif
 
   check_group_->Start(
       base::BindOnce(&CrxInstaller::OnInstallChecksComplete, this));
