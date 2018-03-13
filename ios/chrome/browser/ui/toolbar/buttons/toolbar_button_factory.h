@@ -47,10 +47,8 @@
 - (ToolbarButton*)trailingForwardButton;
 // Tab Grid ToolbarButton.
 - (ToolbarTabGridButton*)tabGridButton;
-// Tab Switcher Strip ToolbarButton.
-- (ToolbarButton*)tabSwitcherStripButton;
-// Tab Switcher Grid ToolbarButton.
-- (ToolbarButton*)tabSwitcherGridButton;
+// StackView ToolbarButton.
+- (ToolbarButton*)stackViewButton;
 // Tools Menu ToolbarButton.
 - (ToolbarToolsMenuButton*)toolsMenuButton;
 // Share ToolbarButton.
