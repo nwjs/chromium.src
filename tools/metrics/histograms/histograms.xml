@@ -26279,6 +26279,14 @@ http://cs/file:chrome/histograms.xml - but prefer this file for new entries.
   </summary>
 </histogram>
 
+<histogram name="FileBrowser.ZipFileTask" enum="FileManagerZipHandlerType">
+  <owner>yamaguchi@chromium.org</owner>
+  <summary>
+    Chrome OS File Browser: counts the number of times ZIP file was opened or
+    created, categorized by component extensions and its operation types.
+  </summary>
+</histogram>
+
 <histogram name="FileReaderSync.WorkerType" enum="FileReaderSyncWorkerType">
   <owner>mek@chromium.org</owner>
   <summary>
