@@ -587,11 +587,6 @@ public class ToolbarManager implements ToolbarTabController, UrlFocusChangeListe
             public void onOverviewModeFinishedHiding() {
                 mToolbar.onTabSwitcherTransitionFinished();
             }
-
-            @Override
-            public void onOverviewModeFinishedShowing() {
-                mToolbar.onTabSwitcherTransitionFinished();
-            }
         };
 
         mSceneChangeObserver = new SceneChangeObserver() {
