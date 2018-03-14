@@ -93,6 +93,11 @@ class APP_LIST_EXPORT AppListFolderView : public views::View,
 
   AppListItemView* GetActivatedFolderItemView();
 
+  // Records the smoothness of folder show/hide animations mixed with the
+  // BackgroundAnimation, FolderItemTitleAnimation, TopIconAnimation, and
+  // ContentsContainerAnimation.
+  void RecordAnimationSmoothness();
+
  private:
   void CalculateIdealBounds();
 
@@ -130,6 +135,10 @@ class APP_LIST_EXPORT AppListFolderView : public views::View,
   bool IsOEMFolder() const override;
   void SetRootLevelDragViewVisible(bool visible) override;
 
+  // Returns the compositor associated to the widget containing this view.
+  // Returns nullptr if there isn't one associated with this widget.
+  ui::Compositor* GetCompositor();
+
   // Views below are not owned by views hierarchy.
   AppsContainerView* container_view_;
   AppListMainView* app_list_main_view_;
@@ -163,6 +172,9 @@ class APP_LIST_EXPORT AppListFolderView : public views::View,
   std::unique_ptr<gfx::SlideAnimation> folder_item_title_animation_;
   std::unique_ptr<Animation> top_icon_animation_;
   std::unique_ptr<Animation> contents_container_animation_;
+
+  // The compositor frame number when animation starts.
+  int animation_start_frame_number_;
 
   DISALLOW_COPY_AND_ASSIGN(AppListFolderView);
 };
