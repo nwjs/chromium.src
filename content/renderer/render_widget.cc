@@ -644,23 +644,6 @@ void RenderWidget::SetLocalSurfaceIdForAutoResize(
     const content::ScreenInfo& screen_info,
     uint32_t content_source_id,
     const viz::LocalSurfaceId& local_surface_id) {
-<<<<<<< HEAD
-  bool screen_info_changed = screen_info_ != screen_info;
-
-  screen_info_ = screen_info;
-
-  if (screen_info_changed) {
-    for (auto& observer : render_frame_proxies_)
-      observer.OnScreenInfoChanged(screen_info);
-
-    // Notify all embedded BrowserPlugins of the updated ScreenInfo.
-    for (auto& observer : browser_plugins_)
-      observer.ScreenInfoChanged(screen_info);
-  }
-=======
-  DCHECK(!size_.IsEmpty());
->>>>>>> e9a30c161ffd... Remove redundant DSF variables in RenderWidget
-
   // If the given LocalSurfaceId was generated before navigation, don't use it.
   // We should receive a new LocalSurfaceId later.
   viz::LocalSurfaceId new_local_surface_id =
