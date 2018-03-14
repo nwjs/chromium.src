@@ -349,19 +349,20 @@ TEST_F(RenderWidgetHostViewChildFrameScrollLatchingDisabledTest,
 }
 
 // Tests that moving the child around does not affect the physical backing size.
-TEST_F(RenderWidgetHostViewChildFrameZoomForDSFTest, PhysicalBackingSize) {
+TEST_F(RenderWidgetHostViewChildFrameZoomForDSFTest,
+       CompositorViewportPixelSize) {
   ScreenInfo screen_info;
   screen_info.device_scale_factor = 2.0f;
   test_frame_connector_->SetScreenInfoForTesting(screen_info);
 
   gfx::Size local_frame_size(1276, 410);
   test_frame_connector_->SetLocalFrameSize(local_frame_size);
-  EXPECT_EQ(local_frame_size, view_->GetPhysicalBackingSize());
+  EXPECT_EQ(local_frame_size, view_->GetCompositorViewportPixelSize());
 
   gfx::Rect screen_space_rect(local_frame_size);
   screen_space_rect.set_origin(gfx::Point(230, 263));
   test_frame_connector_->SetScreenSpaceRect(screen_space_rect);
-  EXPECT_EQ(local_frame_size, view_->GetPhysicalBackingSize());
+  EXPECT_EQ(local_frame_size, view_->GetCompositorViewportPixelSize());
   EXPECT_EQ(gfx::Point(115, 131), view_->GetViewBounds().origin());
   EXPECT_EQ(gfx::Point(230, 263),
             test_frame_connector_->screen_space_rect_in_pixels().origin());
@@ -376,8 +377,8 @@ TEST_F(RenderWidgetHostViewChildFrameTest, WasResizedOncePerChange) {
 
   widget_host_->Init();
 
-  constexpr gfx::Size physical_backing_size(100, 100);
-  constexpr gfx::Rect screen_space_rect(physical_backing_size);
+  constexpr gfx::Size compositor_viewport_pixel_size(100, 100);
+  constexpr gfx::Rect screen_space_rect(compositor_viewport_pixel_size);
   viz::ParentLocalSurfaceIdAllocator allocator;
   viz::LocalSurfaceId local_surface_id = allocator.GenerateId();
   constexpr viz::FrameSinkId frame_sink_id(1, 1);
@@ -385,8 +386,9 @@ TEST_F(RenderWidgetHostViewChildFrameTest, WasResizedOncePerChange) {
 
   process->sink().ClearMessages();
 
-  test_frame_connector_->UpdateResizeParams(
-      screen_space_rect, physical_backing_size, ScreenInfo(), 1u, surface_id);
+  test_frame_connector_->UpdateResizeParams(screen_space_rect,
+                                            compositor_viewport_pixel_size,
+                                            ScreenInfo(), 1u, surface_id);
 
   ASSERT_EQ(1u, process->sink().message_count());
 
@@ -395,7 +397,8 @@ TEST_F(RenderWidgetHostViewChildFrameTest, WasResizedOncePerChange) {
   ASSERT_NE(nullptr, resize_msg);
   ViewMsg_Resize::Param params;
   ViewMsg_Resize::Read(resize_msg, &params);
-  EXPECT_EQ(physical_backing_size, std::get<0>(params).physical_backing_size);
+  EXPECT_EQ(compositor_viewport_pixel_size,
+            std::get<0>(params).compositor_viewport_pixel_size);
   EXPECT_EQ(screen_space_rect.size(), std::get<0>(params).new_size);
   EXPECT_EQ(local_surface_id, std::get<0>(params).local_surface_id);
 }
