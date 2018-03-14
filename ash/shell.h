@@ -555,6 +555,9 @@ class ASH_EXPORT Shell : public SessionObserver,
   // window gets snapped and activated).
   void NotifySplitViewModeStarting();
 
+  // Notifies observers that split view mode has been started.
+  void NotifySplitViewModeStarted();
+
   // Notifies observers that split view mode has ended.
   void NotifySplitViewModeEnded();
 
