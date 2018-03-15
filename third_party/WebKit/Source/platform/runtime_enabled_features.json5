@@ -386,7 +386,7 @@
     },
     {
       name: "ExperimentalHardwareEchoCancellation",
-      origin_trial_feature_name: "DisableHardwareNoiseSuppression",
+      origin_trial_feature_name: "ExperimentalHardwareEchoCancellation",
       status: "experimental",
     },
     {
