@@ -3465,3 +3465,8 @@ crbug.com/817668 compositing/scroll-with-inner-clip.html [ Failure Pass ]
 crbug.com/817668 virtual/disable-spv175/compositing/scroll-with-inner-clip.html [ Failure Pass ]
 crbug.com/817678 [ Win ] http/tests/devtools/console/console-group-similar.js [ Failure Pass ]
 crbug.com/817705 [ Mac Win Linux ] http/tests/media/media-src-suspend-before-have-metadata.html [ Failure Timeout Pass ]
+
+# LayoutGeometryMap DCHECK with nested sticky and scroll offset
+crbug.com/821216 compositing/overflow/mixed-composited-nested-sticky.html [ Crash Pass ]
+crbug.com/821216 virtual/prefer_compositing_to_lcd_text/compositing/overflow/mixed-composited-nested-sticky.html [ Crash Pass ]
+crbug.com/821216 virtual/disable-spv175/compositing/overflow/mixed-composited-nested-sticky.html [ Crash Pass ]

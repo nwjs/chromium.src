@@ -95,31 +95,29 @@ void CompositingInputsUpdater::UpdateRecursive(PaintLayer* layer,
   layer->UpdateAncestorOverflowLayer(info.last_overflow_clip_layer);
   if (info.last_overflow_clip_layer && layer->NeedsCompositingInputsUpdate() &&
       layer->GetLayoutObject().Style()->HasStickyConstrainedPosition()) {
-    if (!RuntimeEnabledFeatures::RootLayerScrollingEnabled()) {
-      if (info.last_overflow_clip_layer != previous_overflow_layer) {
-        // Old ancestor scroller should no longer have these constraints.
-        DCHECK(!previous_overflow_layer ||
-               !previous_overflow_layer->GetScrollableArea() ||
-               !previous_overflow_layer->GetScrollableArea()
-                    ->GetStickyConstraintsMap()
-                    .Contains(layer));
+    if (info.last_overflow_clip_layer != previous_overflow_layer) {
+      // Old ancestor scroller should no longer have these constraints.
+      DCHECK(!previous_overflow_layer ||
+             !previous_overflow_layer->GetScrollableArea() ||
+             !previous_overflow_layer->GetScrollableArea()
+                  ->GetStickyConstraintsMap()
+                  .Contains(layer));
 
-        // If our ancestor scroller has changed and the previous one was the
-        // root layer, we are no longer viewport constrained.
-        if (previous_overflow_layer && previous_overflow_layer->IsRootLayer()) {
-          layer->GetLayoutObject()
-              .View()
-              ->GetFrameView()
-              ->RemoveViewportConstrainedObject(layer->GetLayoutObject());
-        }
-      }
-
-      if (info.last_overflow_clip_layer->IsRootLayer()) {
+      // If our ancestor scroller has changed and the previous one was the
+      // root layer, we are no longer viewport constrained.
+      if (previous_overflow_layer && previous_overflow_layer->IsRootLayer()) {
         layer->GetLayoutObject()
             .View()
             ->GetFrameView()
-            ->AddViewportConstrainedObject(layer->GetLayoutObject());
+            ->RemoveViewportConstrainedObject(layer->GetLayoutObject());
       }
+    }
+
+    if (info.last_overflow_clip_layer->IsRootLayer()) {
+      layer->GetLayoutObject()
+          .View()
+          ->GetFrameView()
+          ->AddViewportConstrainedObject(layer->GetLayoutObject());
     }
     layer->GetLayoutObject().UpdateStickyPositionConstraints();
 
