@@ -11,10 +11,8 @@ import android.view.View;
 import android.view.View.OnLayoutChangeListener;
 import android.view.ViewGroup;
 import android.view.accessibility.AccessibilityEvent;
-import android.widget.AdapterView;
 import android.widget.ListAdapter;
 import android.widget.ListPopupWindow;
-import android.widget.ListView;
 import android.widget.PopupWindow;
 
 import org.chromium.base.ApiCompatibilityUtils;
@@ -24,7 +22,8 @@ import java.lang.reflect.Method;
 /**
  * The dropdown list popup window.
  */
-public class DropdownPopupWindow {
+public class DropdownPopupWindow extends ListPopupWindow {
+
     private final Context mContext;
     private final View mAnchorView;
     private boolean mRtl;
@@ -32,7 +31,6 @@ public class DropdownPopupWindow {
     private OnLayoutChangeListener mLayoutChangeListener;
     private PopupWindow.OnDismissListener mOnDismissListener;
     private CharSequence mDescription;
-    private ListPopupWindow mListPopupWindow;
     ListAdapter mAdapter;
 
     /**
@@ -41,7 +39,7 @@ public class DropdownPopupWindow {
      * @param anchorView Popup view to be anchored.
      */
     public DropdownPopupWindow(Context context, View anchorView) {
-        mListPopupWindow = new ListPopupWindow(context, null, 0, R.style.DropdownPopupWindow);
+        super(context, null, 0, R.style.DropdownPopupWindow);
         mContext = context;
         mAnchorView = anchorView;
 
@@ -57,7 +55,7 @@ public class DropdownPopupWindow {
         };
         mAnchorView.addOnLayoutChangeListener(mLayoutChangeListener);
 
-        mListPopupWindow.setOnDismissListener(new PopupWindow.OnDismissListener() {
+        super.setOnDismissListener(new PopupWindow.OnDismissListener() {
             @Override
             public void onDismiss() {
                 if (mOnDismissListener != null) {
@@ -68,21 +66,16 @@ public class DropdownPopupWindow {
             }
         });
 
-        mListPopupWindow.setAnchorView(mAnchorView);
+        setAnchorView(mAnchorView);
         Rect originalPadding = new Rect();
-        mListPopupWindow.getBackground().getPadding(originalPadding);
-        mListPopupWindow.setVerticalOffset(-originalPadding.top);
+        getBackground().getPadding(originalPadding);
+        setVerticalOffset(-originalPadding.top);
     }
 
-    /**
-     * Sets the adapter that provides the data and the views to represent the data
-     * in this popup window.
-     *
-     * @param adapter The adapter to use to create this window's content.
-     */
+    @Override
     public void setAdapter(ListAdapter adapter) {
         mAdapter = adapter;
-        mListPopupWindow.setAdapter(adapter);
+        super.setAdapter(adapter);
     }
 
 
@@ -93,47 +86,43 @@ public class DropdownPopupWindow {
     /**
      * Shows the popup. The adapter should be set before calling this method.
      */
+    @Override
     public void show() {
         // An ugly hack to keep the popup from expanding on top of the keyboard.
-        mListPopupWindow.setInputMethodMode(ListPopupWindow.INPUT_METHOD_NEEDED);
+        setInputMethodMode(INPUT_METHOD_NEEDED);
 
         assert mAdapter != null : "Set the adapter before showing the popup.";
         final int contentWidth = UiUtils.computeMaxWidthOfListAdapterItems(mAdapter);
         final float anchorWidth = mAnchorView.getLayoutParams().width;
         assert anchorWidth > 0;
         Rect padding = new Rect();
-        mListPopupWindow.getBackground().getPadding(padding);
+        getBackground().getPadding(padding);
         if (contentWidth + padding.left + padding.right > anchorWidth) {
-            mListPopupWindow.setContentWidth(contentWidth);
+            setContentWidth(contentWidth);
             final Rect displayFrame = new Rect();
             mAnchorView.getWindowVisibleDisplayFrame(displayFrame);
-            if (mListPopupWindow.getWidth() > displayFrame.width()) {
-                mListPopupWindow.setWidth(displayFrame.width());
+            if (getWidth() > displayFrame.width()) {
+                setWidth(displayFrame.width());
             }
         } else {
-            mListPopupWindow.setWidth(ViewGroup.LayoutParams.WRAP_CONTENT);
+            setWidth(ViewGroup.LayoutParams.WRAP_CONTENT);
         }
-        boolean wasShowing = mListPopupWindow.isShowing();
-        mListPopupWindow.show();
-        mListPopupWindow.getListView().setDividerHeight(0);
-        ApiCompatibilityUtils.setLayoutDirection(mListPopupWindow.getListView(),
+        boolean wasShowing = isShowing();
+        super.show();
+        getListView().setDividerHeight(0);
+        ApiCompatibilityUtils.setLayoutDirection(getListView(),
                 mRtl ? View.LAYOUT_DIRECTION_RTL : View.LAYOUT_DIRECTION_LTR);
         if (!wasShowing) {
-            mListPopupWindow.getListView().setContentDescription(mDescription);
-            mListPopupWindow.getListView().sendAccessibilityEvent(
-                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
+            getListView().setContentDescription(mDescription);
+            getListView().sendAccessibilityEvent(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED);
         }
         if (mInitialSelection >= 0) {
-            mListPopupWindow.getListView().setSelection(mInitialSelection);
+            getListView().setSelection(mInitialSelection);
             mInitialSelection = -1;
         }
     }
 
-    /**
-     * Set a listener to receive a callback when the popup is dismissed.
-     *
-     * @param listener Listener that will be notified when the popup is dismissed.
-     */
+    @Override
     public void setOnDismissListener(PopupWindow.OnDismissListener listener) {
         mOnDismissListener = listener;
     }
@@ -158,7 +147,7 @@ public class DropdownPopupWindow {
         try {
             Method setForceIgnoreOutsideTouch = ListPopupWindow.class.getMethod(
                     "setForceIgnoreOutsideTouch", new Class[] { boolean.class });
-            setForceIgnoreOutsideTouch.invoke(mListPopupWindow, new Object[] {true});
+            setForceIgnoreOutsideTouch.invoke(this, new Object[] { true });
         } catch (Exception e) {
             Log.e("AutofillPopup",
                     "ListPopupWindow.setForceIgnoreOutsideTouch not found",
@@ -173,44 +162,6 @@ public class DropdownPopupWindow {
      */
     public void setContentDescriptionForAccessibility(CharSequence description) {
         mDescription = description;
-    }
-
-    /**
-     * Sets a listener to receive events when a list item is clicked.
-     *
-     * @param clickListener Listener to register
-     */
-    public void setOnItemClickListener(AdapterView.OnItemClickListener clickListener) {
-        mListPopupWindow.setOnItemClickListener(clickListener);
-    }
-
-    /**
-     * Show the popup. Will have no effect if the popup is already showing.
-     * Post a {@link #show()} call to the UI thread.
-     */
-    public void postShow() {
-        mListPopupWindow.postShow();
-    }
-
-    /**
-     * Disposes of the popup window.
-     */
-    public void dismiss() {
-        mListPopupWindow.dismiss();
-    }
-
-    /**
-     * @return The {@link ListView} displayed within the popup window.
-     */
-    public ListView getListView() {
-        return mListPopupWindow.getListView();
-    }
-
-    /**
-     * @return Whether the popup is currently showing.
-     */
-    public boolean isShowing() {
-        return mListPopupWindow.isShowing();
     }
 
     /**
