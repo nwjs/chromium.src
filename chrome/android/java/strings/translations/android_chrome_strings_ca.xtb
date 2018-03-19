@@ -246,7 +246,6 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="3236059992281584593">Queda 1 minut</translation>
 <translation id="3244271242291266297">MM</translation>
 <translation id="3254409185687681395">Afegeix aquesta pàgina a les adreces d'interès</translation>
-<translation id="3255459706755453214">Bloqueja l'accés de lectura al porta-retalls per a un lloc web concret.</translation>
 <translation id="3259831549858767975">Redueix la mida de tots els elements de la pàgina</translation>
 <translation id="3269093882174072735">Carrega la imatge</translation>
 <translation id="3269956123044984603">Per accedir a les teves pestanyes des dels altres dispositius que tinguis, activa Sincronitza dades automàticament a la configuració d'Android per al compte.</translation>
@@ -258,7 +257,6 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="3328801116991980348">Informació del lloc</translation>
 <translation id="3341058695485821946">Consulta la quantitat de dades que has estalviat</translation>
 <translation id="3350687908700087792">Tanca totes les pestanyes d'incògnit</translation>
-<translation id="3358632888246345756">Permet l'accés de lectura al porta-retalls per a un lloc web concret.</translation>
 <translation id="3365671512111106261">No està disponible quan l'extensió Economitzador de dades està activada</translation>
 <translation id="3367813778245106622">Torna a iniciar la sessió per començar la sincronització</translation>
 <translation id="3384347053049321195">Comparteix la imatge</translation>
@@ -285,7 +283,7 @@ Heu de tenir activats el Bluetooth i la ubicació per poder utilitzar el Web fí
 <translation id="3599863153486145794">Esborra l'historial de tots els dispositius en què tinguis iniciada la sessió. A <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />, trobaràs altres maneres d'explorar l'historial del teu compte de Google.</translation>
 <translation id="3600792891314830896">Silencia els llocs web que reprodueixen so</translation>
 <translation id="360207483134687714">Ajuda a millorar l'experiència de RV a Chrome</translation>
-<translation id="360480449234699036">Consulteu més informació sobre els temes en altres llocs web sense sortir de la pàgina. La funció Toca per cercar envia una paraula i el seu context a la Cerca de Google i ofereix com a resultat definicions, imatges, resultats de la cerca i altres detalls.
+<translation id="360480449234699036">Consulteu més informació sobre els temes en altres llocs web sense sortir de la pàgina. La funció Toca per cercar envia una paraula i el seu context a la Cerca de Google i torna definicions, imatges, resultats de la cerca i altres detalls.
 
 Per ajustar el terme de la cerca, manteniu-lo premut per seleccionar-lo. Per definir millor la cerca, feu lliscar el tauler cap amunt tot el que pugueu i toqueu el quadre de cerca.</translation>
 <translation id="3616113530831147358">Àudio</translation>

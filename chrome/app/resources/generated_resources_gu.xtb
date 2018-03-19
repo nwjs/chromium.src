@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">લિડ બંધ કરવામાં આવે, ત્યારે નિષ્ક્રિય કરો</translation>
 <translation id="1115018219887494029">Chromebook માટે Smart Lock (બીટા)</translation>
 <translation id="1116694919640316211">વિશે</translation>
+<translation id="1116779635164066733">આ સેટિંગ "<ph name="NAME" />" એક્સ્ટેંશન દ્વારા લાગુ કરવામાં આવી છે.</translation>
 <translation id="1119069657431255176">Bzip2 સંકુચિત તાર આર્કાઇવ</translation>
 <translation id="1119447706177454957">આંતરિક ભૂલ</translation>
 <translation id="1122198203221319518">&amp;સાધનો</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">નામ બદલો</translation>
 <translation id="1175364870820465910">&amp;છાપો...</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> કૉપિ કરી રહ્યું છે...</translation>
+<translation id="1177138678118607465">શોધ અને અન્ય Google સેવાઓને વ્યક્તિગત કરવા માટે, Google તમારા બ્રાઉઝિંગ ઇતિહાસનો ઉપયોગ કરી શકે છે. તમે આને myaccount.google.com/activitycontrols/search પર બદલી શકો છો</translation>
 <translation id="1177863135347784049">કસ્ટમ</translation>
 <translation id="1178581264944972037">થોભો</translation>
 <translation id="1181037720776840403">દૂર કરો</translation>
@@ -777,7 +779,6 @@
 <translation id="2208158072373999562">ઝિપ આર્કાઈવ</translation>
 <translation id="220858061631308971">કૃપા કરીને "<ph name="DEVICE_NAME" />" પર આ પિન કોડ દાખલ કરો:</translation>
 <translation id="2209593327042758816">શેલ્ફ આઇટમ 2</translation>
-<translation id="2215277870964745766">સ્વાગત છે! તમારી ભાષા અને નેટવર્ક સેટ કરો</translation>
 <translation id="2217501013957346740">એક નામ બનાવો -</translation>
 <translation id="2218019600945559112">માઉસ અને ટચપેડ</translation>
 <translation id="2218320521449013367">નુકસાનકારક સૉફ્ટવેરને જ્યારે Chrome કાઢી રહ્યું હતું ત્યારે એક ભૂલ આવી</translation>
@@ -2607,6 +2608,7 @@
 <translation id="5063480226653192405">ઉપયોગ</translation>
 <translation id="5067867186035333991"><ph name="HOST" /> તમારા માઇક્રોફોનને ઍક્સેસ કરવા માંગે છે કે કેમ તે પૂછો</translation>
 <translation id="5068918910148307423">ડેટા મોકલવાનું અને પ્રાપ્ત કરવાનું સમાપ્ત કરવા માટે તાજેતરમાં બંધ કરેલ સાઇટ્સને મંજૂરી આપશો નહીં</translation>
+<translation id="507021118007633031"><ph name="DEVICE_TYPE" /> માટે <ph name="APP_NAME" /></translation>
 <translation id="5072052264945641674">કર્સરનું કદ સમાયોજિત કરો</translation>
 <translation id="5072836811783999860">સંચાલિત બુકમાર્ક્સ દર્શાવો</translation>
 <translation id="5074318175948309511">નવી સેટિંગ્સ પ્રભાવમાં આવે તે પહેલાં આ પૃષ્ઠને ફરીથી લોડ કરવાની જરૂર પડી શકે છે.</translation>
@@ -3506,6 +3508,7 @@
 <translation id="645705751491738698">JavaScript ને અવરોધિત કરવાનું ચાલુ રાખો</translation>
 <translation id="6458308652667395253">JavaScript અવરોધિત કરવાનું મેનેજ કરો...</translation>
 <translation id="6459488832681039634">શોધવા માટે પસંદગીનો ઉપયોગ કરો</translation>
+<translation id="6459799433792303855">સક્રિય વિંડો બીજી ડિસ્પ્લેમાં ખસેડી છે.</translation>
 <translation id="6460601847208524483">આગલું શોધો</translation>
 <translation id="6462082050341971451">શું તમે હજી પણ ત્યાં જ છો?</translation>
 <translation id="6463795194797719782">&amp;સંપાદિત કરો</translation>
@@ -3591,6 +3594,7 @@
 <translation id="6596745167571172521">Caps Lock ને અક્ષમ કરો</translation>
 <translation id="6596816719288285829">IP સરનામું</translation>
 <translation id="6597017209724497268">નમૂના</translation>
+<translation id="6602353599068390226">વિંડોને અન્ય ડિસ્પ્લેમાં ખસેડો</translation>
 <translation id="6602956230557165253">નેવિગેટ કરવા માટે ડાબી અને જમણી તીર કીઝનો ઉપયોગ કરો.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">કોઈ વપરાશકર્તાએ હજુ રેટ કરેલ નથી.</translation>
@@ -3913,6 +3917,7 @@
 <translation id="7119389851461848805">પાવર</translation>
 <translation id="7120865473764644444">સમન્વયન સર્વર સાથે કનેક્ટ કરી શકાયું નથી. ફરી પ્રયાસ કરી રહ્યાં છે...</translation>
 <translation id="7121362699166175603">ઍડ્રેસ બારમાં ઇતિહાસ અને આપમેળે પૂર્ણતા સાફ કરે છે. તમારા Google એકાઉન્ટમાં <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> પર બ્રાઉઝિંગ ઇતિહાસના અન્ય સ્વરૂપો હોઈ શકે છે.</translation>
+<translation id="7123360114020465152">હવે સમર્થિત રહ્યું નથી</translation>
 <translation id="71243390042171582"><ph name="MINUTES" /> મિનિટ પહેલા અપડેટ કર્યું</translation>
 <translation id="7124929488592184705"><ph name="DOCUMENT_NAME" /> છાપવામાં ભૂલ આવી છે</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ડ્રાઇવમાં શોધો&lt;/em&gt;</translation>
@@ -4170,6 +4175,9 @@
 <translation id="7544853251252956727">શફલ કરો</translation>
 <translation id="7545415673537747415"><ph name="BEGIN_LINK" />Google પ્રવૃત્તિ નિયંત્રણો<ph name="END_LINK" />થી એ નિયંત્રિત કરો કે શોધ, જાહેરાતો અને અન્ય Google સેવાઓને વ્યક્તિગત કરવા માટે Google, તમારા બ્રાઉઝિંગ ઇતિહાસનો ઉપયોગ કેવી રીતે કરે છે.</translation>
 <translation id="7547317915858803630">ચેતવણી: <ph name="PRODUCT_NAME" /> સેટિંગ્સ નેટવર્ક ડ્રાઇવ પર સ્ટોર કરી છે. આનું પરિણામ ધીમી ગતિ, ક્રેશેસ અથવા ડેટાનું નુકસાન પણ હોઈ શકે છે.</translation>
+<translation id="7547483330017600937">તમારા <ph name="DEVICE_TYPE" /> પર વિકસિત કરો. તમે તમારી મનપસંદ મૂળ ઍપ અને આદેશ પંક્તિ સાધનો ખામીરહિત રીતે અને સુરક્ષિત રીતે ચલાવી શકો છો.
+
+<ph name="APP_NAME" /> ઇન્સ્ટૉલ કરવાથી <ph name="DOWNLOAD_SIZE" /> કદનો ડેટા ડાઉનલોડ થશે.</translation>
 <translation id="7548856833046333824">લેમોનેડ</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> ડાઉનલોડ અસફળ થયું</translation>
@@ -4367,6 +4375,7 @@
 <translation id="786073089922909430">સેવા: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;ડાઉનલોડ્સ</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - જોડી કરેલ</translation>
+<translation id="7870730066603611552">સેટઅપ કર્યા પછી સિંક વિકલ્પો રિવ્યૂ કરો</translation>
 <translation id="7870790288828963061">નવા સંસ્કરણ સાથેની કોઇ કિઓસ્ક ઍપ્લિકેશનો મળી નથી. અપડેટ કરવા માટે કંઇ નથી. કૃપા કરીને USB સ્ટીક દૂર કરો.</translation>
 <translation id="7874357055309047713">હંમેશાં બધી સાઇટ્સ પર ચલાવો</translation>
 <translation id="7877451762676714207">અજ્ઞાત સર્વર ભૂલ. કૃપા કરી ફરીથી પ્રયત્ન કરો અથવા સર્વર વ્યવસ્થાપકનો સંપર્ક કરો.</translation>
@@ -5110,6 +5119,7 @@
 <translation id="9066782832737749352">ટેક્સ્ટ-ટુ-સ્પીચ</translation>
 <translation id="9070219033670098627">વ્યક્તિ પર સ્વિચ કરો</translation>
 <translation id="907148966137935206">કોઈ પણ સાઇટને પૉપ-અપ્સ બતાવવાની મંજૂરી આપવી નહીં (ભલામણ કરેલ) </translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> ઇન્સ્ટૉલ કરી રહ્યાં છીએ...</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" />, તમને તમે સાચવેલા પાસવર્ડ્સ વડે યોગ્ય હોય તેવી સાઇટ્સ અને ઍપ્લિકેશનોમાં આપમેળે સાઇન ઇન કરે છે.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Väljalogimiseks vajutage kaks korda klahvikombinatsiooni Ctrl + tõstuklahv + Q.</translation>
 <translation id="3893630138897523026">ChromeVox (kõnena esitatud tagasiside)</translation>
 <translation id="3899995891769452915">Häälsisend</translation>
+<translation id="3900355044994618856">Teie seanss lõpeb <ph name="SESSION_TIME_REMAINING" /> pärast</translation>
 <translation id="3901991538546252627">Võrguga <ph name="NAME" /> ühenduse loomine</translation>
 <translation id="394485226368336402">Heliseaded</translation>
 <translation id="397105322502079400">Arvutamine ...</translation>
@@ -252,6 +253,7 @@ Kasutage seda funktsiooni vaid kontode puhul, mida usaldate.</translation>
 <translation id="7066646422045619941">Teie administraator on selle võrgu keelanud.</translation>
 <translation id="7067196344162293536">Automaatne pööramine</translation>
 <translation id="7098389117866926363">C-tüüpi USB-seade (vasakpoolne port taga)</translation>
+<translation id="7131634465328662194">Teid logitakse automaatselt välja.</translation>
 <translation id="7165278925115064263">Alt + Tõstuklahv + K</translation>
 <translation id="7168224885072002358">Ekraan ennistatakse vanale eraldusvõimele <ph name="TIMEOUT_SECONDS" /> pärast</translation>
 <translation id="7256634071279256947">Tagumine mikrofon</translation>

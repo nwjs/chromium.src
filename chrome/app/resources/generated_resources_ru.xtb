@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Перейти в спящий режим, когда крышка закрыта</translation>
 <translation id="1115018219887494029">Smart Lock для Chromebook (бета-версия)</translation>
 <translation id="1116694919640316211">О программе</translation>
+<translation id="1116779635164066733">Значение этого параметра задано расширением "<ph name="NAME" />".</translation>
 <translation id="1119069657431255176">Сжатый TAR-архив Bzip2</translation>
 <translation id="1119447706177454957">Внутренняя ошибка</translation>
 <translation id="1122198203221319518">&amp;Инструменты</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Переименовать</translation>
 <translation id="1175364870820465910">&amp;Печать...</translation>
 <translation id="117624967391683467">Копирование файла "<ph name="FILE_NAME" />"…</translation>
+<translation id="1177138678118607465">Google может использовать историю просмотров, чтобы персонализировать объявления, а также Поиск и другие сервисы. Чтобы настроить эту функцию, перейдите на страницу myaccount.google.com/activitycontrols/search.</translation>
 <translation id="1177863135347784049">Персонализированные</translation>
 <translation id="1178581264944972037">Пауза</translation>
 <translation id="1181037720776840403">Удалить</translation>
@@ -780,7 +782,6 @@
 <translation id="2208158072373999562">ZIP-архив</translation>
 <translation id="220858061631308971">Введите PIN-код для устройства "<ph name="DEVICE_NAME" />":</translation>
 <translation id="2209593327042758816">2-й объект на панели запуска</translation>
-<translation id="2215277870964745766">Добро пожаловать! Выберите язык и сеть.</translation>
 <translation id="2217501013957346740">Придумайте имя –</translation>
 <translation id="2218019600945559112">Мышь и сенсорная панель</translation>
 <translation id="2218320521449013367">При удалении вредоносного ПО произошла ошибка.</translation>
@@ -2612,6 +2613,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5063480226653192405">Использование</translation>
 <translation id="5067867186035333991">Запрашивать разрешение на доступ к микрофону для сайта <ph name="HOST" /></translation>
 <translation id="5068918910148307423">Не разрешать недавно закрытым сайтам завершать отправку и получение данных</translation>
+<translation id="507021118007633031">Приложение "<ph name="APP_NAME" />" для устройства <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Настроить размер указателя</translation>
 <translation id="5072836811783999860">Показать управляемые закладки</translation>
 <translation id="5074318175948309511">Чтобы настройки вступили в силу, необходимо перезагрузить страницу.</translation>
@@ -3510,6 +3512,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="645705751491738698">Всегда блокировать JavaScript</translation>
 <translation id="6458308652667395253">Настройки блокирования JavaScript…</translation>
 <translation id="6459488832681039634">Найти выделенное</translation>
+<translation id="6459799433792303855">Активное окно перемещено на другой экран.</translation>
 <translation id="6460601847208524483">Найти след.</translation>
 <translation id="6462082050341971451">Вы еще здесь?</translation>
 <translation id="6463795194797719782">&amp;Изменить</translation>
@@ -3595,6 +3598,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6596745167571172521">Отключить Caps Lock</translation>
 <translation id="6596816719288285829">IP-адрес</translation>
 <translation id="6597017209724497268">Примеры</translation>
+<translation id="6602353599068390226">Переместить окно на другой экран</translation>
 <translation id="6602956230557165253">Для перехода используйте клавиши со стрелками вправо и влево.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Оценок пока нет.</translation>
@@ -3917,6 +3921,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7119389851461848805">питание</translation>
 <translation id="7120865473764644444">Ошибка синхронизации: отсутствует подключение к серверу. Повторная попытка…</translation>
 <translation id="7121362699166175603">Удаление истории и вариантов автозаполнения в адресной строке. Информация о других ваших действиях в Интернете может также храниться на странице <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">Принтер больше не поддерживается.</translation>
 <translation id="71243390042171582">Обновлено <ph name="MINUTES" /> мин. назад</translation>
 <translation id="7124929488592184705">Не удалось распечатать <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" – &lt;em&gt;искать на Диске&lt;/em&gt;</translation>
@@ -4174,6 +4179,9 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7544853251252956727">Перемешать</translation>
 <translation id="7545415673537747415">Google может использовать историю просмотров для персонализации Поиска, Рекламы и других сервисов. Чтобы настроить эту функцию, перейдите на страницу <ph name="BEGIN_LINK" />Отслеживание действий в Google<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Внимание! Настройки <ph name="PRODUCT_NAME" /> хранятся на сетевом диске. Это может привести к замедлению работы, сбоям или даже потере данных.</translation>
+<translation id="7547483330017600937">Занимайтесь разработкой на устройстве <ph name="DEVICE_TYPE" />. Вы сможете эффективнее использовать оригинальные приложения и инструменты для командной строки, не беспокоясь за безопасность.
+
+При установке приложения "<ph name="APP_NAME" />" будет скачано <ph name="DOWNLOAD_SIZE" /> данных.</translation>
 <translation id="7548856833046333824">Лимонад</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Не удалось скачать файл <ph name="FILE_NAME" /></translation>
@@ -4372,6 +4380,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="786073089922909430">Сервис: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Загрузки</translation>
 <translation id="786957569166715433">Подключено устройство: <ph name="DEVICE_NAME" /></translation>
+<translation id="7870730066603611552">Проверять параметры синхронизации после начала сеанса</translation>
 <translation id="7870790288828963061">Новых версий киоск-приложений нет. Обновление не требуется. Извлеките USB-накопитель.</translation>
 <translation id="7874357055309047713">Запускать всегда</translation>
 <translation id="7877451762676714207">Обнаружена неизвестная ошибка сервера. Повторите попытку или свяжитесь с его администратором.</translation>
@@ -5120,6 +5129,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="9066782832737749352">Озвучивание текста</translation>
 <translation id="9070219033670098627">Сменить пользователя</translation>
 <translation id="907148966137935206">Блокировать всплывающие окна на всех сайтах (рекомендуется)</translation>
+<translation id="9071637495340542136">Установка приложения "<ph name="APP_NAME" />"...</translation>
 <translation id="9072550133391925347">С помощью <ph name="PASSWORD_MANAGER_BRAND" /> вы будете автоматически входить на сайты и в приложения, для которых сохранили пароли.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

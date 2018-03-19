@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">ലിഡ് അടഞ്ഞിരിക്കുമ്പോൾ സ്ലീപ്പാക്കുക</translation>
 <translation id="1115018219887494029">Chromebook-നുള്ള Smart Lock (ബീറ്റ)</translation>
 <translation id="1116694919640316211">വിവരം</translation>
+<translation id="1116779635164066733">"<ph name="NAME" />" വിപുലീകരണമാണ് ഈ ക്രമീകരണം നടപ്പിലാക്കുന്നത്.</translation>
 <translation id="1119069657431255176">Bzip2 ഉൾക്കൊള്ളിച്ച tar ആർക്കൈവ്</translation>
 <translation id="1119447706177454957">ആന്തരിക പിശക്</translation>
 <translation id="1122198203221319518">&amp;ഉപകരണങ്ങള്‍‌</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">പേരുമാറ്റുക</translation>
 <translation id="1175364870820465910">&amp;അച്ചടിക്കൂ...</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> പകർത്തുന്നു...</translation>
+<translation id="1177138678118607465">തിരയൽ, പരസ്യങ്ങൾ, മറ്റ് Google സേവനങ്ങൾ എന്നിവ വ്യക്തിപരമാക്കാൻ, നിങ്ങളുടെ ബ്രൗസിംഗ് ചരിത്രം Google ഉപയോഗിച്ചേക്കാം. ഏത് സമയത്തും നിങ്ങൾക്ക് ഇത് myaccount.google.com/activitycontrols/search സന്ദർശിച്ച് മാറ്റാവുന്നതാണ്</translation>
 <translation id="1177863135347784049">ഇഷ്ടാനുസൃതം</translation>
 <translation id="1178581264944972037">അല്പംനിര്‍ത്തൂ</translation>
 <translation id="1181037720776840403">നീക്കംചെയ്യൂ</translation>
@@ -779,7 +781,6 @@
 <translation id="2208158072373999562">Zip ശേഖരം</translation>
 <translation id="220858061631308971">"<ph name="DEVICE_NAME" />" എന്നതിൽ PIN കോഡ് നൽകുക:</translation>
 <translation id="2209593327042758816">ഷെൽഫ് ഇനം 2</translation>
-<translation id="2215277870964745766">സ്വാഗതം! നിങ്ങളുടെ ഭാഷയും നെറ്റ്‌വർക്കും സജ്ജീകരിക്കുക</translation>
 <translation id="2217501013957346740">ഒരു പേര് സൃഷ്‌ടിക്കുക -</translation>
 <translation id="2218019600945559112">മൗസും ടച്ച്പാഡും</translation>
 <translation id="2218320521449013367">Chrome ദോഷകരമായ സോഫ്‌റ്റ്‌വെയർ നീക്കം ചെയ്യുന്നതിനിടെ ഒരു പിശക് സംഭവിച്ചു</translation>
@@ -2608,6 +2609,7 @@
 <translation id="5063480226653192405">ഉപയോഗം</translation>
 <translation id="5067867186035333991"><ph name="HOST" />-ന് നിങ്ങളുടെ മൈക്രോഫോൺ ആക്‌സസ്സുചെയ്യണോ എന്ന് ചോദിക്കുക</translation>
 <translation id="5068918910148307423">അടുത്തിടെ അടച്ച സൈറ്റുകളെ, ഡാറ്റ അയയ്‌ക്കുന്നതും സ്വീകരിക്കുന്നതും പൂർത്തിയാക്കാൻ അനുവദിക്കരുത്</translation>
+<translation id="507021118007633031"><ph name="DEVICE_TYPE" />-നുള്ള <ph name="APP_NAME" /></translation>
 <translation id="5072052264945641674">കഴ്‌സറിന്റെ വലുപ്പം ക്രമീകരിക്കുക</translation>
 <translation id="5072836811783999860">നിയന്ത്രിത ബുക്ക്മാർക്കുകൾ കാണിക്കുക</translation>
 <translation id="5074318175948309511">പുതിയ ക്രമീകരണങ്ങൾ പ്രയോഗത്തിൽ വരുന്നതിന് മുമ്പ് ഈ പേജ് വീണ്ടും ലോഡുചെയ്യേണ്ടതായി വരാം.</translation>
@@ -3506,6 +3508,7 @@
 <translation id="645705751491738698">JavaScript തടയുന്നത് തുടരുക</translation>
 <translation id="6458308652667395253">JavaScript തടയുന്നത് മാനേജുചെയ്യുക...</translation>
 <translation id="6459488832681039634">കണ്ടെത്തുന്നതിനായി തിരഞ്ഞെടുപ്പ് ഉപയോഗിക്കുക</translation>
+<translation id="6459799433792303855">സജീവ വിൻഡോ മറ്റൊരു ഡിസ്‌പ്ലേയിലേക്ക് നീക്കി.</translation>
 <translation id="6460601847208524483">അടുത്തത് കണ്ടെത്തുക</translation>
 <translation id="6462082050341971451">നിങ്ങൾ ഇപ്പോഴും അവിടെയുണ്ടോ?</translation>
 <translation id="6463795194797719782">&amp;എഡിറ്റ്‌ചെയ്യൂ</translation>
@@ -3592,6 +3595,7 @@ Google Chrome മൊബൈൽ ഡാറ്റ ഉപയോഗിക്കും.
 <translation id="6596745167571172521">Caps Lock പ്രവർത്തനരഹിതമാക്കുക</translation>
 <translation id="6596816719288285829">IP വിലാസം</translation>
 <translation id="6597017209724497268">സാമ്പിളുകൾ</translation>
+<translation id="6602353599068390226">വിൻഡോ മറ്റൊരു ഡിസ്‌പ്ലേയിലേക്ക് നീക്കുക</translation>
 <translation id="6602956230557165253">നാവിഗേറ്റുചെയ്യുന്നതിന് ഇടത്തേയ്‌ക്കും വലത്തേയ്‌ക്കുമുള്ള അമ്പടയാള കീകൾ ഉപയോഗിക്കുക.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">ഒരു ഉപയോക്താവും ഇതുവരെ റേറ്റ് ചെയ്തിട്ടില്ല.</translation>
@@ -3914,6 +3918,7 @@ Google Chrome മൊബൈൽ ഡാറ്റ ഉപയോഗിക്കും.
 <translation id="7119389851461848805">പവർ</translation>
 <translation id="7120865473764644444">സമന്വയ സെര്‍വറിലേക്ക് കണക്‌റ്റുചെയ്യാനായില്ല. വീണ്ടും ശ്രമിക്കുന്നു...</translation>
 <translation id="7121362699166175603">ചരിത്രവും വിലാസ ബാറിലെ സ്വയം പൂർത്തീകരണങ്ങളും മായ്ക്കുന്നു. നിങ്ങളുടെ Google അക്കൗണ്ടിന് <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> എന്നതിൽ മറ്റ് തരത്തിലുള്ള ബ്രൗസിംഗ് ചരിത്രമുണ്ടായിരിക്കാം.</translation>
+<translation id="7123360114020465152">ഇനിയങ്ങോട്ട് പിന്തുണയില്ല</translation>
 <translation id="71243390042171582"><ph name="MINUTES" />മിനിറ്റ് മുമ്പ് അപ്‌ഡേറ്റുചെയ്തു</translation>
 <translation id="7124929488592184705"><ph name="DOCUMENT_NAME" /> അച്ചടിക്കുന്നതിൽ പിശക്</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;തിരയൽ ഡ്രൈവ്&lt;/em&gt;</translation>
@@ -4171,6 +4176,9 @@ Google Chrome മൊബൈൽ ഡാറ്റ ഉപയോഗിക്കും.
 <translation id="7544853251252956727">ഷഫിൾ ചെയ്യുക</translation>
 <translation id="7545415673537747415"><ph name="BEGIN_LINK" />Google ആക്‌റ്റിവിറ്റി നിയന്ത്രണങ്ങളിൽ<ph name="END_LINK" /> നിന്ന് തിരയലും പരസ്യങ്ങളും മറ്റ് Google സേവനങ്ങളും വ്യക്തിപരമാക്കാൻ, നിങ്ങളുടെ ബ്രൗസിംഗ് ചരിത്രം Google ഉപയോഗിക്കുന്ന രീതി നിയന്ത്രിക്കുക.</translation>
 <translation id="7547317915858803630">മുന്നറിയിപ്പ്: നിങ്ങളുടെ <ph name="PRODUCT_NAME" /> ക്രമീകരണങ്ങൾ ഒരു നെറ്റ്‌വർക്ക് ഡ്രൈവിൽ സംഭരിച്ചിരിക്കുന്നു. ഇതിന്റെ ഫലം മന്ദഗതിയിലുള്ള പ്രവർത്തനങ്ങൾ, ക്രാഷുകൾ അല്ലെങ്കിൽ ഡാറ്റ നഷ്‌ടപ്പെടുന്നത് പോലുമാകാം.</translation>
+<translation id="7547483330017600937">നിങ്ങളുടെ <ph name="DEVICE_TYPE" />-ൽ വികസിപ്പിച്ചെടുക്കുക. നിങ്ങൾക്ക് പ്രിയപ്പെട്ട നേറ്റീവ് ആപ്പുകൾ, കമാൻഡ്-ലൈൻ ടൂളുകൾ എന്നിവ പരിധികളില്ലാതെയും സുരക്ഷിതവുമായും റൺ ചെയ്യാനാവും.
+
+<ph name="APP_NAME" /> ഇന്‍സ്‌റ്റാള്‍ ചെയ്യുന്നത് <ph name="DOWNLOAD_SIZE" /> ഡാറ്റ ഡൗൺലോഡ് ചെയ്യും.</translation>
 <translation id="7548856833046333824">ലെമണേഡ്</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> ഡൗൺലോഡ് പരാജയപ്പെട്ടു</translation>
@@ -4369,6 +4377,7 @@ Google Chrome മൊബൈൽ ഡാറ്റ ഉപയോഗിക്കും.
 <translation id="786073089922909430">സേവനം: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;ഡൌണ്‍ലോഡുകള്‍</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - ജോടിയാക്കി</translation>
+<translation id="7870730066603611552">സജ്ജീകരണത്തിന് ശേഷം സമന്വയ ഓപ്‌ഷനുകൾ അവലോകനം ചെയ്യുക</translation>
 <translation id="7870790288828963061">ഏറ്റവും പുതിയ പതിപ്പിലുള്ള കിയോസ്‌ക് അപ്ലിക്കേഷനുകളൊന്നുമില്ല. USB സ്‌റ്റിക്ക് നീക്കംചെയ്യുക.</translation>
 <translation id="7874357055309047713">എല്ലായ്‌പ്പോഴും എല്ലാ സൈറ്റുകളിലും റൺ ചെയ്യുക</translation>
 <translation id="7877451762676714207">അജ്ഞാതമായ സെർവർ പിശക്. വീണ്ടും ശ്രമിക്കുകയോ സെർവർ അഡ്‌മിനിസ്‌ട്രേറ്ററെ ബന്ധപ്പെടുകയോ ചെയ്യുക.</translation>
@@ -5116,6 +5125,7 @@ Google Chrome മൊബൈൽ ഡാറ്റ ഉപയോഗിക്കും.
 <translation id="9066782832737749352">ടെക്‌സ്‌റ്റ്-ടു-സ്‌പീച്ച്</translation>
 <translation id="9070219033670098627">ഉപയോക്താവിനെ മാറ്റുക</translation>
 <translation id="907148966137935206">പോപ്പ്-അപ്പുകള്‍‌ കാണിക്കാന്‍ ഒരു സൈറ്റിനെയും അനുവദിക്കരുത് (ശുപാര്‍‌ശിതം)</translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> ഇന്‍സ്‌റ്റാള്‍ ചെയ്യുന്നു...</translation>
 <translation id="9072550133391925347">നിങ്ങൾ സംരക്ഷിച്ച പാസ്‌വേഡുകൾ ഉപയോഗിച്ച് യോഗ്യമായ സൈറ്റുകളിലേക്കും ആപ്‌സിലേക്കും <ph name="PASSWORD_MANAGER_BRAND" />, നിങ്ങളെ സ്വയമേവ സൈൻ ഇൻ ചെയ്യിക്കുന്നു.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

@@ -7,6 +7,7 @@
 <translation id="1049743911850919806">シークレット モード</translation>
 <translation id="10614374240317010">常に保存しない</translation>
 <translation id="1068672505746868501"><ph name="SOURCE_LANGUAGE" />のページを翻訳しない</translation>
+<translation id="10713315585330490"><ph name="FILE_SIZE" /> - <ph name="DESCRIPTION" /></translation>
 <translation id="1080790410959514870"><ph name="DOMAIN_NAME" /> により管理されているアカウントからログアウトします。このデバイスに保存されている Chrome データは削除されますが、Google アカウントではデータが保持されます。</translation>
 <translation id="1105960400813249514">画面キャプチャ</translation>
 <translation id="1111673857033749125">他の端末に保存されているブックマークがここに表示されます。</translation>
@@ -245,7 +246,6 @@
 <translation id="3236059992281584593">残り 1 分</translation>
 <translation id="3244271242291266297">MM</translation>
 <translation id="3254409185687681395">このページをブックマークに追加します</translation>
-<translation id="3255459706755453214">特定のサイトに対してクリップボードへの読み取りアクセスをブロックします。</translation>
 <translation id="3259831549858767975">ページ上のすべての要素を縮小する</translation>
 <translation id="3269093882174072735">画像を読み込む</translation>
 <translation id="3269956123044984603">他の端末と同じタブを使用するには、Android のアカウント設定で [データの自動同期] を有効にします。</translation>
@@ -257,7 +257,6 @@
 <translation id="3328801116991980348">サイト情報</translation>
 <translation id="3341058695485821946">データ削減量を確認できます</translation>
 <translation id="3350687908700087792">すべてのシークレット タブを閉じます</translation>
-<translation id="3358632888246345756">特定のサイトに対してクリップボードへの読み取りアクセスを許可します。</translation>
 <translation id="3365671512111106261">データセーバーが有効になっている場合は使用できません</translation>
 <translation id="3367813778245106622">同期を開始するにはもう一度ログインします</translation>
 <translation id="3384347053049321195">画像を共有</translation>
@@ -683,6 +682,7 @@
 <translation id="7063006564040364415">同期サーバーに接続できませんでした。</translation>
 <translation id="7066151586745993502">{NUM_SELECTED,plural, =1{1 件のアイテムを選択済み}other{# 件のアイテムを選択済み}}</translation>
 <translation id="7077143737582773186">SD カード</translation>
+<translation id="7087918508125750058"><ph name="ITEM_COUNT" /> 件選択されています。オプションは画面上部にあります</translation>
 <translation id="7121362699166175603">アドレスバーの履歴とオートコンプリートを削除します。お使いの Google アカウントの <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> に、他の形式の閲覧履歴が記録されている場合があります。</translation>
 <translation id="7128222689758636196">現在の検索エンジンを許可する</translation>
 <translation id="7138678301420049075">その他</translation>
@@ -694,6 +694,7 @@
 <translation id="7191430249889272776">バックグラウンドでタブを開きました。</translation>
 <translation id="723171743924126238">画像を選択</translation>
 <translation id="7243308994586599757">画面の下の方にオプションがあります</translation>
+<translation id="7250468141469952378"><ph name="ITEM_COUNT" /> 件選択されています</translation>
 <translation id="7251326866581677552">一部のサイトでブロックされています</translation>
 <translation id="7253272406652746122">端末の設定アプリのアカウント ページで Google アカウントを追加してください。</translation>
 <translation id="7274013316676448362">ブロック中のサイト</translation>

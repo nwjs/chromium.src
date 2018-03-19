@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> e, em seguida, <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> ou <ph name="LEFT" />.</translation>
 <translation id="1996162290124031907">Aceder ao separador seguinte</translation>
 <translation id="2010818616644390445">Ir para o último separador na janela</translation>
+<translation id="2088054208777350526">Procurar atalhos de teclado</translation>
 <translation id="2145908266289632567">Edição de texto</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 a =</translation>
 <translation id="2181097965834437145">Mostrar ou ocultar a barra de marcadores</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 a 8</translation>
 <translation id="3837047332182291558">Aumentar o brilho do teclado (apenas para teclados retroiluminados)</translation>
 <translation id="3976863468609830880">Clicar no último ícone da prateleira</translation>
+<translation id="4026843240379844265">Mova a janela ativa entre ecrãs.</translation>
 <translation id="4035482366624727273">Selecionar tudo na página</translation>
 <translation id="4060703249685950734">Reabrir o último separador ou a última janela que fechou</translation>
 <translation id="4090342722461256974">Prima sem soltar <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" /> e, em seguida, toque em <ph name="TAB" /> até alcançar a janela que pretende abrir. Em seguida, solte.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Acessibilidade</translation>
 <translation id="7020813747703216897">Não foram encontrados resultados correspondentes.</translation>
 <translation id="7025325401470358758">Painel seguinte</translation>
+<translation id="7237562915163138771">Introduza um endereço Web na barra de endereço e, em seguida, prima <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" />.</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> ou <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" />.</translation>
 <translation id="7439718573248533901">Eliminar a letra seguinte (eliminação para a frente)</translation>
 <translation id="766326951329901120">Colar o conteúdo da área de transferência como texto simples</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Arraste o link para uma área em branco na Faixa de separadores.</translation>
 <translation id="8389638407792712197">Abrir nova janela</translation>
 <translation id="8429696719963529183">Utilizar as teclas F (F1 a F12)</translation>
+<translation id="8537650670971624753">Sair do modo de pesquisa</translation>
 <translation id="85690795166292698">Abrir o link num novo separador</translation>
 <translation id="8609384513243082612">Abrir novo separador</translation>
 <translation id="8644639153978066712">Apresentar ficheiros ocultos na aplicação Ficheiros</translation>

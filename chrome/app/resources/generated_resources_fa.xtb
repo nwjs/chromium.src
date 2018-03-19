@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">رفتن به حالت خواب، وقتی دستگاه بسته می‌شود</translation>
 <translation id="1115018219887494029">‏Smart Lock برای Chromebook (بتا)</translation>
 <translation id="1116694919640316211">درباره</translation>
+<translation id="1116779635164066733">این تنظیم توسط افزونه «<ph name="NAME" />»، به اجرا درآمده است.</translation>
 <translation id="1119069657431255176">‏بایگانی نوار فشرده Bzip2</translation>
 <translation id="1119447706177454957">خطای داخلی</translation>
 <translation id="1122198203221319518">&amp;ابزارها</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">تغییر نام</translation>
 <translation id="1175364870820465910">&amp;چاپ...</translation>
 <translation id="117624967391683467">درحال کپی <ph name="FILE_NAME" />...</translation>
+<translation id="1177138678118607465">‏ممکن است Google از سابقه مرور شما برای شخصی‌سازی «جستجو»، آگهی و سایر خدمات استفاده کند. هرزمان خواستید می‌توانید این مورد را در myaccount.google.com/activitycontrols/search تغییر دهید</translation>
 <translation id="1177863135347784049">سفارشی</translation>
 <translation id="1178581264944972037">مکث</translation>
 <translation id="1181037720776840403">حذف</translation>
@@ -778,7 +780,6 @@
 <translation id="2208158072373999562">فایل بایگانی زیپ</translation>
 <translation id="220858061631308971">لطفاً این کد پین را در "<ph name="DEVICE_NAME" />" وارد کنید:</translation>
 <translation id="2209593327042758816">مورد ۲ قفسه</translation>
-<translation id="2215277870964745766">خوش آمدید! زبان و شبکه‌تان را تنظیم کنید</translation>
 <translation id="2217501013957346740">یک نام ایجاد کنید -</translation>
 <translation id="2218019600945559112">موشواره و صفحه لمسی</translation>
 <translation id="2218320521449013367">‏هنگام حذف نرم‌افزار مضر توسط Chrome، خطایی روی داد</translation>
@@ -2607,6 +2608,7 @@
 <translation id="5063480226653192405">کاربر </translation>
 <translation id="5067867186035333991">اگر <ph name="HOST" /> می‌خواهد به میکروفن شما دسترسی داشته باشد از من سوال شود</translation>
 <translation id="5068918910148307423">به سایت‌های اخیراً بسته‌شده امکان داده نشود ارسال و دریافت داده را تکمیل کنند</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> برای <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">تنظیم اندازه نشانگر</translation>
 <translation id="5072836811783999860">نمایش نشانک‌های مدیریت شده</translation>
 <translation id="5074318175948309511">شاید لازم باشد که این صفحه قبل از اعمال شدن تنظیمات جدید، بارگذاری مجدد شود.</translation>
@@ -3505,6 +3507,7 @@
 <translation id="645705751491738698">ادامه مسدودکردن جاوا اسکریپت</translation>
 <translation id="6458308652667395253">مدیریت انسداد جاوا اسکریپت...</translation>
 <translation id="6459488832681039634">استفاده از انتخاب برای یافتن</translation>
+<translation id="6459799433792303855">پنجره فعال به نمایشگر دیگری منتقل شد.</translation>
 <translation id="6460601847208524483">یافتن بعدی</translation>
 <translation id="6462082050341971451">آیا هنوز آنجا هستید؟</translation>
 <translation id="6463795194797719782">&amp;ویرایش</translation>
@@ -3590,6 +3593,7 @@
 <translation id="6596745167571172521">‏غیرفعال کردن Caps Lock (قفل حروف بزرگ)</translation>
 <translation id="6596816719288285829">‏آدرس IP</translation>
 <translation id="6597017209724497268">نمونه‌ها</translation>
+<translation id="6602353599068390226">انتقال پنجره به نمایشگر دیگری</translation>
 <translation id="6602956230557165253">از کلیدهای پیکان سمت راست و چپ برای پیمایش استفاده کنید.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">قبلاً هیچ کاربری رتبه‌بندی نکرده است.</translation>
@@ -3912,6 +3916,7 @@
 <translation id="7119389851461848805">روشن/خاموش</translation>
 <translation id="7120865473764644444">اتصال به سرور همگام‌سازی امکان‌پذیر نیست. درحال امتحان مجدد…</translation>
 <translation id="7121362699166175603">‏سابقه و تکمیل‌های خودکار را در نوار نشانی پاک می‌کند. ممکن است حساب Google شما اشکال دیگری از سابقه مرور در <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> داشته باشد.</translation>
+<translation id="7123360114020465152">دیگر پشتیبانی نمی‌شود</translation>
 <translation id="71243390042171582"><ph name="MINUTES" /> دقیقه قبل به‌روزرسانی شد</translation>
 <translation id="7124929488592184705">خطا در چاپ <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">‏'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;جستجوی Drive&lt;/em&gt;</translation>
@@ -4171,6 +4176,9 @@
 <translation id="7544853251252956727">درهم</translation>
 <translation id="7545415673537747415">‏نحوه استفاده Google را از سابقه مرورتان برای شخصی‌سازی جستجو، آگهی‌ها و سایر سرویس‌های Google، در <ph name="BEGIN_LINK" />کنترل‌های فعالیت Google<ph name="END_LINK" /> کنترل کنید.</translation>
 <translation id="7547317915858803630">اخطار: تنظیمات <ph name="PRODUCT_NAME" /> شما در درایو شبکه ذخیره می‌شود. این کار ممکن است منجر به از دست رفتن دادهٰ‌ها٬ کند شدن و خرابی شود.</translation>
+<translation id="7547483330017600937"><ph name="DEVICE_TYPE" /> خود را پیشرفته کنید. می‌توانید برنامه‌های به زبان اصلی دستگاه و ابزارهای خط فرمان دلخواهتان را به‌طور یکپارچه و ایمن به اجرا درآورید.
+
+با نصب <ph name="APP_NAME" />، <ph name="DOWNLOAD_SIZE" /> داده بارگیری می‌شود.</translation>
 <translation id="7548856833046333824">لیموناد</translation>
 <translation id="7550830279652415241">bookmarks<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> بارگیری نشد</translation>
@@ -4368,6 +4376,7 @@
 <translation id="786073089922909430">سرویس: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;فایلهای بارگیری‌شده</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - مرتبط</translation>
+<translation id="7870730066603611552">مرور گزینه‌های همگام‌سازی به دنبال راه‌اندازی</translation>
 <translation id="7870790288828963061">‏برنامه‌های کیوسکی با نسخه جدیدتر پیدا نشد. موردی برای به‌روزرسانی وجود ندارد. لطفاً فلش USB را خارج کنید.</translation>
 <translation id="7874357055309047713">همیشه در همه سایت‌ها اجرا شود</translation>
 <translation id="7877451762676714207">خطای سرور ناشناس. لطفاً دوباره سعی کنید یا با سرپرست سرور تماس بگیرید.</translation>
@@ -5116,6 +5125,7 @@
 <translation id="9066782832737749352">تبدیل نوشتار به‌ گفتار</translation>
 <translation id="9070219033670098627">تغییر دادن شخص</translation>
 <translation id="907148966137935206">به هیچ سایتی برای نمایش پنجره‌های بازشو اجازه داده نشود (توصیه می‌شود)</translation>
+<translation id="9071637495340542136">درحال نصب <ph name="APP_NAME" />…</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> شما را به‌صورت خودکار در سایت‌ها و برنامه‌های واجد شرایط با گذرواژه‌هایی که ذخیره کرده‌اید ثبت ورود می‌کند.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">بلوتوث</translation>

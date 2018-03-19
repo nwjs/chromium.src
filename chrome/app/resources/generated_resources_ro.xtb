@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Când capacul este închis: modul inactiv</translation>
 <translation id="1115018219887494029">Smart Lock pentru Chromebook (beta)</translation>
 <translation id="1116694919640316211">Despre</translation>
+<translation id="1116779635164066733">Această setare este impusă de extensia „<ph name="NAME" />”.</translation>
 <translation id="1119069657431255176">Arhivă .tar comprimată Bzip2</translation>
 <translation id="1119447706177454957">Eroare internă</translation>
 <translation id="1122198203221319518">&amp;Instrumente</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Redenumește</translation>
 <translation id="1175364870820465910">&amp;Printează...</translation>
 <translation id="117624967391683467">Se copiază <ph name="FILE_NAME" />...</translation>
+<translation id="1177138678118607465">Google poate folosi istoricul de navigare pentru a personaliza Căutarea, anunțurile și alte servicii Google. Poți schimba oricând această opțiune la myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Personalizează</translation>
 <translation id="1178581264944972037">Întrerupe</translation>
 <translation id="1181037720776840403">Elimină</translation>
@@ -604,7 +606,7 @@
 <translation id="1905710495812624430">Ai depășit numărul maxim de încercări permise.</translation>
 <translation id="1909880997794698664">Sigur doriți să păstrați permanent acest dispozitiv în modul chioșc?</translation>
 <translation id="1910721550319506122">Bun venit!</translation>
-<translation id="1914326953223720820">Dezarhivează serviciul</translation>
+<translation id="1914326953223720820">Serviciu de dezarhivare</translation>
 <translation id="1915073950770830761">canary</translation>
 <translation id="1916502483199172559">Avatar roșu prestabilit</translation>
 <translation id="1918141783557917887">&amp;Mai mic</translation>
@@ -781,7 +783,6 @@
 <translation id="2208158072373999562">Arhivă zip</translation>
 <translation id="220858061631308971">Introduceți acest cod PIN pe „<ph name="DEVICE_NAME" />”:</translation>
 <translation id="2209593327042758816">Elementul 2 din raft</translation>
-<translation id="2215277870964745766">Bine ați venit! Setați limba și rețeaua</translation>
 <translation id="2217501013957346740">Creați un nume –</translation>
 <translation id="2218019600945559112">Mouse și touchpad</translation>
 <translation id="2218320521449013367">A apărut o eroare în timp ce Chrome elimina un software dăunător</translation>
@@ -2611,6 +2612,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="5063480226653192405">Utilizare</translation>
 <translation id="5067867186035333991">Întreabă dacă <ph name="HOST" /> solicită acces la microfon</translation>
 <translation id="5068918910148307423">Nu permite site-urilor închise recent să finalizeze trimiterea sau primirea datelor</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> pentru <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Ajustează dimensiunea cursorului</translation>
 <translation id="5072836811783999860">Vezi marcajele gestionate</translation>
 <translation id="5074318175948309511">Este posibil să fie necesară reîncărcarea acestei pagini înainte ca noile setări să se aplice.</translation>
@@ -3509,6 +3511,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="645705751491738698">Continuă blocarea JavaScript</translation>
 <translation id="6458308652667395253">Gestionează blocarea JavaScript...</translation>
 <translation id="6459488832681039634">Folosește selecția pentru a găsi</translation>
+<translation id="6459799433792303855">Fereastra activă a fost mutată pe alt ecran.</translation>
 <translation id="6460601847208524483">Următorul</translation>
 <translation id="6462082050341971451">Mai sunteți aici?</translation>
 <translation id="6463795194797719782">&amp;Editează</translation>
@@ -3594,6 +3597,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="6596745167571172521">Dezactivează Caps Lock</translation>
 <translation id="6596816719288285829">Adresă IP</translation>
 <translation id="6597017209724497268">Eșantioane</translation>
+<translation id="6602353599068390226">mută fereastra pe alt ecran</translation>
 <translation id="6602956230557165253">Utilizați butoanele săgeată la stânga și la dreapta pentru a naviga.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Nu a fost încă evaluat de utilizatori.</translation>
@@ -3916,6 +3920,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="7119389851461848805">pornire</translation>
 <translation id="7120865473764644444">Nu s-a putut stabili conexiunea cu serverul de sincronizare. Se încearcă din nou…</translation>
 <translation id="7121362699166175603">Șterge istoricul și completările automate din bara de adrese. Contul Google poate să ofere alte forme ale istoricului de navigare la <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">Nu mai este acceptată</translation>
 <translation id="71243390042171582">Actualizată acum <ph name="MINUTES" /> min.</translation>
 <translation id="7124929488592184705">Eroare la printarea <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">„&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;” – &lt;em&gt;căutați în Google Drive&lt;/em&gt;</translation>
@@ -4173,6 +4178,9 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="7544853251252956727">Redă aleatoriu</translation>
 <translation id="7545415673537747415">Stabilește cum poate folosi Google istoricul de navigare pentru a personaliza Căutarea, anunțurile și alte servicii Google din <ph name="BEGIN_LINK" />Opțiunile privind activitatea Google<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Avertisment: setările <ph name="PRODUCT_NAME" /> sunt stocate pe o unitate de rețea, ceea ce poate duce la încetiniri, blocări sau chiar la pierderi de date.</translation>
+<translation id="7547483330017600937">Dezvoltă pe <ph name="DEVICE_TYPE" />. Poți rula sigur și rapid aplicațiile native și instrumentele pentru linia de comandă preferate.
+
+Dacă instalezi <ph name="APP_NAME" />, se vor descărca <ph name="DOWNLOAD_SIZE" /> de date.</translation>
 <translation id="7548856833046333824">Limonadă</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> a fost descărcat</translation>
@@ -4371,6 +4379,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="786073089922909430">Serviciu: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Descărcări</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> – asociat</translation>
+<translation id="7870730066603611552">Examinează opțiunile de sincronizare după configurare</translation>
 <translation id="7870790288828963061">Nu s-a găsit nicio aplicație de tip chioșc cu o versiune mai recentă. Nimic de actualizat. Scoate stickul USB.</translation>
 <translation id="7874357055309047713">Rulează întotdeauna pe toate site-urile</translation>
 <translation id="7877451762676714207">Eroare de server necunoscută. Încercați din nou sau contactați administratorul serverului.</translation>
@@ -5119,6 +5128,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="9066782832737749352">Transformarea textului în vorbire</translation>
 <translation id="9070219033670098627">Comută la altă persoană</translation>
 <translation id="907148966137935206">Nu permite niciunui site să afișeze ferestre pop-up (recomandat)</translation>
+<translation id="9071637495340542136">Se instalează <ph name="APP_NAME" />...</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> te conectează automat pe site-urile și la aplicațiile eligibile cu parolele pe care le-ai salvat.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

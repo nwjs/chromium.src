@@ -246,7 +246,6 @@
 <translation id="3236059992281584593">נותרה דקה אחת</translation>
 <translation id="3244271242291266297">MM</translation>
 <translation id="3254409185687681395">הוסף את הדף לסימניות</translation>
-<translation id="3255459706755453214">חסימת הגישה לקריאה מלוח העריכה בשביל אתר מסוים.</translation>
 <translation id="3259831549858767975">הקטן את כל מה שמופיע בדף</translation>
 <translation id="3269093882174072735">טען תמונה</translation>
 <translation id="3269956123044984603">‏כדי לקבל את הכרטיסיות מהמכשירים האחרים שלך, הפעל את האפשרות 'סנכרון אוטומטי של נתונים' בהגדרות של חשבון Android.</translation>
@@ -258,7 +257,6 @@
 <translation id="3328801116991980348">פרטי אתר</translation>
 <translation id="3341058695485821946">בדיקת החיסכון בצריכת נתונים</translation>
 <translation id="3350687908700087792">סגור את כל כרטיסיות הגלישה בסתר</translation>
-<translation id="3358632888246345756">הענקת גישה לקריאה מלוח העריכה בשביל אתר מסוים.</translation>
 <translation id="3365671512111106261">‏לא זמין כאשר חוסך הנתונים (Data Saver) פועל</translation>
 <translation id="3367813778245106622">היכנס שוב כדי להתחיל בסנכרון</translation>
 <translation id="3384347053049321195">שתף תמונה</translation>
@@ -670,7 +668,7 @@
 <translation id="6981982820502123353">נגישות</translation>
 <translation id="6985347914332179298">אין כאן הורדות</translation>
 <translation id="6990079615885386641">‏קבל את האפליקציה מחנות Google Play‏: <ph name="APP_ACTION" /></translation>
-<translation id="699220179437400583">‏דווח אוטומטית ל-Google על פרטים של בעיות אבטחה אפשריות</translation>
+<translation id="699220179437400583">‏דיווח אוטומטית ל-Google על פרטים של בעיות אבטחה אפשריות</translation>
 <translation id="6992289844737586249">שאל לפני שתאפשר לאתרים להשתמש במיקרופון (מומלץ)</translation>
 <translation id="7006912589185917280">כרטיסיית ההיסטוריה נבחרה</translation>
 <translation id="7016516562562142042">מופעל למנוע החיפוש הנוכחי</translation>

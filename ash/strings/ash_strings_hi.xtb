@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">प्रस्थान करने के लिए दो बार Ctrl+Shift+Q दबाएं.</translation>
 <translation id="3893630138897523026">ChromeVox (बोला गया फ़ीडबैक)</translation>
 <translation id="3899995891769452915">ध्‍वनि इनपुट</translation>
+<translation id="3900355044994618856">आपका सत्र <ph name="SESSION_TIME_REMAINING" /> में खत्म होने वाला है</translation>
 <translation id="3901991538546252627"><ph name="NAME" /> से कनेक्‍ट हो रहा है</translation>
 <translation id="394485226368336402">ऑडियो सेटिंग</translation>
 <translation id="397105322502079400">गणना की जा रही है...</translation>
@@ -252,6 +253,7 @@
 <translation id="7066646422045619941">यह नेटवर्क आपके व्यवस्थापक द्वारा अक्षम किया गया है.</translation>
 <translation id="7067196344162293536">स्वत: घुमाएं</translation>
 <translation id="7098389117866926363">USB-C डिवाइस (पीछे बायां पोर्ट)</translation>
+<translation id="7131634465328662194">आप अपने आप साइन आउट कर जाएंगे.</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358"><ph name="TIMEOUT_SECONDS" /> में पुराने रिज़ॉल्यूशन में वापस लौट रहा है</translation>
 <translation id="7256634071279256947">पीछे वाला माइक्रोफ़ोन</translation>

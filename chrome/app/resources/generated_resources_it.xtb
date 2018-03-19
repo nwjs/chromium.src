@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Sospendi alla chiusura del coperchio</translation>
 <translation id="1115018219887494029">Smart Lock per Chromebook (beta)</translation>
 <translation id="1116694919640316211">Informazioni</translation>
+<translation id="1116779635164066733">Questa impostazione è applicata dall'estensione "<ph name="NAME" />".</translation>
 <translation id="1119069657431255176">Archivio tar compresso con bzip2</translation>
 <translation id="1119447706177454957">Errore interno</translation>
 <translation id="1122198203221319518">S&amp;trumenti</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Rinomina</translation>
 <translation id="1175364870820465910">&amp;Stampa...</translation>
 <translation id="117624967391683467">Copia di <ph name="FILE_NAME" />...</translation>
+<translation id="1177138678118607465">Google può utilizzare la tua cronologia di navigazione per personalizzare gli annunci associati ai risultati di ricerca e altri servizi Google. Puoi modificare l'impostazione in qualsiasi momento visitando il sito myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Personalizzati</translation>
 <translation id="1178581264944972037">Pausa</translation>
 <translation id="1181037720776840403">Rimuovi</translation>
@@ -781,7 +783,6 @@
 <translation id="2208158072373999562">Archivio Zip</translation>
 <translation id="220858061631308971">Inserisci questo codice PIN su "<ph name="DEVICE_NAME" />":</translation>
 <translation id="2209593327042758816">Elemento 2 della shelf</translation>
-<translation id="2215277870964745766">Benvenuto. Imposta la tua lingua e la rete</translation>
 <translation id="2217501013957346740">Crea un nome -</translation>
 <translation id="2218019600945559112">Mouse e touchpad</translation>
 <translation id="2218320521449013367">Si è verificato un errore in Chrome durante la rimozione di software dannoso</translation>
@@ -2213,7 +2214,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4425149324548788773">I miei file</translation>
 <translation id="4430019312045809116">Volume</translation>
 <translation id="4430369329743628066">Aggiunto ai preferiti</translation>
-<translation id="443454694385851356">Legacy (non sicuro)</translation>
+<translation id="443454694385851356">Precedente (non sicuro)</translation>
 <translation id="443464694732789311">Continua</translation>
 <translation id="4439318412377770121">Vuoi registrare <ph name="DEVICE_NAME" /> su Google Cloud Devices?</translation>
 <translation id="4441124369922430666">Vuoi avviare automaticamente questa app all'accensione del computer?</translation>
@@ -2608,6 +2609,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="5063480226653192405">Utilizzo</translation>
 <translation id="5067867186035333991">Chiedi conferma se <ph name="HOST" /> vuole accedere al microfono</translation>
 <translation id="5068918910148307423">Non consentire ai siti chiusi di recente di terminare l'invio e la ricezione di dati</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> per <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Regola dimensioni puntatore</translation>
 <translation id="5072836811783999860">Mostra Preferiti gestiti</translation>
 <translation id="5074318175948309511">Potrebbe essere necessario ricaricare la pagina per applicare le nuove impostazioni.</translation>
@@ -3505,6 +3507,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="645705751491738698">Continua a bloccare JavaScript</translation>
 <translation id="6458308652667395253">Gestisci il blocco di JavaScript...</translation>
 <translation id="6459488832681039634">Utilizza selezione per Trova</translation>
+<translation id="6459799433792303855">Finestra attiva spostata in un altro schermo.</translation>
 <translation id="6460601847208524483">Trova successivo</translation>
 <translation id="6462082050341971451">Sei ancora lì?</translation>
 <translation id="6463795194797719782">&amp;Modifica</translation>
@@ -3590,6 +3593,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6596745167571172521">Disattiva Bloc maiusc</translation>
 <translation id="6596816719288285829">Indirizzo IP</translation>
 <translation id="6597017209724497268">Esempi</translation>
+<translation id="6602353599068390226">sposta la finestra in un altro schermo</translation>
 <translation id="6602956230557165253">Utilizza i tasti freccia sinistra e destra per spostarti.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Nessuna valutazione disponibile.</translation>
@@ -3912,6 +3916,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="7119389851461848805">accensione</translation>
 <translation id="7120865473764644444">Impossibile collegarsi al server di sincronizzazione. Nuovo tentativo...</translation>
 <translation id="7121362699166175603">Consente di cancellare la cronologia e i completamenti automatici nella barra degli indirizzi. Il tuo account Google potrebbe avere altri tipi di cronologia di navigazione all'indirizzo <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">La stampante non è più supportata</translation>
 <translation id="71243390042171582">Aggiornata <ph name="MINUTES" /> min fa</translation>
 <translation id="7124929488592184705">Errore durante la stampa di <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" - &lt;em&gt;cerca in Drive&lt;/em&gt;</translation>
@@ -4162,6 +4167,9 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="7544853251252956727">Riproduzione casuale</translation>
 <translation id="7545415673537747415">Controlla il modo in cui Google utilizza la cronologia di navigazione per personalizzare la Ricerca, gli annunci e altri servizi Google dalla pagina <ph name="BEGIN_LINK" />Gestione attività di Google<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Avviso. Le tue impostazioni <ph name="PRODUCT_NAME" /> sono memorizzate su un'unità di rete. Potrebbero verificarsi rallentamenti, arresti anomali o persino perdite di dati.</translation>
+<translation id="7547483330017600937">Sviluppa sul tuo dispositivo <ph name="DEVICE_TYPE" />. Puoi eseguire le tue app native preferite e gli strumenti a riga di comando in modo trasparente e sicuro.
+
+L'installazione dell'app <ph name="APP_NAME" /> scaricherà <ph name="DOWNLOAD_SIZE" /> di dati.</translation>
 <translation id="7548856833046333824">Limonata</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Download di <ph name="FILE_NAME" /> non riuscito</translation>
@@ -4358,6 +4366,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="786073089922909430">Servizio: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Download</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" />, accoppiato</translation>
+<translation id="7870730066603611552">Controlla le opzioni di sincronizzazione dopo la configurazione</translation>
 <translation id="7870790288828963061">Nessuna app kiosk con versione più recente trovata. Non c'è nulla da aggiornare. Rimuovi la chiavetta USB.</translation>
 <translation id="7874357055309047713">Esegui sempre su tutti i siti</translation>
 <translation id="7877451762676714207">Errore del server sconosciuto. Riprova o contatta l'amministratore del server.</translation>
@@ -5000,7 +5009,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8903921497873541725">Aumenta lo zoom</translation>
 <translation id="8904976895050290827">Sincronizzazione Google Chrome</translation>
 <translation id="8908902564709148335">Avviso. Hai attivato sul computer il flag --scripts-require-action, che limita le funzionalità di questa estensione. Altri dispositivi, però, potrebbero non supportare questo flag o la sua attivazione. Su tali dispositivi, questa estensione può anche:</translation>
-<translation id="8909233240676134608">Impossibile far accedere il computer al dominio. Il server non supporta tipi di crittografia Kerberos specifici. Consulta "Altre opzioni" per le impostazioni di crittografia.</translation>
+<translation id="8909233240676134608">Impossibile aggiungere il computer al dominio. Il server non supporta i tipi di crittografia Kerberos specificati. Consulta "Altre opzioni" per le impostazioni di crittografia.</translation>
 <translation id="8910146161325739742">Condividi lo schermo</translation>
 <translation id="8910222113987937043">Le modifiche apportate a preferiti, cronologia, password e altre impostazioni non verranno più sincronizzate con il tuo account Google. I dati esistenti rimarranno invece memorizzati nel tuo account Google e potranno essere gestiti su <ph name="BEGIN_LINK" />Google Dashboard<ph name="END_LINK" />.</translation>
 <translation id="8912793549644936705">Allunga</translation>
@@ -5106,6 +5115,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="9066782832737749352">Sintesi vocale</translation>
 <translation id="9070219033670098627">Cambia persona</translation>
 <translation id="907148966137935206">Non consentire la visualizzazione di popup nei siti (consigliata)</translation>
+<translation id="9071637495340542136">Installazione di <ph name="APP_NAME" />…</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> ti consente di accedere automaticamente alle app e ai siti idonei con le password salvate.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

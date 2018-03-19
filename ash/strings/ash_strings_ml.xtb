@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">സൈൻ ഔട്ട് ചെയ്യുന്നതിന് രണ്ടു‌തവണ Ctrl+Shift+Q അമർത്തുക.</translation>
 <translation id="3893630138897523026">ChromeVox (സ്‌പോക്കൺ ഫീഡ്‌ബാക്ക്)</translation>
 <translation id="3899995891769452915">വോയ്‌സ് ഇൻപുട്ട്</translation>
+<translation id="3900355044994618856"><ph name="SESSION_TIME_REMAINING" />-ൽ നിങ്ങളുടെ സെഷൻ അവസാനിക്കുന്നു</translation>
 <translation id="3901991538546252627"><ph name="NAME" /> എന്നതിലേക്ക് കണക്റ്റുചെയ്യുന്നു</translation>
 <translation id="394485226368336402">ഓഡിയോ ക്രമീകരണം</translation>
 <translation id="397105322502079400">കണക്കാക്കുന്നു...</translation>
@@ -252,6 +253,7 @@
 <translation id="7066646422045619941">നിങ്ങളുടെ അഡ്‌മിനിസ്‌ട്രേറ്റർ ഈ നെറ്റ്‌വർക്ക് പ്രവർത്തനരഹിതമാക്കി.</translation>
 <translation id="7067196344162293536">സ്വയമേവ തിരിക്കുക</translation>
 <translation id="7098389117866926363">USB-C ഉപകരണം (പുറകിൽ ഇടതുവശത്തെ പോർട്ട്)</translation>
+<translation id="7131634465328662194">നിങ്ങൾ സ്വമേധയാ സൈൻ ഔട്ടാകും.</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358"><ph name="TIMEOUT_SECONDS" />-ൽ പഴയ മിഴിവിലേക്ക് പഴയപടിയാക്കുന്നു</translation>
 <translation id="7256634071279256947">പിൻഭാഗത്തെ മൈക്രോഫോൺ</translation>

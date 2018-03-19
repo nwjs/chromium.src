@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Premi due volte Ctrl+Maiusc+Q per uscire.</translation>
 <translation id="3893630138897523026">ChromeVox (lettura vocale)</translation>
 <translation id="3899995891769452915">Input vocale</translation>
+<translation id="3900355044994618856">La sessione terminerà tra <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Connessione a: <ph name="NAME" /></translation>
 <translation id="394485226368336402">Impostazioni audio</translation>
 <translation id="397105322502079400">Calcolo in corso...</translation>
@@ -252,6 +253,7 @@ Utilizza questa funzione solo con gli account che consideri attendibili.</transl
 <translation id="7066646422045619941">Questa rete è stata disattivata dall'amministratore.</translation>
 <translation id="7067196344162293536">Ruota in modo automatico</translation>
 <translation id="7098389117866926363">Dispositivo USB-C (porta posteriore sinistra)</translation>
+<translation id="7131634465328662194">Verrai disconnesso automaticamente.</translation>
 <translation id="7165278925115064263">ALT + MAIUSC + K</translation>
 <translation id="7168224885072002358">Ripristino della risoluzione precedente tra <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Microfono posteriore</translation>

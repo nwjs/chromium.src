@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Lai izrakstītos, divas reizes nospiediet taustiņu kombināciju Ctrl+Shift+Q.</translation>
 <translation id="3893630138897523026">ChromeVox (balss komentāri)</translation>
 <translation id="3899995891769452915">Balss ievade</translation>
+<translation id="3900355044994618856">Atlikušais laiks līdz jūsu sesijas beigām: <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Notiek savienojuma izveide ar <ph name="NAME" /></translation>
 <translation id="394485226368336402">Audio iestatījumi</translation>
 <translation id="397105322502079400">Aprēķina...</translation>
@@ -252,6 +253,7 @@ Izmantojiet šo funkciju tikai uzticamiem kontiem.</translation>
 <translation id="7066646422045619941">Jūsu administrators atspējoja šo tīklu.</translation>
 <translation id="7067196344162293536">Pagriezt automātiski</translation>
 <translation id="7098389117866926363">USB-C ierīce (pieslēgvieta aizmugurē pa kreisi)</translation>
+<translation id="7131634465328662194">Jūs tiksiet automātiski izrakstīts.</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358">Iepriekšējā izšķirtspēja tiks atgriezta pēc <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Aizmugurējais mikrofons</translation>

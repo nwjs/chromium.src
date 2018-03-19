@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">लिड बंद होने पर सुलाएं (कम बैटरी मोड)</translation>
 <translation id="1115018219887494029">Chromebook के लिए Smart Lock (बीटा)</translation>
 <translation id="1116694919640316211">इसके बारे में</translation>
+<translation id="1116779635164066733">यह सेटिंग "<ph name="NAME" />" एक्सटेंशन के ज़रिए लागू की गई है.</translation>
 <translation id="1119069657431255176">Bzip2 संकुचित tar संग्रह</translation>
 <translation id="1119447706177454957">आंतरिक गड़बड़ी</translation>
 <translation id="1122198203221319518">&amp;टूल</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">नाम बदलें</translation>
 <translation id="1175364870820465910">&amp;प्रिंट करें...</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> की कॉपी बन रही है...</translation>
+<translation id="1177138678118607465">खोज विज्ञापन और दूसरी Google सेवाओं को मनमुताबिक बनाने के लिए Google आपके ब्राउज़िंग इतिहास का इस्तेमाल कर सकता है. आप myaccount.google.com/activitycontrols/search में इसे कभी भी बदल सकते हैं</translation>
 <translation id="1177863135347784049">कस्टम</translation>
 <translation id="1178581264944972037">पॉज़ करें</translation>
 <translation id="1181037720776840403">निकालें</translation>
@@ -781,7 +783,6 @@
 <translation id="2208158072373999562">ज़िप संग्रह</translation>
 <translation id="220858061631308971">कृपया इस पिन कोड को "<ph name="DEVICE_NAME" />" पर दर्ज करें:</translation>
 <translation id="2209593327042758816">अलमारी आइटम 2</translation>
-<translation id="2215277870964745766">स्वागत है! अपनी भाषा और नेटवर्क सेट करें</translation>
 <translation id="2217501013957346740">कोई नाम बनाएं -</translation>
 <translation id="2218019600945559112">माउस और टचपैड</translation>
 <translation id="2218320521449013367">जिस समय Chrome नुकसान पहुंचाने वाला सॉफ़्टवेयर हटा रहा था, तब कोई गड़बड़ी हुई</translation>
@@ -2610,6 +2611,7 @@
 <translation id="5063480226653192405">उपयोग</translation>
 <translation id="5067867186035333991">यदि <ph name="HOST" /> आपका कैमरा एक्सेस करना चाहे, तो पूछें</translation>
 <translation id="5068918910148307423">हाल ही में बंद की गई साइट को डेटा भेजने और प्राप्त करने की प्रकिया को पूरा करने की अनुमति ना दें</translation>
+<translation id="507021118007633031"><ph name="DEVICE_TYPE" /> के लिए <ph name="APP_NAME" /></translation>
 <translation id="5072052264945641674">कर्सर का आकार एडजस्ट करें</translation>
 <translation id="5072836811783999860">प्रबंधित बुकमार्क दिखाएं</translation>
 <translation id="5074318175948309511">नई सेटिंग के प्रभावी होने से पहले इस पृष्‍ठ को रीलोड करने की आवश्‍यकता हो सकती है.</translation>
@@ -3508,6 +3510,7 @@
 <translation id="645705751491738698">JavaScript को अवरोधित करना जारी रखें</translation>
 <translation id="6458308652667395253">JavaScript अवरोधन प्रबंधित करें...</translation>
 <translation id="6459488832681039634">ढूंढने के लिए चयन का उपयोग करें</translation>
+<translation id="6459799433792303855">चालू विंडो को किसी दूसरे डिसप्ले में ले जाया गया.</translation>
 <translation id="6460601847208524483">अगला ढूंढें</translation>
 <translation id="6462082050341971451">क्या आप अब भी वहां हैं?</translation>
 <translation id="6463795194797719782">&amp;संपादित करें</translation>
@@ -3593,6 +3596,7 @@
 <translation id="6596745167571172521">Caps Lock अक्षम करें</translation>
 <translation id="6596816719288285829">IP पता</translation>
 <translation id="6597017209724497268">नमूने</translation>
+<translation id="6602353599068390226">विंडो को किसी दूसरे डिसप्ले पर ले जाएं</translation>
 <translation id="6602956230557165253">नेविगेट करने के लिए बाईं और दाईं तीर कुंजियों का उपयोग करें.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">किसी भी उपयोगकर्ता ने अभी तक रेट नहीं किया है.</translation>
@@ -3915,6 +3919,7 @@
 <translation id="7119389851461848805">पावर</translation>
 <translation id="7120865473764644444">सिंक सर्वर से कनेक्ट नहीं किया जा सका. पुनः प्रयास किया जा रहा है...</translation>
 <translation id="7121362699166175603">पता बार में स्वत: पूर्णता और इतिहास को हटाता है. आपके Google खाते में <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> पर अन्य प्रकार के ब्राउज़िंग इतिहास हो सकतेे हैं.</translation>
+<translation id="7123360114020465152">अब काम नहीं करता है</translation>
 <translation id="71243390042171582"><ph name="MINUTES" /> मि. पहले अपडेट किया गया</translation>
 <translation id="7124929488592184705"><ph name="DOCUMENT_NAME" /> को प्रिंट करने में गड़बड़ी</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;खोज डिस्क&lt;/em&gt;</translation>
@@ -4172,6 +4177,9 @@
 <translation id="7544853251252956727">शफ़ल करें</translation>
 <translation id="7545415673537747415">नियंत्रित करें कि <ph name="BEGIN_LINK" />Google गतिविधि नियंत्रण<ph name="END_LINK" /> से खोज, विज्ञापन और अन्य Google सेवाओं को वैयक्तिकृत करने के लिए Google आपके ब्राउज़िंग इतिहास का उपयोग कैसे करता है.</translation>
 <translation id="7547317915858803630">चेतावनी: आपकी <ph name="PRODUCT_NAME" /> सेटिंग नेटवर्क डिस्क पर संग्रहित हैं. इसके परिणामस्वरूप यह धीमा हो सकता है, क्रैश हो सकता है, या डेटा का नुकसान भी हो सकता है.</translation>
+<translation id="7547483330017600937">अपने <ph name="DEVICE_TYPE" /> पर डेवलप करें. आप अपने पसंदीदा खास ऐप्लिकेशन और कमांड-लाइन टूल सहज और सुरक्षित रूप से चला सकते हैं.
+
+<ph name="APP_NAME" /> को इंस्टॉल करने से <ph name="DOWNLOAD_SIZE" /> डेटा डाउनलोड हो जाएगा.</translation>
 <translation id="7548856833046333824">लेमोनेड</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> डाउनलोड असफल</translation>
@@ -4370,6 +4378,7 @@
 <translation id="786073089922909430">सेवा: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;डाउनलोड</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - युग्मित किया गया</translation>
+<translation id="7870730066603611552">सेटअप के बाद सिंक विकल्पों की समीक्षा करें</translation>
 <translation id="7870790288828963061">अधिक नए वर्शन वाला कोई भी कियोस्‍क ऐप नहीं मिला. अपडेट करने के लिए कुछ नहीं है. कृपया USB स्‍टिक को निकालें.</translation>
 <translation id="7874357055309047713">हमेशा सभी साइटों पर चलाएं</translation>
 <translation id="7877451762676714207">अज्ञात सर्वर गड़बड़ी. कृपया पुन: प्रयास करें, या सर्वर व्यवस्थापक से संपर्क करें.</translation>
@@ -5118,6 +5127,7 @@
 <translation id="9066782832737749352">लेख से बोली</translation>
 <translation id="9070219033670098627">व्यक्ति स्विच करें</translation>
 <translation id="907148966137935206">किसी भी साइट को पॉप-अप दिखाने की अनुमति न दें (सुझाये गये) </translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> इंस्टॉल किया जा रहा है...</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> आपके द्वारा सहेजे गए पासवर्ड से आपको योग्य साइट और ऐप्स में अपने आप प्रवेश करा देता है.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">ब्लूटूथ</translation>

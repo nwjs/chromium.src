@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Переходити в режим сну, коли кришка закрита</translation>
 <translation id="1115018219887494029">Smart Lock для Chromebook (бета-версія)</translation>
 <translation id="1116694919640316211">Про Google Chrome</translation>
+<translation id="1116779635164066733">Цей параметр встановлюється розширенням "<ph name="NAME" />".</translation>
 <translation id="1119069657431255176">Архів у форматі TAR зі стисненням Bzip2</translation>
 <translation id="1119447706177454957">Внутрішня помилка</translation>
 <translation id="1122198203221319518">&amp;Інструменти</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Перейменувати</translation>
 <translation id="1175364870820465910">&amp;Друк...</translation>
 <translation id="117624967391683467">Копіювання файлу <ph name="FILE_NAME" />…</translation>
+<translation id="1177138678118607465">Google може використовувати вашу історію веб-перегляду, щоб персоналізувати Пошук, рекламу й інші служби Google. Це налаштування можна змінити на сторінці myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Спеціальне</translation>
 <translation id="1178581264944972037">Пауза</translation>
 <translation id="1181037720776840403">Видалити</translation>
@@ -781,7 +783,6 @@
 <translation id="2208158072373999562">Архів Zip</translation>
 <translation id="220858061631308971">Введіть цей PIN-код на пристрої "<ph name="DEVICE_NAME" />":</translation>
 <translation id="2209593327042758816">Елемент полиці 2</translation>
-<translation id="2215277870964745766">Вітаємо! Налаштуйте мову та мережу</translation>
 <translation id="2217501013957346740">Створіть ім’я –</translation>
 <translation id="2218019600945559112">Миша та сенсорна панель</translation>
 <translation id="2218320521449013367">Коли Chrome видаляв шкідливі програми, сталася помилка</translation>
@@ -2611,6 +2612,7 @@
 <translation id="5063480226653192405">Використання</translation>
 <translation id="5067867186035333991">Запитувати, якщо хост <ph name="HOST" /> хоче отримати доступ до вашого мікрофона</translation>
 <translation id="5068918910148307423">Заборонити нещодавно закритим сайтам завершувати надсилання й отримання даних</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> для пристрою <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Налаштуйте розмір курсора</translation>
 <translation id="5072836811783999860">Показати закладки, якими керує адміністратор</translation>
 <translation id="5074318175948309511">Щоб нові налаштування почали діяти, можливо, потрібно буде оновити цю сторінку.</translation>
@@ -3509,6 +3511,7 @@
 <translation id="645705751491738698">Продовжити блокування JavaScript</translation>
 <translation id="6458308652667395253">Керувати блокуванням JavaScript...</translation>
 <translation id="6459488832681039634">Використати виділення для пошуку</translation>
+<translation id="6459799433792303855">Активне вікно переміщено на інший дисплей</translation>
 <translation id="6460601847208524483">Знайти наступне</translation>
 <translation id="6462082050341971451">Ви ще тут?</translation>
 <translation id="6463795194797719782">&amp;Редагувати</translation>
@@ -3594,6 +3597,7 @@
 <translation id="6596745167571172521">Вимкнути Caps Lock</translation>
 <translation id="6596816719288285829">ІР-адреса</translation>
 <translation id="6597017209724497268">Зразки</translation>
+<translation id="6602353599068390226">перемістити вікно на інший дисплей</translation>
 <translation id="6602956230557165253">Використовуйте ліву та праву клавіші зі стрілками для навігації.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Ще немає оцінок користувачів.</translation>
@@ -3916,6 +3920,7 @@
 <translation id="7119389851461848805">живлення</translation>
 <translation id="7120865473764644444">Не вдалося з’єднатись із сервером синхронізації. Повторна спроба…</translation>
 <translation id="7121362699166175603">Очищує історію й автозавершення в адресному рядку. У вашому обліковому записі Google на сторінці <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> можуть бути інші форми історії веб-перегляду.</translation>
+<translation id="7123360114020465152">Більше не підтримується</translation>
 <translation id="71243390042171582">Оновлено <ph name="MINUTES" /> хв тому</translation>
 <translation id="7124929488592184705">Не вдалося надрукувати "<ph name="DOCUMENT_NAME" />"</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' – &lt;em&gt;шукати на Диску&lt;/em&gt;</translation>
@@ -4173,6 +4178,9 @@
 <translation id="7544853251252956727">Перемішати</translation>
 <translation id="7545415673537747415">Керуйте тим, як Google використовує вашу історію веб-перегляду, щоб персоналізувати Пошук, рекламу та інші служби Google на сторінці <ph name="BEGIN_LINK" />Керування активністю в продуктах Google<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Застереження. Налаштування <ph name="PRODUCT_NAME" /> зберігаються на мережевому диску. Це може спричинити сповільнення чи аварійне завершення роботи або навіть утрату даних.</translation>
+<translation id="7547483330017600937">Розробляйте на <ph name="DEVICE_TYPE" />. Ви можете безперешкодно та безпечно запускати рідні додатки й інструменти командного рядка.
+
+Під час встановлення додатка <ph name="APP_NAME" /> завантажиться <ph name="DOWNLOAD_SIZE" /> даних.</translation>
 <translation id="7548856833046333824">Лимонад</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Не вдалося завантажити файл "<ph name="FILE_NAME" />"</translation>
@@ -4371,6 +4379,7 @@
 <translation id="786073089922909430">Сервіс: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Завантаження</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" />: підключено</translation>
+<translation id="7870730066603611552">Після налаштування перевірте параметри синхронізації</translation>
 <translation id="7870790288828963061">Новіші версії додатків-терміналів не знайдено. Помилка оновлення. Витягніть носій USB.</translation>
 <translation id="7874357055309047713">Завжди запускати на всіх сайтах</translation>
 <translation id="7877451762676714207">Невідома помилка сервера. Повторіть спробу чи зв’яжіться з адміністратором сервера.</translation>
@@ -5119,6 +5128,7 @@
 <translation id="9066782832737749352">Синтез мовлення</translation>
 <translation id="9070219033670098627">Змінити користувача</translation>
 <translation id="907148966137935206">Заборонити всім сайтам відображати спливаючі вікна (рекомендовано)</translation>
+<translation id="9071637495340542136">Встановлюється <ph name="APP_NAME" />…</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> зберігає ваші паролі й автоматично входить в облікові записи на сайтах і в додатках.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />، ثم <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> أو <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">الانتقال إلى علامة التبويب التالية</translation>
 <translation id="2010818616644390445">الانتقال إلى علامة التبويب الأخيرة في النافذة</translation>
+<translation id="2088054208777350526">البحث عن اختصارات لوحة المفاتيح</translation>
 <translation id="2145908266289632567">تعديل النص</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 إلى =</translation>
 <translation id="2181097965834437145">عرض شريط الإشارات أو إخفاؤه</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 إلى 8</translation>
 <translation id="3837047332182291558">زيادة سطوع لوحة المفاتيح (للوحات المفاتيح المزودة بإضاءة خلفية فقط)</translation>
 <translation id="3976863468609830880">النقر على الرمز الأخير على الرف</translation>
+<translation id="4026843240379844265">نقل نافذة نشطة بين شاشات العرض</translation>
 <translation id="4035482366624727273">تحديد كل محتوى الصفحة</translation>
 <translation id="4060703249685950734">إعادة فتح آخر علامة تبويب أو نافذة أغلقتها</translation>
 <translation id="4090342722461256974">اضغط مع الاستمرار على <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" />، وانقر على <ph name="TAB" /> حتى تحصل على النافذة المراد فتحها، ثم ارفع إصبعك.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">إمكانية الدخول</translation>
 <translation id="7020813747703216897">لم يتم العثور على أي نتائج مطابقة.</translation>
 <translation id="7025325401470358758">الجزء التالي</translation>
+<translation id="7237562915163138771">اكتب عنوان الويب في شريط العناوين، ثم اضغط على <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> أو <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">حذف الحرف التالي (حذف باتجاه الأمام)</translation>
 <translation id="766326951329901120">لصق المحتوى من الحافظة كنص عادي</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">اسحب الرابط إلى منطقة فارغة على شريط علامات التبويب</translation>
 <translation id="8389638407792712197">فتح نافذة جديدة</translation>
 <translation id="8429696719963529183">‏استخدام مفاتيح F (من F1 إلى F12)</translation>
+<translation id="8537650670971624753">الخروج من وضع البحث</translation>
 <translation id="85690795166292698">فتح الرابط في علامة تبويب جديدة</translation>
 <translation id="8609384513243082612">فتح علامة تبويب جديدة</translation>
 <translation id="8644639153978066712">عرض الملفات المخفية في تطبيق "الملفات"</translation>

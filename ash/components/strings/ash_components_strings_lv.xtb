@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, pēc tam <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> vai <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Pāriet uz nākamo cilni</translation>
 <translation id="2010818616644390445">Pāriet uz loga pēdējo cilni</translation>
+<translation id="2088054208777350526">Īsinājumtaustiņu meklēšana</translation>
 <translation id="2145908266289632567">Teksta rediģēšana</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> no 1 līdz =</translation>
 <translation id="2181097965834437145">Rādīt vai paslēpt grāmatzīmju joslu</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> no 1 līdz 8</translation>
 <translation id="3837047332182291558">Paspilgtināt tastatūras apgaismojumu (tikai tastatūrām ar aizmugures apgaismojumu)</translation>
 <translation id="3976863468609830880">Noklikšķināt uz pēdējās plaukta ikonas</translation>
+<translation id="4026843240379844265">Aktīvā loga pārvietošana starp attēlojumiem</translation>
 <translation id="4035482366624727273">Atlasīt visu lapas saturu</translation>
 <translation id="4060703249685950734">Atkārtoti atvērt pēdējo aizvērto cilni vai logu</translation>
 <translation id="4090342722461256974">Nospiediet un turiet <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" />, pieskarieties taustiņam <ph name="TAB" />, kamēr ieraugāt atveramo logu, pēc tam atlaidiet.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Pieejamība</translation>
 <translation id="7020813747703216897">Nav neviena atbilstoša rezultāta.</translation>
 <translation id="7025325401470358758">Nākamā rūts</translation>
+<translation id="7237562915163138771">Ierakstiet tīmekļa adresi adreses joslā, pēc tam nospiediet <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> vai <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Dzēst nākamo burtu (turpvērstā dzēšana)</translation>
 <translation id="766326951329901120">Ielīmēt saturu no starpliktuves kā vienkāršu tekstu</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Vilkt saiti uz tukšu apgabalu ciļņu joslā</translation>
 <translation id="8389638407792712197">Atvērt jaunu logu</translation>
 <translation id="8429696719963529183">Izmantot funkcionālos taustiņus (no F1 līdz F12)</translation>
+<translation id="8537650670971624753">Iziet no meklēšanas režīma</translation>
 <translation id="85690795166292698">Atvērt saiti jaunā cilnē</translation>
 <translation id="8609384513243082612">Atvērt jaunu cilni</translation>
 <translation id="8644639153978066712">Rādīt paslēptos failus lietotnē Faili</translation>

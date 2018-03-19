@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">ዘግተው ለመውጣት Ctrl+Shift+Qን ሁለቴ ይጫኑ።</translation>
 <translation id="3893630138897523026">ChromeVox (የሚነገር ግብረመልስ)</translation>
 <translation id="3899995891769452915">የድምፅ ግቤት</translation>
+<translation id="3900355044994618856">የእርስዎ ክፍለ ጊዜ በ<ph name="SESSION_TIME_REMAINING" /> ውስጥ ያበቃል</translation>
 <translation id="3901991538546252627">ከ<ph name="NAME" /> ጋር በመገናኘት ላይ</translation>
 <translation id="394485226368336402">የድምጽ ቅንብሮች</translation>
 <translation id="397105322502079400">በማስላት ላይ...</translation>
@@ -252,6 +253,7 @@
 <translation id="7066646422045619941">ይህ አውታረ መረብ በአስተዳዳሪዎ ነው የተሰናከለው።</translation>
 <translation id="7067196344162293536">በራስ-አሽከርክር</translation>
 <translation id="7098389117866926363">USB-C መሣሪያ (የግራ ወደብ ከኋላ በኩል)</translation>
+<translation id="7131634465328662194">በራስሰር ዘግተው እንዲወጡ ይደረጋሉ።</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358">በ<ph name="TIMEOUT_SECONDS" /> ውስጥ ወደ ቀድሞው ጥራት በመመለስ ላይ</translation>
 <translation id="7256634071279256947">የኋላ ማይክሮፎን</translation>

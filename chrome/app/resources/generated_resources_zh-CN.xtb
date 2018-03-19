@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">在盖被合上之后进入休眠模式</translation>
 <translation id="1115018219887494029">Smart Lock（Chromebook 版）测试版</translation>
 <translation id="1116694919640316211">关于</translation>
+<translation id="1116779635164066733">此设置是由“<ph name="NAME" />”这一扩展程序强制指定的。</translation>
 <translation id="1119069657431255176">bzip2 压缩的 tar 归档</translation>
 <translation id="1119447706177454957">内部错误</translation>
 <translation id="1122198203221319518">工具(&amp;T)</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">重命名</translation>
 <translation id="1175364870820465910">打印(&amp;P)...</translation>
 <translation id="117624967391683467">正在复制<ph name="FILE_NAME" />…</translation>
+<translation id="1177138678118607465">Google 可能会使用您的浏览记录为您量身定制 Google 搜索、广告和其他 Google 服务。您随时可通过 myaccount.google.com/activitycontrols/search 更改此设置</translation>
 <translation id="1177863135347784049">自定义</translation>
 <translation id="1178581264944972037">暂停</translation>
 <translation id="1181037720776840403">删除</translation>
@@ -778,7 +780,6 @@
 <translation id="2208158072373999562">Zip 归档</translation>
 <translation id="220858061631308971">请在“<ph name="DEVICE_NAME" />”上输入此 PIN 码：</translation>
 <translation id="2209593327042758816">栏中第 2 项</translation>
-<translation id="2215277870964745766">欢迎！请设置您的语言和网络</translation>
 <translation id="2217501013957346740">新建用户名 -</translation>
 <translation id="2218019600945559112">鼠标和触控板</translation>
 <translation id="2218320521449013367">Chrome 移除有害软件时出现错误</translation>
@@ -2603,6 +2604,7 @@
 <translation id="5063480226653192405">使用情况</translation>
 <translation id="5067867186035333991">当 <ph name="HOST" /> 想要使用麦克风时询问我</translation>
 <translation id="5068918910148307423">禁止最近关闭的网站完成数据收发操作</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" />（适用于<ph name="DEVICE_TYPE" />）</translation>
 <translation id="5072052264945641674">调整光标大小</translation>
 <translation id="5072836811783999860">显示托管书签</translation>
 <translation id="5074318175948309511">您可能需要重新加载此页面，才能使新设置生效。</translation>
@@ -3495,6 +3497,7 @@
 <translation id="645705751491738698">继续拦截 JavaScript</translation>
 <translation id="6458308652667395253">管理 JavaScript 拦截…</translation>
 <translation id="6459488832681039634">使用所选内容查找</translation>
+<translation id="6459799433792303855">活动窗口已移至另一显示屏。</translation>
 <translation id="6460601847208524483">查找下一个</translation>
 <translation id="6462082050341971451">您还在吗？</translation>
 <translation id="6463795194797719782">修改(&amp;E)</translation>
@@ -3580,6 +3583,7 @@
 <translation id="6596745167571172521">停用大写锁定</translation>
 <translation id="6596816719288285829">IP 地址</translation>
 <translation id="6597017209724497268">个样本的平均值</translation>
+<translation id="6602353599068390226">将窗口移至另一显示屏</translation>
 <translation id="6602956230557165253">使用左右箭头键进行导航。</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">还没有任何用户给出评分。</translation>
@@ -3902,6 +3906,7 @@
 <translation id="7119389851461848805">电源</translation>
 <translation id="7120865473764644444">无法连接到同步服务器。正在重试…</translation>
 <translation id="7121362699166175603">清除历史记录和地址栏中的自动填充项。您的 Google 帐号在 <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> 上可能有其他形式的浏览记录。</translation>
+<translation id="7123360114020465152">已不再受支持</translation>
 <translation id="71243390042171582">上次更新时间：<ph name="MINUTES" /> 分钟前</translation>
 <translation id="7124929488592184705">打印 <ph name="DOCUMENT_NAME" /> 时出错</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; - 搜索云端硬盘&lt;em&gt;&lt;/em&gt;</translation>
@@ -4152,6 +4157,9 @@
 <translation id="7544853251252956727">随机播放</translation>
 <translation id="7545415673537747415">您可以通过 <ph name="BEGIN_LINK" />Google 活动控件<ph name="END_LINK" />，控制 Google 如何利用您的浏览记录为您提供个性化的 Google 搜索、广告和其他 Google 服务。</translation>
 <translation id="7547317915858803630">警告：您的 <ph name="PRODUCT_NAME" />设置存储在网络驱动器上。这可能会导致速度变慢、崩溃，甚至数据丢失。</translation>
+<translation id="7547483330017600937">在您的<ph name="DEVICE_TYPE" />上开发。您可以安全顺畅地运行自己喜爱的原生应用和命令行工具。
+
+安装“<ph name="APP_NAME" />”将会下载 <ph name="DOWNLOAD_SIZE" /> 的数据。</translation>
 <translation id="7548856833046333824">酒杯</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> 下载失败</translation>
@@ -4348,6 +4356,7 @@
 <translation id="786073089922909430">服务：<ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">下载内容(&amp;D)</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - 已配对</translation>
+<translation id="7870730066603611552">完成设置后查看同步选项</translation>
 <translation id="7870790288828963061">找不到自助服务终端应用的更高版本，因此没有要更新的内容。请拔下 U 盘。</translation>
 <translation id="7874357055309047713">在所有网站上始终运行</translation>
 <translation id="7877451762676714207">未知服务器错误。请重试或与服务器管理员联系。</translation>
@@ -5096,6 +5105,7 @@
 <translation id="9066782832737749352">文字转语音</translation>
 <translation id="9070219033670098627">切换用户</translation>
 <translation id="907148966137935206">不允许任何网站显示弹出式窗口（推荐）</translation>
+<translation id="9071637495340542136">正在安装“<ph name="APP_NAME" />”…</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> 会使用您保存的密码让您自动登录到符合条件的网站和应用。</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">蓝牙</translation>

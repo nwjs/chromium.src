@@ -246,7 +246,6 @@ Zur Verwendung von Physical Web müssen Bluetooth und der Standortdienst aktivie
 <translation id="3236059992281584593">1 Minute übrig</translation>
 <translation id="3244271242291266297">MM</translation>
 <translation id="3254409185687681395">Lesezeichen für diese Seite erstellen</translation>
-<translation id="3255459706755453214">Lesezugriff auf Zwischenablage für eine bestimmte Website blockieren.</translation>
 <translation id="3259831549858767975">Gesamten Seiteninhalt verkleinern</translation>
 <translation id="3269093882174072735">Bild laden</translation>
 <translation id="3269956123044984603">Aktivieren Sie "Daten automatisch synchronisieren" in den Android-Kontoeinstellungen, um Tabs von Ihren anderen Geräten abzurufen.</translation>
@@ -258,7 +257,6 @@ Zur Verwendung von Physical Web müssen Bluetooth und der Standortdienst aktivie
 <translation id="3328801116991980348">Websiteinformationen</translation>
 <translation id="3341058695485821946">Sie können sich ansehen, wie viel Datenvolumen Sie einsparen</translation>
 <translation id="3350687908700087792">Alle Inkognitotabs schließen</translation>
-<translation id="3358632888246345756">Lesezugriff auf Zwischenablage für eine bestimmte Website erlauben.</translation>
 <translation id="3365671512111106261">Nicht verfügbar, wenn der Datensparmodus aktiviert ist</translation>
 <translation id="3367813778245106622">Melden Sie sich nochmals an, um die Synchronisierung zu starten</translation>
 <translation id="3384347053049321195">Bild teilen</translation>

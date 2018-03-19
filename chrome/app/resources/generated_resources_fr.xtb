@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Mettre en veille quand l'écran est rabattu</translation>
 <translation id="1115018219887494029">Smart Lock pour Chromebook (bêta)</translation>
 <translation id="1116694919640316211">À propos</translation>
+<translation id="1116779635164066733">Ce paramètre est appliqué par l'extension "<ph name="NAME" />".</translation>
 <translation id="1119069657431255176">Archive TAR compressée avec Bzip2</translation>
 <translation id="1119447706177454957">Erreur interne.</translation>
 <translation id="1122198203221319518">&amp;Outils</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Renommer</translation>
 <translation id="1175364870820465910">Im&amp;primer...</translation>
 <translation id="117624967391683467">Copie de <ph name="FILE_NAME" /> en cours…</translation>
+<translation id="1177138678118607465">Google peut utiliser votre historique de navigation pour personnaliser la recherche, les annonces et d'autres services Google. Vous pouvez modifier ce paramètre à tout moment sur la page myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Personnalisé</translation>
 <translation id="1178581264944972037">Suspendre</translation>
 <translation id="1181037720776840403">Supprimer</translation>
@@ -781,7 +783,6 @@
 <translation id="2208158072373999562">Archive ZIP</translation>
 <translation id="220858061631308971">Veuillez saisir le code d'accès de "<ph name="DEVICE_NAME" />" :</translation>
 <translation id="2209593327042758816">Élément d'étagère 2</translation>
-<translation id="2215277870964745766">Bienvenue ! Choisissez la langue et le réseau.</translation>
 <translation id="2217501013957346740">Créer un nom</translation>
 <translation id="2218019600945559112">Souris et pavé tactile</translation>
 <translation id="2218320521449013367">Une erreur s'est produite lors de la suppression du logiciel malveillant par Chrome</translation>
@@ -2611,6 +2612,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="5063480226653192405">Utilisation</translation>
 <translation id="5067867186035333991">Demander si l'accès à votre micro est requis sur <ph name="HOST" /></translation>
 <translation id="5068918910148307423">Ne pas autoriser les sites fermés récemment à terminer l'envoi et la réception de données</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> pour <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Ajuster la taille du curseur</translation>
 <translation id="5072836811783999860">Afficher les favoris gérés</translation>
 <translation id="5074318175948309511">Vous devrez peut-être actualiser cette page pour que les nouveaux paramètres soient appliqués.</translation>
@@ -3510,6 +3512,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="645705751491738698">Continuer à bloquer JavaScript</translation>
 <translation id="6458308652667395253">Configurer le blocage de JavaScript...</translation>
 <translation id="6459488832681039634">Rechercher la sélection</translation>
+<translation id="6459799433792303855">Fenêtre active transférée vers un autre écran.</translation>
 <translation id="6460601847208524483">Rechercher le suivant</translation>
 <translation id="6462082050341971451">Êtes-vous toujours là ?</translation>
 <translation id="6463795194797719782">&amp;Modifier</translation>
@@ -3595,6 +3598,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6596745167571172521">Désactiver le verrouillage des majuscules</translation>
 <translation id="6596816719288285829">Adresse IP</translation>
 <translation id="6597017209724497268">échantillons</translation>
+<translation id="6602353599068390226">transférer la fenêtre vers un autre écran</translation>
 <translation id="6602956230557165253">Utilisez les touches fléchées gauche et droite pour naviguer.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Aucune note d'utilisateurs reçue.</translation>
@@ -3917,6 +3921,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7119389851461848805">marche/arrêt</translation>
 <translation id="7120865473764644444">Impossible de se connecter au serveur de synchronisation. Nouvelle tentative…</translation>
 <translation id="7121362699166175603">Efface l'historique et les saisies semi-automatiques dans la barre d'adresse. Votre compte Google conserve peut-être d'autres formes d'historique de navigation sur la page <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">L'imprimante est désormais incompatible</translation>
 <translation id="71243390042171582">Mise à jour il y a <ph name="MINUTES" /> min</translation>
 <translation id="7124929488592184705">Erreur lors de l'impression de "<ph name="DOCUMENT_NAME" />"</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; : &lt;em&gt;rechercher dans Google Drive&lt;/em&gt;</translation>
@@ -4174,6 +4179,9 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7544853251252956727">Aléatoire</translation>
 <translation id="7545415673537747415">Contrôlez la façon dont Google utilise votre historique de navigation pour personnaliser la recherche, les annonces et d'autres services Google, à partir de la page <ph name="BEGIN_LINK" />Commandes Google relatives à l'activité<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Avertissement : Vos paramètres <ph name="PRODUCT_NAME" /> sont enregistrés sur un lecteur réseau, ce qui peut entraîner des ralentissements, des plantages, voire la perte de données.</translation>
+<translation id="7547483330017600937">Développez des contenus sur votre <ph name="DEVICE_TYPE" />. Vous pouvez exécuter facilement et en toute sécurité les applications natives et les outils de ligne de commande de votre choix.
+
+Notez que la taille du téléchargement de l'application <ph name="APP_NAME" /> est de <ph name="DOWNLOAD_SIZE" />.</translation>
 <translation id="7548856833046333824">Limonade</translation>
 <translation id="7550830279652415241">favoris_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Échec du téléchargement de "<ph name="FILE_NAME" />".</translation>
@@ -4372,6 +4380,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="786073089922909430">Service : <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Téléchargements</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> associé</translation>
+<translation id="7870730066603611552">Vérifier les options de synchronisation après la configuration</translation>
 <translation id="7870790288828963061">Aucune nouvelle version d'une application kiosque n'a été trouvée. Aucune mise à jour n'est disponible. Veuillez débrancher la clé USB.</translation>
 <translation id="7874357055309047713">Toujours exécuter pour tous les sites</translation>
 <translation id="7877451762676714207">Erreur serveur inconnue. Veuillez réessayer ou contacter l'administrateur du serveur.</translation>
@@ -5120,6 +5129,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="9066782832737749352">Synthèse vocale</translation>
 <translation id="9070219033670098627">Changer de profil utilisateur</translation>
 <translation id="907148966137935206">Interdire à tous les sites d'afficher des fenêtres pop-up (recommandé)</translation>
+<translation id="9071637495340542136">Installation de <ph name="APP_NAME" />…</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> vous connecte automatiquement aux sites et aux applications éligibles avec les mots de passe que vous avez enregistrés.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
@@ -5151,7 +5161,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="9124003689441359348">Les mots de passe enregistrés s'afficheront ici</translation>
 <translation id="912419004897138677">Codec</translation>
 <translation id="9125466540846359910"><ph name="LICENSE_TYPE" /> (<ph name="LICENSE_COUNT" /> restante(s))</translation>
-<translation id="9128870381267983090">Connexion au réseau</translation>
+<translation id="9128870381267983090">Se connecter au réseau</translation>
 <translation id="9130015405878219958">Le mode indiqué est incorrect.</translation>
 <translation id="9130775360844693113">Les membres de "<ph name="DESTINATION_NAME" />" auront accès à ces éléments.</translation>
 <translation id="9131487537093447019">Envoyer des messages à des appareils Bluetooth, et en recevoir de ces derniers</translation>

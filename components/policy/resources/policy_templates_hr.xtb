@@ -1063,12 +1063,6 @@
       </translation>
 <translation id="4442582539341804154">Omogući zaključavanje kada uređaj prijeđe u stanje mirovanja ili se isključi</translation>
 <translation id="4449545651113180484">Zakreni zaslon u smjeru kazaljke na satu 270 stupnjeva</translation>
-<translation id="4459359100627756769">Konfigurira popis URL-ova za prijavu u organizacijama (samo sheme HTTP i HTTPS). Na tim će se URL-ovima snimati otisak prsta za zaporku koji će se upotrebljavati za otkrivanje ponovne upotrebe zaporke.
-      Ta je postavka namijenjena jedino korisnicima GSuitea koji upotrebljavaju sustav SSO/SMAL.
-
-      Ako je ta postavka omogućena, usluga zaštite zaporkom na tim će URL-ovima snimati otisak prsta za zaporku u svrhu otkrivanja ponovne upotrebe zaporke.
-      Ako se postavka onemogući ili ne postavi, zaštita zaporkom snimat će otisak prsta zaporke samo na https://accounts.google.com.
-      To pravilo nije dostupno na instancama Windowsa koje nisu pridružene domeni <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Blokiraj kolačiće trećih strana</translation>
 <translation id="4474167089968829729">Omogući spremanje zaporki u upravitelj zaporki</translation>
 <translation id="4476769083125004742">Ako se to pravilo postavi na <ph name="BLOCK_GEOLOCATION_SETTING" />, Android aplikacije ne mogu pristupiti podacima o lokaciji. Ako to pravilo postavite na bilo koju drugu vrijednost ili ga ne postavite, korisniku se prikazuje upit o pristanku kada Android aplikacija želi pristupiti podacima o lokaciji.</translation>
@@ -1252,13 +1246,13 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 <translation id="5068140065960598044">Pravila oblaka za <ph name="PRODUCT_NAME" /> nadjačavaju pravila računala.</translation>
 <translation id="5085647276663819155">Onemogući pregled ispisa</translation>
 <translation id="5090209345759901501">Proširi postavku Flash sadržaja na sav sadržaj</translation>
-<translation id="5093540029655764852">Određuje stopu (u danima) po kojoj klijent mijenja zaporku uređaja. Klijent tu zaporku generira nasumično i korisnik je ne može vidjeti.
+<translation id="5093540029655764852">Određuje stopu (u danima) po kojoj klijent mijenja zaporku računa na računalu. Klijent tu zaporku generira nasumično i korisnik je ne može vidjeti.
 
-      Zaporke uređaja trebale bi se jednako redovito mijenjati kao i korisničke. Ako se to pravilo onemogući ili postavi na veliki broj dana, to može negativno utjecati na sigurnost jer potencijalnim napadačima daje više vremena za pronalaženje zaporke uređaja i njezinu upotrebu.
+      Zaporke računa na računalu trebale bi se jednako redovito mijenjati kao i korisničke. Ako se to pravilo onemogući ili postavi na veliki broj dana, to može negativno utjecati na sigurnost jer potencijalnim napadačima daje više vremena za pronalaženje zaporke računa uređaja i njezinu upotrebu.
 
-      Ako se pravilo ne postavi, zaporka uređaja mijenja se svakih 30 dana.
+      Ako se pravilo ne postavi, zaporka računa na računalu mijenja se svakih 30 dana.
 
-      Ako se pravilo postavi na 0, promjena zaporke uređaja onemogućena je.
+      Ako se pravilo postavi na 0, promjena zaporke računa na računalu onemogućena je.
 
       Zaporke mogu biti i starije od navedenog broja dana ako je klijent bio offline dulje vrijeme.</translation>
 <translation id="5105313908130842249">Odgoda zaključavanja zaslona za vrijeme baterijskog napajanja</translation>
@@ -2138,7 +2132,7 @@ Ako omogućite tu postavku, <ph name="PRODUCT_NAME" /> zanemarivat će sve opcij
 
       Postavljanje tog pravila ima trajni učinak: uređaj se MOŽDA neće moći vratiti na ranije verzije, čak ni nakon što se vrijednost poništi i postavi na višu.
 
-      Stvarne mogućnosti vraćanja sustava na ranije verzije mogu ovisiti o uređaju i zakrpama za kritične ranjivosti.</translation>
+      Stvarne mogućnosti vraćanja sustava na ranije verzije mogu ovisiti o modelu uređaja i zakrpama za kritične ranjivosti.</translation>
 <translation id="787125417158068494">Ako se postavi na SyncDisabled ili se ne konfigurira, <ph name="PRODUCT_OS_NAME" /> certifikati nisu dostupni za ARC aplikacije.
 
       Ako se postavi na CopyCaCerts, svi CA certifikati instalirani u ONC uz <ph name="WEB_TRUSTED_BIT" /> dostupni su za ARC aplikacije.</translation>

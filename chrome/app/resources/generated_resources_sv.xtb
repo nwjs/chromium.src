@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Aktivera viloläget när locket stängs</translation>
 <translation id="1115018219887494029">Smart Lock för Chromebook (beta)</translation>
 <translation id="1116694919640316211">Om</translation>
+<translation id="1116779635164066733">På grund av tillägget <ph name="NAME" /> är inställningen låst</translation>
 <translation id="1119069657431255176">Bzip2-komprimerat tar-arkiv</translation>
 <translation id="1119447706177454957">Internt fel</translation>
 <translation id="1122198203221319518">&amp;Verktyg</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Ändra namn</translation>
 <translation id="1175364870820465910">Skriv &amp;ut...</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> kopieras ...</translation>
+<translation id="1177138678118607465">Google kan använda webbhistoriken för att anpassa Sök och andra tjänster från Google. Du kan ändra detta på myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Anpassad</translation>
 <translation id="1178581264944972037">Paus</translation>
 <translation id="1181037720776840403">Ta bort</translation>
@@ -780,7 +782,6 @@
 <translation id="2208158072373999562">Zip-arkiv</translation>
 <translation id="220858061631308971">Ange den här PIN-koden på <ph name="DEVICE_NAME" />:</translation>
 <translation id="2209593327042758816">Hyllobjekt 2</translation>
-<translation id="2215277870964745766">Välkommen! Ställ in språk och nätverk</translation>
 <translation id="2217501013957346740">Skapa ett namn –</translation>
 <translation id="2218019600945559112">Mus och styrplatta</translation>
 <translation id="2218320521449013367">Ett fel uppstod när skadlig programvara skulle tas bort med Chrome</translation>
@@ -2610,6 +2611,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="5063480226653192405">Användning</translation>
 <translation id="5067867186035333991">Fråga om <ph name="HOST" /> vill använda din mikrofon</translation>
 <translation id="5068918910148307423">Tillåt inte att webbplatser som nyligen har stängts får slutföra överföringen av data som skickas och tas emot</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> för <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Ändra markörstorlek</translation>
 <translation id="5072836811783999860">Visa hanterade bokmärken</translation>
 <translation id="5074318175948309511">Den här sidan kan behöva läsas in igen innan den nya inställningen börjar gälla.</translation>
@@ -3508,6 +3510,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="645705751491738698">Fortsätt blockera JavaScript</translation>
 <translation id="6458308652667395253">Hantera blockering av JavaScript...</translation>
 <translation id="6459488832681039634">Använd markering för sökning</translation>
+<translation id="6459799433792303855">Det aktiva fönstret har flyttats till en annan skärm.</translation>
 <translation id="6460601847208524483">Sök nästa</translation>
 <translation id="6462082050341971451">Är du kvar?</translation>
 <translation id="6463795194797719782">&amp;Redigera</translation>
@@ -3593,6 +3596,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="6596745167571172521">Inaktivera Caps Lock</translation>
 <translation id="6596816719288285829">IP-adress</translation>
 <translation id="6597017209724497268">Stickprov</translation>
+<translation id="6602353599068390226">flytta fönstret till en annan skärm</translation>
 <translation id="6602956230557165253">Navigera med hjälp av piltangenterna till höger och vänster.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Inga användare har betygsatt detta ännu.</translation>
@@ -3915,6 +3919,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="7119389851461848805">strömbrytare</translation>
 <translation id="7120865473764644444">Det gick inte att ansluta till synkroniseringsservern. Försöker igen …</translation>
 <translation id="7121362699166175603">Historik och autoslutföranden i adressfältet rensas. Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">Stöds inte längre</translation>
 <translation id="71243390042171582">Uppdaterad för <ph name="MINUTES" /> minuter sedan</translation>
 <translation id="7124929488592184705">Ett fel uppstod när <ph name="DOCUMENT_NAME" /> skulle skrivas ut</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; – &lt;em&gt;sök i Drive&lt;/em&gt;</translation>
@@ -4171,6 +4176,9 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="7544853251252956727">Blanda</translation>
 <translation id="7545415673537747415">I <ph name="BEGIN_LINK" />Googles aktivitetsinställningar<ph name="END_LINK" /> kan du styra på vilket sätt Google använder webbhistorik för att anpassa Sök, annonser och andra Google-tjänster.</translation>
 <translation id="7547317915858803630">Varning! Dina inställningar för <ph name="PRODUCT_NAME" /> sparas på en nätverksenhet. Det kan göra datorn långsammare eller orsaka krascher och till och med dataförlust.</translation>
+<translation id="7547483330017600937">Använd <ph name="DEVICE_TYPE" /> i utvecklingen. Du kan använda de inbyggda apparna eller verktyg på kommandoraden som du gillar mest, sömlöst och säkert.
+
+När du installerar <ph name="APP_NAME" /> laddas <ph name="DOWNLOAD_SIZE" /> data ned.</translation>
 <translation id="7548856833046333824">Drink</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Det gick inte att ladda ned <ph name="FILE_NAME" /></translation>
@@ -4369,6 +4377,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="786073089922909430">Tjänst: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Nedladdade filer</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> – kopplad</translation>
+<translation id="7870730066603611552">Granska synkroniseringsalternativen efter konfigureringen</translation>
 <translation id="7870790288828963061">Inga kioskappar med nyare version hittades. Det finns inget att uppdatera. Ta bort USB-minnet.</translation>
 <translation id="7874357055309047713">Kör alltid på alla webbplatser</translation>
 <translation id="7877451762676714207">Okänt serverfel. Försök igen eller kontakta serveradministratören.</translation>
@@ -5117,6 +5126,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="9066782832737749352">Text till tal</translation>
 <translation id="9070219033670098627">Byt till ett annat konto</translation>
 <translation id="907148966137935206">Tillåt inte att någon webbplats visar popup-fönster (rekommenderas)</translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> installeras …</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> loggar automatiskt in på godkända webbplatser och appar med de lösenord du sparat.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

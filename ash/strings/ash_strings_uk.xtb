@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Щоб вийти, двічі натисніть Ctrl+Shift+Q.</translation>
 <translation id="3893630138897523026">ChromeVox (голосові підказки)</translation>
 <translation id="3899995891769452915">Голосовий ввід</translation>
+<translation id="3900355044994618856">Сеанс закінчиться через <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Під’єднання до <ph name="NAME" /></translation>
 <translation id="394485226368336402">Налаштування звуку</translation>
 <translation id="397105322502079400">Обчислення...</translation>
@@ -252,6 +253,7 @@
 <translation id="7066646422045619941">Ваш адміністратор вимкнув цю мережу.</translation>
 <translation id="7067196344162293536">Автоматичне обертання</translation>
 <translation id="7098389117866926363">Пристрій, під’єднаний до порту USB-C (ліворуч на задній панелі)</translation>
+<translation id="7131634465328662194">Ви вийдете автоматично.</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358">Попередня роздільна здатність повернеться через <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Мікрофон на задній панелі</translation>
@@ -332,7 +334,7 @@
 <translation id="9091626656156419976">Дисплей <ph name="DISPLAY_NAME" /> вилучено</translation>
 <translation id="9111102763498581341">Розблокувати</translation>
 <translation id="9151726767154816831">Для оновлення перезапустіть пристрій і виконайте Powerwash</translation>
-<translation id="9194617393863864469">Увійдіть як інший користувач…</translation>
+<translation id="9194617393863864469">Увійти як інший користувач…</translation>
 <translation id="9201131092683066720">Акумулятор заряджений на <ph name="PERCENTAGE" />%.</translation>
 <translation id="9210037371811586452">Вихід з уніфікованого режиму робочого стола</translation>
 <translation id="923686485342484400">Щоб вийти, двічі натисніть Control Shift Q.</translation>

@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, फिर <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> या <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">अगले टैब पर जाएं</translation>
 <translation id="2010818616644390445">विंडो में आखिरी टैब पर जाएंं</translation>
+<translation id="2088054208777350526">कीबोर्ड शॉर्टकट खोजें</translation>
 <translation id="2145908266289632567">लेख में बदलाव करना</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 से = तक</translation>
 <translation id="2181097965834437145">बुकमार्क बार दिखाएं या छिपाएं</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 से 8 तक</translation>
 <translation id="3837047332182291558">कीबोर्ड की रोशनी बढ़ाएं (सिर्फ़ बैकलिट कीबोर्ड के लिए)</translation>
 <translation id="3976863468609830880">अपनी अलमारी पर आखिरी आइकॉन पर क्लिक करें</translation>
+<translation id="4026843240379844265">कार्रवाई विंडो को डिसप्ले के बीच ले जाएं</translation>
 <translation id="4035482366624727273">पेज पर सब कुछ चुनें</translation>
 <translation id="4060703249685950734">अपना बंद किया गया आखिरी टैब या विंडो फिर से खोलें</translation>
 <translation id="4090342722461256974">जब तक आप उस विंडो पर नहीं पहुंच जाते जिसे आप खोलना चाहते हैं, तब तक <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" /> को दबाकर रखें और <ph name="TAB" /> पर टैप करें, फिर छोड़ दें.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">पहुंच क्षमता</translation>
 <translation id="7020813747703216897">मिलान करने वाला कोई नतीजा नहीं मिला</translation>
 <translation id="7025325401470358758">अगला फलक</translation>
+<translation id="7237562915163138771">पता बार में, कोई वेब पता लिखें, फिर <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> दबाएं</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> या <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">अगला अक्षर मिटाएं (आगे से मिटाएं)</translation>
 <translation id="766326951329901120">क्लिपबोर्ड की सामग्री सादे पाठ की तरह चिपकाएं</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">लिंक को टैब स्‍ट्रिप पर खाली जगह में खींचें और छोड़ें</translation>
 <translation id="8389638407792712197">नई विंडो खोलें</translation>
 <translation id="8429696719963529183">F कुंजियों (F1 से F12) का इस्तेमाल करें</translation>
+<translation id="8537650670971624753">खोज मोड से बाहर निकलें</translation>
 <translation id="85690795166292698">लिंक को नए टैब में खोलें</translation>
 <translation id="8609384513243082612">नया टैब खोलें</translation>
 <translation id="8644639153978066712">फ़ाइल ऐप्लिकेशन में छिपी हुई फ़ाइलें दिखाएं</translation>

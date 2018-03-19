@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">덮개가 닫히면 절전 모드</translation>
 <translation id="1115018219887494029">Chromebook용 Smart Lock(베타)</translation>
 <translation id="1116694919640316211">정보</translation>
+<translation id="1116779635164066733">이 설정은 '<ph name="NAME" />' 확장 프로그램에서 시행합니다.</translation>
 <translation id="1119069657431255176">Bzip2으로 압축된 tar 압축 파일</translation>
 <translation id="1119447706177454957">내부 오류</translation>
 <translation id="1122198203221319518">도구(&amp;T)</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">이름 바꾸기</translation>
 <translation id="1175364870820465910">인쇄(&amp;P)</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> 복사 중...</translation>
+<translation id="1177138678118607465">검색, 광고 및 다른 Google 서비스를 맞춤설정하기 위하여 Google에서 인터넷 사용 기록을 사용할 수 있습니다. 이 설정은 언제든지 myaccount.google.com/activitycontrols/search에서 변경할 수 있습니다.</translation>
 <translation id="1177863135347784049">맞춤</translation>
 <translation id="1178581264944972037">일시중지</translation>
 <translation id="1181037720776840403">삭제</translation>
@@ -782,7 +784,6 @@
 <translation id="2208158072373999562">Zip 아카이브</translation>
 <translation id="220858061631308971">'<ph name="DEVICE_NAME" />'의 PIN 코드를 입력하세요:</translation>
 <translation id="2209593327042758816">서가 항목 2</translation>
-<translation id="2215277870964745766">환영합니다. 언어와 네트워크를 설정하세요.</translation>
 <translation id="2217501013957346740">이름 만들기 -</translation>
 <translation id="2218019600945559112">마우스 및 터치패드</translation>
 <translation id="2218320521449013367">Chrome에서 유해한 소프트웨어를 제거하는 중에 오류가 발생했습니다.</translation>
@@ -2611,6 +2612,7 @@
 <translation id="5063480226653192405">사용</translation>
 <translation id="5067867186035333991"><ph name="HOST" />에서 마이크에 액세스하려는 경우 메시지 표시</translation>
 <translation id="5068918910148307423">최근에 닫은 사이트에서 데이터 전송 및 수신을 완료하는 것을 허용하지 않음</translation>
+<translation id="507021118007633031"><ph name="DEVICE_TYPE" />용 <ph name="APP_NAME" /></translation>
 <translation id="5072052264945641674">커서 크기 조정</translation>
 <translation id="5072836811783999860">관리 북마크 표시</translation>
 <translation id="5074318175948309511">새로운 설정을 적용하기 전에 페이지를 다시 로드해야 할 수도 있습니다.</translation>
@@ -3509,6 +3511,7 @@
 <translation id="645705751491738698">자바스크립트 계속 차단</translation>
 <translation id="6458308652667395253">자바스크립트 차단 관리...</translation>
 <translation id="6459488832681039634">선택 부분으로 찾기</translation>
+<translation id="6459799433792303855">활성 창이 다른 디스플레이로 이동했습니다.</translation>
 <translation id="6460601847208524483">다음 찾기</translation>
 <translation id="6462082050341971451">아직 온라인이세요?</translation>
 <translation id="6463795194797719782">편집(&amp;E)</translation>
@@ -3594,6 +3597,7 @@
 <translation id="6596745167571172521">Caps Lock 사용 안함</translation>
 <translation id="6596816719288285829">IP 주소</translation>
 <translation id="6597017209724497268">샘플</translation>
+<translation id="6602353599068390226">창을 다른 디스플레이로 이동</translation>
 <translation id="6602956230557165253">오른쪽/왼쪽 화살표 키를 사용하여 탐색합니다.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">아직 사용자 평가가 없습니다.</translation>
@@ -3916,6 +3920,7 @@
 <translation id="7119389851461848805">전원</translation>
 <translation id="7120865473764644444">동기화 서버에 연결하지 못했습니다. 다시 시도 중...</translation>
 <translation id="7121362699166175603">검색주소창에 저장된 방문 기록과 자동 완성 내역을 지웁니다. Google 계정의 내 활동(<ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />)에는 인터넷 사용 기록이 다른 형식으로 남아 있을 수도 있습니다.</translation>
+<translation id="7123360114020465152">프린터가 더 이상 지원되지 않습니다.</translation>
 <translation id="71243390042171582"><ph name="MINUTES" />분 전에 업데이트되었습니다.</translation>
 <translation id="7124929488592184705"><ph name="DOCUMENT_NAME" />을(를) 인쇄하는 중에 오류가 발생함</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;드라이브 검색&lt;/em&gt;</translation>
@@ -4173,6 +4178,9 @@
 <translation id="7544853251252956727">셔플</translation>
 <translation id="7545415673537747415"><ph name="BEGIN_LINK" />Google 활동 제어<ph name="END_LINK" />에서 검색, 광고 및 다른 Google 서비스를 맞춤설정하기 위하여 Google이 내 인터넷 사용 기록을 사용하는 방법을 제어하세요.</translation>
 <translation id="7547317915858803630">경고: <ph name="PRODUCT_NAME" /> 설정이 네트워크 드라이브에 저장되었습니다. 이로 인해 속도 저하, 비정상 종료 그리고 데이터 손실까지 발생할 수 있습니다.</translation>
+<translation id="7547483330017600937"><ph name="DEVICE_TYPE" />에서 개발하세요. 좋아하는 기본 앱 및 명령줄 도구를 원활하고 안전하게 실행할 수 있습니다.
+
+<ph name="APP_NAME" />을(를) 설치하면 <ph name="DOWNLOAD_SIZE" />의 데이터가 다운로드됩니다.</translation>
 <translation id="7548856833046333824">레모네이드</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" />을(를) 다운로드하지 못함</translation>
@@ -4371,6 +4379,7 @@
 <translation id="786073089922909430">서비스: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">다운로드(&amp;D)</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - 페어링됨</translation>
+<translation id="7870730066603611552">설정 후 동기화 옵션 검토</translation>
 <translation id="7870790288828963061">새로운 버전의 Kiosk 앱을 찾을 수 없습니다. 업데이트할 대상이 없습니다. USB 메모리를 제거하세요.</translation>
 <translation id="7874357055309047713">항상 모든 사이트에서 실행</translation>
 <translation id="7877451762676714207">알 수 없는 서버 오류입니다. 다시 시도하거나 서버 관리자에게 문의하시기 바랍니다.</translation>
@@ -5119,6 +5128,7 @@
 <translation id="9066782832737749352">텍스트 음성 변환</translation>
 <translation id="9070219033670098627">사용자 전환</translation>
 <translation id="907148966137935206">모든 사이트에서 팝업 표시 허용 안함(권장)</translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> 설치 중...</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" />에서 저장한 비밀번호를 사용하여 적합한 사이트와 앱에 자동 로그인합니다.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">블루투스</translation>

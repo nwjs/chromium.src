@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">ログアウトするには、Ctrl+Shift+Q を 2 回押します。</translation>
 <translation id="3893630138897523026">ChromeVox（音声フィードバック）</translation>
 <translation id="3899995891769452915">音声入力</translation>
+<translation id="3900355044994618856">セッションの制限時間まであと <ph name="SESSION_TIME_REMAINING" /> です</translation>
 <translation id="3901991538546252627"><ph name="NAME" /> に接続しています</translation>
 <translation id="394485226368336402">音声設定</translation>
 <translation id="397105322502079400">計算しています...</translation>
@@ -252,6 +253,7 @@
 <translation id="7066646422045619941">このネットワークは管理者によって無効にされています。</translation>
 <translation id="7067196344162293536">自動回転</translation>
 <translation id="7098389117866926363">USB-C デバイス（背面左のポート）</translation>
+<translation id="7131634465328662194">制限時間になると自動的にログアウトします。</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358"><ph name="TIMEOUT_SECONDS" /> 秒後に元の解像度に戻ります</translation>
 <translation id="7256634071279256947">後方のマイク</translation>
@@ -309,6 +311,7 @@
 <translation id="8484916590211895857"><ph name="NAME" />: 再接続しています...</translation>
 <translation id="8517041960877371778"><ph name="DEVICE_TYPE" /> は電源がオンのままでは充電できない可能性があります。</translation>
 <translation id="8639760480004882931">バッテリー残量: <ph name="PERCENTAGE" /></translation>
+<translation id="8649101189709089199">選択して読み上げ</translation>
 <translation id="8652175077544655965">設定を閉じます</translation>
 <translation id="8673028979667498656">270°</translation>
 <translation id="8676770494376880701">低電力の充電器に接続されています</translation>

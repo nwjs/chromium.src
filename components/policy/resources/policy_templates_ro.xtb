@@ -65,7 +65,7 @@
 <translation id="1204263402976895730">Imprimantele activate ale companiei</translation>
 <translation id="1219695476179627719">Specifică dacă dispozitivul trebuie să revină la versiunea setată de <ph name="DEVICE_TARGET_VERSION_PREFIX_POLICY_NAME" /> dacă rulează deja o versiune superioară.
 
-      Varianta standard este RollbackDisabled.</translation>
+      Valoarea prestabilită este RollbackDisabled.</translation>
 <translation id="1221359380862872747">Încărcați adrese URL specificate la conectarea demonstrativă</translation>
 <translation id="123081309365616809">Activează proiectarea conținutului pe dispozitiv</translation>
 <translation id="1257550411839719984">Setează directorul prestabilit pentru descărcare</translation>
@@ -151,6 +151,11 @@
 <translation id="1503487916067509762">Activează blocarea software-ului de la o terță parte</translation>
 <translation id="1504431521196476721">Atestare la distanță</translation>
 <translation id="1509692106376861764">Această politică a fost retrasă începând cu <ph name="PRODUCT_NAME" /> versiunea 29.</translation>
+<translation id="1519337829779572350">Această setare este învechită; folosește SafeBrowsingExtendedReportingEnabled. Activarea sau dezactivarea SafeBrowsingExtendedReportingEnabled este echivalentă cu dezactivarea SafeBrowsingExtendedReportingOptInAllowed.
+
+      Dacă dezactivezi această politică, utilizatorii nu vor mai putea trimite unele informații de sistem și conținutul paginii la serverele Google. Dacă această setare este activată sau nu este configurată, utilizatorii au permisiunea să trimită unele informații de sistem și conținutul paginii la Navigarea sigură pentru detectarea aplicațiilor și a site-urilor periculoase.
+
+      Consultă https://developers.google.com/safe-browsing pentru mai multe informații despre Navigarea sigură.</translation>
 <translation id="1522425503138261032">Permite site-urilor să urmărească locația fizică a utilizatorilor</translation>
 <translation id="152657506688053119">Lista adreselor URL alternative pentru furnizorul de căutare prestabilit</translation>
 <translation id="1530812829012954197">Redă întotdeauna următoarele șabloane de adrese URL în browserul gazdă</translation>
@@ -290,6 +295,14 @@
       Setarea acestei politici activează notificările care informează utilizatorul că este recomandată sau necesară relansarea browserului. Dacă politica nu este setată, <ph name="PRODUCT_NAME" /> îi arată utilizatorului că este necesară o relansare prin schimbări subtile aduse meniului. Dacă politica este setată la „Recomandat”, utilizatorului i se va afișa o avertizare recurentă prin care se indică faptul că relansarea este recomandată. Utilizatorul poate să respingă avertizarea pentru a amâna relansarea. Dacă politica este setată la „Obligatoriu”, utilizatorului i se va afișa o avertizare recurentă prin care se indică faptul că relansarea browserului va fi obligatorie după încheierea perioadei de notificare. În mod prestabilit, această perioadă este de șapte zile și poate fi configurată prin setarea politicii <ph name="RELAUNCH_NOTIFICATION_PERIOD_POLICY_NAME" />.
 
       Sesiunea utilizatorului este restabilită după relansare.</translation>
+<translation id="2075434678547407637">Îți permite să controlezi dacă videoclipurile se pot reda automat (fără consimțământul utilizatorului) cu conținut audio în <ph name="PRODUCT_NAME" />.
+
+      Dacă politica este activată, <ph name="PRODUCT_NAME" /> are permisiunea de a reda automat conținut media.
+      Dacă politica este dezactivată, <ph name="PRODUCT_NAME" /> nu are permisiunea de a reda automat conținut media.
+      În mod prestabilit, <ph name="PRODUCT_NAME" /> nu are permisiunea de a reda automat conținut media.
+
+      Reține că, dacă <ph name="PRODUCT_NAME" /> rulează și această politică se modifică, ea se va aplica doar la filele nou deschise. Astfel, este posibil ca unele file să mențină comportamentul anterior.
+      </translation>
 <translation id="2077129598763517140">Utilizează accelerarea hardware când este disponibilă</translation>
 <translation id="2077273864382355561">Interval până la oprirea ecranului la funcționarea pe baterie</translation>
 <translation id="2082205219176343977">Configurează versiunea Chrome minimă acceptată pentru dispozitiv.</translation>
@@ -595,7 +608,7 @@
       Dacă dezactivezi această setare sau nu setezi o valoare, funcția Previzualizare înainte de printare va utiliza imprimanta folosită cel mai recent ca opțiune de destinație prestabilită.
 
       Dacă activezi această setare, funcția Previzualizare înainte de printare va folosi imprimanta prestabilită pentru sistemul de operare ca opțiune de destinație prestabilită.</translation>
-<translation id="2867699958489427143">Resetează și rămâi la versiunea țintă dacă versiunea SO este mai nouă decât ținta. Efectuează un Powerwash complet în timpul procesului.</translation>
+<translation id="2867699958489427143">Revino și rămâi la versiunea țintă dacă versiunea SO este mai nouă decât ținta. Efectuează un Powerwash complet în timpul procesului.</translation>
 <translation id="2872961005593481000">Închide</translation>
 <translation id="2874209944580848064">Notă pentru dispozitivele <ph name="PRODUCT_OS_NAME" /> care acceptă aplicațiile Android:</translation>
 <translation id="2877225735001246144">Dezactivează căutarea CNAME la negocierea autentificării pentru Kerberos</translation>
@@ -1049,6 +1062,7 @@
       Dacă politica nu este configurată, utilizatorul poate opta pentru a afișa sau pentru a ascunde comanda rapidă pentru aplicații din meniul contextual al barei de marcaje.
 
       Dacă politica este configurată, utilizatorul nu o poate modifica, iar comanda rapidă pentru aplicații este afișată întotdeauna sau nu este afișată niciodată.</translation>
+<translation id="4432762137771104529">Activează Raportarea extinsă pentru Navigarea sigură</translation>
 <translation id="443454694385851356">Vechi (nesigur)</translation>
 <translation id="443665821428652897">Ștergeți datele site-urilor la închiderea browserului (învechită)</translation>
 <translation id="4439336120285389675">Specifică o listă a funcțiilor învechite ale platformei web care pot fi reactivate temporar.
@@ -1061,12 +1075,6 @@
       </translation>
 <translation id="4442582539341804154">Activați blocarea când dispozitivul este inactiv sau suspendat</translation>
 <translation id="4449545651113180484">Rotește ecranul la 270 de grade în sensul acelor de ceasornic</translation>
-<translation id="4459359100627756769">Configurează lista de adrese URL de autentificare de întreprindere (doar schemele HTTP și HTTPS). Amprenta digitală a parolei va fi scanată în aceste adrese URL și folosită pentru detectarea refolosirii parolelor.
-      Această setare trebuie folosită doar de utilizatorii GSuite care folosesc un sistem SSO/SMAL.
-
-      Dacă această setare este activată, serviciul de protecție prin parolă va scana amprenta digitală a parolelor pe aceste adrese URL pentru a detecta refolosirea parolelor.
-      Dacă această setare este dezactivată sau nu este configurată, serviciul de protecție prin parolă va scana amprenta digitală a parolei doar pe https://accounts.google.com.
-      Această politică nu este disponibilă în instanțele Windows care nu sunt asociate unui domeniu <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Blochează cookie-urile terță parte</translation>
 <translation id="4474167089968829729">Activează salvarea parolelor în managerul de parole</translation>
 <translation id="4476769083125004742">Dacă această politică este setată la <ph name="BLOCK_GEOLOCATION_SETTING" />, aplicațiile Android nu pot accesa informațiile despre locație. Dacă setezi orice altă valoare pentru această politică sau nu o configurezi, utilizatorului i se va solicita consimțământul când o aplicație Android dorește să acceseze informațiile despre locație.</translation>
@@ -1259,6 +1267,19 @@
 
       Reține că parolele pot deveni mai vechi decât numărul specificat de zile dacă clientul a fost offline o perioadă lungă de timp.</translation>
 <translation id="5105313908130842249">Interval până la blocarea ecranului la funcționarea pe baterie</translation>
+<translation id="5106504910236139235">Activează Raportarea extinsă pentru Navigarea sigură din <ph name="PRODUCT_NAME" /> și împiedică utilizatorii să modifice această setare.
+
+      Raportarea extinsă trimite anumite informații de sistem și conținutul paginii la serverele Google pentru a detecta aplicațiile și site-urile periculoase.
+
+      Dacă setarea este activată, rapoartele vor fi create și trimise oricând este necesar (de exemplu, când se afișează un mesaj intermediar de securitate).
+
+      Dacă setarea este dezactivată, nu se vor trimite niciodată rapoarte.
+
+      Dacă această politică este activată sau dezactivată, utilizatorul nu va putea modifica setarea.
+
+      Dacă politica nu este setată, utilizatorul va putea schimba setarea și va putea decide dacă să trimită sau nu rapoarte.
+
+      Consultă https://developers.google.com/safe-browsing pentru mai multe informații despre Navigarea sigură.</translation>
 <translation id="5108031557082757679">Imprimantele dezactivate asociate dispozitivelor companiei</translation>
 <translation id="5130288486815037971">Specifică dacă suitele de codificare RC4 din TLS sunt activate</translation>
 <translation id="5141670636904227950">Setați tipul prestabilit al lupei pentru ecran activate pe ecranul de conectare</translation>
@@ -1977,6 +1998,7 @@ nu poate fi stabilit de utilizator din setările browserului.
 
       Dacă politica nu este setată, curățarea automată utilizează strategia încorporată în mod prestabilit. În prezent, aceasta este strategia „RemoveLRUIfDormant”.</translation>
 <translation id="7336878834592315572">Păstrați cookie-urile pe durata sesiunii</translation>
+<translation id="733838170182967492">Permite redarea automată a conținutului media</translation>
 <translation id="7340034977315324840">Raportați perioadele de activitate ale dispozitivului</translation>
 <translation id="7343497214039883642">Fișierul de configurare a imprimantelor companiei pentru dispozitive</translation>
 <translation id="7384999953864505698">Permite protocolul QUIC</translation>
@@ -2126,11 +2148,11 @@ nu poate fi stabilit de utilizator din setările browserului.
 
       Valoarea standard este 0 pentru consumator, 8 (aproximativ 1 an) pentru dispozitivele înregistrate de întreprindere.
 
-      Setarea acestei politici împiedică protecția prin revenire la versiunea anterioară să se aplice măcar pentru acest număr de repere.
+      Setarea acestei politici împiedică protecția pentru revenirea la versiunile anterioare să se aplice pentru cel puțin acest număr de repere.
 
       Setarea acestei politici la o valoare mai scăzută are un efect permanent: ESTE POSIBIL ca dispozitivul să nu poată reveni la versiunile anterioare nici măcar după ce politica este resetată la o valoare mai mare.
 
-      Posibilitățile reale de revenire pot depinde și de panou și de corecțiile de vulnerabilitate critice.</translation>
+      Posibilitățile reale de revenire pot depinde și de modelul dispozitivului și de corecțiile de vulnerabilitate critice.</translation>
 <translation id="787125417158068494">Dacă politica este setată la SyncDisabled sau nu este configurată, certificatele <ph name="PRODUCT_OS_NAME" /> nu sunt disponibile pentru aplicațiile ARC.
 
       Dacă politica este setată la CopyCaCerts, toate certificatele CA instalate prin ONC cu <ph name="WEB_TRUSTED_BIT" /> sunt disponibile pentru aplicațiile ARC.</translation>

@@ -21,6 +21,7 @@
 <translation id="1920446759863417809">"<ph name="SHIFT1" />" <ph name="SEPARATOR1" /> "<ph name="ALT" />" <ph name="SEPARATOR2" /> "<ph name="L" />", dann "<ph name="SHIFT2" />" <ph name="SEPARATOR3" /> "<ph name="TAB" />" oder "<ph name="LEFT" />"</translation>
 <translation id="1996162290124031907">Auf den nächsten Tab klicken</translation>
 <translation id="2010818616644390445">Auf den letzten Tab im Fenster klicken</translation>
+<translation id="2088054208777350526">Tastenkombinationen suchen</translation>
 <translation id="2145908266289632567">Textbearbeitung</translation>
 <translation id="215292019801409139">"<ph name="SEARCH" />" <ph name="SEPARATOR" /> 1 bis =</translation>
 <translation id="2181097965834437145">Lesezeichenleiste ein- oder ausblenden</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126">"<ph name="CTRL" />" <ph name="SEPARATOR" /> 1 bis 8</translation>
 <translation id="3837047332182291558">Helligkeit der Tastaturbeleuchtung erhöhen (nur für beleuchtete Tastaturen)</translation>
 <translation id="3976863468609830880">Auf das letzte Symbol in der Ablage klicken</translation>
+<translation id="4026843240379844265">Aktive Fenster zwischen den Bildschirmen verschieben</translation>
 <translation id="4035482366624727273">Gesamten Seiteninhalt markieren</translation>
 <translation id="4060703249685950734">Zuletzt geschlossenen Tab oder zuletzt geschlossenes Fenster wieder öffnen</translation>
 <translation id="4090342722461256974">"<ph name="ALT" />" <ph name="SEPARATOR" /> "<ph name="SHIFT" />" gedrückt halten und "<ph name="TAB" />" drücken, bis das gewünschte Fenster angezeigt wird, dann loslassen.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Bedienungshilfen</translation>
 <translation id="7020813747703216897">Keine passenden Ergebnisse gefunden</translation>
 <translation id="7025325401470358758">Nächster Bereich</translation>
+<translation id="7237562915163138771">Webadresse in Adressleiste eingeben und "<ph name="ALT" />" <ph name="SEPARATOR" /> "<ph name="ENTER" />" drücken</translation>
 <translation id="7379254767514753910">"<ph name="ALT" />" oder "<ph name="SEARCH" />" <ph name="SEPARATOR" /> "<ph name="UP" />"</translation>
 <translation id="7439718573248533901">Nächsten Buchstaben löschen (vorwärts löschen)</translation>
 <translation id="766326951329901120">Inhalt aus der Zwischenablage als unformatierten Text einfügen</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Link in einen leeren Bereich auf der Tableiste ziehen</translation>
 <translation id="8389638407792712197">Neues Fenster öffnen</translation>
 <translation id="8429696719963529183">Funktionstasten F1 bis F12 verwenden</translation>
+<translation id="8537650670971624753">Suchmodus beenden</translation>
 <translation id="85690795166292698">Link in einem neuen Tab öffnen</translation>
 <translation id="8609384513243082612">Neuen Tab öffnen</translation>
 <translation id="8644639153978066712">Verborgene Dateien in der App "Dateien" anzeigen</translation>

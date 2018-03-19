@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Kapak kapatıldığında uyku moduna geç</translation>
 <translation id="1115018219887494029">Chromebook için Smart Lock (beta)</translation>
 <translation id="1116694919640316211">Hakkında</translation>
+<translation id="1116779635164066733">Bu ayar, "<ph name="NAME" />" uzantısı tarafından zorunlu kılınmıştır.</translation>
 <translation id="1119069657431255176">Bzip2 sıkıştırılmış tar arşivi</translation>
 <translation id="1119447706177454957">Dahili hata</translation>
 <translation id="1122198203221319518">&amp;Araçlar</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Yeniden adlandır</translation>
 <translation id="1175364870820465910">Ya&amp;zdır...</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> kopyalanıyor...</translation>
+<translation id="1177138678118607465">Google; Arama, reklamlar ve diğer Google hizmetlerini kişiselleştirmek için tarama geçmişinizi kullanabilir. Bunu istediğiniz zaman myaccount.google.com/activitycontrols/search adresinden değiştirebilirsiniz</translation>
 <translation id="1177863135347784049">Özel</translation>
 <translation id="1178581264944972037">Duraklat</translation>
 <translation id="1181037720776840403">Kaldır</translation>
@@ -781,7 +783,6 @@
 <translation id="2208158072373999562">Zip arşivi</translation>
 <translation id="220858061631308971">Lütfen "<ph name="DEVICE_NAME" />" cihazında bu PIN kodunu girin:</translation>
 <translation id="2209593327042758816">Raf öğesi 2</translation>
-<translation id="2215277870964745766">Hoş Geldiniz! Dil ve ağ ayarlarınızı yapın</translation>
 <translation id="2217501013957346740">Bir ad oluşturun -</translation>
 <translation id="2218019600945559112">Fare ve dokunmatik alan</translation>
 <translation id="2218320521449013367">Chrome zararlı yazılımları kaldırırken bir hata oluştu</translation>
@@ -2611,6 +2612,7 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="5063480226653192405">Kullanım</translation>
 <translation id="5067867186035333991"><ph name="HOST" /> sitesi mikrofonuma erişmek isterse sor</translation>
 <translation id="5068918910148307423">Yeni kapatılan sitelerin veri gönderme ve alma işlemini bitirmesine izin verme</translation>
+<translation id="507021118007633031"><ph name="DEVICE_TYPE" /> için <ph name="APP_NAME" /></translation>
 <translation id="5072052264945641674">İmleç boyutunu ayarla</translation>
 <translation id="5072836811783999860">Yönetilen yer işaretlerini göster</translation>
 <translation id="5074318175948309511">Yeni ayarların geçerli olması için bu sayfanın tekrar yüklenmesi gerekebilir.</translation>
@@ -3510,6 +3512,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="645705751491738698">JavaScript'i engellemeye devam et</translation>
 <translation id="6458308652667395253">JavaScript engellemeyi yönet...</translation>
 <translation id="6459488832681039634">Bul için Seçim'i Kullan</translation>
+<translation id="6459799433792303855">Etkin pencere başka bir ekrana taşındı.</translation>
 <translation id="6460601847208524483">Sonrakini Bul</translation>
 <translation id="6462082050341971451">Hâlâ orada mısınız?</translation>
 <translation id="6463795194797719782">&amp;Düzenle</translation>
@@ -3595,6 +3598,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6596745167571172521">Büyük Harf Kilidini Devre Dışı Bırak</translation>
 <translation id="6596816719288285829">IP Adresi</translation>
 <translation id="6597017209724497268">Örnek Sayısı</translation>
+<translation id="6602353599068390226">pencereyi başka bir ekrana taşıma</translation>
 <translation id="6602956230557165253">Gezinmek için sol ve sağ okları kullanın.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Henüz hiçbir kullanıcı puan vermedi.</translation>
@@ -3917,6 +3921,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7119389851461848805">güç</translation>
 <translation id="7120865473764644444">Senkronizasyon sunucusuna bağlanılamadı. Yeniden deneniyor…</translation>
 <translation id="7121362699166175603">Geçmişi ve adres çubuğundaki otomatik tamamlamaları temizler. Google Hesabınızın <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> adresinde başka biçimlerde tarama geçmişi olabilir.</translation>
+<translation id="7123360114020465152">Artık desteklenmiyor</translation>
 <translation id="71243390042171582"><ph name="MINUTES" /> dk. önce güncellendi</translation>
 <translation id="7124929488592184705"><ph name="DOCUMENT_NAME" /> yazdırılırken hata oluştu</translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" - &lt;em&gt;Drive'da ara&lt;/em&gt;</translation>
@@ -4174,6 +4179,9 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7544853251252956727">Karıştır</translation>
 <translation id="7545415673537747415">Google'ın Arama, reklamlar ve diğer Google hizmetlerini kişiselleştirmek için tarama geçmişinizi nasıl kullanacağını <ph name="BEGIN_LINK" />Google Etkinlik Kontrolleri<ph name="END_LINK" />'nden kontrol edin.</translation>
 <translation id="7547317915858803630">Uyarı: <ph name="PRODUCT_NAME" /> ayarlarınız bir ağ sürücüsünde depolanıyor. Bu durum yavaşlamalara, kilitlenmelere, hatta veri kaybına neden olabilir.</translation>
+<translation id="7547483330017600937"><ph name="DEVICE_TYPE" /> cihazınızda geliştirin. Favori yerel uygulamalarınızı ve komut satırı araçlarınızı sorunsuz ve güvenli bir şekilde çalıştırabilirsiniz.
+
+<ph name="APP_NAME" /> uygulamasının yüklenmesiyle <ph name="DOWNLOAD_SIZE" /> boyutunda veri indirilecektir.</translation>
 <translation id="7548856833046333824">Limonata</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> indirmesi başarısız oldu</translation>
@@ -4372,6 +4380,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="786073089922909430">Hizmet: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;İndirilenler</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - Eşlendi</translation>
+<translation id="7870730066603611552">Kurulumdan sonra senkronizasyon seçeneklerini inceleyin</translation>
 <translation id="7870790288828963061">Daha yeni bir sürüme sahip herhangi bir Kiosk uygulaması bulunamadı. Güncellenecek hiçbir şey yok. Lütfen USB çubuğunu çıkarın.</translation>
 <translation id="7874357055309047713">Tüm sitelerde her zaman çalıştır</translation>
 <translation id="7877451762676714207">Bilinmeyen sunucu hatası. Lütfen tekrar deneyin veya sunucu yöneticinize başvurun.</translation>
@@ -5120,6 +5129,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="9066782832737749352">Metin-Konuşma</translation>
 <translation id="9070219033670098627">Kişi değiştir</translation>
 <translation id="907148966137935206">Hiçbir sitede pop-up'lara izin verme (önerilen)</translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> yükleniyor...</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" />, kaydettiğiniz şifrelerle uygun sitelerde ve uygulamalarda otomatik olarak oturum açmanızı sağlar.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

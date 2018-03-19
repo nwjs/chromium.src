@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> και έπειτα <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> ή <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Μετάβαση στην επόμενη καρτέλα</translation>
 <translation id="2010818616644390445">Μετάβαση στην τελευταία καρτέλα στο παράθυρο</translation>
+<translation id="2088054208777350526">Αναζήτηση για συντομεύσεις πληκτρολογίου</translation>
 <translation id="2145908266289632567">Επεξεργασία κειμένου</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 έως =</translation>
 <translation id="2181097965834437145">Εμφάνιση ή απόκρυψη της γραμμής σελιδοδεικτών</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 έως 8</translation>
 <translation id="3837047332182291558">Αύξηση φωτεινότητας πληκτρολογίου (μόνο για πληκτρολόγια με οπίσθιο φωτισμό)</translation>
 <translation id="3976863468609830880">Κλικ στο τελευταίο εικονίδιο στο ράφι σας</translation>
+<translation id="4026843240379844265">Μετακίνηση ενεργού παραθύρου μεταξύ οθονών</translation>
 <translation id="4035482366624727273">Επιλογή όλων στη σελίδα</translation>
 <translation id="4060703249685950734">Εκ νέου άνοιγμα της τελευταίας καρτέλας ή του παραθύρου που κλείσατε</translation>
 <translation id="4090342722461256974">Πατώντας παρατεταμένα το <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" />, πατήστε το <ph name="TAB" /> μέχρι να φτάσετε στο παράθυρο που θέλετε να ανοίξετε και έπειτα αφήστε τα πλήκτρα.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Προσβασιμότητα</translation>
 <translation id="7020813747703216897">Δεν βρέθηκαν αποτελέσματα αντιστοίχισης</translation>
 <translation id="7025325401470358758">Επόμενο παράθυρο</translation>
+<translation id="7237562915163138771">Πληκτρολογήστε μια διεύθυνση ιστού στη γραμμή διευθύνσεων και έπειτα πατήστε <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> ή <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Διαγραφή του επόμενου γράμματος (διαγραφή επόμενου)</translation>
 <translation id="766326951329901120">Επικόλληση περιεχομένου από το πρόχειρο ως απλό κείμενο</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Σύρετε τον σύνδεσμο σε μια κενή περιοχή της γραμμής καρτελών</translation>
 <translation id="8389638407792712197">Άνοιγμα νέου παραθύρου</translation>
 <translation id="8429696719963529183">Χρήση των πλήκτρων F (F1 έως F12)</translation>
+<translation id="8537650670971624753">Έξοδος από τη λειτουργία αναζήτησης</translation>
 <translation id="85690795166292698">Άνοιγμα του συνδέσμου σε νέα καρτέλα</translation>
 <translation id="8609384513243082612">Άνοιγμα νέας καρτέλας</translation>
 <translation id="8644639153978066712">Εμφάνιση κρυφών αρχείων στην εφαρμογή Αρχεία</translation>

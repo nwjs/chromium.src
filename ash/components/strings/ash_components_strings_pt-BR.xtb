@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> e depois <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> ou <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Ir para a próxima guia</translation>
 <translation id="2010818616644390445">Ir para a última guia da janela</translation>
+<translation id="2088054208777350526">Procurar atalhos do teclado</translation>
 <translation id="2145908266289632567">Edição de texto</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 a =</translation>
 <translation id="2181097965834437145">Mostrar ou ocultar a barra de favoritos</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 a 8</translation>
 <translation id="3837047332182291558">Deixar o teclado mais brilhante (apenas para teclados retroiluminados)</translation>
 <translation id="3976863468609830880">Clicar no último ícone da estante</translation>
+<translation id="4026843240379844265">Mover janela ativa entre telas</translation>
 <translation id="4035482366624727273">Selecionar tudo na página</translation>
 <translation id="4060703249685950734">Reabrir a última guia ou janela que você fechou</translation>
 <translation id="4090342722461256974">Pressione <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" /> e mantenha essa tecla pressionada, toque em <ph name="TAB" /> até chegar à janela que você quer abrir e depois solte.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Acessibilidade</translation>
 <translation id="7020813747703216897">Nenhum resultado correspondente encontrado</translation>
 <translation id="7025325401470358758">Próximo painel</translation>
+<translation id="7237562915163138771">Digite um endereço da Web na barra de endereços e pressione <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> ou <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Excluir a próxima letra (excluir para frente)</translation>
 <translation id="766326951329901120">Colar conteúdo da área de transferência como texto simples</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Arrastar o link até uma área em branco na barra de guias</translation>
 <translation id="8389638407792712197">Abrir nova janela</translation>
 <translation id="8429696719963529183">Usar teclas F (F1 a F12)</translation>
+<translation id="8537650670971624753">Sair do modo de pesquisa</translation>
 <translation id="85690795166292698">Abrir o link em uma nova guia</translation>
 <translation id="8609384513243082612">Abrir nova guia</translation>
 <translation id="8644639153978066712">Exibir arquivos ocultos no app Arquivos</translation>

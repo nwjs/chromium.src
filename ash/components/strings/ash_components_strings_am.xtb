@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />፣ ከዚያ <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> ወይም <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">ወደ የሚቀጥለው ትር ይሂዱ</translation>
 <translation id="2010818616644390445">በመስኮቱ ውስጥ ያለው የመጨረሻ ትር ይሂዱ</translation>
+<translation id="2088054208777350526">የቁልፍ ሰሌዳ አቋራጮችን ፈልግ</translation>
 <translation id="2145908266289632567">የጽሑፍ አርትዖት</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 እስከ =</translation>
 <translation id="2181097965834437145">የእልባት አሞሌን አሳይ ወይም ደብቅ</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> ከ1 እስከ 8</translation>
 <translation id="3837047332182291558">የቁልፍ ሰሌዳን ይበልጥ ብሩህ ያድርጉ (የጀርባ ብርሃን ላላቸው ቁልፍ ሰሌዳዎች ብቻ)</translation>
 <translation id="3976863468609830880">በእርስዎ መደርደሪያ ላይ የመጨረሻውን አዶ ጠቅ ያድርጉ</translation>
+<translation id="4026843240379844265">በማሳያዎች መካከል ንቁ መስኮትን ያንቀሳቅሱ</translation>
 <translation id="4035482366624727273">በገጹ ላይ ሁሉንም ነገር ይምረጡ</translation>
 <translation id="4060703249685950734">የዘጉትን የመጨረሻው ትር ወይም መስኮት ዳግም ይክፈቱ</translation>
 <translation id="4090342722461256974"><ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" />ን ተጭነው ይያዙ፣ መክፈት የሚፈልጉትን መስኮት እስኪያገኙ ድረስ <ph name="TAB" /> መታ ያድርጉ፣ ከዚያ ይልቀቁ።</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">ተደራሽነት</translation>
 <translation id="7020813747703216897">ምንም ተዛማጅ ውጤቶች አልተገኙም</translation>
 <translation id="7025325401470358758">ቀጣይ ንጥል</translation>
+<translation id="7237562915163138771">በአድራሻ አሞሌው ውስጥ የድር አድራሻ ይተይቡ እና በመቀጠል <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> ይጫኑ</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> ወይም <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">ቀጣዩን ፊደል ይሰርዙ (ወደፊት ስረዛ)</translation>
 <translation id="766326951329901120">ይዘትን ከቅንጥብ ሰሌዳው ላይ እንደ ዝርግ ጽሑፍ ለጥፍ</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">አገናኙን በትሩ ድርድር ላይ ወዳለ ባዶ ቦታ ይጎትቱት</translation>
 <translation id="8389638407792712197">አዲስ መስኮት ይክፈቱ</translation>
 <translation id="8429696719963529183">የF ቁልፎችን ይጠቀሙ (F1 እስከ F12)</translation>
+<translation id="8537650670971624753">ከፍለጋ ሁነታ ይውጡ</translation>
 <translation id="85690795166292698">አገናኙን በአዲስ ትር ውስጥ ይክፈቱ</translation>
 <translation id="8609384513243082612">አዲስ ትር ይክፈቱ</translation>
 <translation id="8644639153978066712">በፋይሎች መተግበሪያ ውስጥ የተደበቁ ፋይሎችን አሳይ</translation>

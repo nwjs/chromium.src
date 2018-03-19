@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">连按两次Ctrl+Shift+Q即可退出。</translation>
 <translation id="3893630138897523026">ChromeVox（语音反馈）</translation>
 <translation id="3899995891769452915">语音输入</translation>
+<translation id="3900355044994618856">您的会话将在 <ph name="SESSION_TIME_REMAINING" />后结束</translation>
 <translation id="3901991538546252627">正在连接：<ph name="NAME" /></translation>
 <translation id="394485226368336402">音频设置</translation>
 <translation id="397105322502079400">正在计算...</translation>
@@ -253,6 +254,7 @@
 <translation id="7066646422045619941">您的管理员已禁用此网络。</translation>
 <translation id="7067196344162293536">自动旋转</translation>
 <translation id="7098389117866926363">USB-C 设备（背面左侧端口）</translation>
+<translation id="7131634465328662194">您将会自动退出会话。</translation>
 <translation id="7165278925115064263">Alt+Shift+K</translation>
 <translation id="7168224885072002358"><ph name="TIMEOUT_SECONDS" />秒后恢复到原分辨率</translation>
 <translation id="7256634071279256947">后置麦克风</translation>

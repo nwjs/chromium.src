@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, potom <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> alebo <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Prechod na ďalšiu kartu</translation>
 <translation id="2010818616644390445">Prechod na poslednú kartu v okne</translation>
+<translation id="2088054208777350526">Vyhľadávanie klávesových skratiek</translation>
 <translation id="2145908266289632567">Úprava textu</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 až =</translation>
 <translation id="2181097965834437145">Zobrazenie alebo skrytie panela so záložkami</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 až 8</translation>
 <translation id="3837047332182291558">Zvýšenie jasu klávesnice (iba v prípade podsvietených klávesníc)</translation>
 <translation id="3976863468609830880">Kliknutie na poslednú ikonu na poličke</translation>
+<translation id="4026843240379844265">Presun aktívneho okna medzi obrazovkami</translation>
 <translation id="4035482366624727273">Výber celého obsahu stránky</translation>
 <translation id="4060703249685950734">Opätovné otvorenie poslednej zatvorenej karty alebo okna</translation>
 <translation id="4090342722461256974">Pridržanie kombinácie klávesov <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" />. Následné klepnutie na kláves <ph name="TAB" />, kým neprejdete na okno, ktoré chcete otvoriť. Následné uvoľnenie klávesa.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Dostupnosť</translation>
 <translation id="7020813747703216897">Nenašli sa žiadne zodpovedajúce výsledky</translation>
 <translation id="7025325401470358758">Nasledujúci panel</translation>
+<translation id="7237562915163138771">Zadajte do panela s adresou webovú adresu a potom stlačte <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> alebo <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Odstránenie nasledujúceho písmena (odstránenie nasledujúceho znaku)</translation>
 <translation id="766326951329901120">Prilepenie obsahu zo schránky ako obyčajného textu</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Presunutie odkazu do prázdnej oblasti na paneli kariet</translation>
 <translation id="8389638407792712197">Otvorenie nového okna</translation>
 <translation id="8429696719963529183">Použitie klávesov F (F1 až F12)</translation>
+<translation id="8537650670971624753">Ukončiť režim vyhľadávania</translation>
 <translation id="85690795166292698">Otvorenie odkazu na novej karte</translation>
 <translation id="8609384513243082612">Otvorenie novej karty</translation>
 <translation id="8644639153978066712">Zobrazenie skrytých súborov v aplikácii Súbory</translation>

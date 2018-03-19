@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, apoi <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> sau <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Accesează fila următoare</translation>
 <translation id="2010818616644390445">Accesează ultima filă din fereastră</translation>
+<translation id="2088054208777350526">Caută comenzi rapide de la tastatură</translation>
 <translation id="2145908266289632567">Editarea textului</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 până la =</translation>
 <translation id="2181097965834437145">Afișează sau ascunde bara de marcaje</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 până la 8</translation>
 <translation id="3837047332182291558">Mărește luminozitatea tastaturii (numai pentru tastaturi cu iluminare)</translation>
 <translation id="3976863468609830880">Dă clic pe ultima pictograma de pe raft</translation>
+<translation id="4026843240379844265">Mută fereastra activă de pe un ecran pe altul</translation>
 <translation id="4035482366624727273">Selectează integral conținutul paginii</translation>
 <translation id="4060703249685950734">Redeschide ultima filă sau fereastră închisă</translation>
 <translation id="4090342722461256974">Apasă lung pe <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" />, apasă pe <ph name="TAB" /> până când ajungi la fereastra pe care dorești să o deschizi, apoi eliberează.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Accesibilitate</translation>
 <translation id="7020813747703216897">Nu s-a găsit niciun rezultat de căutare</translation>
 <translation id="7025325401470358758">Panoul următor</translation>
+<translation id="7237562915163138771">Introdu o adresă web în bara de adrese, apoi apasă pe <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> sau <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Șterge litera următoare (ștergere înainte)</translation>
 <translation id="766326951329901120">Inserează conținutul din clipboard ca text simplu</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Trage linkul într-o zonă liberă a barei de file</translation>
 <translation id="8389638407792712197">Deschide o fereastră nouă</translation>
 <translation id="8429696719963529183">Folosește tastele F (de la F1 la F12)</translation>
+<translation id="8537650670971624753">Ieși din modul de căutare</translation>
 <translation id="85690795166292698">Deschide linkul într-o filă nouă</translation>
 <translation id="8609384513243082612">Deschide o filă nouă</translation>
 <translation id="8644639153978066712">Afișează fișiere ascunse din aplicația Fișiere</translation>

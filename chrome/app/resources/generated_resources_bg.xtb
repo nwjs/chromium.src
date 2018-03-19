@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Преминаване в спящ режим при затваряне на капака</translation>
 <translation id="1115018219887494029">Smart Lock за Chromebook (бета)</translation>
 <translation id="1116694919640316211">Информация</translation>
+<translation id="1116779635164066733">Тази настройка е наложена от разширението „<ph name="NAME" />“.</translation>
 <translation id="1119069657431255176">Tar архив, компресиран във формат Bzip2</translation>
 <translation id="1119447706177454957">Вътрешна грешка</translation>
 <translation id="1122198203221319518">&amp;Инструменти</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Преименуване</translation>
 <translation id="1175364870820465910">&amp;Печат...</translation>
 <translation id="117624967391683467">„<ph name="FILE_NAME" />“ се копира...</translation>
+<translation id="1177138678118607465">Може да използваме историята ви на сърфиране, за да персонализираме търсенето, рекламите и други услуги на Google. В състояние сте да промените това по всяко време на адрес myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">По избор</translation>
 <translation id="1178581264944972037">Пауза</translation>
 <translation id="1181037720776840403">Премахване</translation>
@@ -778,7 +780,6 @@
 <translation id="2208158072373999562">Компресиран архивен файл</translation>
 <translation id="220858061631308971">Моля, въведете този ПИН код на „<ph name="DEVICE_NAME" />“:</translation>
 <translation id="2209593327042758816">Елемент 2 в лавицата</translation>
-<translation id="2215277870964745766">Добре дошли! Задайте езика и мрежата си</translation>
 <translation id="2217501013957346740">Създаване на име –</translation>
 <translation id="2218019600945559112">Мишка и сензорен панел</translation>
 <translation id="2218320521449013367">Възникна грешка, докато Chrome премахваше опасния софтуер</translation>
@@ -2608,6 +2609,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5063480226653192405">Употреба</translation>
 <translation id="5067867186035333991">Да се получава запитване, ако <ph name="HOST" /> иска достъп до микрофона ви</translation>
 <translation id="5068918910148307423">Забраняване на наскоро затворените сайтове да завършват изпращането и получаването на данни</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> за <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Коригиране на размера на курсора</translation>
 <translation id="5072836811783999860">Показване на управляваните отметки</translation>
 <translation id="5074318175948309511">Може да се наложи тази страница да бъде презаредена, преди да влязат в сила новите настройки.</translation>
@@ -3507,6 +3509,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="645705751491738698">Блокирането на JavaScript да продължи</translation>
 <translation id="6458308652667395253">Управление на блокирането на JavaScript...</translation>
 <translation id="6459488832681039634">Използване на избраното за търсене</translation>
+<translation id="6459799433792303855">Активният прозорец е преместен на друг екран.</translation>
 <translation id="6460601847208524483">Търсене на следващото</translation>
 <translation id="6462082050341971451">Там ли сте още?</translation>
 <translation id="6463795194797719782">&amp;Редактиране</translation>
@@ -3592,6 +3595,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="6596745167571172521">Деактивиране на „Caps Lock“</translation>
 <translation id="6596816719288285829">IP адрес</translation>
 <translation id="6597017209724497268">Извадки</translation>
+<translation id="6602353599068390226">преместване на прозореца на друг екран</translation>
 <translation id="6602956230557165253">Използвайте клавишите със стрелки за наляво и за надясно, за да се придвижвате.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Още няма оценка от потребители.</translation>
@@ -3914,6 +3918,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7119389851461848805">захранване</translation>
 <translation id="7120865473764644444">Не можа да се установи връзка със синхронизиращия сървър. Извършва се нов опит...</translation>
 <translation id="7121362699166175603">Изчиства историята и автоматичните довършвания в адресната лента. В профила ви в Google може да има други видове история на сърфиране, съхранявани на адрес <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">Вече не се поддържа</translation>
 <translation id="71243390042171582">Актуализирано преди <ph name="MINUTES" /> мин</translation>
 <translation id="7124929488592184705">Грешка при отпечатването на „<ph name="DOCUMENT_NAME" />“</translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; – &lt;em&gt;търсене в Диск&lt;/em&gt;</translation>
@@ -4171,6 +4176,9 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7544853251252956727">Разбъркване</translation>
 <translation id="7545415673537747415">Чрез <ph name="BEGIN_LINK" />контролите за активността в Google<ph name="END_LINK" /> управлявайте начина, по който използваме историята ви на сърфиране, за да персонализираме търсенето, рекламите и други наши услуги.</translation>
 <translation id="7547317915858803630">Предупреждение: Настройките ви за <ph name="PRODUCT_NAME" /> се съхраняват на мрежов диск. Това може да доведе до забавяния, сривове или дори до загуба на данни.</translation>
+<translation id="7547483330017600937">Програмирайте на своя <ph name="DEVICE_TYPE" />. Можете безпроблемно и сигурно да ползвате любимите си приложения с директно изпълнение и инструменти за командния ред.
+
+При инсталирането на <ph name="APP_NAME" /> ще се изтеглят <ph name="DOWNLOAD_SIZE" /> данни.</translation>
 <translation id="7548856833046333824">Лимонада</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">„<ph name="FILE_NAME" />“ се изтегли успешно</translation>
@@ -4369,6 +4377,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="786073089922909430">Услуга: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;За изтегляне</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> – сдвоено</translation>
+<translation id="7870730066603611552">Преглед на опциите за синхронизиране след настройването</translation>
 <translation id="7870790288828963061">Няма намерени павилионни приложения с по-нова версия. Няма нищо за актуализиране. Моля, извадете USB паметта.</translation>
 <translation id="7874357055309047713">Стартиране винаги на всички сайтове</translation>
 <translation id="7877451762676714207">Неизвестна грешка в сървъра. Моля, опитайте отново или се свържете с администратора му.</translation>
@@ -5117,6 +5126,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="9066782832737749352">Синтезиран говор</translation>
 <translation id="9070219033670098627">Превключване към друг човек</translation>
 <translation id="907148966137935206">Забраняване на всички сайтове да показват изскачащи прозорци (препоръчително)</translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> се инсталира...</translation>
 <translation id="9072550133391925347">С помощта на <ph name="PASSWORD_MANAGER_BRAND" /> автоматично влизате в отговарящи на условията сайтове и приложения с паролите, които сте запазили.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

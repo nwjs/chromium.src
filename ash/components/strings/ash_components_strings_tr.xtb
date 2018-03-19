@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" />, daha sonra <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> veya <ph name="LEFT" /></translation>
 <translation id="1996162290124031907">Sonraki sekmeye gider</translation>
 <translation id="2010818616644390445">Penceredeki son sekmeye gider</translation>
+<translation id="2088054208777350526">Klavye kısayollarını arama</translation>
 <translation id="2145908266289632567">Metin Düzenleme</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" /> 1 ile = arasındaki tuşlar</translation>
 <translation id="2181097965834437145">Yer işaretleri çubuğunu gösterir veya gizler</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 ile 8 arasındaki tuşlar</translation>
 <translation id="3837047332182291558">Klavyenin ışığını açar (yalnızca arkadan aydınlatmalı klavyeler için)</translation>
 <translation id="3976863468609830880">Rafınızdaki son simgeyi tıklar</translation>
+<translation id="4026843240379844265">Etkin pencereyi ekranlar arasında taşıma</translation>
 <translation id="4035482366624727273">Sayfadaki her şeyi seçer</translation>
 <translation id="4060703249685950734">Kapattığınız son sekmeyi veya pencereyi yeniden açar</translation>
 <translation id="4090342722461256974"><ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" /> tuşlarını basılı tutarken açmak istediğiniz pencereye gelinceye kadar <ph name="TAB" /> tuşuna basın, daha sonra tuşları bırakın.</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">Erişilebilirlik</translation>
 <translation id="7020813747703216897">Eşleşen sonuç bulunamadı</translation>
 <translation id="7025325401470358758">Sonraki bölme</translation>
+<translation id="7237562915163138771">Adres çubuğuna bir web adresi yazın, ardından <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> tuşlarına basın</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> veya <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Sonraki harfi siler (ileri doğru silme)</translation>
 <translation id="766326951329901120">Panodaki içeriği düz metin olarak yapıştırır</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">Bağlantıyı sekme şeridindeki boş bir alana sürükleyin</translation>
 <translation id="8389638407792712197">Yeni pencere açar</translation>
 <translation id="8429696719963529183">F tuşlarını kullandırır (F1 - F12)</translation>
+<translation id="8537650670971624753">Arama modundan çık</translation>
 <translation id="85690795166292698">Bağlantıyı yeni bir sekmede açar</translation>
 <translation id="8609384513243082612">Yeni sekme açar</translation>
 <translation id="8644639153978066712">Dosyalar uygulamasındaki gizli dosyaları görüntüler</translation>

@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">ಲಿಡ್‌ ಅನ್ನು ಮುಚ್ಚಿದಾಗ ಸ್ಲೀಪ್‌ ಮೋಡ್‌ನಲ್ಲಿ ಇರಿಸಿ</translation>
 <translation id="1115018219887494029">Chromebook ಗೆ Smart Lock (ಬೀಟಾ)</translation>
 <translation id="1116694919640316211">ಕುರಿತು</translation>
+<translation id="1116779635164066733">ಈ ಸೆಟ್ಟಿಂಗ್ ಅನ್ನು "<ph name="NAME" />" ವಿಸ್ತರಣೆಯಿಂದ ಜಾರಿಗೊಳಿಸಲಾಗಿದೆ.</translation>
 <translation id="1119069657431255176">Bzip2 ಸಂಕ್ಷೇಪಿಸಿದ tar ಆರ್ಕೈವ್</translation>
 <translation id="1119447706177454957">ಆಂತರಿಕ ದೋಷ</translation>
 <translation id="1122198203221319518">&amp;ಸಾಧನಗಳು</translation>
@@ -115,6 +116,7 @@
 <translation id="1173894706177603556">ಮರುಹೆಸರಿಸು</translation>
 <translation id="1175364870820465910">&amp;ಮುದ್ರಿಸಿ...</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> ನಕಲಿಸಲಾಗುತ್ತಿದೆ...</translation>
+<translation id="1177138678118607465">ಹುಡುಕಾಟ, ಜಾಹೀರಾತುಗಳು ಮತ್ತು ಇತರ Google ಸೇವೆಗಳನ್ನು ವೈಯಕ್ತೀಕರಿಸಲು ನಿಮ್ಮ ಬ್ರೌಸಿಂಗ್ ಇತಿಹಾಸವನ್ನು Google ಬಳಸಬಹುದು. ನೀವು ಇದನ್ನು myaccount.google.com/activitycontrols/search ನಲ್ಲಿ ಯಾವುದೇ ಸಮಯದಲ್ಲಿ ಬದಲಾಯಿಸಬಹುದು</translation>
 <translation id="1177863135347784049">ಕಸ್ಟಮ್</translation>
 <translation id="1178581264944972037">ವಿರಾಮ</translation>
 <translation id="1181037720776840403">ತೆಗೆದುಹಾಕು</translation>
@@ -778,7 +780,6 @@
 <translation id="2208158072373999562">ಜಿಪ್  ಆರ್ಕೈವ್</translation>
 <translation id="220858061631308971">ದಯವಿಟ್ಟು "<ph name="DEVICE_NAME" />" ಇದರಲ್ಲಿ ಈ ಪಿನ್ ಕೋಡ್ ಅನ್ನು ನಮೂದಿಸಿ :</translation>
 <translation id="2209593327042758816">ಶೆಲ್ಫ್ ಐಟಂ 2</translation>
-<translation id="2215277870964745766">ಸುಸ್ವಾಗತ! ನಿಮ್ಮ ಭಾಷೆ ಮತ್ತು ನೆಟ್‌ವರ್ಕ್ ಅನ್ನು ಹೊಂದಿಸಿ</translation>
 <translation id="2217501013957346740">ಹೆಸರು ರಚಿಸಿ -</translation>
 <translation id="2218019600945559112">ಮೌಸ್ ಮತ್ತು ಟಚ್‌ಪ್ಯಾಡ್</translation>
 <translation id="2218320521449013367">Chrome, ಹಾನಿಕಾರಕ ಸಾಫ್ಟ್‌ವೇರ್ ಅನ್ನು ತೆಗೆದುಹಾಕುವಾಗ ದೋಷ ಸಂಭವಿಸಿದೆ</translation>
@@ -2605,6 +2606,7 @@
 <translation id="5063480226653192405">ಬಳಕೆ</translation>
 <translation id="5067867186035333991">ನಿಮ್ಮ ಮೈಕ್ರೋಫೋನ್ ಪ್ರವೇಶಿಸಲು <ph name="HOST" /> ಬಯಸುತ್ತದೆಯೇ ಎಂಬುದನ್ನು ಕೇಳಿ</translation>
 <translation id="5068918910148307423">ಡೇಟಾ ಕಳುಹಿಸುವುದನ್ನು ಮತ್ತು ಸ್ವೀಕರಿಸುವುದನ್ನು ಮುಕ್ತಾಯಗೊಳಿಸಲು ಇತ್ತೀಚಿಗೆ ಮುಚ್ಚಿದ ಸೈಟ್‌ಗಳಿಗೆ ಅನುಮತಿಸಬೇಡ</translation>
+<translation id="507021118007633031"><ph name="DEVICE_TYPE" /> ಗಾಗಿ <ph name="APP_NAME" /></translation>
 <translation id="5072052264945641674">ಕರ್ಸರ್ ಗಾತ್ರವನ್ನು ಹೊಂದಿಸಿ</translation>
 <translation id="5072836811783999860">ನಿರ್ವಹಿಸಲಾದ ಬುಕ್‌ಮಾರ್ಕ್‌ಗಳನ್ನು ತೋರಿಸು</translation>
 <translation id="5074318175948309511">ಹೊಸ ಸೆಟ್ಟಿಂಗ್‌ಗಳು ಪರಿಣಾಮಕಾರಿಯಾಗುವುದಕ್ಕೆ ಮೊದಲು ಈ ಪುಟವನ್ನು ರಿಲೋಡ್ ಮಾಡಬೇಕಾಗುತ್ತದೆ.</translation>
@@ -3504,6 +3506,7 @@
 <translation id="645705751491738698">JavaScript ನಿರ್ಬಂಧಿಸುವಿಕೆಯನ್ನು ಮುಂದುವರಿಸಿ</translation>
 <translation id="6458308652667395253">JavaScript ನಿರ್ಬಂಧಿಸುವಿಕೆಯನ್ನು ನಿರ್ವಹಿಸಿ...</translation>
 <translation id="6459488832681039634">ಹುಡುಕಲು ಆಯ್ಕೆಯನ್ನು ಬಳಸಿ</translation>
+<translation id="6459799433792303855">ಮತ್ತೊಂದು ಡಿಸ್‌ಪ್ಲೇಗೆ ಸಕ್ರಿಯ ವಿಂಡೋವನ್ನು ಸರಿಸಲಾಗಿದೆ.</translation>
 <translation id="6460601847208524483">ಮುಂದಿನದು ಕಂಡುಹಿಡಿಯಿರಿ</translation>
 <translation id="6462082050341971451">ನೀವಿನ್ನೂ ಅಲ್ಲಿಯೇ ಇದ್ದೀರಾ?</translation>
 <translation id="6463795194797719782">&amp;ಸಂಪಾದಿಸು</translation>
@@ -3589,6 +3592,7 @@
 <translation id="6596745167571172521">Caps Lock ನಿಷ್ಕ್ರಿಯಗೊಳಿಸಿ</translation>
 <translation id="6596816719288285829">IP ವಿಳಾಸ</translation>
 <translation id="6597017209724497268">ಮಾದರಿಗಳು</translation>
+<translation id="6602353599068390226">ಮತ್ತೊಂದು ಡಿಸ್‌ಪ್ಲೇಗೆ ವಿಂಡೋವನ್ನು ಸರಿಸಿ</translation>
 <translation id="6602956230557165253">ನ್ಯಾವಿಗೇಟ್ ಮಾಡಲು ಎಡ ಮತ್ತು ಬಲ ಬಾಣದ ಕೀಲಿಗಳನ್ನು ಬಳಸಿ.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">ಇನ್ನು ಯಾವುದೇ ಬಳಕೆದಾರರಿಂದ ರೇಟ್‌ ಮಾಡಲಾಗಿಲ್ಲ.</translation>
@@ -3911,6 +3915,7 @@
 <translation id="7119389851461848805">ಪವರ್‌</translation>
 <translation id="7120865473764644444">ಸಿಂಕ್ ಸರ್ವರ್‌ಗೆ ಸಂಪರ್ಕಿಸಲಾಗಲಿಲ್ಲ. ಮರುಪ್ರಯತ್ನಿಸಲಾಗುತ್ತಿದೆ...</translation>
 <translation id="7121362699166175603">ವಿಳಾಸ ಪಟ್ಟಿಯ ಇತಿಹಾಸ ಮತ್ತು ಸ್ವಯಂಪೂರ್ಣಗೊಳಿಸುವಿಕೆಯನ್ನು ತೆರವುಗೊಳಿಸುತ್ತದೆ. ನಿಮ್ಮ Google ಖಾತೆಯು <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> ನಲ್ಲಿ ಇತರ ವಿಧಗಳ ಬ್ರೌಸಿಂಗ್ ಇತಿಹಾಸವನ್ನು ಹೊಂದಿರಬಹುದು.</translation>
+<translation id="7123360114020465152">ಇನ್ನು ಮುಂದೆ ಬೆಂಬಲಿಸುವುದಿಲ್ಲ</translation>
 <translation id="71243390042171582"><ph name="MINUTES" />ನಿಮಿಷಗಳ ಹಿಂದೆ ಅಪ್‌ಡೇಟ್ ಮಾಡಲಾಗಿದೆ</translation>
 <translation id="7124929488592184705"><ph name="DOCUMENT_NAME" /> ಅನ್ನು ಮುದ್ರಿಸುವಲ್ಲಿ ದೋಷ</translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;ಡ್ರೈವ್ ಹುಡುಕಿ&lt;/em&gt;</translation>
@@ -4166,6 +4171,9 @@
 <translation id="7544853251252956727">ಶಫಲ್ ಮಾಡಿ</translation>
 <translation id="7545415673537747415"><ph name="BEGIN_LINK" />Google ಚಟುವಟಿಕೆ ನಿಯಂತ್ರಣಗಳಿಂದ<ph name="END_LINK" /> ಹುಡುಕಾಟ, ಜಾಹೀರಾತುಗಳು ಮತ್ತು ಇತರ Google ಸೇವೆಗಳನ್ನು ವೈಯಕ್ತೀಕರಿಸಲು ನಿಮ್ಮ ಬ್ರೌಸಿಂಗ್ ಇತಿಹಾಸವನ್ನು Google ಹೇಗೆ ಬಳಸುತ್ತದೆ ಎಂಬುದನ್ನು ನಿಯಂತ್ರಿಸಿ.</translation>
 <translation id="7547317915858803630">ಎಚ್ಚರಿಕೆ: ನಿಮ್ಮ <ph name="PRODUCT_NAME" /> ಸೆಟ್ಟಿಂಗ್‌ಗಳನ್ನು ನೆಟ್‌ವರ್ಕ್ ಡ್ರೈವ್‌ನಲ್ಲಿ ಸಂಗ್ರಹಿಸಲಾಗಿದೆ. ಇದರಿಂದಾಗಿ ನಿಧಾನವಾಗುವುದು, ಕ್ರ್ಯಾಶ್‌ಗಳಲ್ಲಿ ಅಥವಾ ಡೇಟಾ ನಷ್ಟವಾಗುವುದರಲ್ಲಿಯೂ ಇದು ಕೊನೆಗೊಳ್ಳಬಹುದು.</translation>
+<translation id="7547483330017600937">ನಿಮ್ಮ <ph name="DEVICE_TYPE" /> ನಲ್ಲಿ ಅಭಿವೃದ್ಧಿಪಡಿಸಿ. ನಿಮ್ಮ ಮೆಚ್ಚಿನ ಸ್ಥಳೀಯ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಮತ್ತು ಕಮಾಂಡ್-ಲೈನ್ ಉಪಕರಣಗಳನ್ನು ನೀವು ಯಾವುದೇ ಮಿತಿಯಿಲ್ಲದೆ ಸುರಕ್ಷಿತವಾಗಿ ಚಾಲನೆ ಮಾಡಬಹುದು. 
+
+<ph name="APP_NAME" /> ಇನ್‌ಸ್ಟಾಲ್‌ ಮಾಡುವುದರಿಂದ <ph name="DOWNLOAD_SIZE" /> ಯಷ್ಟು ಡೇಟಾ ಡೌನ್‌ಲೋಡ್‌ ಆಗುತ್ತದೆ.</translation>
 <translation id="7548856833046333824">ಲೆಮನಾಡ್</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432"><ph name="FILE_NAME" /> ಡೌನ್‌ಲೋಡ್ ವಿಫಲವಾಗಿದೆ</translation>
@@ -4359,6 +4367,7 @@
 <translation id="786073089922909430">ಸೇವೆ: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;ಡೌನ್‌ಲೋಡ್‌ಗಳು</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - ಜೋಡಿಸಲಾಗಿದೆ</translation>
+<translation id="7870730066603611552">ಸೆಟಪ್ ನಂತರ ಸಿಂಕ್ ಆಯ್ಕೆಗಳನ್ನು ಪರಿಶೀಲಿಸಿ</translation>
 <translation id="7870790288828963061">ಹೊಸ ಆವೃತ್ತಿಯೊಂದಿಗೆ ಯಾವುದೇ ಕಿಯೋಸ್ಕ್ ಅಪ್ಲಿಕೇಶನ್‌ಗಳು ಕಂಡುಬಂದಿಲ್ಲ. ನವೀಕರಿಸಲು ಏನೂ ಇಲ್ಲ. ದಯವಿಟ್ಟು USB ಸ್ಟಿಕ್ ತೆಗೆದುಹಾಕಿ.</translation>
 <translation id="7874357055309047713">ಯಾವಾಗಲೂ ಎಲ್ಲಾ ಸೈಟ್‌ಗಳಲ್ಲಿ ರನ್ ಮಾಡು</translation>
 <translation id="7877451762676714207">ಅಪರಿಚಿತ ಸರ್ವರ್ ದೋಷ. ದಯವಿಟ್ಟು ಪುನಃ ಪ್ರಯತ್ನಿಸಿ, ಅಥವಾ ಸರ್ವರ್ ನಿರ್ವಾಹಕರನ್ನು ಸಂಪರ್ಕಿಸಿ.</translation>
@@ -5110,6 +5119,7 @@
 <translation id="9066782832737749352">ಪಠ್ಯದಿಂದ ಧ್ವನಿ</translation>
 <translation id="9070219033670098627">ವ್ಯಕ್ತಿಯನ್ನು ಬದಲಾಯಿಸಿ</translation>
 <translation id="907148966137935206">ಯಾವುದೇ ಸೈಟ್‌ ಪಾಪ್-ಅಪ್‌ಗಳನ್ನು ತೋರಿಸಲು ಅನುಮತಸಬೇಡ (ಶಿಫಾರಸು ಮಾಡಲಾಗಿದೆ)</translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> ಅನ್ನು ಇನ್‌ಸ್ಟಾಲ್ ಮಾಡಲಾಗುತ್ತಿದೆ…</translation>
 <translation id="9072550133391925347">ನೀವು ಉಳಿಸಲಾದ ಪಾಸ್‌ವರ್ಡ್‌ಗಳೊಂದಿಗೆ ಅರ್ಹರಾಗಿರುವ ಸೈಟ್‌ಗಳು ಮತ್ತು ಅಪ್ಲಿಕೇಶನ್‌ಗಳಿಗೆ <ph name="PASSWORD_MANAGER_BRAND" /> ನಿಮ್ಮನ್ನು ಸ್ವಯಂಚಾಲಿತವಾಗಿ ಸೈನ್ ಇನ್ ಮಾಡುತ್ತದೆ.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">ಬ್ಲೂಟೂತ್‌</translation>

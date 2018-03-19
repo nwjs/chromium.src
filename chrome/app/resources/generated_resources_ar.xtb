@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">السكون عند إغلاق الغطاء</translation>
 <translation id="1115018219887494029">‏Smart Lock في Chromebook (تجريبي)</translation>
 <translation id="1116694919640316211">حول</translation>
+<translation id="1116779635164066733">تم فرض هذا الإعداد بواسطة الإضافة "<ph name="NAME" />".</translation>
 <translation id="1119069657431255176">‏أرشيف tar مضغوط ببرنامج Bzip2</translation>
 <translation id="1119447706177454957">خطأ داخلي</translation>
 <translation id="1122198203221319518">&amp;الأدوات</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">إعادة تسمية</translation>
 <translation id="1175364870820465910">ط&amp;باعة...</translation>
 <translation id="117624967391683467">جارٍ نسخ <ph name="FILE_NAME" />...</translation>
+<translation id="1177138678118607465">‏قد تستخدم Google سجلّ التصفح لتخصيص البحث والإعلانات وخدمات Google الأخرى. يمكنك تغيير ذلك في أي وقت على myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">مخصص</translation>
 <translation id="1178581264944972037">تعليق</translation>
 <translation id="1181037720776840403">إزالة</translation>
@@ -782,7 +784,6 @@
 <translation id="2208158072373999562">‏أرشيف Zip</translation>
 <translation id="220858061631308971">يُرجى إدخال رمز رقم التعريف الشخصي هذا على "<ph name="DEVICE_NAME" />":</translation>
 <translation id="2209593327042758816">عنصر الرف 2</translation>
-<translation id="2215277870964745766">مرحبًا، يمكنك تعيين اللغة والشبكة</translation>
 <translation id="2217501013957346740">أنشئ اسمًا -</translation>
 <translation id="2218019600945559112">الماوس ولوحة اللمس</translation>
 <translation id="2218320521449013367">‏حدث خطأ أثناء إزالة Chrome للبرامج الضارة.</translation>
@@ -2606,6 +2607,7 @@
 <translation id="5063480226653192405">الاستخدام</translation>
 <translation id="5067867186035333991">الرجوع إليك عند رغبة <ph name="HOST" /> في الدخول إلى الميكروفون</translation>
 <translation id="5068918910148307423">عدم السماح للمواقع التي تم إغلاقها مؤخرًا بإنهاء إرسال البيانات واستلامها</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> لجهاز <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">ضبط حجم مؤشر الماوس</translation>
 <translation id="5072836811783999860">عرض الإشارات المرجعية المدارة</translation>
 <translation id="5074318175948309511">قد تحتاج هذه الصفحة إلى إعادة التحميل قبل تنفيذ الإعدادات الجديدة.</translation>
@@ -3505,6 +3507,7 @@
 <translation id="645705751491738698">متابعة منع تشغيل جافا سكريبت</translation>
 <translation id="6458308652667395253">إدارة منع تشغيل جافا سكريبت...</translation>
 <translation id="6459488832681039634">استخدام التحديد للبحث</translation>
+<translation id="6459799433792303855">تم نقل نافذة نشطة إلى شاشة عرض أخرى.</translation>
 <translation id="6460601847208524483">البحث عن التالي</translation>
 <translation id="6462082050341971451">هل ما زلت هناك؟</translation>
 <translation id="6463795194797719782">ت&amp;عديل</translation>
@@ -3590,6 +3593,7 @@
 <translation id="6596745167571172521">‏تعطيل مفتاح Caps Lock</translation>
 <translation id="6596816719288285829">‏عنوان IP</translation>
 <translation id="6597017209724497268">نماذج</translation>
+<translation id="6602353599068390226">نقل نافذة إلى شاشة عرض أخرى</translation>
 <translation id="6602956230557165253">استخدام مفتاحي السهمين لليمين واليسار للتنقل.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">لم يتم التقييم بواسطة أي مستخدمين بعد.</translation>
@@ -3912,6 +3916,7 @@
 <translation id="7119389851461848805">الطاقة</translation>
 <translation id="7120865473764644444">تعذر الاتصال بخادم المزامنة. جارٍ إعادة المحاولة...</translation>
 <translation id="7121362699166175603">‏مسح السجل وميزة الإكمال التلقائي في شريط العناوين. وقد يتضمن حسابك في Google نماذج أخرى من سجل التصفح في <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">الطابعة ليست مدعومة بعد الآن.</translation>
 <translation id="71243390042171582">تم التحديث قبل <ph name="MINUTES" />من الدقائق</translation>
 <translation id="7124929488592184705">حدث خطأ أثناء طباعة <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">‏'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' - &lt;em&gt;البحث في Drive&lt;/em&gt;</translation>
@@ -4169,6 +4174,9 @@
 <translation id="7544853251252956727">ترتيب عشوائي</translation>
 <translation id="7545415673537747415">‏يمكنك التحكم في الطريقة التي تتبعها Google عند استخدام سجل التصفح لتخصيص البحث، والإعلانات، وخدمات Google الأخرى من <ph name="BEGIN_LINK" />عناصر التحكم في النشاط على Google<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">تحذير: إعدادات <ph name="PRODUCT_NAME" /> مخزنة على محرك أقراص شبكة. قد يؤدي هذا إلى حدوث مشاكل بطء أو أعطال أو حتى فقدان البيانات.</translation>
+<translation id="7547483330017600937">يمكنك تطوير البرامج على <ph name="DEVICE_TYPE" />، وتشغيل التطبيقات المحلية المفضّلة وأدوات سطر الأوامر بسلاسة وأمان.
+
+سيؤدي تثبيت <ph name="APP_NAME" /> إلى تنزيل <ph name="DOWNLOAD_SIZE" /> من البيانات.</translation>
 <translation id="7548856833046333824">الليمون</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">لم يتم تحميل <ph name="FILE_NAME" /> بنجاح</translation>
@@ -4367,6 +4375,7 @@
 <translation id="786073089922909430">الخدمة: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">ال&amp;تنزيلات</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - تم الإقران</translation>
+<translation id="7870730066603611552">مراجعة خيارات المزامنة بعد الإعداد</translation>
 <translation id="7870790288828963061">‏لا توجد إصدارات أحدث لتطبيق Kiosk. لا يوجد شيء لتحديثه. يُرجى إزالة جهاز USB.</translation>
 <translation id="7874357055309047713">تشغيل على جميع المواقع دائمًا</translation>
 <translation id="7877451762676714207">خطأ غير معروف في الخادم. يُرجى إعادة المحاولة أو الاتصال بمشرف الخادم.</translation>
@@ -5115,6 +5124,7 @@
 <translation id="9066782832737749352">تحويل النَّص إلى الكلام</translation>
 <translation id="9070219033670098627">تبديل شخص</translation>
 <translation id="907148966137935206">عدم السماح لأي موقع بعرض النوافذ المنبثقة (مستحسن)</translation>
+<translation id="9071637495340542136">جارٍ تثبيت <ph name="APP_NAME" />...</translation>
 <translation id="9072550133391925347">يعمل <ph name="PASSWORD_MANAGER_BRAND" /> على تسجيل دخولك تلقائيًا إلى المواقع والتطبيقات المؤهلة باستخدام كلمات المرور التي حفظتها.</translation>
 <translation id="9073281213608662541">‏بروتوكول مصادقة كلمات المرور (PAP)</translation>
 <translation id="9074739597929991885">بلوتوث</translation>

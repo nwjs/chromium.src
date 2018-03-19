@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Presiona Ctrl + Mayús + Q dos veces para salir.</translation>
 <translation id="3893630138897523026">ChromeVox (comentarios por voz)</translation>
 <translation id="3899995891769452915">Entrada de voz</translation>
+<translation id="3900355044994618856">Tu sesión finalizará en <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Conectando con: <ph name="NAME" /></translation>
 <translation id="394485226368336402">Configuración de audio</translation>
 <translation id="397105322502079400">Calculando...</translation>
@@ -252,6 +253,7 @@ Usa esta función solo con cuentas de confianza.</translation>
 <translation id="7066646422045619941">El administrador inhabilitó esta red.</translation>
 <translation id="7067196344162293536">Rotación automática</translation>
 <translation id="7098389117866926363">Dispositivo USB-C (puerto izquierdo en la parte posterior)</translation>
+<translation id="7131634465328662194">Saldrás de tu cuenta automáticamente.</translation>
 <translation id="7165278925115064263">Alt+mayúscula+K</translation>
 <translation id="7168224885072002358">Se revertirá a la resolución anterior en <ph name="TIMEOUT_SECONDS" />.</translation>
 <translation id="7256634071279256947">Micrófono posterior</translation>

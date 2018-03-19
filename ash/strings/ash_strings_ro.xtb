@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Apăsați de două ori Ctrl+Shift+Q pentru a vă deconecta.</translation>
 <translation id="3893630138897523026">ChromeVox (feedback rostit)</translation>
 <translation id="3899995891769452915">Intrare vocală</translation>
+<translation id="3900355044994618856">Sesiunea se va încheia în <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Se conectează la <ph name="NAME" /></translation>
 <translation id="394485226368336402">Setări audio</translation>
 <translation id="397105322502079400">Se calculează...</translation>
@@ -251,6 +252,7 @@ Folosește funcția numai pentru conturile în care ai încredere.</translation>
 <translation id="7066646422045619941">Această rețea este dezactivată de administrator.</translation>
 <translation id="7067196344162293536">Rotire automată</translation>
 <translation id="7098389117866926363">Dispozitiv USB-C (portul din stânga în spate)</translation>
+<translation id="7131634465328662194">Vei fi deconectat(ă) automat.</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Se revine la rezoluția anterioară în <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Microfonul din spate</translation>

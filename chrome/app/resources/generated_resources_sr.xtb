@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Пређи у стање спавања кад се поклопац затвори</translation>
 <translation id="1115018219887494029">Smart Lock за Chromebook (бета)</translation>
 <translation id="1116694919640316211">Основни подаци</translation>
+<translation id="1116779635164066733">Додатак „<ph name="NAME" />“ примењује ово подешавање.</translation>
 <translation id="1119069657431255176">Bzip2 компримована tar архива</translation>
 <translation id="1119447706177454957">Интерна грешка</translation>
 <translation id="1122198203221319518">&amp;Алатке</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Преименуј</translation>
 <translation id="1175364870820465910">&amp;Одштампај...</translation>
 <translation id="117624967391683467">Копирање датотеке <ph name="FILE_NAME" />...</translation>
+<translation id="1177138678118607465">Google може да персонализује Претрагу, огласе и друге Google услуге помоћу историје прегледања. То подешавање можете да промените у било ком тренутку на myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Прилагођено</translation>
 <translation id="1178581264944972037">Паузирај</translation>
 <translation id="1181037720776840403">Уклони</translation>
@@ -778,7 +780,6 @@
 <translation id="2208158072373999562">Zip архива</translation>
 <translation id="220858061631308971">Унесите овај PIN кôд на уређају „<ph name="DEVICE_NAME" />“:</translation>
 <translation id="2209593327042758816">2. ставка на полици</translation>
-<translation id="2215277870964745766">Добро дошли! Подесите језик и мрежу</translation>
 <translation id="2217501013957346740">Направите име –</translation>
 <translation id="2218019600945559112">Миш и тачпед</translation>
 <translation id="2218320521449013367">Дошло је до грешке док је Chrome уклањао штетан софтвер</translation>
@@ -2607,6 +2608,7 @@
 <translation id="5063480226653192405">Коришћење</translation>
 <translation id="5067867186035333991">Питај ме ако <ph name="HOST" /> жели да приступи микрофону</translation>
 <translation id="5068918910148307423">Не дозвољавај да недавно затворени сајтови заврше слање и примање података</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> за <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Прилагоди величину курсора</translation>
 <translation id="5072836811783999860">Прикажи управљане обележиваче</translation>
 <translation id="5074318175948309511">Можда треба поново да учитате ову страницу да би нова подешавања ступила на снагу.</translation>
@@ -3506,6 +3508,7 @@
 <translation id="645705751491738698">Настави блокирање JavaScript-а</translation>
 <translation id="6458308652667395253">Управљај блокирањем JavaScript-а...</translation>
 <translation id="6459488832681039634">Користи избор за проналажење</translation>
+<translation id="6459799433792303855">Активни прозор је померен на други екран.</translation>
 <translation id="6460601847208524483">Пронађи следеће</translation>
 <translation id="6462082050341971451">Јесте ли још ту?</translation>
 <translation id="6463795194797719782">&amp;Измени</translation>
@@ -3591,6 +3594,7 @@
 <translation id="6596745167571172521">Онемогући Caps Lock</translation>
 <translation id="6596816719288285829">IP адреса</translation>
 <translation id="6597017209724497268">Узорци</translation>
+<translation id="6602353599068390226">помера прозор на други екран</translation>
 <translation id="6602956230557165253">Користите тастере са стрелицама улево и удесно за кретање.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Још увек није оценио ниједан корисник.</translation>
@@ -3913,6 +3917,7 @@
 <translation id="7119389851461848805">напајање</translation>
 <translation id="7120865473764644444">Успостављање везе са сервером за синхронизацију није успело. Покушава се поново…</translation>
 <translation id="7121362699166175603">Брише историју и аутоматска довршавања у траци за адресу. Google налог може да има друге облике историје прегледања на <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">Није више подржан</translation>
 <translation id="71243390042171582">Ажурирано пре <ph name="MINUTES" /> мин</translation>
 <translation id="7124929488592184705">Грешка при штампању: <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">„&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;“ – &lt;em&gt;претражи Диск&lt;/em&gt;</translation>
@@ -4164,6 +4169,9 @@
 <translation id="7544853251252956727">Пусти насумично</translation>
 <translation id="7545415673537747415">Контролишите како Google користи историју прегледања за персонализацију Претраге, огласа и других Google услуга у одељку <ph name="BEGIN_LINK" />Google контроле активности<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Упозорење: Подешавања производа <ph name="PRODUCT_NAME" /> су ускладиштена на мрежном диску. То може да доведе до успоравања, отказивања па чак и губитка података.</translation>
+<translation id="7547483330017600937">За програмирање на уређају <ph name="DEVICE_TYPE" />. Можете да покрећете омиљене изворне апликације из алатке командне линије лако и безбедно.
+
+Ако инсталирате апликацију <ph name="APP_NAME" />, преузећете <ph name="DOWNLOAD_SIZE" /> података.</translation>
 <translation id="7548856833046333824">Лимунада</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Нисте успели да преузмете <ph name="FILE_NAME" /></translation>
@@ -4362,6 +4370,7 @@
 <translation id="786073089922909430">Услуга: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Преузимања</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> – Упарен је</translation>
+<translation id="7870730066603611552">Прегледа опције синхронизације после подешавања</translation>
 <translation id="7870790288828963061">Није пронађена ниједна киоск апликација са новијом верзијом. Нема шта да се ажурира. Уклоните USB меморију.</translation>
 <translation id="7874357055309047713">Увек покрећи на свим сајтовима</translation>
 <translation id="7877451762676714207">Непозната грешка сервера. Пробајте поново или контактирајте администратора сервера.</translation>
@@ -5110,6 +5119,7 @@
 <translation id="9066782832737749352">Претварање текста у говор</translation>
 <translation id="9070219033670098627">Други корисник</translation>
 <translation id="907148966137935206">Не дозволи ниједном сајту да приказује искачуће прозоре (препоручено)</translation>
+<translation id="9071637495340542136"><ph name="APP_NAME" /> се инсталира...</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> вас аутоматски пријављује на сајтове и у апликације који испуњавају услове помоћу лозинки које сте сачували.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

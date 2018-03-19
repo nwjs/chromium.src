@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Naciśnij dwukrotnie Ctrl+Shift+Q, by się wylogować.</translation>
 <translation id="3893630138897523026">ChromeVox (potwierdzenia głosowe)</translation>
 <translation id="3899995891769452915">Rozpoznawanie mowy</translation>
+<translation id="3900355044994618856">Sesja kończy się za <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Łączę z: <ph name="NAME" /></translation>
 <translation id="394485226368336402">Ustawienia dźwięku</translation>
 <translation id="397105322502079400">Obliczanie...</translation>
@@ -253,6 +254,7 @@ Używaj jej tylko w przypadku kont, którym ufasz.</translation>
 <translation id="7066646422045619941">Ta sieć została wyłączona przez administratora.</translation>
 <translation id="7067196344162293536">Obracanie automatyczne</translation>
 <translation id="7098389117866926363">Urządzenie USB-C (lewy port z tyłu)</translation>
+<translation id="7131634465328662194">Nastąpi automatyczne wylogowanie.</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Powrót do wcześniejszej rozdzielczości za <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Tylny mikrofon</translation>

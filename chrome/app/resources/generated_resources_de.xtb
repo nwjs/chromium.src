@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Beim Zuklappen Ruhemodus aktivieren</translation>
 <translation id="1115018219887494029">Smart Lock für Chromebooks (Beta)</translation>
 <translation id="1116694919640316211">Über</translation>
+<translation id="1116779635164066733">Diese Einstellung wird durch die Erweiterung "<ph name="NAME" />" erzwungen.</translation>
 <translation id="1119069657431255176">Bzip2-komprimiertes Tar-Archiv</translation>
 <translation id="1119447706177454957">Interner Fehler</translation>
 <translation id="1122198203221319518">&amp;Tools</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Umbenennen</translation>
 <translation id="1175364870820465910">&amp;Drucken...</translation>
 <translation id="117624967391683467"><ph name="FILE_NAME" /> wird kopiert...</translation>
+<translation id="1177138678118607465">Google kann die Google-Suche, Werbung und andere Google-Dienste anhand Ihres Browserverlaufs für Sie personalisieren. Dies lässt sich jederzeit unter myaccount.google.com/activitycontrols/search ändern.</translation>
 <translation id="1177863135347784049">Benutzerdefiniert</translation>
 <translation id="1178581264944972037">Anhalten</translation>
 <translation id="1181037720776840403">Entfernen</translation>
@@ -778,7 +780,6 @@
 <translation id="2208158072373999562">ZIP-Archiv</translation>
 <translation id="220858061631308971">Geben Sie diesen PIN-Code bitte auf "<ph name="DEVICE_NAME" /> " ein:</translation>
 <translation id="2209593327042758816">Ablageartikel 2</translation>
-<translation id="2215277870964745766">Willkommen! Legen Sie Ihre Sprache und Ihr Netzwerk fest.</translation>
 <translation id="2217501013957346740">Namen erstellen –</translation>
 <translation id="2218019600945559112">Maus und Touchpad</translation>
 <translation id="2218320521449013367">Beim Entfernen schädlicher Software ist ein Fehler aufgetreten</translation>
@@ -2607,6 +2608,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="5063480226653192405">Verwendung</translation>
 <translation id="5067867186035333991">Nachfragen, wenn <ph name="HOST" /> auf Ihr Mikrofon zugreifen möchte</translation>
 <translation id="5068918910148307423">Fertigstellen des Datenversands und -empfangs von kürzlich geschlossen Websites nicht erlauben</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> für <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Cursorgröße anpassen</translation>
 <translation id="5072836811783999860">Verwaltete Lesezeichen anzeigen</translation>
 <translation id="5074318175948309511">Damit die neuen Einstellungen wirksam werden, muss die Seite eventuell neu geladen werden.</translation>
@@ -3505,6 +3507,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="645705751491738698">JavaScript weiterhin blockieren</translation>
 <translation id="6458308652667395253">JavaScript-Blockierung verwalten...</translation>
 <translation id="6459488832681039634">Auswahl suchen</translation>
+<translation id="6459799433792303855">Aktives Fenster auf anderen Bildschirm verschoben.</translation>
 <translation id="6460601847208524483">Nächste Übereinstimmung suchen</translation>
 <translation id="6462082050341971451">Sind Sie noch da?</translation>
 <translation id="6463795194797719782">B&amp;earbeiten</translation>
@@ -3590,6 +3593,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6596745167571172521">Feststelltaste deaktivieren</translation>
 <translation id="6596816719288285829">IP-Adresse</translation>
 <translation id="6597017209724497268">Proben</translation>
+<translation id="6602353599068390226">Fenster auf einen anderen Bildschirm verschieben</translation>
 <translation id="6602956230557165253">Verwenden Sie zum Navigieren den Rechts- und Linkspfeil.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Noch nicht von Nutzern bewertet.</translation>
@@ -3912,6 +3916,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="7119389851461848805">Ein/Aus</translation>
 <translation id="7120865473764644444">Verbindung zum Synchronisierungsserver konnte nicht hergestellt werden. Neuer Versuch...</translation>
 <translation id="7121362699166175603">Löscht den Verlauf und Autovervollständigungen in der Adressleiste. Möglicherweise verfügt Ihr Google-Konto unter <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> über andere Browserverläufe.</translation>
+<translation id="7123360114020465152">Wird nicht mehr unterstützt</translation>
 <translation id="71243390042171582">Vor <ph name="MINUTES" /> Minuten aktualisiert</translation>
 <translation id="7124929488592184705">Fehler beim Drucken von <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">'&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;' – &lt;em&gt;Ablage durchsuchen&lt;/em&gt;</translation>
@@ -4172,6 +4177,9 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="7544853251252956727">Zufallsmix</translation>
 <translation id="7545415673537747415">In den <ph name="BEGIN_LINK" />Google-Aktivitätseinstellungen<ph name="END_LINK" /> können Sie festlegen, wie Google Ihren Browserverlauf nutzt, um die Suche, Werbung und andere Google-Dienste zu personalisieren.</translation>
 <translation id="7547317915858803630">Warnung: Ihre <ph name="PRODUCT_NAME" />-Einstellungen werden auf einem Netzlaufwerk gespeichert. Dies kann zu einer Verlangsamung, zu Abstürzen oder sogar zu Datenverlust führen.</translation>
+<translation id="7547483330017600937">Sie haben die Möglichkeit, auf Ihrem <ph name="DEVICE_TYPE" /> zu entwickeln. Sie können Ihre bevorzugten systemeigenen Apps und Befehlszeilentools nahtlos und sicher nutzen.
+
+Bei der Installation von "<ph name="APP_NAME" />" werden <ph name="DOWNLOAD_SIZE" /> heruntergeladen.</translation>
 <translation id="7548856833046333824">Cocktail</translation>
 <translation id="7550830279652415241">bookmarks_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Fehler beim Download von <ph name="FILE_NAME" /></translation>
@@ -4370,6 +4378,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="786073089922909430">Dienst: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Downloads</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> – gekoppelt</translation>
+<translation id="7870730066603611552">Synchronisierungsoptionen nach der Einrichtung überprüfen</translation>
 <translation id="7870790288828963061">Es wurden keine Kiosk-Apps mit neuerer Version gefunden. Es sind keine Updates vorhanden. Bitte entfernen Sie den USB-Stick.</translation>
 <translation id="7874357055309047713">Immer auf allen Websites ausführen</translation>
 <translation id="7877451762676714207">Unbekannter Serverfehler. Bitte versuchen Sie es erneut oder wenden Sie sich an den Serveradministrator.</translation>
@@ -5120,6 +5129,7 @@ Andere Personen mit langsamen Verbindungen sehen Ihre Inhalte möglicherweise ni
 <translation id="9066782832737749352">Sprachausgabe</translation>
 <translation id="9070219033670098627">Person wechseln</translation>
 <translation id="907148966137935206">Anzeige von Pop-ups für keine Website zulassen (empfohlen)</translation>
+<translation id="9071637495340542136">"<ph name="APP_NAME" />" wird installiert…</translation>
 <translation id="9072550133391925347">Mit <ph name="PASSWORD_MANAGER_BRAND" /> werden Sie mit Ihren gespeicherten Passwörtern automatisch auf allen entsprechenden Websites und Apps angemeldet.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

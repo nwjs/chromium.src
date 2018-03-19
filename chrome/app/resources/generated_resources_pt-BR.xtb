@@ -79,6 +79,7 @@
 <translation id="1114525161406758033">Colocar em modo de suspensão quando a tampa estiver fechada</translation>
 <translation id="1115018219887494029">Smart Lock para Chromebook (beta)</translation>
 <translation id="1116694919640316211">Sobre</translation>
+<translation id="1116779635164066733">Esta configuração é aplicada pela extensão "<ph name="NAME" />".</translation>
 <translation id="1119069657431255176">Arquivo tar comprimido Bzip2</translation>
 <translation id="1119447706177454957">Erro interno</translation>
 <translation id="1122198203221319518">&amp;Ferramentas</translation>
@@ -119,6 +120,7 @@
 <translation id="1173894706177603556">Renomear</translation>
 <translation id="1175364870820465910">&amp;Imprimir...</translation>
 <translation id="117624967391683467">Copiando <ph name="FILE_NAME" />...</translation>
+<translation id="1177138678118607465">O Google pode usar seu histórico de navegação para personalizar anúncios de pesquisa e outros serviços do Google. Você pode alterar essa configuração a qualquer momento em myaccount.google.com/activitycontrols/search</translation>
 <translation id="1177863135347784049">Personalizado</translation>
 <translation id="1178581264944972037">Pausar</translation>
 <translation id="1181037720776840403">Remover</translation>
@@ -781,7 +783,6 @@
 <translation id="2208158072373999562">Arquivo Zip</translation>
 <translation id="220858061631308971">Digite este código PIN em "<ph name="DEVICE_NAME" />":</translation>
 <translation id="2209593327042758816">Item 2 da estante</translation>
-<translation id="2215277870964745766">Bem-vindo. Defina seu idioma e sua rede</translation>
 <translation id="2217501013957346740">Criar um nome –</translation>
 <translation id="2218019600945559112">Mouse e touchpad</translation>
 <translation id="2218320521449013367">Ocorreu um erro enquanto o Chrome estava removendo softwares nocivos</translation>
@@ -2611,6 +2612,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="5063480226653192405">Uso</translation>
 <translation id="5067867186035333991">Perguntar se <ph name="HOST" /> deseja acessar seu microfone</translation>
 <translation id="5068918910148307423">Não permitir que sites fechados recentemente concluam o envio e o recebimento de dados</translation>
+<translation id="507021118007633031"><ph name="APP_NAME" /> para <ph name="DEVICE_TYPE" /></translation>
 <translation id="5072052264945641674">Ajustar tamanho do cursor</translation>
 <translation id="5072836811783999860">Mostrar favoritos gerenciados</translation>
 <translation id="5074318175948309511">Esta página pode precisar ser recarregada para que as novas configurações tenham efeito.</translation>
@@ -3511,6 +3513,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="645705751491738698">Continuar bloqueando JavaScript</translation>
 <translation id="6458308652667395253">Gerenciar o bloqueio de JavaScript...</translation>
 <translation id="6459488832681039634">Usar seleção para buscar</translation>
+<translation id="6459799433792303855">A janela ativa foi movida para outra tela.</translation>
 <translation id="6460601847208524483">Localizar próximo</translation>
 <translation id="6462082050341971451">Você ainda está aí?</translation>
 <translation id="6463795194797719782">&amp;Editar</translation>
@@ -3596,6 +3599,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6596745167571172521">Desativar Caps Lock</translation>
 <translation id="6596816719288285829">Endereço IP</translation>
 <translation id="6597017209724497268">Exemplos</translation>
+<translation id="6602353599068390226">mover janela para outra tela</translation>
 <translation id="6602956230557165253">Use as setas para esquerda e direita para navegar.</translation>
 <translation id="660380282187945520">F9</translation>
 <translation id="6605847144724004692">Ainda sem classificação dos usuários.</translation>
@@ -3918,6 +3922,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7119389851461848805">power</translation>
 <translation id="7120865473764644444">Não foi possível se conectar ao servidor de sincronização. Tentando novamente…</translation>
 <translation id="7121362699166175603">Limpa o histórico e os preenchimentos automáticos na barra de endereço. Sua Conta do Google pode ter outras formas de histórico de navegação em <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
+<translation id="7123360114020465152">Não é mais compatível</translation>
 <translation id="71243390042171582">Atualizada <ph name="MINUTES" /> minutos atrás</translation>
 <translation id="7124929488592184705">Erro ao imprimir o documento <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">"&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt;" - &lt;em&gt;pesquisar no Google Drive&lt;/em&gt;</translation>
@@ -4176,6 +4181,9 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7544853251252956727">Reproduzir aleatoriamente</translation>
 <translation id="7545415673537747415">Controle a maneira como o Google usa seu histórico de navegação para personalizar a Pesquisa Google, os anúncios e outros serviços nossos nos <ph name="BEGIN_LINK" />Controles de atividades do Google<ph name="END_LINK" />.</translation>
 <translation id="7547317915858803630">Aviso: as configurações do <ph name="PRODUCT_NAME" /> são armazenadas em um disco de rede. Isso pode acarretar lentidão, falhas ou até mesmo perda de dados.</translation>
+<translation id="7547483330017600937">Expanda seu <ph name="DEVICE_TYPE" />. Você pode executar seus apps nativos e as ferramentas de linha de comando favoritos de forma transparente e segura.
+
+A instalação do <ph name="APP_NAME" /> faz o download de <ph name="DOWNLOAD_SIZE" /> de dados.</translation>
 <translation id="7548856833046333824">Margarita</translation>
 <translation id="7550830279652415241">favoritos_<ph name="DATESTAMP" />.html</translation>
 <translation id="7551059576287086432">Falha no dowload de <ph name="FILE_NAME" /></translation>
@@ -4374,6 +4382,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="786073089922909430">Serviço: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;Downloads</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" />: pareado</translation>
+<translation id="7870730066603611552">Revisar as opções de sincronização após a configuração</translation>
 <translation id="7870790288828963061">Nenhum aplicativo de quiosque com versão mais recente foi encontrado. Não há nada para ser atualizado. Remova o pendrive.</translation>
 <translation id="7874357055309047713">Sempre executar em todos os sites</translation>
 <translation id="7877451762676714207">Erro de servidor desconhecido. Tente novamente ou entre em contato com o administrador do servidor.</translation>
@@ -4600,7 +4609,7 @@ Mantenha a sua chave de arquivo em um local seguro. Você precisará dela para c
 <translation id="8206354486702514201">Esta configuração é aplicada por seu administrador.</translation>
 <translation id="8206745257863499010">Chorinho</translation>
 <translation id="8209677645716428427">Um usuário supervisionado pode explorar a Web sob sua orientação. Como gerente de um usuário supervisionado no Google Chrome, você pode:</translation>
-<translation id="8212008074015601248">{NUM_DOWNLOAD,plural, =1{O download está em andamento}one{O download está em andamento}other{os downloads estão em andamento}}</translation>
+<translation id="8212008074015601248">{NUM_DOWNLOAD,plural, =1{O download está em andamento}one{O download está em andamento}other{Os downloads estão em andamento}}</translation>
 <translation id="8213449224684199188">Alterado para o modo de foto</translation>
 <translation id="8213577208796878755">Um outro dispositivo disponível.</translation>
 <translation id="8214489666383623925">Abrir arquivo...</translation>
@@ -5017,7 +5026,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="8903921497873541725">Aumentar zoom</translation>
 <translation id="8904976895050290827">Sincronização do Google Chrome</translation>
 <translation id="8908902564709148335">Atenção: você ativou a sinalização scripts-exigem-ação neste computador, o que limita as capacidades desta extensão. No entanto, outros dispositivos podem não suportar essa sinalização ou a ativação dela. Nesses dispositivos, esta extensão também pode:</translation>
-<translation id="8909233240676134608">Não é possível vincular a máquina ao domínio. O servidor não é compatível com os tipos de criptografia do Kerberos especificados.</translation>
+<translation id="8909233240676134608">Não é possível vincular a máquina ao domínio. O servidor não é compatível com os tipos de criptografia do Kerberos especificados. Para ver as configurações de criptografia, acesse "Mais opções".</translation>
 <translation id="8910146161325739742">Compartilhar sua tela</translation>
 <translation id="8910222113987937043">As alterações feitas nos seus favoritos, histórico, senhas e outras configurações não serão mais sincronizadas com sua Conta do Google. No entanto, os dados já existentes permanecerão armazenados na sua conta e será possível gerenciá-los no <ph name="BEGIN_LINK" />Painel do Google<ph name="END_LINK" />.</translation>
 <translation id="8912793549644936705">Esticar</translation>
@@ -5109,7 +5118,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="9050666287014529139">Senha</translation>
 <translation id="9052208328806230490">Você registrou suas impressoras com <ph name="CLOUD_PRINT_NAME" /> utilizando a conta <ph name="EMAIL" /></translation>
 <translation id="9053893665344928494">Lembrar minha escolha</translation>
-<translation id="9055636786322918818">Aplicar a criptografia RC4. O uso dessa opção é mais arriscado, porque as criptografias RC4 não são seguras.</translation>
+<translation id="9055636786322918818">Aplicar a codificação RC4. O uso dessa opção é mais arriscado, porque as criptografias RC4 não são seguras.</translation>
 <translation id="9056034633062863292">Atualizando o Chromebox</translation>
 <translation id="9056810968620647706">Nenhuma correspondência foi encontrada.</translation>
 <translation id="9057119625587205566">Nenhuma impressora nas proximidades</translation>
@@ -5123,6 +5132,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="9066782832737749352">Conversão de texto em voz</translation>
 <translation id="9070219033670098627">Alterar pessoa</translation>
 <translation id="907148966137935206">Não permitir que nenhum site mostre pop-ups (recomendado)</translation>
+<translation id="9071637495340542136">Instalando o app <ph name="APP_NAME" />...</translation>
 <translation id="9072550133391925347"><ph name="PASSWORD_MANAGER_BRAND" /> conecta você automaticamente a apps e sites qualificados com senhas que você salvou.</translation>
 <translation id="9073281213608662541">PAP</translation>
 <translation id="9074739597929991885">Bluetooth</translation>

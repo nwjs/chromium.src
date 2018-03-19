@@ -132,6 +132,7 @@
 <translation id="3891340733213178823">Натиснете два пъти „Ctrl+Shift+Q“ за изход.</translation>
 <translation id="3893630138897523026">ChromeVox (обратна връзка с говор)</translation>
 <translation id="3899995891769452915">Гласово въвеждане</translation>
+<translation id="3900355044994618856">Сесията ви ще приключи след <ph name="SESSION_TIME_REMAINING" /></translation>
 <translation id="3901991538546252627">Установява се връзка със: <ph name="NAME" /></translation>
 <translation id="394485226368336402">Настройки за звука</translation>
 <translation id="397105322502079400">Изчислява се...</translation>
@@ -252,6 +253,7 @@
 <translation id="7066646422045619941">Тази мрежа е деактивирана от администратора ви.</translation>
 <translation id="7067196344162293536">Автоматично завъртане</translation>
 <translation id="7098389117866926363">Устройство с USB-C (левият порт на гърба)</translation>
+<translation id="7131634465328662194">Ще излезете автоматично.</translation>
 <translation id="7165278925115064263">Alt + Shift + K</translation>
 <translation id="7168224885072002358">Старата разделителна способност ще се възстанови след <ph name="TIMEOUT_SECONDS" /></translation>
 <translation id="7256634071279256947">Заден микрофон</translation>

@@ -21,6 +21,7 @@
 <translation id="1920446759863417809"><ph name="SHIFT1" /><ph name="SEPARATOR1" /><ph name="ALT" /><ph name="SEPARATOR2" /><ph name="L" /> キーを押した状態で <ph name="SHIFT2" /><ph name="SEPARATOR3" /><ph name="TAB" /> キーまたは <ph name="LEFT" /> キーを押す</translation>
 <translation id="1996162290124031907">次のタブに移動する</translation>
 <translation id="2010818616644390445">ウィンドウ内の最後のタブに移動する</translation>
+<translation id="2088054208777350526">キーボード ショートカットを検索</translation>
 <translation id="2145908266289632567">テキスト編集</translation>
 <translation id="215292019801409139"><ph name="SEARCH" /><ph name="SEPARATOR" />1〜= キーを押す</translation>
 <translation id="2181097965834437145">ブックマーク バーの表示と非表示を切り替える</translation>
@@ -63,6 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" />1〜8 キーを押す</translation>
 <translation id="3837047332182291558">キーボードの明るさを上げる（バックライト付きキーボードのみ）</translation>
 <translation id="3976863468609830880">シェルフの最後のアイコンをクリックする</translation>
+<translation id="4026843240379844265">アクティブなウィンドウをディスプレイ間で移動します</translation>
 <translation id="4035482366624727273">ページ上のすべてを選択する</translation>
 <translation id="4060703249685950734">最後に閉じたタブまたはウィンドウを開く</translation>
 <translation id="4090342722461256974"><ph name="SHIFT" /><ph name="SEPARATOR" /><ph name="ALT" /> キーを押したまま、目的のウィンドウが表示されるまで <ph name="TAB" /> キーを押し、表示されたらキーを放す</translation>
@@ -124,6 +126,7 @@
 <translation id="6981982820502123353">ユーザー補助機能</translation>
 <translation id="7020813747703216897">一致する結果は見つかりませんでした</translation>
 <translation id="7025325401470358758">次のウィンドウ</translation>
+<translation id="7237562915163138771">アドレスバーにウェブアドレスを入力して、<ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /> キーを押します</translation>
 <translation id="7379254767514753910"><ph name="ALT" /> キーまたは<ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" />キーを押す</translation>
 <translation id="7439718573248533901">次の文字を削除する（カーソルの右側を削除する）</translation>
 <translation id="766326951329901120">クリップボードの内容をプレーン テキストとして貼り付ける</translation>
@@ -139,6 +142,7 @@
 <translation id="8388247778047144397">リンクをドラッグしてタブストリップの空白領域に移動する</translation>
 <translation id="8389638407792712197">新しいウィンドウを開く</translation>
 <translation id="8429696719963529183">F キー（F1～F12）を使用する</translation>
+<translation id="8537650670971624753">検索モードを終了</translation>
 <translation id="85690795166292698">新しいタブでリンクを開く</translation>
 <translation id="8609384513243082612">新しいタブを開く</translation>
 <translation id="8644639153978066712">ファイルアプリで隠しファイルを表示する</translation>
