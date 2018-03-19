@@ -2631,6 +2631,7 @@ void RenderWidget::UnregisterRenderFrame(RenderFrameImpl* frame) {
 
 void RenderWidget::RegisterBrowserPlugin(BrowserPlugin* browser_plugin) {
   browser_plugins_.AddObserver(browser_plugin);
+  browser_plugin->ScreenInfoChanged(GetOriginalScreenInfo());
 }
 
 void RenderWidget::UnregisterBrowserPlugin(BrowserPlugin* browser_plugin) {
@@ -2800,4 +2801,8 @@ PepperPluginInstanceImpl* RenderWidget::GetFocusedPepperPluginInsideWidget() {
 }
 #endif
 
+}
+
+base::WeakPtr<RenderWidget> RenderWidget::AsWeakPtr() {
+  return weak_ptr_factory_.GetWeakPtr();
 }  // namespace content
