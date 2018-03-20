@@ -80,7 +80,8 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
                        const ui::LatencyInfo& latency);
 
   void BubbleScrollEvent(RenderWidgetHostViewBase* target_view,
-                         const blink::WebGestureEvent& event);
+                         const blink::WebGestureEvent& event,
+                         const RenderWidgetHostViewBase* resending_view);
   void CancelScrollBubbling(RenderWidgetHostViewBase* target_view);
 
   void AddFrameSinkIdOwner(const viz::FrameSinkId& id,
@@ -229,6 +230,9 @@ class CONTENT_EXPORT RenderWidgetHostInputEventRouter
                                         const gfx::PointF& point,
                                         gfx::PointF* transformed_point,
                                         viz::EventSource source) const;
+
+  // TODO(818214): Remove once this issue no longer occurs.
+  void ReportBubblingScrollToSameView(const blink::WebGestureEvent& event);
 
   // RenderWidgetTargeter::Delegate:
   RenderWidgetTargetResult FindTargetSynchronously(

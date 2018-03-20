@@ -6,6 +6,8 @@
 
 #include <vector>
 
+#include "base/debug/crash_logging.h"
+#include "base/debug/dump_without_crashing.h"
 #include "base/metrics/histogram_macros.h"
 #include "components/viz/common/features.h"
 #include "components/viz/common/quads/surface_draw_quad.h"
@@ -734,9 +736,23 @@ void RenderWidgetHostInputEventRouter::SendMouseEnterOrLeaveEvents(
   last_mouse_move_root_view_ = root_view;
 }
 
+void RenderWidgetHostInputEventRouter::ReportBubblingScrollToSameView(
+    const blink::WebGestureEvent& event) {
+  static auto* type_key = base::debug::AllocateCrashKeyString(
+      "same-view-bubble-event-type", base::debug::CrashKeySize::Size32);
+  base::debug::ScopedCrashKeyString type_key_value(
+      type_key, std::to_string(event.GetType()));
+  static auto* device_key = base::debug::AllocateCrashKeyString(
+      "same-view-bubble-source-device", base::debug::CrashKeySize::Size32);
+  base::debug::ScopedCrashKeyString device_key_value(
+      device_key, std::to_string(event.source_device));
+  base::debug::DumpWithoutCrashing();
+}
+
 void RenderWidgetHostInputEventRouter::BubbleScrollEvent(
     RenderWidgetHostViewBase* target_view,
-    const blink::WebGestureEvent& event) {
+    const blink::WebGestureEvent& event,
+    const RenderWidgetHostViewBase* resending_view) {
   DCHECK(target_view);
   DCHECK((target_view->wheel_scroll_latching_enabled() &&
           event.GetType() == blink::WebInputEvent::kGestureScrollBegin) ||
@@ -782,6 +798,20 @@ void RenderWidgetHostInputEventRouter::BubbleScrollEvent(
           target_view != first_bubbling_scroll_target_.target) {
         return;
       }
+    }
+
+    // If the router tries to resend a gesture scroll event back to the same
+    // view, we could hang.
+    DCHECK_NE(resending_view, bubbling_gesture_scroll_target_.target);
+    // We've seen reports of this, but don't know the cause yet. For now,
+    // instead of CHECKing or hanging, we'll report the issue and abort scroll
+    // bubbling.
+    // TODO(818214): Remove once this issue no longer occurs.
+    if (resending_view == bubbling_gesture_scroll_target_.target) {
+      ReportBubblingScrollToSameView(event);
+      first_bubbling_scroll_target_.target = nullptr;
+      bubbling_gesture_scroll_target_.target = nullptr;
+      return;
     }
 
     bubbling_gesture_scroll_target_.target->ProcessGestureEvent(event,
