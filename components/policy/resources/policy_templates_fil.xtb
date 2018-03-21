@@ -1097,6 +1097,12 @@
       </translation>
 <translation id="4442582539341804154">Paganahin ang lock kapag naging idle o nasuspinde ang device.</translation>
 <translation id="4449545651113180484">I-rotate ang screen pakanan nang 270 degrees</translation>
+<translation id="4459359100627756769">I-configure ang listahan ng mga login URL ng enterprise (HTTP at HTTPS na scheme lang). Ang fingerprint ng password ay kukunin sa mga URL na ito at gagamitin para sa pagtukoy ng muling paggamit ng password.
+      Ang mga user ng GSuite na gumagamit ng SSO/SMAL system lang ang dapat na gumamit sa setting na ito.
+
+      Kung ie-enable ang setting na ito, kukunin ng serbisyo ng proteksyon sa password sa mga URL na ito ang fingerprint ng password para sa pagtukoy ng muling paggamit ng password.
+      Kung naka-disable o hindi nakatakda ang setting na ito, ang serbisyo ng proteksyon sa password ay kukuha lang ng fingerprint ng password sa https://accounts.google.com.
+      Hindi available ang patakarang ito sa mga instance ng Windows na hindi kasali sa isang <ph name="MS_AD_NAME" /> domain.</translation>
 <translation id="4467952432486360968">I-block ang cookies ng third party</translation>
 <translation id="4474167089968829729">I-enable ang pagse-save ng mga password sa password manager</translation>
 <translation id="4476769083125004742">Kung nakatakda ang patakarang ito sa <ph name="BLOCK_GEOLOCATION_SETTING" />, hindi maaaring i-access ng mga Android app ang impormasyon ng lokasyon. Kung itatakda mo ang patakarang ito sa anumang iba pang value o iiwan mo itong hindi nakatakda, hihilingin sa user na magbigay ng pahintulot kapag gusto ng Android app na i-access ang impormasyon ng lokasyon.</translation>

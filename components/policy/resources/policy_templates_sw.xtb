@@ -1092,6 +1092,12 @@ Ikiwa sera hii haijawekwa, thamani ya 2 itatumika.</translation>
       </translation>
 <translation id="4442582539341804154">Wawezesha kufunga wakati kifaa kinapokuwa hakifanyi kitu au kimesimamishwa</translation>
 <translation id="4449545651113180484">Zungusha skrini kwa mwendo wa saa kwa digrii 270</translation>
+<translation id="4459359100627756769">Weka mipangilio ya orodha ya URL za kuingia katika akaunti ya biashara (Mifumo ya HTTP na HTTPS pekee). Alama bainifu ya nenosiri itanaswa kwenye URL hizi na kutumika katika utambuzi wa kutumia nenosiri tena. 
+      Mipangilio hii itatumiwa na watumiaji wa GSuite pekee ambao wanatumia mfumo wa SSO/SMAL.
+
+      Kama mipangilio hii imewashwa, basi huduma ya ulinzi wa manenosiri itanasa alama bainifu ya nenosiri kwenye URL hizi kwa madhumuni ya utambuzi wa kutumia nenosiri tena.
+     Ikiwa mipangilio hii imezimwa au haijawekwa, basi huduma ya ulinzi wa nenosiri itanasa alama bainifu ya nenosiri kwenye https://accounts.google.com pekee.
+    Sera hii haipatikani katika matukio ya Windows ambayo hayajaunganishwa kwenye kikoa cha <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Zuia vidakuzi vya wengine</translation>
 <translation id="4474167089968829729">Washa kipengele cha kuhifadhi manenosiri kwenye kidhibiti cha nenosiri</translation>
 <translation id="4476769083125004742">Sera hii ikiwekwa kuwa <ph name="BLOCK_GEOLOCATION_SETTING" />, programu za Android haziwezi kufikia maelezo ya mahali. Ukiweka sera hii kuwa thamani nyingine yoyote au uiache bila kuiweka, mtumiaji ataombwa akubali programu ya Android inapotaka kufikia maelezo ya mahali.</translation>

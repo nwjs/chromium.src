@@ -150,7 +150,7 @@
 
       Definir esta política como falsa impede que os usuários optem por enviar algumas informações do sistema e conteúdo da página aos servidores do Google. Se essa configuração for verdadeira ou se não for definida, os usuários poderão enviar algumas informações do sistema e conteúdo da página ao serviço Navegação segura para ajudar a detectar apps e sites perigosos.
 
-      Consulte https://developers.google.com/safe-browsing (em inglês) para ver mais informações sobre o serviço Navegação segura.</translation>
+      Consulte https://developers.google.com/safe-browsing para ver mais informações sobre o serviço Navegação segura.</translation>
 <translation id="1522425503138261032">Permitir que os sites rastreiem a localização física dos usuários</translation>
 <translation id="152657506688053119">Lista de URLs alternativos para o provedor de pesquisa padrão</translation>
 <translation id="1530812829012954197">Sempre renderizar os seguintes padrões de URL no navegador do host</translation>
@@ -1059,6 +1059,12 @@
       </translation>
 <translation id="4442582539341804154">Ativar o bloqueio quando o dispositivo entrar no modo ocioso ou suspenso</translation>
 <translation id="4449545651113180484">Girar tela no sentido horário em 270 graus</translation>
+<translation id="4459359100627756769">Configura a lista de URLs de login corporativos (apenas esquemas HTTP e HTTPS). A impressão digital da senha será capturada nesses URLs e usada para a detecção de reutilização de senhas.
+      Esta definição deve ser usada somente por usuários do G Suite que utilizem um sistema SSO/SMAL.
+
+      Se esta definição for ativada, o serviço de proteção de senha fará a captura da impressão digital da senha nesses URLs para a detecção de reutilização de senhas.
+      Se esta definição for desativada ou não for definida, o serviço de proteção de senha fará a captura da impressão digital da senha apenas em https://accounts.google.com.
+      Esta política não está disponível em instâncias do Windows que não estejam vinculadas a um domínio do <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Bloquear cookies de terceiros</translation>
 <translation id="4474167089968829729">Ativar salvamento de senhas no gerenciador de senhas</translation>
 <translation id="4476769083125004742">Se esta política for definida como <ph name="BLOCK_GEOLOCATION_SETTING" />, os apps Android não poderão acessar as informações de local. Se você configurar essa política para qualquer outro valor ou deixá-la sem definição, será solicitado o consentimento do usuário quando um app Android quiser acessar as informações de local.</translation>

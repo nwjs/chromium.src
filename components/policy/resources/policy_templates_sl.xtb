@@ -1108,6 +1108,12 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
       </translation>
 <translation id="4442582539341804154">Omogoči zaklepanje, ko je naprava nedejavna ali preide v stanje pripravljenosti</translation>
 <translation id="4449545651113180484">Sukanje zaslona v smeri urnega kazalca za 270 stopinj</translation>
+<translation id="4459359100627756769">Konfigurirajte seznam URL-jev prijave za poslovna okolja (samo sheme HTTP in HTTPS). Na teh URL-jih bo zajet prstni odtis gesla in uporabljen za odkrivanje vnovične uporabe enakega gesla.
+      To nastavitev naj uporabijo samo uporabniki storitve GSuite, ki uporabljajo sistem enotne prijave/SAML.
+
+      Če je ta nastavitev omogočena, bo storitev za zaščito gesla na teh URL-jih zajela prstni odtis gesla in ga uporabila za odkrivanje vnovične uporabe enakega gesla.
+      Če je ta nastavitev onemogočena, bo storitev za zaščito gesla prstni odtis gesla zajela samo na naslovu https://accounts.google.com.
+      Ta pravilnik ni na voljo v primerkih sistema Windows, ki niso pridruženi domeni <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Blokiraj piškotke drugih spletnih mest</translation>
 <translation id="4474167089968829729">Omogočanje shranjevanja gesel v upravitelju gesel</translation>
 <translation id="4476769083125004742">Če je ta pravilnik nastavljen na <ph name="BLOCK_GEOLOCATION_SETTING" />, aplikacije za Android ne morejo dostopati do podatkov o lokaciji. Če pravilnik nastavite na katero koli drugo vrednost ali ga ne nastavite, je uporabnik pozvan, da poda soglasje, kadar želi aplikacija za Android dostopati do podatkov o lokaciji.</translation>

@@ -1075,6 +1075,12 @@
       </translation>
 <translation id="4442582539341804154">Activați blocarea când dispozitivul este inactiv sau suspendat</translation>
 <translation id="4449545651113180484">Rotește ecranul la 270 de grade în sensul acelor de ceasornic</translation>
+<translation id="4459359100627756769">Configurează lista de adrese URL de autentificare de întreprindere (doar schemele HTTP și HTTPS). Amprenta digitală a parolei va fi scanată în aceste adrese URL și folosită pentru detectarea refolosirii parolelor.
+      Această setare trebuie folosită doar de utilizatorii GSuite care folosesc un sistem SSO/SMAL.
+
+      Dacă această setare este activată, serviciul de protecție prin parolă va scana amprenta digitală a parolelor pe aceste adrese URL pentru a detecta refolosirea parolelor.
+      Dacă această setare este dezactivată sau nu este configurată, serviciul de protecție prin parolă va scana amprenta digitală a parolei doar pe https://accounts.google.com.
+      Această politică nu este disponibilă în instanțele Windows care nu sunt asociate unui domeniu <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Blochează cookie-urile terță parte</translation>
 <translation id="4474167089968829729">Activează salvarea parolelor în managerul de parole</translation>
 <translation id="4476769083125004742">Dacă această politică este setată la <ph name="BLOCK_GEOLOCATION_SETTING" />, aplicațiile Android nu pot accesa informațiile despre locație. Dacă setezi orice altă valoare pentru această politică sau nu o configurezi, utilizatorului i se va solicita consimțământul când o aplicație Android dorește să acceseze informațiile despre locație.</translation>

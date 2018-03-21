@@ -1059,6 +1059,12 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
       </translation>
 <translation id="4442582539341804154">Włącz blokadę w przypadku bezczynności lub zawieszenia działania urządzenia</translation>
 <translation id="4449545651113180484">Obróć ekran w prawo o 270 stopni</translation>
+<translation id="4459359100627756769">Konfigurowanie listy adresów URL stron logowania aplikacji firmowych (tylko schematy HTTP i HTTPS). Na tych stronach będzie rejestrowany odcisk cyfrowy hasła, który będzie używany do wykrywania używania tych samych haseł w różnych miejscach.
+      Tego ustawienia powinni używać tylko użytkownicy G Suite korzystający z systemu SSO/SMAL.
+
+      Jeśli to ustawienie jest włączone, usługa ochrony haseł będzie rejestrować na tych stronach odciski cyfrowe haseł w celu wykrycia używania tych samych haseł w różnych miejscach.
+      Jeśli to ustawienie jest wyłączone lub nieskonfigurowane, usługa ochrony haseł będzie rejestrować odciski cyfrowe haseł tylko na stronie https://accounts.google.com
+      Ta zasada nie jest dostępna w systemach Windows niepołączonych z domeną <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Blokuj pliki cookie innych firm</translation>
 <translation id="4474167089968829729">Włącz zapisywanie haseł w menedżerze haseł</translation>
 <translation id="4476769083125004742">Ustawienie tej zasady na <ph name="BLOCK_GEOLOCATION_SETTING" /> odbiera aplikacjom na Androida dostęp do informacji o lokalizacji. Jeśli zasada ma inną wartość lub jest nieskonfigurowana, użytkownik będzie pytany o zgodę, gdy aplikacja na Androida będzie chciała uzyskać dostęp do informacji o lokalizacji.</translation>

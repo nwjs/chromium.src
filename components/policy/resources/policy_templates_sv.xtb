@@ -1109,6 +1109,12 @@
       </translation>
 <translation id="4442582539341804154">Aktivera lås när enheten är i viloläge eller vänteläge</translation>
 <translation id="4449545651113180484">Rotera skärmen 270 grader medurs</translation>
+<translation id="4459359100627756769">Konfigurera listan över företagets inloggningsadresser (endast HTTP- och HTTPS-scheman). Signaturer för lösenord registreras på webbadresserna och används för att upptäcka återanvändning av lösenord.
+      Inställningen bör endast användas av G Suit-användare med SSO/SMAL-system.
+
+      Om inställningen är aktiverad registrerar tjänsten för lösenordsskydd signaturer för lösenord på webbadresserna i syfte att upptäcka återanvändning av lösenord.
+      Om inställningen är inaktiverad eller inte angiven registrerar tjänsten för lösenordsskydd endast signaturer för lösenord på https://accounts.google.com.
+      Principen är inte tillgänglig för Windows-instanser som inte har fogats till en <ph name="MS_AD_NAME" />-domän.</translation>
 <translation id="4467952432486360968">Blockera cookies från tredje part</translation>
 <translation id="4474167089968829729">Aktivera lösenordshanteraren för sparade lösenord</translation>
 <translation id="4476769083125004742">Om den här principen är inställd på <ph name="BLOCK_GEOLOCATION_SETTING" /> får Android-appar inte tillgång till platsinformation. Om principen är inställd på något annat eller lämnas utan inställning blir användaren tillfrågad om han eller hon vill ge Android-appen tillgång till platsinformationen när det blir aktuellt.</translation>

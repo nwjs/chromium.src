@@ -1036,6 +1036,12 @@
       </translation>
 <translation id="4442582539341804154">当设备进入待机或暂停状态时启用锁定</translation>
 <translation id="4449545651113180484">将屏幕顺时针旋转 270 度</translation>
+<translation id="4459359100627756769">配置企业登录网址（仅限 HTTP 和 HTTPS 方案）列表。系统会在这些网址上捕获密码指纹，并使用指纹进行密码重用检测。
+      此设置应仅供使用 SSO/SMAL 系统的 GSuite 用户使用。
+
+      如果启用了此设置，密码保护服务将会在这些网址上捕获密码指纹，以用于密码重用检测。
+      如果停用了或未设定此设置，密码保护服务则会仅在 https://accounts.google.com 上捕获密码指纹。
+      此政策不适用于未加入 <ph name="MS_AD_NAME" /> 网域的 Windows 实例。</translation>
 <translation id="4467952432486360968">阻止第三方 Cookie</translation>
 <translation id="4474167089968829729">允许将密码保存到密码管理器</translation>
 <translation id="4476769083125004742">如果此政策设为 <ph name="BLOCK_GEOLOCATION_SETTING" />，Android 应用将无法使用位置信息。如果此政策设为任何其他值或未设置，那么当 Android 应用想使用位置信息时，它会询问用户是否同意。</translation>

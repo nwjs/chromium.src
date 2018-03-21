@@ -64,7 +64,7 @@
 <translation id="379295446891231126"><ph name="CTRL" /><ph name="SEPARATOR" /> 1 a 8</translation>
 <translation id="3837047332182291558">Aumentar el brillo del teclado (solo para teclados retroiluminados)</translation>
 <translation id="3976863468609830880">Hacer clic en el último ícono de la biblioteca</translation>
-<translation id="4026843240379844265">Mover la ventana activa entre pantallas</translation>
+<translation id="4026843240379844265">Mover la ventana activa de una pantalla a otra</translation>
 <translation id="4035482366624727273">Seleccionar toda la página</translation>
 <translation id="4060703249685950734">Volver a abrir la última pestaña o ventana que cerraste</translation>
 <translation id="4090342722461256974">Mantén presionado <ph name="ALT" /><ph name="SEPARATOR" /><ph name="SHIFT" /> y, luego, presiona <ph name="TAB" /> hasta que llegues a la ventana que quieres abrir; a continuación, suelta las teclas.</translation>
@@ -126,7 +126,7 @@
 <translation id="6981982820502123353">Accesibilidad</translation>
 <translation id="7020813747703216897">No se encontraron resultados que coincidan</translation>
 <translation id="7025325401470358758">Siguiente panel</translation>
-<translation id="7237562915163138771">Escribir una dirección web en la barra de direcciones y, luego, presionar <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
+<translation id="7237562915163138771">Escribe una dirección web en la barra de direcciones y, luego, presiona <ph name="ALT" /><ph name="SEPARATOR" /><ph name="ENTER" /></translation>
 <translation id="7379254767514753910"><ph name="ALT" /> o <ph name="SEARCH" /><ph name="SEPARATOR" /><ph name="UP" /></translation>
 <translation id="7439718573248533901">Borrar la letra siguiente (borrar siguiente)</translation>
 <translation id="766326951329901120">Pegar el contenido del portapapeles como texto sin formato</translation>

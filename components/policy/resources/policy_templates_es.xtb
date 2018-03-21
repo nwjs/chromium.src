@@ -1099,6 +1099,12 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
       </translation>
 <translation id="4442582539341804154">Habilitar el bloqueo cuando el dispositivo esté inactivo o suspendido</translation>
 <translation id="4449545651113180484">Girar la pantalla 270 grados hacia la derecha</translation>
+<translation id="4459359100627756769">Configura la lista de las URL de acceso empresarial (solo esquemas HTTP y HTTPS). En estas URL se capturará la huella digital de la contraseña, que se utilizará para detectar si se reutiliza la contraseña.
+      Solo deben utilizar esta opción los usuarios de G Suite con sistemas SSO/SMAL.
+
+      Si se habilita esta opción, el servicio de protección de contraseña capturará la huella digital de la contraseña en estas URL para detectar si la contraseña se reutiliza.
+      Si se inhabilita esta opción o no se configura, el servicio de protección de contraseña solo capturará la huella digital en la página https://accounts.google.com.
+      Esta política no está disponible en las instancias de Windows que no están vinculadas a un dominio de <ph name="MS_AD_NAME" />.</translation>
 <translation id="4467952432486360968">Bloquear cookies de terceros</translation>
 <translation id="4474167089968829729">Habilitar el almacenamiento de contraseñas en el administrador de contraseñas</translation>
 <translation id="4476769083125004742">Si se asigna el valor <ph name="BLOCK_GEOLOCATION_SETTING" /> a esta política, las aplicaciones para Android no tendrán acceso a la información sobre la ubicación. Si se le asigna cualquier otro valor o no se configura, el usuario tendrá que dar su consentimiento cuando una aplicación para Android quiera acceder a los datos de ubicación.</translation>

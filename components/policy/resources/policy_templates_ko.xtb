@@ -1100,6 +1100,12 @@
       </translation>
 <translation id="4442582539341804154">기기가 유휴 상태이거나 일시 중지되었을 때 잠금 기능을 사용</translation>
 <translation id="4449545651113180484">화면을 시계 방향으로 270도 회전</translation>
+<translation id="4459359100627756769">엔터프라이즈 로그인 URL(HTTP 및 HTTPS 스키마만 해당) 목록을 설정합니다. 이러한 URL에서는 비밀번호 지문이 캡처되어 비밀번호 재사용 감지에 사용됩니다.
+      이 설정은 SSO/SMAL 시스템을 사용하는 G Suite 사용자에게만 제공되어야 합니다.
+
+      이 설정을 켜면 비밀번호 보호 서비스가 비밀번호 재사용 감지 목적으로 이러한 URL에서 비밀번호 지문을 캡처합니다.
+      이 설정을 끄거나 지정하지 않으면 비밀번호 보호 서비스가 https://accounts.google.com에서만 비밀번호 지문을 캡처합니다.
+      이 정책은 <ph name="MS_AD_NAME" /> 도메인에 가입되어 있지 않은 Windows 인스턴스에는 사용할 수 없습니다.</translation>
 <translation id="4467952432486360968">제3자 쿠키 차단</translation>
 <translation id="4474167089968829729">비밀번호 관리자에 비밀번호 저장 기능 사용</translation>
 <translation id="4476769083125004742">이 정책이 <ph name="BLOCK_GEOLOCATION_SETTING" />(으)로 설정되는 경우 Android 앱에서 위치 정보에 액세스할 수 없습니다. 이 정책을 다른 값으로 설정하거나 설정하지 않은 채로 두면 Android 앱에서 위치 정보에 액세스하려고 할 때 사용자에게 동의를 요청하는 메시지가 표시됩니다.</translation>

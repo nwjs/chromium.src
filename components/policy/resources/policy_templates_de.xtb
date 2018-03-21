@@ -1055,6 +1055,12 @@ Wird die Richtlinie auf "false" gesetzt oder nicht konfiguriert, wird kein Zerti
       </translation>
 <translation id="4442582539341804154">Sperre aktivieren, wenn das Gerät inaktiv ist oder angehalten wird</translation>
 <translation id="4449545651113180484">Bildschirm um 270 Grad im Uhrzeigersinn drehen</translation>
+<translation id="4459359100627756769">Liste der URLs für die Unternehmensanmeldung konfigurieren (nur HTTP- und HTTPS-Schemas). Der Fingerabdruck für die Autorisierung wird auf diesen URLs registriert und für Prüfung auf die Wiederverwendung des Passworts genutzt.
+      Diese Einstellung ist nur für Nutzer von GSuite geeignet, die ein SSO/SMAL-System verwenden.
+
+      Wenn diese Einstellung aktiviert ist, erfasst der Passwortschutzdienst den Fingerdruck zur Autorisierung auf diesen URLs, der dann zur Prüfung der Wiederverwendung des Passworts genutzt wird.
+      Wenn diese Einstellung deaktiviert oder nicht konfiguriert ist, erfasst der Passwortschutzdienst den Fingerdruck zur Autorisierung nur auf https://accounts.google.com.
+      Diese Richtlinie ist nur in Windows-Instanzen verfügbar, die mit einer <ph name="MS_AD_NAME" />-Domain verbunden sind.</translation>
 <translation id="4467952432486360968">Drittanbieter-Cookies blockieren</translation>
 <translation id="4474167089968829729">Aktiviert das Speichern von Passwörtern im Passwortmanager</translation>
 <translation id="4476769083125004742">Wenn diese Richtlinie auf <ph name="BLOCK_GEOLOCATION_SETTING" /> gesetzt ist, haben Android-Apps keinen Zugriff auf Standortdaten. Wenn Sie diese Richtlinie auf einen anderen Wert setzen oder sie nicht konfigurieren, wird der Nutzer um seine Zustimmung gebeten, wenn eine Android-App auf Standortdaten zugreifen möchte.</translation>
@@ -1257,7 +1263,7 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
 
       Wird die Richtlinie auf "false" festgelegt, werden grundsätzlich keine Berichte gesendet.
 
-      Falls diese Richtlinie weder auf "true" noch auf "false" festgelegt wird, kann der Nutzer die Einstellung nicht ändern.
+      Wenn diese Richtlinie auf "true" oder "false" festgelegt wird, kann der Nutzer die Einstellung nicht ändern.
 
       Wenn diese Richtlinie nicht konfiguriert wird, kann der Nutzer die Einstellung ändern und entscheiden, ob Berichte gesendet werden sollen.
 
