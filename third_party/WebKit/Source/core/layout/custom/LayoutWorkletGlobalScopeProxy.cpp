@@ -23,7 +23,7 @@ LayoutWorkletGlobalScopeProxy::LayoutWorkletGlobalScopeProxy(
   reporting_proxy_ =
       std::make_unique<MainThreadWorkletReportingProxy>(document);
 
-  auto creation_params = std::make_unique<GlobalScopeCreationParams>(
+  auto creation_params = std::make_unique<GlobalScopeCreationParams>(false, std::string(),
       document->Url(), document->UserAgent(),
       document->GetContentSecurityPolicy()->Headers().get(),
       document->GetReferrerPolicy(), document->GetSecurityOrigin(),

@@ -78,6 +78,11 @@ class CORE_EXPORT RemoteFrameOwner final
     container_policy_ = container_policy;
   }
 
+  bool nwfaketop() const override { return nwfaketop_; }
+  AtomicString nwuseragent() const override { return nwuseragent_; }
+  void set_nwfaketop(bool flag) { nwfaketop_ = flag; }
+  void set_nwuseragent(const WebString& agent) { nwuseragent_ = agent; }
+
   virtual void Trace(blink::Visitor*);
 
  private:
@@ -93,6 +98,8 @@ class CORE_EXPORT RemoteFrameOwner final
   Member<Frame> frame_;
   SandboxFlags sandbox_flags_;
   AtomicString browsing_context_container_name_;
+  bool nwfaketop_;
+  WebString nwuseragent_;
   ScrollbarMode scrolling_;
   int margin_width_;
   int margin_height_;

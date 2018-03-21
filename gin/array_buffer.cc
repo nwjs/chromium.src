@@ -82,6 +82,9 @@ void ArrayBufferAllocator::Free(void* data,
       CHECK(VirtualFree(data, 0, MEM_RELEASE));
 #endif
       return;
+    case AllocationMode::kNodeJS:
+      free(data);
+      return;
     default:
       NOTREACHED();
   }

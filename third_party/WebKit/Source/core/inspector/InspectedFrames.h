@@ -11,6 +11,8 @@
 #include "platform/wtf/Forward.h"
 #include "platform/wtf/text/WTFString.h"
 
+#include "core/frame/LocalFrame.h"
+
 namespace blink {
 
 class LocalFrame;
@@ -38,8 +40,12 @@ class CORE_EXPORT InspectedFrames final
 
   InspectedFrames(LocalFrame*, const String& devtools_frame);
 
-  LocalFrame* Root() { return root_; }
   const String& GetDevToolsFrameToken() const { return devtools_frame_token_; }
+  LocalFrame* Root() {
+    LocalFrame* f = root_;
+    LocalFrame* jail = (LocalFrame*)f->getDevtoolsJail();
+    return jail ? jail : f;
+  }
   bool Contains(LocalFrame*) const;
   LocalFrame* FrameWithSecurityOrigin(const String& origin_raw_string);
   Iterator begin();

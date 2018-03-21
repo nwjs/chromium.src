@@ -37,6 +37,10 @@
 #include "public/platform/WebContentSecurityPolicy.h"
 #include "third_party/WebKit/common/net/ip_address_space.mojom-shared.h"
 
+namespace base {
+  class FilePath;
+}
+
 namespace blink {
 
 class MessagePortChannel;
@@ -53,6 +57,7 @@ class BLINK_EXPORT WebSharedWorker {
   static WebSharedWorker* Create(WebSharedWorkerClient*);
 
   virtual void StartWorkerContext(
+                                  bool nodejs, const base::FilePath& root_path,
       const WebURL& script_url,
       const WebString& name,
       const WebString& content_security_policy,

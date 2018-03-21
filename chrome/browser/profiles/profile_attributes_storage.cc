@@ -166,7 +166,7 @@ ProfileAttributesStorage::ProfileAttributesStorage(
     const base::FilePath& user_data_dir)
     : prefs_(prefs),
       user_data_dir_(user_data_dir),
-      disable_avatar_download_for_testing_(false),
+      disable_avatar_download_for_testing_(true),
       file_task_runner_(base::CreateSequencedTaskRunnerWithTraits(
           {base::MayBlock(), base::TaskPriority::USER_VISIBLE,
            base::TaskShutdownBehavior::SKIP_ON_SHUTDOWN})) {}
@@ -349,7 +349,7 @@ void ProfileAttributesStorage::DownloadHighResAvatarIfNeeded(
     size_t icon_index,
     const base::FilePath& profile_path) {
 // Downloading is only supported on desktop.
-#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
+#if 1
   return;
 #endif
   DCHECK(!disable_avatar_download_for_testing_);
