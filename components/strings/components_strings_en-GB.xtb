@@ -477,6 +477,7 @@
 <translation id="4103249731201008433">Device serial number is invalid</translation>
 <translation id="410351446219883937">Autoplay</translation>
 <translation id="4103763322291513355">Visit &lt;strong&gt;chrome://policy&lt;/strong&gt; to see the list of blacklisted URLs and other policies enforced by your system administrator.</translation>
+<translation id="4110652170750985508">Review your payment</translation>
 <translation id="4116663294526079822">Always allow on this site</translation>
 <translation id="4117700440116928470">Policy scope is not supported.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 other}other{# others}}</translation>

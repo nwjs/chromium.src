@@ -367,6 +367,51 @@
 <translation id="3583757800736429874">&amp;Opakovat přesunutí</translation>
 <translation id="3586931643579894722">Skrýt podrobnosti</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Oprava chyb připojení&lt;/h1&gt;
+    &lt;p&gt;Pokud se vám při pokusu o návštěvu webu zobrazí chybová zpráva, vyzkoušejte tato řešení.&lt;/p&gt;
+    &lt;h2&gt;Oprava většiny chyb připojení&lt;/h2&gt;
+    &lt;p&gt;Pokud se pokoušíte navštívit konkrétní web, ale ten se neotevírá, nejdříve chybu zkuste opravit provedením těchto kroků:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Zkontrolujte, zda ve webové adrese nemáte překlepy.&lt;/li&gt;
+    &lt;li&gt;Zkontrolujte, zda připojení k internetu normálně funguje.&lt;/li&gt;
+    &lt;li&gt;Kontaktujte vlastníka webu.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Nápověda ke konkrétní chybové zprávě&lt;/h2&gt;
+    &lt;h3&gt;Vaše připojení není soukromé, NET::ERR_CERT_AUTHORITY_INVALID, ERR_CERT_COMMON_NAME_INVALID nebo NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM nebo Chyba certifikátu SSL&lt;/h3&gt;
+    &lt;h4&gt;Krok 1: Přihlaste se do portálu&lt;/h4&gt;
+    &lt;p&gt;Wi-Fi sítě v místech, jako jsou kavárny nebo letiště, vyžadují přihlášení. Chcete-li zobrazit přihlašovací stránku, přejděte na stránku, která používá schéma &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Přejděte na libovolný web začínající schématem &lt;code&gt;http://&lt;/code&gt;, například &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Na přihlašovací stránce, která se otevře, se přihlaste, abyste mohli používat internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Krok 2: Otevřete stránku v anonymním režimu (pouze na počítači)&lt;/h4&gt;
+    &lt;p&gt;Stránku, na kterou chcete přejít, otevřete v anonymním okně.&lt;/p&gt;
+    &lt;p&gt;Pokud se otevře, znamená to, že chybu způsobuje některé rozšíření Chromu. Odstraníte ji vypnutím příslušného rozšíření.&lt;/p&gt;
+    &lt;h4&gt;Krok 3: Aktualizujte operační systém&lt;/h4&gt;
+    &lt;p&gt;Zkontrolujte, zda je vaše zařízení aktuální.&lt;/p&gt;
+    &lt;h4&gt;Krok 4: Dočasně vypněte antivirus&lt;/h4&gt;
+    &lt;p&gt;Tato chyba se zobrazuje, pokud máte antivirový software s funkcí ochrany HTTPS nebo kontroly HTTPS. Antivirový software v takovém případě Chromu znemožňuje poskytovat zabezpečení.&lt;/p&gt;
+    &lt;p&gt;Problém vyřešíte tím, že antivirový software vypnete. Pokud po vypnutí antiviru bude stránka fungovat, vypněte jej při každé návštěvě zabezpečeného webu.&lt;/p&gt;
+    &lt;p&gt;Až budete hotovi, nezapomeňte antivirový program zase zapnout.&lt;/p&gt;
+    &lt;h4&gt;Krok 5: Požádejte o další pomoc&lt;/h4&gt;
+    &lt;p&gt;Pokud se chyba zobrazuje i nadále, kontaktujte vlastníka webu.&lt;/p&gt;
+    &lt;h3&gt;Připojit k síti&lt;/h3&gt;
+    &lt;p&gt;Tato chyba se zobrazí při použití portálu Wi-Fi, na kterém je třeba se před přístupem na internet přihlásit.&lt;/p&gt;
+    &lt;p&gt;Chybu odstraníte tím, že na stránce, kterou se snažíte otevřít, kliknete na &lt;strong&gt;Připojení&lt;/strong&gt;.&lt;/p&gt;
+    &lt;h3&gt;Vaše hodiny se zpožďují, Vaše hodiny jdou napřed nebo NET::ERR_CERT_DATE_INVALID&lt;/h3&gt;
+    &lt;p&gt;Tato chyba se zobrazuje, pokud máte v počítači nebo mobilním zařízení nastaveno nepřesné datum a čas.&lt;/p&gt;
+    &lt;p&gt;Chcete-li tuto chybu odstranit, otevřete v zařízení hodiny. Zkontrolujte, zda jsou datum a čas nastaveny správně.&lt;/p&gt;
+    &lt;h3&gt;Software na počítači Chromu brání v bezpečném připojení k webu (pouze počítače se systémem Windows)&lt;/h3&gt;
+    &lt;p&gt;Tato chyba se zobrazuje, pokud v počítači se systémem Windows máte software Superfish.&lt;/p&gt;
+    &lt;p&gt;Abyste se mohli dostat na web, podle těchto pokynů tento software dočasně zakažte. Budete potřebovat administrátorská práva.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Klikněte na &lt;strong&gt;Start&lt;/strong&gt;, vyhledejte položku &lt;strong&gt;Zobrazit místní služby&lt;/strong&gt; a vyberte ji.
+    &lt;li&gt;Vyberte &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;V poli &lt;strong&gt;Typ spouštění&lt;/strong&gt; vyberte &lt;strong&gt;Zakázáno&lt;/strong&gt;.
+    &lt;li&gt;Pod položkou &lt;strong&gt;Stav služby&lt;/strong&gt; klikněte na &lt;strong&gt;Zastavit&lt;/strong&gt;.
+    &lt;li&gt;Klikněte na &lt;strong&gt;Použít&lt;/strong&gt; a poté na &lt;strong&gt;OK&lt;/strong&gt;.
+    &lt;li&gt;Informace o tom, jak tento software trvale odstranit z počítače, naleznete v &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;centru nápovědy prohlížeče Chrome&lt;/a&gt;.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Zadejte platné datum vypršení platnosti</translation>
 <translation id="36224234498066874">Smazat údaje o prohlížení...</translation>
 <translation id="362276910939193118">Zobrazit celou historii</translation>
@@ -799,6 +844,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="7275334191706090484">Spravované záložky</translation>
 <translation id="7298195798382681320">Doporučeno</translation>
 <translation id="7309308571273880165">Zpráva o selhání pořízená <ph name="CRASH_TIME" /> (o nahrání požádal uživatel, dosud nenahrána)</translation>
+<translation id="7320336641823683070">Pomoc s připojením</translation>
 <translation id="7334320624316649418">&amp;Opakovat změnu uspořádání</translation>
 <translation id="733923710415886693">Certifikát serveru nebyl zveřejněn prostřednictvím projektu Certificate Transparency.</translation>
 <translation id="7353601530677266744">Příkazový řádek</translation>
@@ -883,6 +929,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="782886543891417279">Síť Wi-Fi, kterou používáte (<ph name="WIFI_NAME" />), může vyžadovat, abyste navštívili její stránku přihlášení.</translation>
 <translation id="785549533363645510">To neznamená, že jste neviditelní. Anonymní režim neskryje vaši aktivitu před vaším zaměstnavatelem, poskytovatelem internetových služeb ani webovými stránkami, které navštívíte.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Opustit web?</translation>
 <translation id="7878176543348854470">Obchodník přijímá debetní a předplacené karty.</translation>
 <translation id="7878562273885520351">Heslo může být prolomeno</translation>
 <translation id="7887683347370398519">Zkontrolujte kód CVC a zkuste to znovu</translation>
@@ -905,6 +952,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="8041940743680923270">Použít výchozí globální hodnotu (Dotázat se)</translation>
 <translation id="8042918947222776840">Vybrat způsob vyzvednutí</translation>
 <translation id="8057711352706143257">Software <ph name="SOFTWARE_NAME" /> není nakonfigurován správně. Tento problém lze obvykle vyřešit odinstalováním softwaru <ph name="SOFTWARE_NAME" />. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Načíst web znovu?</translation>
 <translation id="8088680233425245692">Zobrazení článku se nezdařilo.</translation>
 <translation id="8091372947890762290">Čeká se na aktivaci na serveru</translation>
 <translation id="8094917007353911263">Síť, kterou používáte, může vyžadovat, abyste navštívili stránku <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -920,6 +968,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="8201077131113104583">Neplatná adresa URL aktualizace rozšíření s ID <ph name="EXTENSION_ID" />.</translation>
 <translation id="8202097416529803614">Shrnutí objednávky</translation>
 <translation id="8205463626947051446">Tento web často zobrazuje rušivé reklamy</translation>
+<translation id="8211406090763984747">Připojení není zabezpečené</translation>
 <translation id="8218327578424803826">Přiřazené místo:</translation>
 <translation id="8225771182978767009">Uživatel, který tento počítač nastavoval, se rozhodl tento web blokovat.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>
