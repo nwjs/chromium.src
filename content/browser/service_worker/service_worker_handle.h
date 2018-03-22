@@ -83,8 +83,8 @@ class CONTENT_EXPORT ServiceWorkerHandle
                       ServiceWorkerVersion* version);
 
   // Implements blink::mojom::ServiceWorkerObjectHost.
-  void PostMessage(::blink::TransferableMessage message,
-                   const url::Origin& source_origin) override;
+  void PostMessageToServiceWorker(::blink::TransferableMessage message,
+                                  const url::Origin& source_origin) override;
   void TerminateForTesting(TerminateForTestingCallback callback) override;
 
   void DispatchExtendableMessageEvent(
