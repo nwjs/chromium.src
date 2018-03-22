@@ -28,6 +28,7 @@
 -SitePerProcessBrowserTest.CompositorFrameSwapped
 -SitePerProcessBrowserTest.HiddenOOPIFWillNotGenerateCompositorFrames
 -SitePerProcessBrowserTest.HiddenOOPIFWillNotGenerateCompositorFramesAfterNavigation
+-SitePerProcessBrowserTest.SubframeVisibleAfterRenderViewBecomesSwappedOut
 
 # Further WaitForChildFrameSurfaceReady doesn't work http://crbug.com/787945
 -SitePerProcessBrowserTest.CompositorViewportPixelSizeTest
