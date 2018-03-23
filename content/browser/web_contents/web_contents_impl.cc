@@ -608,6 +608,9 @@ WebContentsImpl::~WebContentsImpl() {
     outermost->SetAsFocusedWebContentsIfNecessary();
   }
 
+  if (mouse_lock_widget_)
+    mouse_lock_widget_->RejectMouseLockOrUnlockIfNecessary();
+
   for (FrameTreeNode* node : frame_tree_.Nodes()) {
     // Delete all RFHs pending shutdown, which will lead the corresponding RVHs
     // to be shutdown and be deleted as well.
