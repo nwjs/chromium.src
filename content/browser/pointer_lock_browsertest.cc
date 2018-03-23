@@ -310,78 +310,6 @@ IN_PROC_BROWSER_TEST_F(PointerLockBrowserTest, PointerLockChildFrameDetached) {
             web_contents()->GetMouseLockWidget());
 }
 
-// Tests that the browser will unlock the pointer if a RenderWidgetHostView that
-// holds the pointer lock crashes.
-IN_PROC_BROWSER_TEST_F(PointerLockBrowserTest,
-                       PointerLockInnerContentsCrashes) {
-  GURL main_url(embedded_test_server()->GetURL(
-      "a.com", "/cross_site_iframe_factory.html?a(b(b))"));
-  EXPECT_TRUE(NavigateToURL(shell(), main_url));
-
-  FrameTreeNode* root = web_contents()->GetFrameTree()->root();
-
-  // Attach an inner WebContents; it's owned by the FrameTree, so we obtain an
-  // observer to it.
-  WebContents* inner_contents = CreateAndAttachInnerContents(
-      root->child_at(0)->child_at(0)->current_frame_host());
-  WebContentsDestroyedWatcher inner_death_observer(inner_contents);
-
-  // Override the delegate so that we can stub out pointer lock events.
-  inner_contents->SetDelegate(&web_contents_delegate_);
-
-  // Navigate the inner webcontents to a page.
-  EXPECT_TRUE(NavigateToURLFromRenderer(
-      inner_contents, embedded_test_server()->GetURL(
-                          "c.com", "/cross_site_iframe_factory.html?c(d)")));
-
-  // Request a pointer lock to the inner WebContents's document.body.
-  std::string result;
-  EXPECT_TRUE(ExecuteScriptAndExtractString(inner_contents->GetMainFrame(), R"(
-        (new Promise((resolve, reject) => {
-            document.addEventListener('pointerlockchange', resolve);
-            document.addEventListener('pointerlockerror', reject);
-        }).then(() => {
-            window.domAutomationController.send(
-                (document.pointerLockElement == document.body) ?
-                     "success" : "error");
-        }).catch(error => {
-            window.domAutomationController.send("" + error);
-        }));
-        document.body.requestPointerLock();)",
-                                            &result));
-  EXPECT_EQ("success", result);
-
-  // Root (platform) RenderWidgetHostView should have the pointer locked.
-  EXPECT_TRUE(root->current_frame_host()->GetView()->IsMouseLocked());
-
-  // The widget doing the lock is the one from the inner WebContents. A link
-  // to that RWH is saved into the outer webcontents.
-  RenderWidgetHost* expected_lock_widget =
-      inner_contents->GetMainFrame()->GetView()->GetRenderWidgetHost();
-  EXPECT_EQ(expected_lock_widget, web_contents()->GetMouseLockWidget());
-  EXPECT_EQ(expected_lock_widget, web_contents()->mouse_lock_widget_);
-  EXPECT_EQ(expected_lock_widget,
-            static_cast<WebContentsImpl*>(inner_contents)->mouse_lock_widget_);
-
-  // Crash the subframe process.
-  RenderProcessHost* crash_process =
-      root->child_at(0)->current_frame_host()->GetProcess();
-  RenderProcessHostWatcher crash_observer(
-      crash_process, RenderProcessHostWatcher::WATCH_FOR_PROCESS_EXIT);
-  crash_process->Shutdown(0);
-  crash_observer.Wait();
-
-  // Wait for destruction of |inner_contents|.
-  inner_death_observer.Wait();
-  inner_contents = nullptr;
-
-  // This should cancel the pointer lock.
-  EXPECT_EQ(nullptr, web_contents()->GetMouseLockWidget());
-  EXPECT_EQ(nullptr, web_contents()->mouse_lock_widget_);
-  EXPECT_FALSE(web_contents()->HasMouseLock(
-      root->current_frame_host()->GetRenderWidgetHost()));
-}
-
 IN_PROC_BROWSER_TEST_F(PointerLockBrowserTest, PointerLockWheelEventRouting) {
   GURL main_url(embedded_test_server()->GetURL(
       "a.com", "/cross_site_iframe_factory.html?a(b)"));
@@ -508,39 +436,6 @@ IN_PROC_BROWSER_TEST_F(PointerLockBrowserTest, PointerLockWheelEventRouting) {
   EXPECT_EQ(15, y);
   EXPECT_EQ(16, deltaX);
   EXPECT_EQ(17, deltaY);
-}
-
-IN_PROC_BROWSER_TEST_F(PointerLockBrowserTest, PointerLockWidgetHidden) {
-  GURL main_url(embedded_test_server()->GetURL(
-      "a.com", "/cross_site_iframe_factory.html?a(b)"));
-  EXPECT_TRUE(NavigateToURL(shell(), main_url));
-
-  FrameTreeNode* root = web_contents()->GetFrameTree()->root();
-  FrameTreeNode* child = root->child_at(0);
-  RenderWidgetHostViewBase* child_view = static_cast<RenderWidgetHostViewBase*>(
-      child->current_frame_host()->GetView());
-
-  WaitForChildFrameSurfaceReady(child->current_frame_host());
-
-  // Request a pointer lock on the child frame's body.
-  EXPECT_TRUE(ExecuteScript(child, "document.body.requestPointerLock()"));
-
-  // Child frame should have been granted pointer lock.
-  bool locked = false;
-  EXPECT_TRUE(ExecuteScriptAndExtractBool(child,
-                                          "window.domAutomationController.send("
-                                          "document.pointerLockElement == "
-                                          "document.body);",
-                                          &locked));
-  EXPECT_TRUE(locked);
-  EXPECT_TRUE(child_view->IsMouseLocked());
-  EXPECT_EQ(child_view->host(), web_contents()->GetMouseLockWidget());
-
-  child_view->Hide();
-
-  // Child frame should've released the mouse lock when hidden.
-  EXPECT_FALSE(child_view->IsMouseLocked());
-  EXPECT_EQ(nullptr, web_contents()->GetMouseLockWidget());
 }
 
 }  // namespace content
