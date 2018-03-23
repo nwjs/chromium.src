@@ -61,16 +61,12 @@ bool FirstRun::RemoveSentinel() {
 }
 
 // static
-FirstRun::SentinelResult FirstRun::CreateSentinel(base::File::Error* error) {
+bool FirstRun::CreateSentinel() {
   base::FilePath first_run_sentinel;
-  if (!GetFirstRunSentinelFilePath(&first_run_sentinel))
-    return SENTINEL_RESULT_FAILED_TO_GET_PATH;
-  if (base::PathExists(first_run_sentinel))
-    return SENTINEL_RESULT_FILE_PATH_EXISTS;
-  bool success = base::WriteFile(first_run_sentinel, "", 0) != -1;
-  if (error)
-    *error = base::File::GetLastFileError();
-  return success ? SENTINEL_RESULT_SUCCESS : SENTINEL_RESULT_FILE_ERROR;
+  if (!GetFirstRunSentinelFilePath(&first_run_sentinel) ||
+      base::PathExists(first_run_sentinel))
+    return false;
+  return base::WriteFile(first_run_sentinel, "", 0) != -1;
 }
 
 // static
