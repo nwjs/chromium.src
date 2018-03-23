@@ -42,6 +42,7 @@ class ModulatorImplBase : public Modulator {
  private:
   // Implements Modulator
 
+  void AddToMap(const KURL& url, ModuleScript* script) override;
   ScriptModuleResolver* GetScriptModuleResolver() override {
     return script_module_resolver_.Get();
   }

@@ -72,7 +72,7 @@ ExtensionService* TestExtensionSystem::CreateExtensionService(
   runtime_data_.reset(new RuntimeData(ExtensionRegistry::Get(profile_)));
   extension_service_.reset(new ExtensionService(
       profile_, command_line, install_directory, ExtensionPrefs::Get(profile_),
-      Blacklist::Get(profile_), autoupdate_enabled, extensions_enabled,
+      nullptr, autoupdate_enabled, extensions_enabled,
       &ready_));
   if (!test_data_decoder_service_) {
     test_data_decoder_service_ =

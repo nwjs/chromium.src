@@ -4,6 +4,8 @@
 
 #include "chrome/browser/permissions/permission_manager.h"
 
+#include "extensions/browser/extension_registry.h"
+
 #include <memory>
 #include <utility>
 
@@ -401,6 +403,16 @@ int PermissionManager::RequestPermissions(
   GURL embedding_origin = web_contents->GetLastCommittedURL().GetOrigin();
   GURL canonical_requesting_origin =
       GetCanonicalOrigin(requesting_origin, embedding_origin);
+
+  extensions::ExtensionRegistry* extension_registry =
+    extensions::ExtensionRegistry::Get(profile_);
+  const extensions::Extension* extension =
+    extension_registry->enabled_extensions().GetByID(canonical_requesting_origin.host());
+  if (extension && extension->is_nwjs_app()) {
+    callback.Run(
+        std::vector<ContentSetting>(permissions.size(), CONTENT_SETTING_ALLOW));
+    return kNoPendingOperation;
+  }
 
   int request_id = pending_requests_.Add(std::make_unique<PendingRequest>(
       render_frame_host, permissions, callback));

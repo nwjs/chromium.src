@@ -319,7 +319,8 @@ class CONTENT_EXPORT WebContentsDelegate {
                                   int opener_render_frame_id,
                                   const std::string& frame_name,
                                   const GURL& target_url,
-                                  WebContents* new_contents) {}
+                                  WebContents* new_contents,
+                                  const base::string16& nw_window_manifest) {}
 
   // Notification that one of the frames in the WebContents is hung. |source| is
   // the WebContents that is hung, and |render_widget_host| is the

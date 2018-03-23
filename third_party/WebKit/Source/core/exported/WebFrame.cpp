@@ -192,6 +192,8 @@ void WebFrame::SetFrameOwnerProperties(
         properties.is_display_none);
   }
 
+  owner->set_nwfaketop(properties.nwFakeTop);
+  owner->set_nwuseragent(properties.nwuseragent);
   owner->SetBrowsingContextContainerName(properties.name);
   owner->SetScrollingMode(properties.scrolling_mode);
   owner->SetMarginWidth(properties.margin_width);

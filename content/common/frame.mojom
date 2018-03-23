@@ -182,6 +182,8 @@ struct CreateNewWindowParams {
 
   // The window features to use for the new window.
   blink.mojom.WindowFeatures features;
+
+  mojo_base.mojom.String16 nw_window_manifest;
 };
 
 // Operation result when the renderer asks the browser to create a new window.
@@ -232,6 +234,8 @@ struct DidCommitProvisionalLoadParams;
 // Implemented by the frame server (i.e. the browser process). For messages that
 // must be associated with the IPC channel.
 interface FrameHost {
+  SetNodeJS(bool node);
+  SetContextCreated(bool created);
   // Sent by the renderer to request the browser to create a new window. |reply|
   // is only non-null on when status == CreateNewWindowStatus::kSuccess.
   [Sync] CreateNewWindow(CreateNewWindowParams params)

@@ -114,6 +114,13 @@ class ChromeContentRendererClient
   ChromeContentRendererClient();
   ~ChromeContentRendererClient() override;
 
+  base::FilePath GetRootPath() override;
+  void willHandleNavigationPolicy(content::RenderView* rv,
+                                  blink::WebFrame* frame,
+                                  const blink::WebURLRequest& request,
+                                  blink::WebNavigationPolicy* policy,
+                                  blink::WebString* manifest,
+                                  bool new_win) override;
   void RenderThreadStarted() override;
   void RenderFrameCreated(content::RenderFrame* render_frame) override;
   void RenderViewCreated(content::RenderView* render_view) override;
@@ -295,7 +302,9 @@ class ChromeContentRendererClient
 
   service_manager::Connector* GetConnector();
 
+#if 0
   rappor::mojom::RapporRecorderPtr rappor_recorder_;
+#endif
 
   std::unique_ptr<ChromeRenderThreadObserver> chrome_observer_;
   std::unique_ptr<web_cache::WebCacheImpl> web_cache_impl_;

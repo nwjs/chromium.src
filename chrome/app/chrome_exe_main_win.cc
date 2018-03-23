@@ -46,6 +46,7 @@ namespace {
 // Note this is currently stored as a list of two because it's probably faster
 // to iterate over this small array than building a map for constant time
 // lookups.
+#if 0
 const char* const kFastStartSwitches[] = {
   switches::kProfileDirectory,
   switches::kShowAppList,
@@ -86,6 +87,7 @@ bool AttemptFastNotify(const base::CommandLine& command_line) {
   return chrome::AttemptToNotifyRunningChrome(chrome, true) ==
       chrome::NOTIFY_SUCCESS;
 }
+#endif
 
 // Returns true if |command_line| contains a /prefetch:# argument where # is in
 // [1, 8].
@@ -176,7 +178,6 @@ int main() {
   HINSTANCE instance = GetModuleHandle(nullptr);
 #endif
   install_static::InitializeFromPrimaryModule();
-  SignalInitializeCrashReporting();
 
   // Initialize the CommandLine singleton from the environment.
   base::CommandLine::Init(0, nullptr);
@@ -194,6 +195,12 @@ int main() {
          HasValidWindowsPrefetchArgument(*command_line));
 
   if (process_type == crash_reporter::switches::kCrashpadHandler) {
+    // HACK: Let Windows know that we have started.  This is needed to suppress
+    // the IDC_APPSTARTING cursor from being displayed for a prolonged period
+    // while a subprocess is starting. NWJS#4685
+    PostThreadMessage(GetCurrentThreadId(), WM_NULL, 0, 0);
+    MSG msg;
+    PeekMessage(&msg, NULL, 0, 0, PM_REMOVE);
     crash_reporter::SetupFallbackCrashHandling(*command_line);
 
     // The handler process must always be passed the user data dir on the
@@ -219,8 +226,10 @@ int main() {
 
   base::win::EnableHighDPISupport();
 
+#if 0 //FIXME(nwjs)
   if (AttemptFastNotify(*command_line))
     return 0;
+#endif
 
   RemoveAppCompatFlagsEntry();
 
