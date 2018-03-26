@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Ponovi premještanje</translation>
 <translation id="3586931643579894722">Sakrij detalje</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Ispravljanje pogrešaka veze&lt;/h1&gt;
+    &lt;p&gt;Ako vam se pri pokušaju otvaranja web-lokacije prikaže poruka pogreške, pokušajte primijeniti ova rješenja.&lt;/p&gt;
+    &lt;h2&gt;Ispravljanje većine pogrešaka veze&lt;/h2&gt;
+    &lt;p&gt;Ako pokušate otvoriti web-lokaciju i ona se ne otvara, najprije pokušajte riješiti poteškoću prema ovim uputama:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Provjerite je li web-adresa ispravno napisana.&lt;/li&gt;
+    &lt;li&gt;Provjerite jeste li povezani s internetom.&lt;/li&gt;
+    &lt;li&gt;Obratite se vlasniku web-lokacije.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Pomoć za konkretne poruke pogreške&lt;/h2&gt;
+    &lt;h3&gt;"Vaša veza nije privatna" ili "NET::ERR_CERT_AUTHORITY_INVALID" ili "ERR_CERT_COMMON_NAME_INVALID" ili "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" ili "Pogreška SSL certifikata"&lt;/h3&gt;
+    &lt;h4&gt;1. korak: prijavite se na portal&lt;/h4&gt;
+    &lt;p&gt;Na Wi-Fi mreže na mjestima kao što su kafići ili zračne luke trebate se prijaviti. Da biste vidjeli stranicu za prijavu, posjetite stranicu koja upotrebljava&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Otvorite bilo koju web-lokaciju koja započinje s &lt;code&gt;http://&lt;/code&gt;, na primjer &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Na stranici za prijavu koja će se otvoriti prijavite se da biste se povezali s internetom.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2. korak: otvorite stranicu u anonimnom načinu (samo na računalima)&lt;/h4&gt;
+    &lt;p&gt;Otvorite stranicu koju ste posjetili u anonimnom prozoru.&lt;/p&gt;
+    &lt;p&gt;Ako se ta stranica otvori, Chromeovo proširenje ne funkcionira pravilno. Da biste ispravili tu pogrešku, isključite proširenje.&lt;/p&gt;
+    &lt;h4&gt;3. korak: ažurirajte operativni sustav&lt;/h4&gt;
+    &lt;p&gt;Ako uređaj nije ažuriran, ažurirajte ga.&lt;/p&gt;
+    &lt;h4&gt;4. korak: privremeno isključite antivirusni softver&lt;/h4&gt;
+    &lt;p&gt;Ta će se pogreška pojaviti ako imate antivirusni softver za "zaštitu HTTPS-a" ili "pretraživanje HTTPS-a". Taj softver onemogućuje Chromeu da pruža zaštitu.&lt;/p&gt;
+    &lt;p&gt;Da biste riješili taj problem, isključite antivirusni softver. Ako nakon isključivanja tog softvera stranica funkcionira, isključite taj softver kada upotrebljavate sigurne web-lokacije.&lt;/p&gt;
+    &lt;p&gt;Ne zaboravite ponovo uključiti antivirusni program kada završite.&lt;/p&gt;
+    &lt;h4&gt;5. korak: potražite dodatnu pomoć&lt;/h4&gt;
+    &lt;p&gt;Ako i dalje vidite pogrešku, obratite se vlasniku web-lokacije.&lt;/p&gt;
+    &lt;h3&gt;"Povežite se s mrežom"&lt;/h3&gt;
+    &lt;p&gt;Ta će se pogreška pojaviti ako upotrebljavate Wi-Fi portal na kojem se morate prijaviti da biste se mogli povezati s internetom.&lt;/p&gt;
+    &lt;p&gt;Da biste ispravili tu pogrešku, na stranici koju pokušavate otvoriti kliknite &lt;strong&gt;Poveži&lt;/strong&gt;.&lt;/p&gt;
+    &lt;h3&gt;"Sat kasni" ili "Sat ide unaprijed" ili "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Ta će se pogreška pojaviti ako datum i vrijeme vašeg računala ili mobilnog uređaja nisu točni.&lt;/p&gt;
+    &lt;p&gt;Da biste ispravili tu pogrešku, otvorite sat uređaja. Provjerite jesu li vrijeme i datum točni.&lt;/p&gt;
+    &lt;h3&gt;"Softver na vašem računalu sprječava sigurno povezivanje Chromea s webom" (samo na Windows računalima)&lt;/h3&gt;
+    &lt;p&gt;Ta će se pogreška pojaviti ako na Windows računalu imate softver Superfish.&lt;/p&gt;
+    &lt;p&gt;Privremeno onemogućite softver prema ovim uputama da biste se povezali s webom. Potrebne su vam administratorske povlastice.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Kliknite &lt;strong&gt;Start&lt;/strong&gt;, a zatim potražite i odaberite &lt;strong&gt;"Prikaz lokalnih servisa".&lt;/strong&gt;
+    &lt;li&gt;Odaberite &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;U odjeljku &lt;strong&gt;Vrsta pokretanja&lt;/strong&gt; odaberite &lt;strong&gt;Onemogućeno&lt;/strong&gt;
+    &lt;li&gt;U odjeljku &lt;strong&gt;Status servisa&lt;/strong&gt; kliknite &lt;strong&gt;Zaustavi&lt;/strong&gt;
+    &lt;li&gt;Kliknite &lt;strong&gt;Primijeni&lt;/strong&gt;, a zatim kliknite &lt;strong&gt;U redu&lt;/strong&gt;
+    &lt;li&gt;U &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chromeovu centru za pomoć&lt;/a&gt; možete saznati kako trajno ukloniti softver s računala
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Unesite važeći datum isteka</translation>
 <translation id="36224234498066874">Obriši podatke o pregledavanju...</translation>
 <translation id="362276910939193118">Pokaži cijelu povijest</translation>
@@ -431,6 +476,7 @@
 <translation id="4103249731201008433">Serijski broj uređaja nije važeći</translation>
 <translation id="410351446219883937">Automatska reprodukcija</translation>
 <translation id="4103763322291513355">Posjetite &lt;strong&gt;chrome://policy&lt;/strong&gt; da biste vidjeli popis nedopuštenih URL-ova i druga pravila koja je nametnuo vaš administrator sustava.</translation>
+<translation id="4110652170750985508">Pregledajte uplatu</translation>
 <translation id="4116663294526079822">Uvijek dopusti na ovoj web-lokaciji</translation>
 <translation id="4117700440116928470">Opseg pravila nije podržan.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 druga stavka}one{# druga stavka}few{# druge stavke}other{# drugih stavki}}</translation>
@@ -803,6 +849,7 @@
 <translation id="7275334191706090484">Upravljane oznake</translation>
 <translation id="7298195798382681320">Preporučeno</translation>
 <translation id="7309308571273880165">Izvješće o rušenju programa generirano <ph name="CRASH_TIME" /> (prijenos zatražio korisnik, još nije preneseno)</translation>
+<translation id="7320336641823683070">Pomoć za povezivanje</translation>
 <translation id="7334320624316649418">&amp;Ponovi promjenu rasporeda</translation>
 <translation id="733923710415886693">Certifikat poslužitelja nije otkriven putem Transparentnosti certifikata.</translation>
 <translation id="7353601530677266744">Naredbeni redak</translation>
@@ -887,6 +934,7 @@
 <translation id="782886543891417279">Za Wi-Fi koji upotrebljavate (<ph name="WIFI_NAME" />) možda ćete morati posjetiti stranicu za prijavu.</translation>
 <translation id="785549533363645510">Niste nevidljivi. Anonimni način ne sakriva vaše pregledavanje od poslodavca, davatelja internetskih usluga ili posjećenih web-lokacija.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Želite li napustiti web-lokaciju?</translation>
 <translation id="7878176543348854470">Prihvaćaju se debitne i pretplatne kartice.</translation>
 <translation id="7878562273885520351">Vaša je zaporka možda ugrožena</translation>
 <translation id="7887683347370398519">Provjerite CVC i pokušajte ponovo</translation>
@@ -909,6 +957,7 @@
 <translation id="8041940743680923270">Upotrijebi globalnu zadanu vrijednost (pitaj)</translation>
 <translation id="8042918947222776840">Odaberite način preuzimanja</translation>
 <translation id="8057711352706143257">Softver "<ph name="SOFTWARE_NAME" />" nije ispravno konfiguriran. Taj se problem obično rješava deinstaliranjem softvera "<ph name="SOFTWARE_NAME" />". <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Želite li ponovo učitati web-lokaciju?</translation>
 <translation id="8088680233425245692">Prikaz članka nije uspio.</translation>
 <translation id="8091372947890762290">Aktivacija je na čekanju na poslužitelju</translation>
 <translation id="8094917007353911263">Za mrežu koju upotrebljavate možda ćete morati posjetiti stranicu <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -924,6 +973,7 @@
 <translation id="8201077131113104583">Nevažeći URL ažuriranja za proširenje s ID-om "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Sažetak narudžbe</translation>
 <translation id="8205463626947051446">Web-lokacija često prikazuje ometajuće oglase</translation>
+<translation id="8211406090763984747">Veza je sigurna</translation>
 <translation id="8218327578424803826">Dodijeljena lokacija:</translation>
 <translation id="8225771182978767009">Osoba koja je postavila računalo blokirala je tu web-lokaciju.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

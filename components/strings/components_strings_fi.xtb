@@ -371,6 +371,51 @@
 <translation id="3583757800736429874">&amp;Toista siirto</translation>
 <translation id="3586931643579894722">Piilota lisätiedot</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Yhteysvirheiden korjaaminen&lt;/h1&gt;
+    &lt;p&gt;Kokeile näitä keinoja, jos näet virheilmoituksen yrittäessäsi siirtyä verkkosivustolle.&lt;/p&gt;
+    &lt;h2&gt;Useimpien yhteysvirheiden korjaaminen&lt;/h2&gt;
+    &lt;p&gt;Jos verkkosivuston avaaminen ei onnistu, kokeile ensin seuraavia vianetsintäkeinoja:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Tarkista verkko-osoitteen oikeinkirjoitus.&lt;/li&gt;
+    &lt;li&gt;Varmista, että internetyhteytesi toimii.&lt;/li&gt;
+    &lt;li&gt;Ota yhteyttä verkkosivuston omistajaan.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Tiettyjä virheviestejä koskevat ohjeet&lt;/h2&gt;
+    &lt;h3&gt;Yhteytesi ei ole salattu, NET::ERR_CERT_AUTHORITY_INVALID, ERR_CERT_COMMON_NAME_INVALID, NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM tai SSL-varmennevirhe&lt;/h3&gt;
+    &lt;h4&gt;Vaihe 1: Kirjaudu sisään portaaliin&lt;/h4&gt;
+    &lt;p&gt;Kahviloiden, lentokenttien ja joidenkin muiden paikkojen Wi-Fi-verkot voivat edellyttää kirjautumista. Avaa kirjautumissivu siirtymällä sivulle, jonka osoitteessa on &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Siirry mille tahansa &lt;code&gt;http://&lt;/code&gt;-alkuiselle sivustolle, esim. &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Kirjaudu sisään avautuvalla sivulla, niin voit käyttää internetiä.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Vaihe 2: Avaa sivu incognito-tilassa (vain tietokoneella)&lt;/h4&gt;
+    &lt;p&gt;Avaa incognito-ikkunassa sivu, jolla olit.&lt;/p&gt;
+    &lt;p&gt;Jos sivu avautuu, ongelman aiheuttaa Chromen laajennus. Korjaa virhe poistamalla laajennus käytöstä.&lt;/p&gt;
+    &lt;h4&gt;Vaihe 3: Päivitä käyttöjärjestelmä&lt;/h4&gt;
+    &lt;p&gt;Varmista, että laitteesi käyttöjärjestelmä on ajan tasalla.&lt;/p&gt;
+    &lt;h4&gt;Vinkki 4: Poista virustorjuntaohjelmisto käytöstä väliaikaisesti&lt;/h4&gt;
+    &lt;p&gt;Näet tämän virheen, jos käyttämäsi virustorjuntaohjelmiston HTTPS-suojaus tai HTTPS-skannaus estää Chromen tietoturvatoimintojen käytön.&lt;/p&gt;
+    &lt;p&gt;Voit korjata ongelman poistamalla virustorjuntaohjelmiston käytöstä. Jos sivu toimii ohjelmiston sammuttamisen jälkeen, poista ohjelmisto käytöstä turvallisilla sivustoilla.&lt;/p&gt;
+    &lt;p&gt;Kun olet valmis, muista ottaa virustorjuntaohjelmistosi taas käyttöön.&lt;/p&gt;
+    &lt;h4&gt;Vaihe 5: Pyydä lisäapua&lt;/h4&gt;
+    &lt;p&gt;Jos näet edelleen virheen, ota yhteyttä verkkosivuston omistajaan.&lt;/p&gt;
+    &lt;h3&gt;Yhdistä verkkoon&lt;/h3&gt;
+    &lt;p&gt;Näet tämän virheen, jos käyttämäsi Wi-Fi-portaali edellyttää kirjautumista ennen verkon käyttöä.&lt;/p&gt;
+    &lt;p&gt;Korjaa ongelma valitsemalla &lt;strong&gt;Yhdistä&lt;/strong&gt; sivulla, jota yrität avata.&lt;/p&gt;
+    &lt;h3&gt;Kellosi jätättää, Kellosi edistää tai NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Näet tämän virheen, jos tietokoneen tai mobiililaitteen päivämäärä ja aika ovat virheellisiä.&lt;/p&gt;
+    &lt;p&gt;Korjaa ongelma avaamalla laitteen kello ja varmistamalla, että päivämäärä ja aika ovat oikein.&lt;/p&gt;
+    &lt;h3&gt;Tietokoneelle asennettu ohjelmisto estää Chromea muodostamasta turvallista yhteyttä verkkoon (vain Windows-tietokoneilla)&lt;/h3&gt;
+    &lt;p&gt;Näet tämän virheen, jos Windows-tietokoneellesi on asennettu Superfish-ohjelmisto.&lt;/p&gt;
+    &lt;p&gt;Voit poistaa ohjelmiston väliaikaisesti käytöstä ja päästä verkkoon noudattamalla näitä ohjeita. Ne edellyttävät järjestelmänvalvojan käyttöoikeuksia.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Valitse &lt;strong&gt;Käynnistä&lt;/strong&gt;, etsi &lt;strong&gt;Näytä paikalliset palvelut&lt;/strong&gt; ja valitse se.
+    &lt;li&gt;Valitse &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;Valitse &lt;strong&gt;Käynnistystapa&lt;/strong&gt;-kohdasta &lt;strong&gt;Ei käytössä&lt;/strong&gt;.
+    &lt;li&gt;Valitse &lt;strong&gt;Palvelun tila&lt;/strong&gt; ‑kohdasta &lt;strong&gt;Pysäytä&lt;/strong&gt;.
+    &lt;li&gt;Valitse &lt;strong&gt;Käytä&lt;/strong&gt; ja sitten &lt;strong&gt;OK&lt;/strong&gt;.
+    &lt;li&gt;Saat ohjeita ohjelmiston pysyvään poistamiseen tietokoneelta &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chromen ohjekeskuksesta&lt;/a&gt;.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Anna kelvollinen viimeinen voimassaolopäivä.</translation>
 <translation id="36224234498066874">Poista selaustiedot...</translation>
 <translation id="362276910939193118">Näytä koko selaushistoria</translation>
@@ -805,6 +850,7 @@
 <translation id="7275334191706090484">Hallinnoidut kirjanmerkit</translation>
 <translation id="7298195798382681320">Suositus</translation>
 <translation id="7309308571273880165">Kaatumisraportti tallennettu <ph name="CRASH_TIME" /> (käyttäjä pyysi latausta, ei vielä ladattu)</translation>
+<translation id="7320336641823683070">Yhteysohjeet</translation>
 <translation id="7334320624316649418">&amp;Toista uudelleenjärjestely</translation>
 <translation id="733923710415886693">Palvelimen varmenteesta ei ole saatu Certificate Transparencyn vaatimia tietoja.</translation>
 <translation id="7353601530677266744">Komentorivi</translation>
@@ -889,6 +935,7 @@
 <translation id="782886543891417279">Käyttämäsi Wi-Fi (<ph name="WIFI_NAME" />) saattaa edellyttää kirjautumista.</translation>
 <translation id="785549533363645510">Et ole kuitenkaan näkymätön. Incognito-tilan käyttäminen ei kätke selaamistasi työnantajaltasi, internetpalveluntarjoajaltasi tai käyttämiltäsi sivustoilta.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Poistutaanko sivustolta?</translation>
 <translation id="7878176543348854470">Maksu- ja prepaid-kortit hyväksytään.</translation>
 <translation id="7878562273885520351">Salasanasi on saattanut vaarantua.</translation>
 <translation id="7887683347370398519">Tarkista CVC ja yritä uudelleen.</translation>
@@ -911,6 +958,7 @@
 <translation id="8041940743680923270">Käytä yleistä oletusasetusta (kysy)</translation>
 <translation id="8042918947222776840">Valitse noutotapa</translation>
 <translation id="8057711352706143257"><ph name="SOFTWARE_NAME" /> on määritetty virheellisesti. Ongelma korjaantuu yleensä, jos <ph name="SOFTWARE_NAME" /> poistetaan. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Ladataanko sivusto uudelleen?</translation>
 <translation id="8088680233425245692">Artikkelin näyttäminen epäonnistui.</translation>
 <translation id="8091372947890762290">Aktivointi odottaa palvelimella</translation>
 <translation id="8094917007353911263">Käyttämäsi verkko saattaa edellyttää vierailua osoitteessa <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -926,6 +974,7 @@
 <translation id="8201077131113104583">Laajennuksella, jonka tunnus on <ph name="EXTENSION_ID" />, on virheellinen päivitys-URL-osoite.</translation>
 <translation id="8202097416529803614">Tilauksen yhteenveto</translation>
 <translation id="8205463626947051446">Sivusto näyttää häiritseviä mainoksia.</translation>
+<translation id="8211406090763984747">Yhteys on turvallinen</translation>
 <translation id="8218327578424803826">Määrätty sijainti:</translation>
 <translation id="8225771182978767009">Tämän tietokoneen määrittänyt henkilö on estänyt tämän sivuston.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

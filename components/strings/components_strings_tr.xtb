@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">Taşımayı &amp;Yeniden Yap</translation>
 <translation id="3586931643579894722">Ayrıntıları gizle</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Bağlantı hatalarını düzeltme&lt;/h1&gt;
+    &lt;p&gt;Bir web sitesini ziyaret etmeye çalıştığınızda hata mesajı alıyorsanız burada belirtilen düzeltmeleri deneyin.&lt;/p&gt;
+    &lt;h2&gt;Bağlantı hatalarının çoğunu düzeltme&lt;/h2&gt;
+    &lt;p&gt;Bir web sitesini ziyaret etmeye çalıştığınızda site açılmıyorsa, sorunu düzeltmek için ilk olarak aşağıdaki sorun giderme adımlarını deneyin:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Web adresinde yazım hatası olup olmadığını kontrol edin.&lt;/li&gt;
+    &lt;li&gt;İnternet bağlantınızın normal bir şekilde çalıştığından emin olun.&lt;/li&gt;
+    &lt;li&gt;Web sitesinin sahibiyle iletişim kurun.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Belirli bir hata mesajıyla ilgili yardım alma&lt;/h2&gt;
+    &lt;h3&gt;"Bağlantınız gizli değil", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" veya "SSL sertifikası hatası"&lt;/h3&gt;
+    &lt;h4&gt;1. Adım: Portalda oturum açın&lt;/h4&gt;
+    &lt;p&gt;Kafe veya havaalanı gibi yerlerdeki kablosuz ağlar sizden oturum açmanızı ister. Oturum açma sayfasını görmek için &lt;code&gt;http://&lt;/code&gt; kullanan bir sayfayı ziyaret edin.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;&lt;code&gt;http://&lt;/code&gt; ile başlayan herhangi bir web sitesine (örneğin, &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;) gidin.&lt;/li&gt;
+    &lt;li&gt;Karşınıza gelen oturum açma sayfasında oturum açarak interneti kullanmaya başlayın.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2. Adım: Sayfayı Gizli modda açın (sadece bilgisayar)&lt;/h4&gt;
+    &lt;p&gt;Ziyaret etmekte olduğunuz sayfayı Gizli pencerede açın.&lt;/p&gt;
+    &lt;p&gt;Sayfa açılırsa bir Chrome uzantısı düzgün çalışmıyor demektir. Hatayı düzeltmek için uzantıyı kapatın.&lt;/p&gt;
+    &lt;h4&gt;3. Adım: İşletim sisteminizi güncelleyin&lt;/h4&gt;
+    &lt;p&gt;Cihazınızın güncel olduğundan emin olun.&lt;/p&gt;
+    &lt;h4&gt;4. Adım: Virüsten koruma yazılımınızı geçici olarak kapatın&lt;/h4&gt;
+    &lt;p&gt;"HTTPS koruması" veya "HTTPS taraması" sağlayan bir virüsten koruma yazılımı kullanıyorsanız bu hatayı görürsünüz. Virüsten koruma yazılımı, Chrome'un güvenlik işlevini engeller.&lt;/p&gt;
+    &lt;p&gt;Sorunu çözmek için virüsten koruma yazılımınızı kapatın. Yazılım kapandıktan sonra sayfa çalışıyorsa, güvenli siteleri kullanacağınız zaman bu yazılımı kapatın.&lt;/p&gt;
+    &lt;p&gt;İşiniz bittiğinde virüsten koruma programınızı tekrar açmayı unutmayın.&lt;/p&gt;
+    &lt;h4&gt;5. Adım: Daha fazla yardım alın&lt;/h4&gt;
+    &lt;p&gt;Hatayı görmeye devam ederseniz web sitesi sahibiyle iletişime geçin.&lt;/p&gt;
+    &lt;h3&gt;"Ağa bağlanın"&lt;/h3&gt;
+    &lt;p&gt;İnternete girmek için oturum açmanızı gerektiren bir kablosuz portal kullanıyorsanız bu hatayı görürsünüz.&lt;/p&gt;
+    &lt;p&gt;Hatayı gidermek için, açmaya çalıştığınız sayfada &lt;strong&gt;Bağlan&lt;/strong&gt;'ı tıklayın.&lt;/p&gt;
+    &lt;h3&gt;"Saatiniz geri", "Saatiniz ileri" veya Net::ERR_CERT_DATE_INVALID&lt;/h3&gt;
+    &lt;p&gt;Bilgisayarınızın veya mobil cihazınızın tarihi ve saati doğru değilse bu hatayı görürsünüz.&lt;/p&gt;
+    &lt;p&gt;Hatayı gidermek için cihazınızın saatini açın. Saat ve tarih ayarının doğru olduğundan emin olun.&lt;/p&gt;
+    &lt;h3&gt;"Bilgisayarınızdaki yazılım, Chrome'un web'e güvenli bir şekilde bağlanmasını engelliyor" (yalnızca Windows bilgisayarlar)&lt;/h3&gt;
+    &lt;p&gt;Windows bilgisayarınızda Superfish yazılımı varsa bu hatayı görürsünüz.&lt;/p&gt;
+    &lt;p&gt;Web'e ulaşabilmeniz amacıyla yazılımı geçici olarak devre dışı bırakmak için bu adımları uygulayın. Bu adımları gerçekleştirmek için yönetici ayrıcalıklarınızın olması gerekir.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;&lt;strong&gt;Başlat&lt;/strong&gt;'ı tıklayın, ardından &lt;strong&gt;"Yerel hizmetleri görüntüle"&lt;/strong&gt;yi arayın ve seçin
+    &lt;li&gt;&lt;strong&gt;VisualDiscovery&lt;/strong&gt;'yi seçin
+    &lt;li&gt;&lt;strong&gt;Başlatma türü&lt;/strong&gt;'nün altında &lt;strong&gt;Devre dışı&lt;/strong&gt;'nı seçin
+    &lt;li&gt;&lt;strong&gt;Hizmet durumu&lt;/strong&gt;'nun altında &lt;strong&gt;Durdur&lt;/strong&gt;'u seçin
+    &lt;li&gt;&lt;strong&gt;Uygula&lt;/strong&gt;'yı, ardından &lt;strong&gt;Tamam&lt;/strong&gt;'ı tıklayın
+    &lt;li&gt;Yazılımı bilgisayarınızdan kalıcı olarak nasıl kaldıracağınızı öğrenmek için &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome yardım merkezini&lt;/a&gt; ziyaret edin
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Geçerli bir son kullanma tarihi girin</translation>
 <translation id="36224234498066874">Göz Atma Verilerini Temizle...</translation>
 <translation id="362276910939193118">Tam Geçmişi Göster</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Yönetilen Yer İşaretleri</translation>
 <translation id="7298195798382681320">Önerilenler</translation>
 <translation id="7309308571273880165">Kilitlenme raporu yakalandı (<ph name="CRASH_TIME" />) (yükleme kullanıcı tarafından istendi, ancak henüz yüklenmedi)</translation>
+<translation id="7320336641823683070">Bağlantı Yardımı</translation>
 <translation id="7334320624316649418">Sıralama değişikliğini &amp;yeniden yap</translation>
 <translation id="733923710415886693">Sunucunun sertifikası, Sertifika Şeffaflığı aracılığıyla açıklanmadı.</translation>
 <translation id="7353601530677266744">Komut Satırı</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">Kullandığınız kablosuz bağlantı ağı (<ph name="WIFI_NAME" />) giriş sayfasını ziyaret etmenizi gerektiriyor olabilir.</translation>
 <translation id="785549533363645510">Ancak görünmez olmazsınız. Gizli moda geçmek göz atma etkinliğinizi işvereninizden, İnternet servis sağlayıcınızdan veya ziyaret ettiğiniz web sitelerinden gizlemez.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Siteden çıkılsın mı?</translation>
 <translation id="7878176543348854470">Banka kartları ve ön ödemeli kartlar kabul edilir.</translation>
 <translation id="7878562273885520351">Şifrenizin güvenliği ihlal edilmiş olabilir</translation>
 <translation id="7887683347370398519">CVC'nizi kontrol edin ve tekrar deneyin</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Genel varsayılanı kullan (Sor)</translation>
 <translation id="8042918947222776840">Alma Yöntemi Seç</translation>
 <translation id="8057711352706143257">"<ph name="SOFTWARE_NAME" />" doğru şekilde yapılandırılmamış. Genellikle "<ph name="SOFTWARE_NAME" />" kaldırıldığında sorun çözülür. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Site yeniden yüklensin mi?</translation>
 <translation id="8088680233425245692">Makale görüntülenemedi.</translation>
 <translation id="8091372947890762290">Etkinleştirme sunucuda bekliyor</translation>
 <translation id="8094917007353911263">Kullandığınız ağ <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> adresini ziyaret etmenizi gerektiriyor olabilir.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">"<ph name="EXTENSION_ID" />" kodlu uzantı için geçersiz güncelleme URL'si.</translation>
 <translation id="8202097416529803614">Sipariş özeti</translation>
 <translation id="8205463626947051446">Site, araya giren reklamlar gösterme eğiliminde</translation>
+<translation id="8211406090763984747">Bağlantı güvenli</translation>
 <translation id="8218327578424803826">Atanan Konum:</translation>
 <translation id="8225771182978767009">Bu bilgisayarı kuran kişi bu siteyi engellemeyi seçmiş.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

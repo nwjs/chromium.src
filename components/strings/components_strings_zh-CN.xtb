@@ -368,6 +368,51 @@
 <translation id="3583757800736429874">恢复移动(&amp;R)</translation>
 <translation id="3586931643579894722">隐藏详细信息</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />，<ph name="DOMAIN" />，<ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;修正连接错误&lt;/h1&gt;
+    &lt;p&gt;如果您在尝试访问某个网站时收到了错误消息，请考虑尝试以下解决方法。&lt;/p&gt;
+    &lt;h2&gt;修正大多数连接错误&lt;/h2&gt;
+    &lt;p&gt;如果您尝试访问某个网站，但它未能正常打开，请先尝试按照下述问题排查步骤来修正该错误：&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;检查网址拼写是否有误。&lt;/li&gt;
+    &lt;li&gt;确保您的互联网连接正常。&lt;/li&gt;
+    &lt;li&gt;与网站所有者联系。&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;针对某条具体的错误消息获取相关帮助&lt;/h2&gt;
+    &lt;h3&gt;“您的连接不是私密连接”、“NET::ERR_CERT_AUTHORITY_INVALID”、“ERR_CERT_COMMON_NAME_INVALID”、“NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM”或“SSL 证书错误”&lt;/h3&gt;
+    &lt;h4&gt;第 1 步：登录门户&lt;/h4&gt;
+    &lt;p&gt;咖啡馆或机场等地方的 Wi-Fi 网络会要求用户进行登录。您只需随意访问一个采用 &lt;code&gt;http://&lt;/code&gt; 作为网址开头的网页，即可看到登录页面。&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;前往任一个采用 &lt;code&gt;http://&lt;/code&gt; 作为网址开头的网站，例如 &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;。&lt;/li&gt;
+    &lt;li&gt;在随即打开的登录页面中，登录以便使用互联网。&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;第 2 步：在无痕模式下打开该网页（仅限计算机）&lt;/h4&gt;
+    &lt;p&gt;在无痕式窗口中打开您在第 1 步中访问的那个网页。&lt;/p&gt;
+    &lt;p&gt;如果该页面顺利打开了，则说明某款 Chrome 扩展程序出现了异常。要想修正该错误，请关闭这款扩展程序。&lt;/p&gt;
+    &lt;h4&gt;第 3 步：更新您的操作系统&lt;/h4&gt;
+    &lt;p&gt;确保您的设备运行的是最新版操作系统。&lt;/p&gt;
+    &lt;h4&gt;第 4 步：暂时关闭您的防病毒软件&lt;/h4&gt;
+    &lt;p&gt;如果您安装了可提供“HTTPS 保护”或“HTTPS 扫描”功能的防病毒软件，您就会看到这条错误消息。此类防病毒软件会阻止 Chrome 提供安全保护。&lt;/p&gt;
+    &lt;p&gt;要想解决该问题，请关闭您的防病毒软件。如果关闭防病毒软件后该网页可以正常打开，那么当您使用安全网站时，请一定关闭此软件。&lt;/p&gt;
+    &lt;p&gt;事后请记得要重新开启您的防病毒程序。&lt;/p&gt;
+    &lt;h4&gt;第 5 步：获取额外帮助&lt;/h4&gt;
+    &lt;p&gt;如果您仍会看到这条错误消息，请与网站所有者联系。&lt;/p&gt;
+    &lt;h3&gt;“连接到网络”&lt;/h3&gt;
+    &lt;p&gt;如果您正在使用一个要求用户必须登录才能访问互联网的 Wi-Fi 门户，您就会看到这条错误消息。&lt;/p&gt;
+    &lt;p&gt;要想修正该错误，请在您尝试打开的网页上点击&lt;strong&gt;连接&lt;/strong&gt;。&lt;/p&gt;
+    &lt;h3&gt;“您的时钟慢了”、“您的时钟快了”或“NET::ERR_CERT_DATE_INVALID”&lt;/h3&gt;
+    &lt;p&gt;如果您的计算机或移动设备的日期与时间不准确，您就会看到这条错误消息。&lt;/p&gt;
+    &lt;p&gt;要想修正该错误，请打开您设备的时钟，并确保日期与时间正确无误。&lt;/p&gt;
+    &lt;h3&gt;“您计算机上的软件导致 Chrome 无法安全地连接到网络”（仅限 Windows 计算机）&lt;/h3&gt;
+    &lt;p&gt;如果您的 Windows 计算机上装有 SuperFish 软件，您就会看到这条错误消息。&lt;/p&gt;
+    &lt;p&gt;按照下述步骤操作可临时停用此软件，以便您能够连接到网络。您需要拥有管理员权限才能执行下列操作。&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;点击&lt;strong&gt;开始&lt;/strong&gt;，然后搜索并选择&lt;strong&gt;“查看本地服务”&lt;/strong&gt;
+    &lt;li&gt;选择 &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;在&lt;strong&gt;启动类型&lt;/strong&gt;下方，选择&lt;strong&gt;停用&lt;/strong&gt;
+    &lt;li&gt;在&lt;strong&gt;服务状态&lt;/strong&gt;下方，点击&lt;strong&gt;停止&lt;/strong&gt;
+    &lt;li&gt;依次点击&lt;strong&gt;应用&lt;/strong&gt;和&lt;strong&gt;确定&lt;/strong&gt;
+    &lt;li&gt;访问 &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome 帮助中心&lt;/a&gt;，了解如何从您的计算机中永久地移除此软件
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">请输入有效的失效日期</translation>
 <translation id="36224234498066874">清除浏览数据...</translation>
 <translation id="362276910939193118">显示所有历史记录</translation>
@@ -800,6 +845,7 @@
 <translation id="7275334191706090484">受管理的书签</translation>
 <translation id="7298195798382681320">推荐</translation>
 <translation id="7309308571273880165">崩溃报告获取时间：<ph name="CRASH_TIME" />（用户已请求上传，但尚未上传）</translation>
+<translation id="7320336641823683070">与连接相关的帮助</translation>
 <translation id="7334320624316649418">恢复顺序调整(&amp;R)</translation>
 <translation id="733923710415886693">该服务器的证书未通过证书透明度政策进行披露。</translation>
 <translation id="7353601530677266744">命令行</translation>
@@ -884,6 +930,7 @@
 <translation id="782886543891417279">您要使用的 Wi-Fi 网络（<ph name="WIFI_NAME" />）可能需要您访问其登录页面。</translation>
 <translation id="785549533363645510">但是，这并不意味着您能完全隐身。即使您进入隐身模式，您的雇主、互联网服务提供商和您访问的网站仍然能看到您的浏览活动。</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">离开此网站？</translation>
 <translation id="7878176543348854470">接受借记卡和预付卡。</translation>
 <translation id="7878562273885520351">您的密码可能会被盗用</translation>
 <translation id="7887683347370398519">请检查您的银行卡验证码 (CVC)，然后重试</translation>
@@ -906,6 +953,7 @@
 <translation id="8041940743680923270">使用全局默认设置（询问）</translation>
 <translation id="8042918947222776840">选择取货方式</translation>
 <translation id="8057711352706143257">“<ph name="SOFTWARE_NAME" />”的配置有误。卸载“<ph name="SOFTWARE_NAME" />”通常可解决此问题。<ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">重新加载此网站？</translation>
 <translation id="8088680233425245692">无法查看文章。</translation>
 <translation id="8091372947890762290">正等待在服务器上激活</translation>
 <translation id="8094917007353911263">您要使用的网络可能需要您访问 <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />。</translation>
@@ -921,6 +969,7 @@
 <translation id="8201077131113104583">ID 为“<ph name="EXTENSION_ID" />”的扩展程序的更新网址无效。</translation>
 <translation id="8202097416529803614">订单摘要</translation>
 <translation id="8205463626947051446">网站常常会展示侵扰性广告</translation>
+<translation id="8211406090763984747">连接是安全的</translation>
 <translation id="8218327578424803826">分配的位置：</translation>
 <translation id="8225771182978767009">设置此计算机的用户已选择屏蔽此网站。</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />、<ph name="TYPE_2" /></translation>

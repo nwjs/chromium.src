@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Rétablir le déplacement</translation>
 <translation id="3586931643579894722">Masquer les détails</translation>
 <translation id="3600246354004376029">"<ph name="TITLE" />", <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Corriger les erreurs de connexion&lt;/h1&gt;
+    &lt;p&gt;Si un message d'erreur s'affiche lorsque vous tentez de consulter un site Web, essayez les solutions proposées ci-dessous.&lt;/p&gt;
+    &lt;h2&gt;Résoudre la plupart des erreurs de connexion&lt;/h2&gt;
+    &lt;p&gt;Si vous ne parvenez pas à ouvrir un site Web dans Chrome, essayez d'abord de corriger le problème en suivant ces étapes :&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Assurez-vous que l'adresse Web ne contient pas de fautes de frappe.&lt;/li&gt;
+    &lt;li&gt;Vérifiez si votre connexion Internet fonctionne correctement.&lt;/li&gt;
+    &lt;li&gt;Contactez le propriétaire du site Web.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Obtenir de l'aide pour un message d'erreur spécifique&lt;/h2&gt;
+    &lt;h3&gt;"Votre connexion n'est pas privée", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" ou "Erreur de certificat SSL"&lt;/h3&gt;
+    &lt;h4&gt;Étape 1 : Connectez-vous au portail&lt;/h4&gt;
+    &lt;p&gt;Pour utiliser les réseaux Wi-Fi de lieux publics tels que les cafés ou les aéroports, vous devez vous connecter. Pour afficher la page de connexion, accédez à une page dont l'URL contient &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Accédez à n'importe quel site Web dont l'adresse commence par &lt;code&gt;http://&lt;/code&gt;, telle que &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Sur la page de connexion qui s'affiche, connectez-vous pour utiliser Internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Étape 2 : Ouvrez la page en mode navigation privée (ordinateur uniquement)&lt;/h4&gt;
+    &lt;p&gt;Ouvrez la page que vous consultiez dans une fenêtre de navigation privée.&lt;/p&gt;
+    &lt;p&gt;Si la page s'affiche, cela signifie qu'une extension Chrome ne fonctionne pas correctement. Pour corriger cette erreur, désactivez l'extension en question.&lt;/p&gt;
+    &lt;h4&gt;Étape 3 : Mettez à jour votre système d'exploitation&lt;/h4&gt;
+    &lt;p&gt;Assurez-vous que votre appareil est à jour.&lt;/p&gt;
+    &lt;h4&gt;Étape 4 : Désactivez temporairement votre logiciel antivirus&lt;/h4&gt;
+    &lt;p&gt;Ce message s'affiche si vous avez un logiciel antivirus qui fournit une "protection HTTPS" ou une "analyse HTTPS" bloquant la fonctionnalité de sécurité de Chrome.&lt;/p&gt;
+    &lt;p&gt;Pour corriger cette erreur, désactivez votre logiciel antivirus. Si la page fonctionne à la suite de cette opération, désactivez ce logiciel lorsque vous utilisez des sites sécurisés.&lt;/p&gt;
+    &lt;p&gt;Pensez ensuite à réactiver votre logiciel antivirus.&lt;/p&gt;
+    &lt;h4&gt;Étape 5 : Obtenez de l'aide supplémentaire&lt;/h4&gt;
+    &lt;p&gt;Si le message d'erreur s'affiche toujours, contactez le propriétaire du site.&lt;/p&gt;
+    &lt;h3&gt;"Se connecter au réseau"&lt;/h3&gt;
+    &lt;p&gt;Ce message s'affiche si vous utilisez un portail Wi-Fi auquel vous devez vous connecter pour accéder à Internet.&lt;/p&gt;
+    &lt;p&gt;Pour corriger cette erreur, cliquez sur &lt;strong&gt;Connexion&lt;/strong&gt; sur la page que vous essayez d'ouvrir.&lt;/p&gt;
+    &lt;h3&gt;"Votre horloge est en retard", "Votre horloge est en avance" ou "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Ce message s'affiche si la date et l'heure de votre ordinateur ou de votre appareil mobile sont incorrectes.&lt;/p&gt;
+    &lt;p&gt;Pour corriger cette erreur, ouvrez l'horloge de votre appareil et assurez-vous que l'heure et la date sont correctes.&lt;/p&gt;
+    &lt;h3&gt;"Un logiciel installé sur votre ordinateur empêche Chrome de se connecter au Web de manière sécurisée" (sous Windows uniquement)&lt;/h3&gt;
+    &lt;p&gt;Ce message d'erreur s'affiche si le logiciel Superfish est installé sur votre ordinateur Windows.&lt;/p&gt;
+    &lt;p&gt;Suivez ces étapes pour désactiver temporairement le logiciel afin d'accéder au Web. Vous devez disposer des droits d'administrateur.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Cliquez sur &lt;strong&gt;Démarrer&lt;/strong&gt;, puis recherchez et sélectionnez l'option &lt;strong&gt;Afficher les services locaux&lt;/strong&gt;
+    &lt;li&gt;Sélectionnez &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Sous &lt;strong&gt;Type de démarrage&lt;/strong&gt;, sélectionnez &lt;strong&gt;Désactivé&lt;/strong&gt;
+    &lt;li&gt;Sous &lt;strong&gt;État du service&lt;/strong&gt;, cliquez sur &lt;strong&gt;Arrêter&lt;/strong&gt;
+    &lt;li&gt;Cliquez sur &lt;strong&gt;Appliquer&lt;/strong&gt;, puis sur &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Accédez au &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centre d'aide Chrome&lt;/a&gt; pour découvrir comment supprimer définitivement le logiciel de votre ordinateur
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Saisissez une date d'expiration valide</translation>
 <translation id="36224234498066874">Effacer les données de navigation...</translation>
 <translation id="362276910939193118">Afficher l'historique complet</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Favoris gérés</translation>
 <translation id="7298195798382681320">Recommandé</translation>
 <translation id="7309308571273880165">Rapport d'erreur enregistré le <ph name="CRASH_TIME" /> (importation demandée par l'utilisateur, mais non effectuée)</translation>
+<translation id="7320336641823683070">Aide à la connexion</translation>
 <translation id="7334320624316649418">&amp;Rétablir la réorganisation</translation>
 <translation id="733923710415886693">Le certificat du serveur n'a pas été communiqué tel que le prévoient les règles de transparence des certificats.</translation>
 <translation id="7353601530677266744">Ligne de commande</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">Pour utiliser ce réseau Wi-Fi (<ph name="WIFI_NAME" />), il est possible que vous deviez vous rendre sur la page de connexion correspondante.</translation>
 <translation id="785549533363645510">Cependant, cela ne vous rend pas invisible. Si vous passez en mode navigation privée, votre employeur, votre fournisseur d'accès à Internet ou les sites Web que vous consultez pourront toujours avoir accès à votre historique de navigation.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> : <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Quitter le site Web ?</translation>
 <translation id="7878176543348854470">Les cartes de débit et les cartes prépayées sont acceptées.</translation>
 <translation id="7878562273885520351">Votre mot de passe a peut-être été piraté</translation>
 <translation id="7887683347370398519">Veuillez vérifier votre code CVC et réessayer.</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Utiliser le paramètre global par défaut ("Demander")</translation>
 <translation id="8042918947222776840">Sélectionner un mode d'enlèvement</translation>
 <translation id="8057711352706143257">Le logiciel "<ph name="SOFTWARE_NAME" />" n'est pas configuré correctement. En général, la désinstallation de "<ph name="SOFTWARE_NAME" />" permet de remédier à la situation. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Actualiser le site Web ?</translation>
 <translation id="8088680233425245692">Échec de l'affichage de l'article.</translation>
 <translation id="8091372947890762290">Activation en attente sur le serveur.</translation>
 <translation id="8094917007353911263">Pour utiliser ce réseau, il est possible que deviez vous rendre sur la page <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">URL de mise à jour non valide pour l'extension associée à l'identifiant "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Récapitulatif de la commande</translation>
 <translation id="8205463626947051446">Le site a tendance à afficher des annonces intrusives</translation>
+<translation id="8211406090763984747">La connexion est sécurisée</translation>
 <translation id="8218327578424803826">Position attribuée :</translation>
 <translation id="8225771182978767009">La personne qui a configuré cet ordinateur a choisi de bloquer ce site.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

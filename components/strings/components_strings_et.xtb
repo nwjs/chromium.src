@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Teisalda uuesti</translation>
 <translation id="3586931643579894722">Peida üksikasjad</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Ühendusvigade parandamine&lt;/h1&gt;
+    &lt;p&gt;Kui teile kuvatakse veebisaidi külastamisel veateade, proovige neid lahendusi.&lt;/p&gt;
+    &lt;h2&gt;Enamiku ühendusvigade parandamine&lt;/h2&gt;
+    &lt;p&gt;Kui üritate külastada veebisaiti ja see ei avane, proovige vea parandamiseks esmalt neid veaotsingu toiminguid.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Veenduge, et veebiaadressis poleks kirjavigu.&lt;/li&gt;
+    &lt;li&gt;Veenduge, et Interneti-ühendus töötaks tavapäraselt.&lt;/li&gt;
+    &lt;li&gt;Võtke ühendust veebisaidi omanikuga.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Konkreetse veateate puhul abi hankimine&lt;/h2&gt;
+    &lt;h3&gt;„Teie ühendus pole privaatne”, „NET::ERR_CERT_AUTHORITY_INVALID”, „ERR_CERT_COMMON_NAME_INVALID”, „NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM” või „SSL-sertifikaadi viga”&lt;/h3&gt;
+    &lt;h4&gt;1. toiming: logige portaali sisse&lt;/h4&gt;
+    &lt;p&gt;Näiteks kohvikutes või lennujaamades olevad WiFi-võrgud nõuavad teilt sisselogimist. Sisselogimislehe nägemiseks külastage lehte, mis kasutab protokolli &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Minge mis tahes veebisaidile, mis algab protokolliga &lt;code&gt;http://&lt;/code&gt; (nt &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;).&lt;/li&gt;
+    &lt;li&gt;Logige Interneti kasutamiseks sisse avaneval sisselogimislehel.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2. toiming: avage leht inkognito režiimis (ainult arvutis)&lt;/h4&gt;
+    &lt;p&gt;Avage külastatav leht inkognito aknas.&lt;/p&gt;
+    &lt;p&gt;Kui leht avaneb, ei tööta Chrome'i laiendus õigesti. Vea parandamiseks lülitage laiendus välja.&lt;/p&gt;
+    &lt;h4&gt;3. toiming: värskendage operatsioonisüsteemi&lt;/h4&gt;
+    &lt;p&gt;Veenduge, et teie seade oleks värskendatud.&lt;/p&gt;
+    &lt;h4&gt;4. toiming: lülitage viirusetõrjetarkvara ajutiselt välja&lt;/h4&gt;
+    &lt;p&gt;Seda viga näete siis, kui kasutate HTTPS-i kaitset või HTTPS-i skannimist pakkuvat viirusetõrjetarkvara. See takistab Chrome'il turvalise ühenduse loomist.&lt;/p&gt;
+    &lt;p&gt;Probleemi lahendamiseks lülitage viirusetõrjetarkvara välja. Kui leht pärast viirusetõrjetarkvara väljalülitamist töötab, lülitage see tarkvara turvaliste saitide külastamise ajaks välja.&lt;/p&gt;
+    &lt;p&gt;Kui olete lõpetanud, ärge unustage viirusetõrjeprogrammi uuesti sisse lülitada.&lt;/p&gt;
+    &lt;h4&gt;5. toiming: paluge lisaabi&lt;/h4&gt;
+    &lt;p&gt;Kui näete endiselt viga, võtke ühendust veebisaidi omanikuga.&lt;/p&gt;
+    &lt;h3&gt;„Looge võrguühendus”&lt;/h3&gt;
+    &lt;p&gt;Seda viga näete juhul, kui kasutate WiFi-portaali, mis nõuab enne võrguühenduse loomist sisselogimist.&lt;/p&gt;
+    &lt;p&gt;Vea parandamiseks klõpsake avataval lehel käsul &lt;strong&gt;Ühenda&lt;/strong&gt;.&lt;/p&gt;
+    &lt;h3&gt;„Teie kell on ajast maas”, „Teie kell on ajast ees” või „NET::ERR_CERT_DATE_INVALID”&lt;/h3&gt;
+    &lt;p&gt;Seda viga näete juhul, kui teie arvuti või mobiilseadme kuupäev ja kellaaeg pole õiged.&lt;/p&gt;
+    &lt;p&gt;Vea parandamiseks avage seadme kell. Veenduge, et kellaaeg ja kuupäev oleksid õiged.&lt;/p&gt;
+    &lt;h3&gt;„Teie arvutis olev tarkvara ei luba Chrome'il veebiga turvaliselt ühendust luua” (ainult Windowsi arvutid)&lt;/h3&gt;
+    &lt;p&gt;Kui näete seda viga, on teie Windowsi arvutis tarkvara Superfish.&lt;/p&gt;
+    &lt;p&gt;Tarkvara ajutiseks keelamiseks ja veebi pääsemiseks järgige neid toiminguid. Teil on vaja administraatoriõigusi.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Klõpsake valikul &lt;strong&gt;Start&lt;/strong&gt;, seejärel otsige üksust &lt;strong&gt;„View local services”&lt;/strong&gt; ja valige see.
+    &lt;li&gt;Tehke valik &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;Tehke jaotises &lt;strong&gt;Startup type&lt;/strong&gt; valik &lt;strong&gt;Disabled&lt;/strong&gt;.
+    &lt;li&gt;Klõpsake jaotises &lt;strong&gt;Service status&lt;/strong&gt; käsul &lt;strong&gt;Stop&lt;/strong&gt;.
+    &lt;li&gt;Klõpsake käsul &lt;strong&gt;Apply&lt;/strong&gt; ja siis nupul &lt;strong&gt;OK&lt;/strong&gt;.
+    &lt;li&gt;Külastage &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome'i abikeskust&lt;/a&gt;, kust leiate teavet selle kohta, kuidas tarkvara arvutist jäädavalt eemaldada.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Sisestage kehtiv aegumiskuupäev</translation>
 <translation id="36224234498066874">Sirvimisandmete kustutamine...</translation>
 <translation id="362276910939193118">Näita kogu ajalugu</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Hallatud järjehoidjad</translation>
 <translation id="7298195798382681320">Soovitatud</translation>
 <translation id="7309308571273880165">Krahhiaruanne jäädvustati ajal <ph name="CRASH_TIME" /> (kasutaja taotles üleslaadimist; pole veel üles laaditud)</translation>
+<translation id="7320336641823683070">Ühendamise abi</translation>
 <translation id="7334320624316649418">&amp;Korrasta uuesti</translation>
 <translation id="733923710415886693">Serveri sertifikaati ei avalikustatud sertifikaadi läbipaistvuse reegli kaudu.</translation>
 <translation id="7353601530677266744">Käsurida</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">WiFi-võrk, mida kasutate (<ph name="WIFI_NAME" />), võib nõuda sisselogimislehe külastamist.</translation>
 <translation id="785549533363645510">Te pole siiski nähtamatu. Inkognito režiimi kasutamine ei varja teie sirvimist tööandja, Interneti-teenuse pakkuja ega külastatavate veebisaitide eest.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Kas lahkuda saidilt?</translation>
 <translation id="7878176543348854470">Kaupmees aktsepteerib ettemakstud ja deebetkaarte.</translation>
 <translation id="7878562273885520351">Teie parool võib olla ohus</translation>
 <translation id="7887683347370398519">Kontrollige CVC-d ja proovige uuesti</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Kasuta globaalset vaikeseadet (küsi)</translation>
 <translation id="8042918947222776840">Valige kättesaamisviis</translation>
 <translation id="8057711352706143257">Tarkvara „<ph name="SOFTWARE_NAME" />” ei ole õigesti seadistatud. Tarkvara „<ph name="SOFTWARE_NAME" />” desinstallimine lahendab tavaliselt probleemi. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Kas laadida sait uuesti?</translation>
 <translation id="8088680233425245692">Artikli kuvamine ebaõnnestus.</translation>
 <translation id="8091372947890762290">Aktiveerimine on serveris ootel</translation>
 <translation id="8094917007353911263">Võrk, mida kasutate, võib nõuda veebilehe <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> külastamist.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">ID-ga „<ph name="EXTENSION_ID" />” laienduse kehtetu värskendamise URL.</translation>
 <translation id="8202097416529803614">Tellimuse kokkuvõte</translation>
 <translation id="8205463626947051446">Sait näitab sekkuvaid reklaame</translation>
+<translation id="8211406090763984747">Ühendus on turvaline</translation>
 <translation id="8218327578424803826">Määratud asukoht:</translation>
 <translation id="8225771182978767009">Arvuti seadistanud inimene blokeeris selle saidi.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

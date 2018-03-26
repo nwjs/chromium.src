@@ -370,6 +370,52 @@
 <translation id="3583757800736429874">&amp;ביצוע מחדש של העברה</translation>
 <translation id="3586931643579894722">הסתר פרטים</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">‏&lt;h1&gt;פתרון שגיאות חיבור&lt;/h1&gt;
+    &lt;p&gt;אם מופיעה הודעת שגיאה כשמנסים להיכנס לאתר כלשהו, אפשר לנסות את הפתרונות הבאים.&lt;/p&gt;
+    &lt;h2&gt;איך לפתור את רוב שגיאות החיבור&lt;/h2&gt;
+    &lt;p&gt;אם מנסים להיכנס לאתר והוא לא נפתח, קודם צריך לנסות את השלבים הבאים כדי לפתור את הבעיה:
+&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;בודקים אם יש שגיאות הקלדה בכתובת האתר.&lt;/li&gt;
+    &lt;li&gt;מוודאים שהחיבור לאינטרנט תקין.&lt;/li&gt;
+    &lt;li&gt;פונים אל הבעלים של האתר.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;עזרה לגבי הודעות שגיאה ספציפיות&lt;/h2&gt;
+    &lt;h3&gt;"החיבור שלך אינו פרטי" או "NET::ERR_CERT_AUTHORITY_INVALID" או "ERR_CERT_COMMON_NAME_INVALID" או "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" או "שגיאת אישור SSL"&lt;/h3&gt;
+    &lt;h4&gt;שלב ראשון: כניסה לפורטל&lt;/h4&gt;
+    &lt;p&gt;כדי להשתמש ברשתות Wi-Fi במקומות כמו בתי קפה ושדות תעופה צריך להיכנס לפורטל ייעודי. כדי לראות את דף הכניסה צריך להיכנס לדף שהכתובת שלו מתחילה ב-&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;עוברים לאתר כלשהו שהכתובת שלו מתחילה ב-&lt;code&gt;http://&lt;/code&gt;, כמו &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;בדף הכניסה שנפתח, מזינים את פרטי הכניסה כדי להשתמש באינטרנט.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;שלב שני: פתיחת הדף במצב גלישה בסתר (מחשבים בלבד)&lt;/h4&gt;
+    &lt;p&gt;פותחים את הדף שאליו רוצים להיכנס בחלון גלישה בסתר.&lt;/p&gt;
+    &lt;p&gt;אם הדף הנפתח, יש בעיה בתוסף של Chrome. כדי לפתור את השגיאה צריך להשבית את התוסף.&lt;/p&gt;
+    &lt;h4&gt;שלב שלישי: עדכון מערכת ההפעלה&lt;/h4&gt;
+    &lt;p&gt;מוודאים שמערכת ההפעלה במכשיר מעודכנת.&lt;/p&gt;
+    &lt;h4&gt;שלב רביעי: השבתה זמנית של האנטי-וירוס&lt;/h4&gt;
+    &lt;p&gt;השגיאה זו תוצג אם במחשב מותקנת תוכנת אנטי-וירוס שמספקת "הגנת HTTPS" או "סריקת HTTPS". תוכנת האנטי-וירוס מונעת מ-Chrome לספק אבטחה.&lt;/p&gt;
+    &lt;p&gt;כדי לפתור את הבעיה, יש לכבות את תוכנת האנטי-וירוס. אם הדף פועל לאחר כיבוי התוכנה, יש לכבות אותה בזמן השימוש באתרים מאובטחים.&lt;/p&gt;
+    &lt;p&gt;חשוב להפעיל שוב את האנטי-וירוס בסיום.&lt;/p&gt;
+    &lt;h4&gt;שלב חמישי: סיוע נוסף&lt;/h4&gt;
+    &lt;p&gt;אם השגיאה עדיין מופיעה, יש לפנות לבעלים של האתר.&lt;/p&gt;
+    &lt;h3&gt;"התחברות לרשת"&lt;/h3&gt;
+    &lt;p&gt;השגיאה הזו תוצג אם משתמשים בפורטל Wi-Fi שבו צריך להיכנס לחשבון לפני התחברות לרשת.&lt;/p&gt;
+    &lt;p&gt;כדי לפתור את השגיאה, צריך ללחוץ על &lt;strong&gt;התחברות&lt;/strong&gt; בדף שמנסים לפתוח.&lt;/p&gt;
+    &lt;h3&gt;"השעון מאחר" או "השעון ממהר" או "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;השגיאה הזו תוצג אם התאריך והשעה במחשב או בנייד אינם מדויקים.&lt;/p&gt;
+    &lt;p&gt;כדי לפתור את השגיאה צריך לפתוח את השעון של המכשיר ולוודא שהתאריך והשעה מדויקים.&lt;/p&gt;
+    &lt;h3&gt;"יש תוכנה במחשב שלך שמונעת מ-Chrome להתחבר באופן מאובטח אל האינטרנט" (רק מחשבי Windows)&lt;/h3&gt;
+    &lt;p&gt;השגיאה הזו מוצגת במחשב Windows אם מותקנת בו תוכנת Superfish.&lt;/p&gt;
+    &lt;p&gt;יש לבצע את השלבים הבאים על מנת להשבית את התוכנה באופן זמני, כדי להתחבר לאינטרנט. יש צורך בהרשאות מנהל.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;לוחצים על &lt;strong&gt;התחלה&lt;/strong&gt;, ולאחר מכן מחפשים את האפשרות &lt;strong&gt;"הצגת שירותים מקומיים"&lt;/strong&gt; ובוחרים בה
+    &lt;li&gt;בוחרים באפשרות &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;בקטע &lt;strong&gt;סוג הפעלה&lt;/strong&gt;, בוחרים באפשרות &lt;strong&gt;מושבת&lt;/strong&gt;
+    &lt;li&gt;בקטע &lt;strong&gt;סטטוס שירות&lt;/strong&gt;, לוחצים על &lt;strong&gt;עצירה&lt;/strong&gt;
+    &lt;li&gt;לוחצים על &lt;strong&gt;החלה&lt;/strong&gt; ואז על &lt;strong&gt;אישור&lt;/strong&gt;
+    &lt;li&gt;ב&lt;a href="https://support.google.com/chrome/answer/6098869"&gt;מרכז העזרה של Chrome&lt;/a&gt; מוסבר איך להסיר לצמיתות את התוכנה מהמחשב
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">עליך להזין תאריך תפוגה חוקי</translation>
 <translation id="36224234498066874">נקה נתוני גלישה...</translation>
 <translation id="362276910939193118">הצג את כל ההיסטוריה</translation>
@@ -809,6 +855,7 @@ Del</translation>
 <translation id="7275334191706090484">סימניות מנוהלות</translation>
 <translation id="7298195798382681320">מומלצים</translation>
 <translation id="7309308571273880165">דוח הקריסה תועד ב<ph name="CRASH_TIME" /> (המשתמש ביקש העלאה, הדוח עדיין לא הועלה)</translation>
+<translation id="7320336641823683070">עזרה בחיבור</translation>
 <translation id="7334320624316649418">&amp;ביצוע מחדש של שינוי סדר</translation>
 <translation id="733923710415886693">אישור השרת לא נחשף דרך 'שקיפות אישורים'.</translation>
 <translation id="7353601530677266744">שורת פקודה </translation>
@@ -893,6 +940,7 @@ Del</translation>
 <translation id="782886543891417279">‏ייתכן שתידרש להיכנס לדף ההתחברות של רשת ה-Wi-Fi שבה אתה משתמש (<ph name="WIFI_NAME" />).</translation>
 <translation id="785549533363645510">עם זאת, אינך בלתי נראה. המעבר למצב גלישה בסתר לא מסתיר את הגלישה שלך מהמעסיק, מספק האינטרנט או מהאתרים שאליהם אתה נכנס.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">לצאת מהאתר?</translation>
 <translation id="7878176543348854470">אפשר לשלם באמצעות כרטיסי חיוב וכרטיסים משולמים מראש.</translation>
 <translation id="7878562273885520351">ייתכן שאבטחת הסיסמה שלך נפגעה</translation>
 <translation id="7887683347370398519">‏בדוק את ה-CVC ונסה שוב</translation>
@@ -915,6 +963,7 @@ Del</translation>
 <translation id="8041940743680923270">השתמש בברירת המחדל הכללית (שאל)</translation>
 <translation id="8042918947222776840">בחירת שיטת איסוף</translation>
 <translation id="8057711352706143257">יש בעיה בהגדרה של "<ph name="SOFTWARE_NAME" />". בדרך כלל, הסרת ההתקנה של "<ph name="SOFTWARE_NAME" />" פותרת את הבעיה. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">לטעון את האתר מחדש?</translation>
 <translation id="8088680233425245692">הצגת הפריט נכשלה.</translation>
 <translation id="8091372947890762290">ההפעלה ממתינה בשרת</translation>
 <translation id="8094917007353911263">ייתכן שתידרש להיכנס ל-<ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> עבור הרשת שבה אתה משתמש.</translation>
@@ -930,6 +979,7 @@ Del</translation>
 <translation id="8201077131113104583">כתובת אתר לא חוקית לעדכון עבור תוסף עם המזהה "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">סיכום הזמנה</translation>
 <translation id="8205463626947051446">האתר נוטה להציג מודעות שמפריעות</translation>
+<translation id="8211406090763984747">החיבור מאובטח</translation>
 <translation id="8218327578424803826">מיקום מוקצה:</translation>
 <translation id="8225771182978767009">האדם שהגדיר את המחשב הזה בחר לחסום את האתר הזה.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

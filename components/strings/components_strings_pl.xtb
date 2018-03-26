@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Ponów przeniesienie</translation>
 <translation id="3586931643579894722">Ukryj szczegóły</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Naprawianie błędów połączenia&lt;/h1&gt;
+    &lt;p&gt;Jeśli podczas próby wejścia na stronę pojawia się komunikat o błędzie, wypróbuj te rozwiązania.&lt;/p&gt;
+    &lt;h2&gt;Naprawianie większości błędów połączenia&lt;/h2&gt;
+    &lt;p&gt;Jeśli nie udaje się otworzyć strony, spróbuj rozwiązać problem, wykonując najpierw te czynności:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Sprawdź, czy w adresie internetowym nie ma błędów.&lt;/li&gt;
+    &lt;li&gt;Upewnij się, że połączenie internetowe działa prawidłowo.&lt;/li&gt;
+    &lt;li&gt;Skontaktuj się z właścicielem strony.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Uzyskiwanie pomocy w przypadku konkretnego komunikatu o błędzie&lt;/h2&gt;
+    &lt;h3&gt;„Połączenie nie jest prywatne” lub „NET::ERR_CERT_AUTHORITY_INVALID” lub „ERR_CERT_COMMON_NAME_INVALID” lub „NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM” lub „Błąd certyfikatu protokołu SSL”&lt;/h3&gt;
+    &lt;h4&gt;Krok 1. Zaloguj się w portalu&lt;/h4&gt;
+    &lt;p&gt;Aby w miejscach takich jak kawiarnie czy lotniska korzystać z sieci Wi-Fi, trzeba się w nich zalogować. Aby pojawiła się strona logowania, otwórz stronę rozpoczynającą się od &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Spróbuj wejść na dowolną stronę, której adres zaczyna się od &lt;code&gt;http://&lt;/code&gt;, np. &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Na stronie logowania, która się otworzy, zaloguj się, by korzystać z internetu.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Krok 2. Otwórz stronę w trybie incognito (tylko na komputerze)&lt;/h4&gt;
+    &lt;p&gt;Otwórz stronę w oknie incognito.&lt;/p&gt;
+    &lt;p&gt;Jeśli strona otwiera się, problem powoduje nieprawidłowo działające rozszerzenie Chrome. Aby to naprawić, wyłącz rozszerzenie.&lt;/p&gt;
+    &lt;h4&gt;Krok 3. Zaktualizuj system operacyjny&lt;/h4&gt;
+    &lt;p&gt;Upewnij się, że na urządzeniu masz zainstalowaną aktualną wersję systemu operacyjnego.&lt;/p&gt;
+    &lt;h4&gt;Krok 4. Tymczasowo wyłącz oprogramowanie antywirusowe&lt;/h4&gt;
+    &lt;p&gt;Ten błąd występuje, jeśli używasz oprogramowania antywirusowego z „ochroną HTTPS” lub „skanowaniem HTTPS”, które nie pozwala Chrome na nawiązanie bezpiecznego połączenia.&lt;/p&gt;
+    &lt;p&gt;Aby rozwiązać problem, wyłącz oprogramowanie antywirusowe. Jeśli strona się otworzy, na czas odwiedzania bezpiecznych witryn wyłączaj to oprogramowanie.&lt;/p&gt;
+    &lt;p&gt;Pamiętaj, by ponownie włączyć oprogramowanie antywirusowe, gdy skończysz.&lt;/p&gt;
+    &lt;h4&gt;Krok 5. Uzyskaj dodatkową pomoc&lt;/h4&gt;
+    &lt;p&gt;Jeśli nadal pojawia się błąd, skontaktuj się z właścicielem strony.&lt;/p&gt;
+    &lt;h3&gt;„Połącz z siecią”&lt;/h3&gt;
+    &lt;p&gt;Ten komunikat pojawia się, jeśli do połączenia z internetem wymagane jest zalogowanie się w portalu Wi-Fi.&lt;/p&gt;
+    &lt;p&gt;Aby naprawić błąd, kliknij &lt;strong&gt;Połącz&lt;/strong&gt; na stronie, którą chcesz otworzyć.&lt;/p&gt;
+    &lt;h3&gt;„Twój zegar się spóźnia”, „Twój zegar się śpieszy” lub „NET::ERR_CERT_DATE_INVALID”&lt;/h3&gt;
+    &lt;p&gt;Ten błąd występuje, jeśli data i godzina na komputerze lub urządzeniu mobilnym są niedokładne.&lt;/p&gt;
+    &lt;p&gt;Aby naprawić błąd, otwórz ustawienia zegara na urządzeniu. Zmień datę i godzinę na prawidłowe.&lt;/p&gt;
+    &lt;h3&gt;„Oprogramowanie na Twoim komputerze uniemożliwia Chrome bezpieczne połączenie się z internetem” (tylko na komputerach z systemem Windows)&lt;/h3&gt;
+    &lt;p&gt;Ten błąd występuje, jeśli na komputerze z Windows masz zainstalowane oprogramowanie Superfish.&lt;/p&gt;
+    &lt;p&gt;Wykonaj te czynności, by tymczasowo wyłączyć to oprogramowanie i otworzyć stronę internetową. Musisz mieć uprawnienia administratora.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Kliknij &lt;strong&gt;Start&lt;/strong&gt;, a następnie wyszukaj i wybierz opcję &lt;strong&gt;„Wyświetl usługi lokalne”&lt;/strong&gt;.
+    &lt;li&gt;Wybierz &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;W obszarze &lt;strong&gt;Typ uruchomienia&lt;/strong&gt; wybierz &lt;strong&gt;Wyłączony&lt;/strong&gt;.
+    &lt;li&gt;W obszarze &lt;strong&gt;Stan usługi&lt;/strong&gt; kliknij &lt;strong&gt;Zatrzymaj&lt;/strong&gt;.
+    &lt;li&gt;Kliknij &lt;strong&gt;Zastosuj&lt;/strong&gt;, a następnie &lt;strong&gt;OK&lt;/strong&gt;.
+    &lt;li&gt;Odwiedź &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centrum pomocy Chrome&lt;/a&gt;, by dowiedzieć się, jak trwale usunąć to oprogramowanie ze swojego komputera.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Wpisz prawidłową datę ważności</translation>
 <translation id="36224234498066874">Wyczyść dane przeglądania...</translation>
 <translation id="362276910939193118">Wyświetl całą historię</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Zakładki zarządzane</translation>
 <translation id="7298195798382681320">Zalecane</translation>
 <translation id="7309308571273880165">Raport o awarii utworzony w dniu: <ph name="CRASH_TIME" /> (użytkownik zażądał przesłania raportu, ale nie został on jeszcze przesłany)</translation>
+<translation id="7320336641823683070">Pomoc dotycząca połączeń</translation>
 <translation id="7334320624316649418">&amp;Ponów zmianę kolejności</translation>
 <translation id="733923710415886693">Certyfikat serwera nie został ujawniony przez protokół Certificate Transparency.</translation>
 <translation id="7353601530677266744">Wiersz poleceń</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">Sieć Wi-Fi (<ph name="WIFI_NAME" />), której używasz, może wymagać otwarcia strony logowania.</translation>
 <translation id="785549533363645510">To jednak nie znaczy, że Cię nie widać. Nawet gdy przejdziesz w tryb incognito, Twój pracodawca, dostawca usług internetowych czy webmasterzy stron, na które wchodzisz, mogą dowiedzieć się, co przeglądasz.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" />: <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Opuścić stronę?</translation>
 <translation id="7878176543348854470">Karty debetowe i przedpłacone są akceptowane.</translation>
 <translation id="7878562273885520351">Ktoś mógł poznać Twoje hasło</translation>
 <translation id="7887683347370398519">Sprawdź kod CVC i spróbuj ponownie</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Użyj globalnej wartości domyślnej (Pytaj)</translation>
 <translation id="8042918947222776840">Wybierz metodę odbioru</translation>
 <translation id="8057711352706143257">Oprogramowanie „<ph name="SOFTWARE_NAME" />” nie jest prawidłowo skonfigurowane. Odinstalowanie oprogramowania „<ph name="SOFTWARE_NAME" />” zwykle rozwiązuje problem. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Załadować ponownie stronę?</translation>
 <translation id="8088680233425245692">Nie udało się wyświetlić artykułu.</translation>
 <translation id="8091372947890762290">Aktywacja oczekuje na serwerze</translation>
 <translation id="8094917007353911263">Sieć, której używasz, może wymagać otwarcia strony <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">Nieprawidłowy URL aktualizowania dla rozszerzenia o identyfikatorze „<ph name="EXTENSION_ID" />”.</translation>
 <translation id="8202097416529803614">Podsumowanie zamówienia</translation>
 <translation id="8205463626947051446">Na stronie wyświetlają się uciążliwe reklamy</translation>
+<translation id="8211406090763984747">Połączenie jest bezpieczne</translation>
 <translation id="8218327578424803826">Przypisana lokalizacja:</translation>
 <translation id="8225771182978767009">Administrator tego komputera zablokował tę witrynę.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

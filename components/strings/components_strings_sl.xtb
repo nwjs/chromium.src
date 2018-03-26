@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Uveljavi premik</translation>
 <translation id="3586931643579894722">Skrij podrobnosti</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Odpravljanje napak s povezavami&lt;/h1&gt;
+    &lt;p&gt;Če prejmete sporočilo o napaki, ko poskusite obiskati spletno mesto, poskusite te postopke za odpravljanje težav.&lt;/p&gt;
+    &lt;h2&gt;Odpravljanje večine napak s povezavami&lt;/h2&gt;
+    &lt;p&gt;Če poskusite obiskati spletno mesto in se ne odpre, najprej poskusite odpraviti napako s temi postopki za odpravljanje težav:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Preverite, ali je spletni naslov napačno zapisan.&lt;/li&gt;
+    &lt;li&gt;Preverite, ali internetna povezava normalno deluje.&lt;/li&gt;
+    &lt;li&gt;Obrnite se na lastnika spletnega mesta.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Pomoč pri določenem sporočilu o napaki&lt;/h2&gt;
+    &lt;h3&gt;»Vaša povezava ni zasebna« ali »NET::ERR_CERT_AUTHORITY_INVALID« ali »ERR_CERT_COMMON_NAME_INVALID« ali »NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM« ali »SSL certificate error«&lt;/h3&gt;
+    &lt;h4&gt;1. korak: prijavite se v portal&lt;/h4&gt;
+    &lt;p&gt;Omrežja Wi-Fi na mestih, kot so kavarne ali letališča, zahtevajo, da se prijavite. Če želite prikazati stran za prijavo, obiščite stran, ki uporablja&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Odprite poljubno spletno mesto, ki se začne s &lt;code&gt;http://&lt;/code&gt;, na primer &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Na strani za prijavo, ki se odpre, se prijavite, če želite uporabljati internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2. korak: odprite stran v načinu brez beleženja zgodovine (samo računalnik)&lt;/h4&gt;
+    &lt;p&gt;Odprite stran, ki ste jo obiskali v oknu brez beleženja zgodovine.&lt;/p&gt;
+    &lt;p&gt;Če se stran odpre, imate razširitev za Chrome, ki ne deluje pravilno. Če želite odpraviti napako, izklopite razširitev.&lt;/p&gt;
+    &lt;h4&gt;3. korak: posodobite operacijski sistem&lt;/h4&gt;
+    &lt;p&gt;Poskrbite, da je naprava posodobljena.&lt;/p&gt;
+    &lt;h4&gt;4. korak: začasno izklopite protivirusno programsko opremo&lt;/h4&gt;
+    &lt;p&gt;Ta napaka bo prikazana, če imate protivirusno programsko opremo, ki ponuja »zaščito HTTPS« ali »pregledovanje HTTPS«. Protivirusna programska oprema Chromu preprečuje zagotavljanje varnosti.&lt;/p&gt;
+    &lt;p&gt;Če želite odpraviti težavo, izklopite protivirusno programsko opremo. Če stran deluje, ko programsko opremo izklopite, izklopite to programsko opremo, ko uporablja varna spletna mesta.&lt;/p&gt;
+    &lt;p&gt;Ne pozabite spet vklopiti protivirusne programske opreme, ko končate.&lt;/p&gt;
+    &lt;h4&gt;5. korak: poiščite dodatno pomoč&lt;/h4&gt;
+    &lt;p&gt;Če je napaka še vedno prikazana, se obrnite na lastnika spletnega mesta.&lt;/p&gt;
+    &lt;h3&gt;»Vzpostavite povezavo z omrežjem«&lt;/h3&gt;
+    &lt;p&gt;Ta napaka bo prikazana, če uporabljate portal Wi-Fi, ki zahteva prijavo, preden lahko vzpostavite povezavo z internetom.&lt;/p&gt;
+    &lt;p&gt;Če želite odpraviti to napako, kliknite &lt;strong&gt;Poveži&lt;/strong&gt; na strani, ki jo poskušate odpreti.&lt;/p&gt;
+    &lt;h3&gt;»Ura zaostaja« ali »Ura prehiteva« ali »NET::ERR_CERT_DATE_INVALID«&lt;/h3&gt;
+    &lt;p&gt;Ta napaka bo prikazana, če datum in ura v računalniku ali mobilni napravi nista točna.&lt;/p&gt;
+    &lt;p&gt;Če želite odpraviti napako, odprite uro v napravi, in poskrbite, da sta datum in ura točna.&lt;/p&gt;
+    &lt;h3&gt;»Programska oprema v računalniku Chromu preprečuje vzpostavitev varne povezave s spletom« (samo računalniki s sistemom Windows)&lt;/h3&gt;
+    &lt;p&gt;Ta napaka se prikaže, če imate v računalniku s sistemom Windows programsko opremo Superfish.&lt;/p&gt;
+    &lt;p&gt;Upoštevajte ta navodila, če želite začasno onemogočiti programsko opremo, da se boste lahko povezali v splet. Potrebujete skrbniške pravice.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Kliknite &lt;strong&gt;Start&lt;/strong&gt;, nato poiščite in izberite &lt;strong&gt;»Ogled lokalnih storitev«&lt;/strong&gt;
+    &lt;li&gt;Izberite &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Pri &lt;strong&gt;Vrsta zagona&lt;/strong&gt; izberite &lt;strong&gt;Onemogočeno&lt;/strong&gt;
+    &lt;li&gt;Pri &lt;strong&gt;Stanje storitve&lt;/strong&gt; kliknite &lt;strong&gt;Ustavi&lt;/strong&gt;
+    &lt;li&gt;Kliknite &lt;strong&gt;Uporabi&lt;/strong&gt;, nato kliknite &lt;strong&gt;V redu&lt;/strong&gt;
+    &lt;li&gt;Obiščite &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;center za pomoč za Chrome&lt;/a&gt;, če želite izvedeti, kako trajno odstranite programsko opremo iz računalnika.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Vnesite veljaven datum poteka veljavnosti</translation>
 <translation id="36224234498066874">Izbriši podatke brskanja ...</translation>
 <translation id="362276910939193118">Prikaži celotno zgodovino</translation>
@@ -432,6 +477,7 @@
 <translation id="4103249731201008433">Neveljavna serijska številka naprave</translation>
 <translation id="410351446219883937">Samodejno predvajanje</translation>
 <translation id="4103763322291513355">Na &lt;strong&gt;chrome://policy&lt;/strong&gt; si lahko ogledate seznam blokiranih URL-jev in drugih pravilnikov, ki jih uveljavlja skrbnik sistema.</translation>
+<translation id="4110652170750985508">Pregled plačila</translation>
 <translation id="4116663294526079822">Vedno dovoli na tem spletnem mestu</translation>
 <translation id="4117700440116928470">Obseg pravilnika ni podprt.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{in še 1 drug}one{in še # drug}two{in še # druga}few{in še # drugi}other{in še # drugih}}</translation>
@@ -804,6 +850,7 @@
 <translation id="7275334191706090484">Upravljani zaznamki</translation>
 <translation id="7298195798382681320">Priporočeni</translation>
 <translation id="7309308571273880165">Poročilo o zrušitvi, zajeto takrat: <ph name="CRASH_TIME" /> (uporabnik je zahteval nalaganje; ni še bilo naloženo)</translation>
+<translation id="7320336641823683070">Pomoč pri povezavi</translation>
 <translation id="7334320624316649418">&amp;Uveljavi razvrstitev</translation>
 <translation id="733923710415886693">Potrdilo strežnika ni bilo razkrito na podlagi pravilnika o preglednosti potrdila.</translation>
 <translation id="7353601530677266744">Ukazna vrstica</translation>
@@ -888,6 +935,7 @@
 <translation id="782886543891417279">Omrežje Wi-Fi, ki ga uporabljate (<ph name="WIFI_NAME" />), morda zahteva, da obiščete stran za prijavo.</translation>
 <translation id="785549533363645510">Kljub temu pa niste nevidni. Z uporabo načina brez beleženja zgodovine brskanja ne skrijete pred delodajalcem, ponudnikom internetnih storitev ali spletnimi mesti, ki jih obiščete.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" />: <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Želite zapustiti spletno mesto?</translation>
 <translation id="7878176543348854470">Sprejema debetne in kreditne kartice.</translation>
 <translation id="7878562273885520351">Geslo je morda ogroženo</translation>
 <translation id="7887683347370398519">Preverite CVC in poskusite znova</translation>
@@ -910,6 +958,7 @@
 <translation id="8041940743680923270">Uporabi globalno privzeto (Vprašaj)</translation>
 <translation id="8042918947222776840">Izbira načina prevzema</translation>
 <translation id="8057711352706143257">Programska oprema »<ph name="SOFTWARE_NAME" />« ni pravilno konfigurirana. Običajno težavo odpravite tako, da odstranite programsko opremo »<ph name="SOFTWARE_NAME" />«. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Želite znova naložiti spletno mesto?</translation>
 <translation id="8088680233425245692">Članka si ni bilo mogoče ogledati.</translation>
 <translation id="8091372947890762290">Čakanje na aktivacijo v strežniku</translation>
 <translation id="8094917007353911263">Omrežje, ki ga uporabljate, morda zahteva, da obiščete <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +974,7 @@
 <translation id="8201077131113104583">Neveljaven posodobitveni URL za razširitev z ID-jem »<ph name="EXTENSION_ID" />«.</translation>
 <translation id="8202097416529803614">Povzetek naročila</translation>
 <translation id="8205463626947051446">Spletno mesto prikazuje vsiljive oglase</translation>
+<translation id="8211406090763984747">Povezava je varna</translation>
 <translation id="8218327578424803826">Dodeljena lokacija:</translation>
 <translation id="8225771182978767009">Oseba, ki je nastavila ta računalnik, je blokirala to spletno mesto.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

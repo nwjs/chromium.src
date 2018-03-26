@@ -370,6 +370,54 @@
 <translation id="3583757800736429874">&amp;Ulangi Pemindahan</translation>
 <translation id="3586931643579894722">Sembunyikan detail</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Memperbaiki error koneksi&lt;/h1&gt;
+    &lt;p&gt;Jika Anda mendapatkan pesan error saat mencoba membuka situs, coba lakukan perbaikan ini.&lt;/p&gt;
+    &lt;h2&gt;Memperbaiki sebagian besar error koneksi&lt;/h2&gt;
+    &lt;p&gt;Jika Anda mencoba membuka situs dan situs tersebut tidak terbuka, terlebih dahulu coba perbaiki error dengan langkah-langkah pemecahan masalah ini:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Periksa apakah ada kesalahan ketik alamat web.&lt;/li&gt;
+    &lt;li&gt;Pastikan sambungan internet berfungsi dengan normal.&lt;/li&gt;
+    &lt;li&gt;Hubungi pemilik situs.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Mendapatkan bantuan terkait pesan error tertentu&lt;/h2&gt;
+    &lt;h3&gt;"Koneksi tidak bersifat pribadi" atau "NET::ERR_CERT_AUTHORITY_INVALID" atau "ERR_CERT_COMMON_NAME_INVALID" atau "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" atau "SSL certificate error"&lt;/h3&gt;
+    &lt;h4&gt;Langkah 1: Login ke portal&lt;/h4&gt;
+    &lt;p&gt;Jaringan Wi-Fi di tempat seperti kafe atau bandara mengharuskan Anda 
+untuk login. Untuk melihat halaman login, buka halaman yang menggunakan&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Buka situs apa pun yang diawali dengan &lt;code&gt;http://&lt;/code&gt;, seperti &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Loginlah di halaman login yang terbuka untuk menggunakan internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Langkah 2: Buka halaman dalam Mode penyamaran (khusus komputer)&lt;/h4&gt;
+    &lt;p&gt;Buka halaman yang Anda akses di Jendela samaran.&lt;/p&gt;
+    &lt;p&gt;Jika halaman terbuka, ekstensi Chrome tidak berfungsi dengan baik. Untuk memperbaiki error tersebut, nonaktifkan ekstensi.&lt;/p&gt;
+    &lt;h4&gt;Langkah 3: Update sistem operasi Anda&lt;/h4&gt;
+    &lt;p&gt;Pastikan perangkat sudah versi terbaru.&lt;/p&gt;
+    &lt;h4&gt;Langkah 4: Nonaktifkan antivirus untuk sementara&lt;/h4&gt;
+    &lt;p&gt;Anda akan melihat error ini jika terdapat software antivirus yang memberikan "perlindungan HTTPS" atau "pemindaian HTTPS". Antivirus tersebut mencegah Chrome memberikan perlindungan.&lt;/p&gt;
+    &lt;p&gt;Untuk memperbaiki masalah, nonaktifkan software antivirus. Jika halaman 
+berfungsi setelah antivirus dinonaktifkan, nonaktifkan antivirus ini 
+jika Anda menggunakan situs aman.&lt;/p&gt;
+    &lt;p&gt;Ingatlah untuk kembali mengaktifkan program antivirus jika telah selesai.&lt;/p&gt;
+    &lt;h4&gt;Langkah 5: Dapatkan bantuan tambahan&lt;/h4&gt;
+    &lt;p&gt;Jika Anda tetap melihat error, hubungi pemilik situs.&lt;/p&gt;
+    &lt;h3&gt;"Sambungkan ke jaringan"&lt;/h3&gt;
+    &lt;p&gt;Anda akan melihat error ini jika menggunakan portal Wi-Fi tempat Anda harus login sebelum terhubung online.&lt;/p&gt;
+    &lt;p&gt;Untuk memperbaiki error, klik &lt;strong&gt;Sambungkan&lt;/strong&gt; pada halaman yang ingin dibuka.&lt;/p&gt;
+    &lt;h3&gt;"Jam terlalu lambat" atau "Jam terlalu cepat" atau "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Anda akan melihat error ini jika komputer atau perangkat seluler memiliki tanggal dan waktu yang tidak akurat.&lt;/p&gt;
+    &lt;p&gt;Untuk memperbaiki error, buka jam pada perangkat. Pastikan waktu dan tanggal sudah tepat.&lt;/p&gt;
+    &lt;h3&gt;"Software di komputer mencegah Chrome terhubung dengan aman ke web" (khusus komputer Windows)&lt;/h3&gt;
+    &lt;p&gt;Anda akan melihat error ini jika Anda memiliki software Superfish di komputer Windows.&lt;/p&gt;
+    &lt;p&gt;Ikuti langkah-langkah ini untuk menonaktifkan software tersebut sementara waktu agar Anda dapat mengakses web. Anda memerlukan hak istimewa administrator.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Klik &lt;strong&gt;Mulai&lt;/strong&gt;, lalu telusuri dan pilih &lt;strong&gt;"Lihat layanan lokal"&lt;/strong&gt;
+    &lt;li&gt;Pilih &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Pada &lt;strong&gt;Jenis startup&lt;/strong&gt;, pilih &lt;strong&gt;Nonaktif&lt;/strong&gt;
+    &lt;li&gt;Pada &lt;strong&gt;Status layanan&lt;/strong&gt;, klik &lt;strong&gt;Stop&lt;/strong&gt;
+    &lt;li&gt;Klik &lt;strong&gt;Terapkan&lt;/strong&gt;, lalu klik &lt;strong&gt;Oke&lt;/strong&gt;
+    &lt;li&gt;Buka &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;pusat bantuan Chrome&lt;/a&gt; untuk mempelajari cara menghapus software tersebut secara permanen dari komputer
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Masukkan tanggal masa berlaku yang valid</translation>
 <translation id="36224234498066874">Hapus Data Browsing...</translation>
 <translation id="362276910939193118">Tampilkan Histori Lengkap</translation>
@@ -432,6 +480,7 @@
 <translation id="4103249731201008433">Nomor seri perangkat tidak valid</translation>
 <translation id="410351446219883937">Putar otomatis</translation>
 <translation id="4103763322291513355">Kunjungi &lt;strong&gt;chrome://policy&lt;/strong&gt; untuk melihat daftar URL yang masuk daftar hitam dan kebijakan lain yang diterapkan oleh administrator sistem Anda.</translation>
+<translation id="4110652170750985508">Meninjau pembayaran</translation>
 <translation id="4116663294526079822">Selalu izinkan di situs ini</translation>
 <translation id="4117700440116928470">Lingkup kebijakan tidak didukung.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 lainnya}other{# lainnya}}</translation>
@@ -804,6 +853,7 @@
 <translation id="7275334191706090484">Bookmark yang Terkelola</translation>
 <translation id="7298195798382681320">Direkomendasikan</translation>
 <translation id="7309308571273880165">Laporan kerusakan diambil pada <ph name="CRASH_TIME" /> (upload yang diminta pengguna, belum diupload)</translation>
+<translation id="7320336641823683070">Bantuan Koneksi</translation>
 <translation id="7334320624316649418">&amp;Ulangi pengaturan ulang</translation>
 <translation id="733923710415886693">Sertifikat server tidak diungkapkan melalui Transparansi Sertifikat.</translation>
 <translation id="7353601530677266744">Baris Perintah</translation>
@@ -888,6 +938,7 @@
 <translation id="782886543891417279">Wi-Fi yang digunakan (<ph name="WIFI_NAME" />) mungkin mewajibkan Anda mengunjungi halaman masuknya.</translation>
 <translation id="785549533363645510">Namun, Anda masih dapat terlihat. Masuk ke mode penyamaran tidak menyembunyikan penjelajahan Anda dari atasan, penyedia layanan internet, atau situs web yang Anda kunjungi.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Keluar dari situs?</translation>
 <translation id="7878176543348854470">Kartu debit dan prabayar diterima.</translation>
 <translation id="7878562273885520351">Sandi Anda mungkin disusupi</translation>
 <translation id="7887683347370398519">Periksa CVC dan coba lagi</translation>
@@ -910,6 +961,7 @@
 <translation id="8041940743680923270">Gunakan default global (Tanyakan)</translation>
 <translation id="8042918947222776840">Pilih Metode Pengambilan</translation>
 <translation id="8057711352706143257">"<ph name="SOFTWARE_NAME" />" tidak dikonfigurasi dengan benar. Biasanya masalah akan terselesaikan dengan meng-uninstal "<ph name="SOFTWARE_NAME" />". <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Muat ulang situs?</translation>
 <translation id="8088680233425245692">Gagal melihat artikel.</translation>
 <translation id="8091372947890762290">Aktivasi ditunda di server</translation>
 <translation id="8094917007353911263">Jaringan yang Anda gunakan mungkin mewajibkan Anda mengunjungi <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +977,7 @@
 <translation id="8201077131113104583">URL pembaruan tidak valid untuk ekstensi dengan ID "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Ringkasan pesanan</translation>
 <translation id="8205463626947051446">Situs cenderung menampilkan iklan mengganggu</translation>
+<translation id="8211406090763984747">Koneksi aman</translation>
 <translation id="8218327578424803826">Lokasi yang Ditetapkan:</translation>
 <translation id="8225771182978767009">Orang yang menyiapkan komputer ini telah memilih untuk memblokir situs ini.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

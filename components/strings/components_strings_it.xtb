@@ -367,6 +367,51 @@
 <translation id="3583757800736429874">&amp;Ripeti spostamento</translation>
 <translation id="3586931643579894722">Nascondi dettagli</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Correggere gli errori di connessione&lt;/h1&gt;
+    &lt;p&gt;Se ricevi un messaggio di errore mentre tenti di visitare un sito web, prova le soluzioni descritte di seguito.&lt;/p&gt;
+    &lt;h2&gt;Correggere la maggior parte degli errori di connessione&lt;/h2&gt;
+    &lt;p&gt;Se il sito web che intendi visitare non si apre, prova innanzitutto a correggere l'errore con questi passaggi di risoluzione dei problemi:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Verifica che non siano presenti errori ortografici nell'indirizzo web.&lt;/li&gt;
+    &lt;li&gt;Verifica che la connessione a Internet funzioni correttamente.&lt;/li&gt;
+    &lt;li&gt;Contatta il proprietario del sito web.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Ricevere assistenza per uno specifico messaggio di errore&lt;/h2&gt;
+    &lt;h3&gt;"La connessione non è privata", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" oppure "Errore certificato SSL"&lt;/h3&gt;
+    &lt;h4&gt;Passaggio 1: accedi al portale&lt;/h4&gt;
+    &lt;p&gt;Per le reti Wi-Fi di luoghi come gli aeroporti o le caffetterie, è necessario effettuare l'accesso. Per visualizzare la pagina di accesso, visita una pagina che inizia con &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Visita un qualunque sito web che inizi con &lt;code&gt;http://&lt;/code&gt;, ad esempio &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Nella pagina di accesso che si apre, accedi per utilizzare Internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Passaggio 2: apri la pagina in modalità di navigazione in incognito (solo da computer)&lt;/h4&gt;
+    &lt;p&gt;Apri la pagina che stavi visitando in una finestra di navigazione in incognito.&lt;/p&gt;
+    &lt;p&gt;Se riesci ad aprire la pagina, un'estensione di Chrome non funziona correttamente. Per correggere l'errore, disattiva l'estensione.&lt;/p&gt;
+    &lt;h4&gt;Passaggio 3: aggiorna il sistema operativo&lt;/h4&gt;
+    &lt;p&gt;Assicurati che il dispositivo sia aggiornato.&lt;/p&gt;
+    &lt;h4&gt;Passaggio 4: disattiva temporaneamente il software antivirus&lt;/h4&gt;
+    &lt;p&gt;Potresti vedere questo errore se hai un software antivirus che fornisce "protezione HTTPS" o "scansione HTTPS" e impedisce a Chrome di offrire sicurezza.&lt;/p&gt;
+    &lt;p&gt;Per risolvere il problema, disattiva il software antivirus. Se la pagina funziona dopo questo passaggio, disattiva l'antivirus quando visiti siti protetti.&lt;/p&gt;
+    &lt;p&gt;Terminata l'operazione, ricordati di riattivare il programma antivirus.&lt;/p&gt;
+    &lt;h4&gt;Passaggio 5: richiedi ulteriore assistenza&lt;/h4&gt;
+    &lt;p&gt;Se l'errore continua a essere mostrato, contatta il proprietario del sito web.&lt;/p&gt;
+    &lt;h3&gt;"Collegati alla rete"&lt;/h3&gt;
+    &lt;p&gt;Vedrai questo errore se stai utilizzando un portale Wi-Fi che richiede l'accesso per poterti connettere a Internet.&lt;/p&gt;
+    &lt;p&gt;Per risolvere il problema, fai clic su &lt;strong&gt;Connetti&lt;/strong&gt; nella pagina che stai cercando di aprire.&lt;/p&gt;
+    &lt;h3&gt;"L'orologio è indietro", "L'orologio è avanti" oppure "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Vedrai questo errore se la data e l'ora del dispositivo mobile o del computer non sono esatte.&lt;/p&gt;
+    &lt;p&gt;Per risolvere il problema, apri l'orologio del dispositivo e assicurati che la data e l'ora siano corrette.&lt;/p&gt;
+    &lt;h3&gt;"Il software installato sul computer sta impedendo a Chrome di connettersi in sicurezza a Internet" (solo su computer Windows)&lt;/h3&gt;
+    &lt;p&gt;Potresti vedere questo errore se sul tuo computer Windows è installato il software Superfish.&lt;/p&gt;
+    &lt;p&gt;Svolgi i seguenti passaggi per disattivare temporaneamente il software e accedere così al Web. Devi disporre di privilegi di amministratore.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Fai clic su &lt;strong&gt;Start&lt;/strong&gt;, quindi cerca e seleziona &lt;strong&gt;"Visualizza servizi locali"&lt;/strong&gt;
+    &lt;li&gt;Seleziona &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Nella sezione &lt;strong&gt;Tipo di avvio&lt;/strong&gt;, seleziona &lt;strong&gt;Disabilitato&lt;/strong&gt;
+    &lt;li&gt;Nella sezione &lt;strong&gt;Stato del servizio&lt;/strong&gt;, fai clic su &lt;strong&gt;Interrompi&lt;/strong&gt;
+    &lt;li&gt;Fai clic su &lt;strong&gt;Applica&lt;/strong&gt;, quindi su &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Visita il &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centro assistenza Chrome&lt;/a&gt; per avere informazioni su come rimuovere definitivamente il software dal computer
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Inserisci una data di scadenza valida</translation>
 <translation id="36224234498066874">Cancella dati di navigazione...</translation>
 <translation id="362276910939193118">Mostra cronologia completa</translation>
@@ -800,6 +845,7 @@
 <translation id="7275334191706090484">Preferiti gestiti</translation>
 <translation id="7298195798382681320">Consigliate</translation>
 <translation id="7309308571273880165">Rapporto sugli arresti anomali generato <ph name="CRASH_TIME" /> (caricamento richiesto dall'utente, ma non ancora eseguito)</translation>
+<translation id="7320336641823683070">Guida alla connessione</translation>
 <translation id="7334320624316649418">&amp;Ripeti ridisposizione</translation>
 <translation id="733923710415886693">Il certificato del server non è stato reso pubblico tramite Certificate Transparency.</translation>
 <translation id="7353601530677266744">Riga di comando</translation>
@@ -884,6 +930,7 @@
 <translation id="782886543891417279">La rete Wi-Fi in uso (<ph name="WIFI_NAME" />) potrebbe richiedere la visita della relativa pagina di accesso.</translation>
 <translation id="785549533363645510">Non sei completamente invisibile: se navighi in incognito, la tua navigazione non viene nascosta al tuo datore di lavoro, al provider di servizi Internet o ai siti web che visiti.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Vuoi uscire dal sito?</translation>
 <translation id="7878176543348854470">Le carte di debito e prepagate sono accettate.</translation>
 <translation id="7878562273885520351">La tua password potrebbe essere stata compromessa</translation>
 <translation id="7887683347370398519">Controlla il tuo codice CVC e riprova</translation>
@@ -906,6 +953,7 @@
 <translation id="8041940743680923270">Usa predefinita globale (Chiedi)</translation>
 <translation id="8042918947222776840">Scegli il metodo di ritiro</translation>
 <translation id="8057711352706143257">"<ph name="SOFTWARE_NAME" />" non è configurato correttamente. La disinstallazione di "<ph name="SOFTWARE_NAME" />" solitamente risolve il problema. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Vuoi ricaricare il sito?</translation>
 <translation id="8088680233425245692">Impossibile visualizzare l'articolo.</translation>
 <translation id="8091372947890762290">Attivazione in attesa sul server</translation>
 <translation id="8094917007353911263">La rete in uso potrebbe richiedere la visita della pagina <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -921,6 +969,7 @@
 <translation id="8201077131113104583">URL di aggiornamento non valido per l'estensione con ID "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Riepilogo dell’ordine</translation>
 <translation id="8205463626947051446">Il sito tende a mostrare annunci invasivi</translation>
+<translation id="8211406090763984747">La connessione è protetta</translation>
 <translation id="8218327578424803826">Posizione assegnata:</translation>
 <translation id="8225771182978767009">La persona che ha configurato il computer ha deciso di bloccare questo sito.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

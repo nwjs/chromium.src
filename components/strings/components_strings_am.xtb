@@ -369,6 +369,51 @@
 <translation id="3583757800736429874">&amp;ውሰድን ድገም</translation>
 <translation id="3586931643579894722">ዝርዝር ደብቅ</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />፣ <ph name="DOMAIN" />፣ <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;የግንኙነት ስህተቶችን ያስተካክሉ&lt;/h1&gt;
+    &lt;p&gt;አንድ ድር ጣቢያን ለመጎብኘት ሲሞክሩ የስህተት መልዕክት ካገኙ እነዚህን ማስተካከያዎች ይሞክሩ።&lt;/p&gt;
+    &lt;h2&gt;አብዛኛዎቹን የግንኙነት ስህተቶች ያስተካክሉ&lt;/h2&gt;
+    &lt;p&gt;አንድ ድር ጣቢያን ለመጎብኘት ከሞከሩ እና ካልከፈተ በመጀመሪያ እነዚህን የመላ መፈለጊያ እርምጃዎች በመጠቀም ስህተቱን ለማስተካከል ይሞክሩ፦&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;የድር አድራሻው የአጻጻፍ ግድፈቶች ካለው ይፈትሹ።&lt;/li&gt;
+    &lt;li&gt;የእርስዎ የበይነመረብ ግንኙነት በጤናማ ሁኔታ እየሠራ እንደሆነ ያረጋግጡ።&lt;/li&gt;
+    &lt;li&gt;የድር ጣቢያውን ባለቤት ያነጋግሩ።&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;በተወሰነ የስህተት መልዕክት ላይ እገዛ ያግኙ&lt;/h2&gt;
+    &lt;h3&gt;«የእርስዎ ግንኙነት የግል አይደለም» ወይም «NET::ERR_CERT_AUTHORITY_INVALID» ወይም «ERR_CERT_COMMON_NAME_INVALID» ወይም «NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM» ወይም «የSSL እውቅና ማረጋገጫ ስህተት»&lt;/h3&gt;
+    &lt;h4&gt;እርምጃ 1፦ ወደ መግቢያው በመለያ ይግቡ&lt;/h4&gt;
+    &lt;p&gt;እንደ ካፌዎች ወይም አውሮፕላን ማረፊያዎች ባሉ ቦታዎች ላይ ያሉ የWi-Fi አውታረ መረቦች በመለያ እንዲገቡ ይፈልጋሉ። በመለያ መግቢያውን ገጽ ለማየት &lt;code&gt;http://&lt;/code&gt;ን የሚጠቀምን ገጽ ይጎብኙ&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;እንደ &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt; ያለ በ&lt;code&gt;http://&lt;/code&gt; ወደሚጀምር የሚጀምር ማንኛውም የድር ጣቢያ ይሂዱ።&lt;/li&gt;
+    &lt;li&gt;በሚከፈተው በመለያ መግቢያ ገጽ ላይ በይነመረብን ለመጠቀም በመለያ ይግቡ።&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;እርምጃ 2፦ ገጹን ማንነትን በማያሳውቅ ሁነታ ይክፈቱት (ኮምፒውተር ብቻ)&lt;/h4&gt;
+    &lt;p&gt;እየጎበኙ የነበሩትን ገጽ ማንነትን በማያሳውቅ መስኮት ውስጥ ይክፈቱት።&lt;/p&gt;
+    &lt;p&gt;ገጹ ከተከፈተ የChrome ቅጥያ በትክክል እየሠራ አይደለም ማለት ነው። ይህን ስህተት ለማረም ቅጥያውን ያጥፉት።&lt;/p&gt;
+    &lt;h4&gt;እርምጃ 3፦ የእርስዎን ሥርዓተ ክወና ያዘመኑ&lt;/h4&gt;
+    &lt;p&gt;የእርስዎ መሣሪያ የተዘመነ መሆኑን ያረጋግጡ።&lt;/p&gt;
+    &lt;h4&gt;እርምጃ 4፦ የእርስዎን ፀረ-ቫይረስ ለጊዜው ያጥፉት&lt;/h4&gt;
+    &lt;p&gt;«ኤችቲቲፒኤስ ጥበቃ» ወይም «ኤችቲቲፒኤስ ቅኝት» የሚሰጥ ፀረ-ቫይረስ ሶፍትዌር ካለዎት ይህንን ስህተት ይመለክታሉ።&lt;/p&gt;
+    &lt;p&gt;ችግሩን ለማስተካከል የእርስዎን ፀረ-ቫይረስ ሶፍትዌር ያጥፉት። ሶፍትዌሩ ከጠፋ በኋላ ገጹ ከሠራ ደኅንነታቸው የተጠበቁ ጣቢያዎችን ሲጠቀሙ ይህን ሶፍትዌር ያጥፉት።&lt;/p&gt;
+    &lt;p&gt;ሲጨርሱ የእርስዎን የፀረ-ቫይረስ ፕሮግራም መልሰው ማብራትዎን ያስታውሱ።&lt;/p&gt;
+    &lt;h4&gt;እርምጃ 5፦ ተጨማሪ እገዛ ያግኙ&lt;/h4&gt;
+    &lt;p&gt;አሁንም ስህተቱን ማየትዎትን ከቀጠሉ የድር ጣቢያውን ባለቤት ያነጋግሩ።&lt;/p&gt;
+    &lt;h3&gt;«ከአውታረ መረብ ጋር ይገናኙ»&lt;/h3&gt;
+    &lt;p&gt;መስመር ላይ መሆን ከመቻልዎ በፊት በመለያ ሊገቡበት የሚገባ የWi-Fi መግቢያ እየተጠቀሙ ከሆኑ ይህን ስህተት ይመለከቱታል።&lt;/p&gt;
+    &lt;p&gt;ስህተቱን ለማስተካከል ለመክፈት እየሞከሩ ባሉት ገጽ ላይ &lt;strong&gt;ተገናኝ&lt;/strong&gt;ን ጠቅ ያድርጉ።&lt;/p&gt;
+    &lt;h3&gt;«የእርስዎ ሰዓት ወደ ኋላ ቀርቷል» ወይም «የእርስዎ ሰዓት ወደፊት ቀድሟል» ወይም «NET::ERR_CERT_DATE_INVALID»&lt;/h3&gt;
+    &lt;p&gt;የእርስዎ ኮምፒውተር ወይም ተንቀሳቃሽ መሣሪያ ቀን እና ሰዓት ትክክል ካልሆነ ይህን ስህተት ይመለከታሉ።&lt;/p&gt;
+    &lt;p&gt;ስህተቱን ለማረም የመሣሪያዎን ሰዓት ይክፈቱ። ጊዜው እና ቀኑ ትክክል መሆኑን ያረጋግጡ።&lt;/p&gt;
+    &lt;h3&gt;«በእርስዎ ኮምፒውተር ላይ ያለ ሶፍትዌር Chrome ደህንነቱ በተጠበቀ መንገድ ከድሩ ጋር እንዳይገናኝ እያስቆመው ነው» (Windows ኮምፒውተሮች ብቻ)&lt;/h3&gt;
+    &lt;p&gt;በእርስዎ Windows ኮምፒውተር ላይ Superfish ሶፍትዌር ካለዎት ይህን ስህተት ይመለከታሉ።&lt;/p&gt;
+    &lt;p&gt;ወደ ድሩ ለመግባት ሶፍትዌሩን ለጊዜው ለማሰናከል እነዚህን ደረጃዎች ይከተሉ። ልዩ የአስተዳዳሪ መብቶች ያስፈልገዎታል።&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;በመጀመሪያ &lt;strong&gt;ጀምር&lt;/strong&gt;ን ጠቅ ያድርጉና ከዚያ &lt;strong&gt;«የአካባቢ አገልግሎቶችን ይመልከቱ»&lt;/strong&gt;ን ይፈልጉና ይምረጡት
+    &lt;li&gt;&lt;strong&gt;VisualDiscovery&lt;/strong&gt; ይምረጡ
+    &lt;li&gt;በ&lt;strong&gt;የጅማሬ ዓይነት&lt;/strong&gt; ስር &lt;strong&gt;ተሰናክሏል&lt;/strong&gt;ን ይምረጡ
+    &lt;li&gt;በ&lt;strong&gt;የአገልግሎት ሁኔታ&lt;/strong&gt; ስር &lt;strong&gt;አቁም&lt;/strong&gt;ን ጠቅ ያድርጉ
+    &lt;li&gt;&lt;strong&gt;ተግብር&lt;/strong&gt;ን ጠቅ ያድርጉ፣ ከዚያ &lt;strong&gt;እሺ&lt;/strong&gt;ን ጠቅ ያድርጉ
+    &lt;li&gt;እንዴት ሶፍትዌሩን ከእርስዎ ኮምፒውተር ላይ በቋሚነት ማስወገድ እንደሚቻል ለመረዳት &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;የChrome እገዛ ማዕከል&lt;/a&gt;ን ይጎብኙ
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">ትክክለኛ የአገልግሎት ማብቂያ ቀን ያስገቡ</translation>
 <translation id="36224234498066874">የአሰሳ ውሂብ አስወግድ…</translation>
 <translation id="362276910939193118">ሙሉ ታሪክ አሳይ</translation>
@@ -803,6 +848,7 @@
 <translation id="7275334191706090484">የተዳደሩ እልባቶች</translation>
 <translation id="7298195798382681320">የተመከሩ</translation>
 <translation id="7309308571273880165">በ<ph name="CRASH_TIME" /> ላይ የተነሳ የብልሽት ሪፖርት (ሰቀላ በተጠቃሚ ተጠይቆ ነበር፣ ሆኖም ግን እስካሁን አልተሰቀለም)</translation>
+<translation id="7320336641823683070">የግንኙነት እገዛ</translation>
 <translation id="7334320624316649418">&amp;ማስተካከልን ድገም</translation>
 <translation id="733923710415886693">የአገልጋዩ የእውቅና ማረጋገጫ በእውቅና ማረጋገጫ ግልጽነት በኩል አልተገለጸም።</translation>
 <translation id="7353601530677266744">የትእዛዝ መስመር</translation>
@@ -887,6 +933,7 @@
 <translation id="782886543891417279">እየተጠቀሙበት ያለው Wi-Fi (<ph name="WIFI_NAME" />) በመለያ መግቢያ ገጹን እንዲጎበኙ ሊጠይቅዎት ይችላል።</translation>
 <translation id="785549533363645510">ሆኖም ግን የማይታዩ አይደሉም። ማንነት የማያሳውቅ ሁነታ መጠቀም የእርስዎን አሰሳ፣ የበይነመረብ አገልግሎት አቅራቢ ወይም የሚጎበኟቸው ድር ጣቢያዎች ከአሰሪዎ አይደብቃቸውም።</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">ከጣቢያ ይወጡ?</translation>
 <translation id="7878176543348854470">የዴቢት እና የቅድመ-ክፍያ ካርዶች ተቀባይነት አላቸው።</translation>
 <translation id="7878562273885520351">የእርስዎ ይለፍ ቃል ተሰርቆ ሊሆን ይችላል</translation>
 <translation id="7887683347370398519">የእርስዎን CVC ይፈትሹ እና እንደገና ይሞክሩ</translation>
@@ -909,6 +956,7 @@
 <translation id="8041940743680923270">ሁለንተናዊ ነባሪውን ተጠቀሙ (ጠይቅ)</translation>
 <translation id="8042918947222776840">የመውሰጃ ዘዴ ይምረጡ</translation>
 <translation id="8057711352706143257">«<ph name="SOFTWARE_NAME" />» በአግባቡ አልተዋቀረም። «<ph name="SOFTWARE_NAME" />»ን ማራገፍ አብዛኛው ጊዜ ችግሩን ይፈታዋል። <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">ጣቢያ ዳግም ይጫን?</translation>
 <translation id="8088680233425245692">ጽሑፉን ማየት አልተቻለም።</translation>
 <translation id="8091372947890762290">ማግበር በአገልጋዩ ላይ በመጠባበቅ ላይ ነው</translation>
 <translation id="8094917007353911263">እየተጠቀሙበት ያለው አውታረ መረብ <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />ን እንዲጎበኙ ሊጠይቅዎት ይችላል።</translation>
@@ -924,6 +972,7 @@
 <translation id="8201077131113104583">የማይሰራ የURL ዝማኔ ለቅጥያ ከመታወቂያ «<ph name="EXTENSION_ID" />» ጋር።</translation>
 <translation id="8202097416529803614">የትዕዛዝ ማጠቃለያ</translation>
 <translation id="8205463626947051446">ጣቢያ ጣልቃ ገቢ ማስታወቂያዎችን የማሳየት አዝማሚያ አለው</translation>
+<translation id="8211406090763984747">ግንኙነት ደኅንነቱ የተጠበቀ ነው</translation>
 <translation id="8218327578424803826">የተመደበ መገኛ አካባቢ፦</translation>
 <translation id="8225771182978767009">ይህን ኮምፒውተር ያቀናበረው ሰው ይህን ጣቢያ ለማገድ መርጧል።</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />፣ <ph name="TYPE_2" /></translation>

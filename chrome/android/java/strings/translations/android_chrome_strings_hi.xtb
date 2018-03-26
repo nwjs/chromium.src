@@ -88,6 +88,7 @@
 <translation id="1709438864123551175">डेटा बचाने का साधन</translation>
 <translation id="1718835860248848330">अंतिम घंटा</translation>
 <translation id="1729516292547892356">आभासी वास्तविकता वाली सामग्री देखने के लिए, Google VR सेवाएं अपडेट करें</translation>
+<translation id="1733116627827457509"><ph name="FILE_SIZE" /> - <ph name="TIME_SINCE_UPDATE" /> अपडेट किया गया</translation>
 <translation id="1749561566933687563">अपने बुकमार्क समन्‍वयित करें</translation>
 <translation id="17513872634828108">टैब खोलें</translation>
 <translation id="1756600373018374892">अपने टैब पर तुरंत एक्सेस के लिए यह बटन टैप करें.</translation>
@@ -798,6 +799,7 @@
 <translation id="8200772114523450471">फिर से शुरू करें</translation>
 <translation id="8209050860603202033">चित्र खोलें</translation>
 <translation id="8220488350232498290"><ph name="GIGABYTES" /> GB डाउनलोड किया गया</translation>
+<translation id="8249310407154411074">सबसे ऊपर ले जाएं</translation>
 <translation id="8250920743982581267">दस्तावेज़</translation>
 <translation id="8260126382462817229">फिर से प्रवेश करके देखें</translation>
 <translation id="8261506727792406068">हटाएं</translation>

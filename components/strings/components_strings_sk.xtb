@@ -367,6 +367,51 @@
 <translation id="3583757800736429874">&amp;Znova presunúť</translation>
 <translation id="3586931643579894722">Skryť podrobnosti</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Oprava chýb s pripojením&lt;/h1&gt;
+    &lt;p&gt;Ak chcete navštíviť určitý web a zobrazí sa chybové hlásenie, vyskúšajte tieto riešenia.&lt;/p&gt;
+    &lt;h2&gt;Oprava najčastejších chýb s pripojením&lt;/h2&gt;
+    &lt;p&gt;Ak chcete navštíviť určitý web, ale neotvorí sa, najprv skúste opraviť chybu pomocou týchto krokov na riešenie problémov:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Skontrolujte, či bola webová adresa zadaná správne.&lt;/li&gt;
+    &lt;li&gt;Skontrolujte, či internetové pripojenie funguje normálne.&lt;/li&gt;
+    &lt;li&gt;Kontaktujte vlastníka príslušného webu.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Pomoc s konkrétnym chybovým hlásením&lt;/h2&gt;
+    &lt;h3&gt;„Vaše pripojenie nie je súkromné“, „NET::ERR_CERT_AUTHORITY_INVALID“, „ERR_CERT_COMMON_NAME_INVALID“ alebo „NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM“ alebo „Chyba certifikátu SSL“&lt;/h3&gt;
+    &lt;h4&gt;1. krok: Prihláste sa do portálu&lt;/h4&gt;
+    &lt;p&gt;Siete Wi-Fi na miestach, ako sú kaviarne a letiská, vyžadujú prihlásenie. Ak chcete zobraziť prihlasovaciu stránku, prejdite na stránku, ktorá používa protokol &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Prejdite na ľubovoľný web začínajúci sa predponou &lt;code&gt;http://&lt;/code&gt; (napr. &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;).&lt;/li&gt;
+    &lt;li&gt;Na prihlasovacej stránke portálu, ktorá sa otvorí, sa prihláste, aby ste mohli používať internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2. krok: Otvorte webovú stránku v režime inkognito (iba v počítači)&lt;/h4&gt;
+    &lt;p&gt;Otvorte stránku, na ktorú chcete prejsť, v okne inkognito.&lt;/p&gt;
+    &lt;p&gt;Ak sa otvorí, chybu spôsobuje rozšírenie pre Chrome. Ak chcete túto chybu odstrániť, vypnite dané rozšírenie.&lt;/p&gt;
+    &lt;h4&gt;3. krok: Aktualizujte operačný systém&lt;/h4&gt;
+    &lt;p&gt;Uistite sa, že je zariadenie aktualizované.&lt;/p&gt;
+    &lt;h4&gt;4. krok: Dočasne vypnite antivírusový program&lt;/h4&gt;
+    &lt;p&gt;Táto chyba sa zobrazí, keď máte antivírusový softvér poskytujúci ochranu protokolu HTTPS alebo skenovanie protokolu HTTPS. Tento antivírusový softvér bráni Chromu poskytovať zabezpečenie.&lt;/p&gt;
+    &lt;p&gt;Problém vyriešite vypnutím antivírusového softvéru. Ak stránka po vypnutí softvéru funguje, pri používaní zabezpečených webov tento softvér vypínajte.&lt;/p&gt;
+    &lt;p&gt;Po dokončení nezabudnite antivírusový program znova zapnúť.&lt;/p&gt;
+    &lt;h4&gt;5. krok: Získajte ďalšiu pomoc&lt;/h4&gt;
+    &lt;p&gt;Ak sa chyba zobrazuje aj naďalej, kontaktujte vlastníka príslušného webu.&lt;/p&gt;
+    &lt;h3&gt;„Pripojte sa k sieti“&lt;/h3&gt;
+    &lt;p&gt;Táto chyba sa zobrazí, keď používate portál Wi-Fi, ktorý podmieňuje prístup k internetu prihlásením.&lt;/p&gt;
+    &lt;p&gt;Ak ju chcete odstrániť, kliknite na možnosť &lt;strong&gt;Pripojiť&lt;/strong&gt; na stránke, ktorú sa pokúšate otvoriť.&lt;/p&gt;
+    &lt;h3&gt;„Vaše hodiny idú pozadu“, „Vaše hodiny idú dopredu“ alebo „NET::ERR_CERT_DATE_INVALID“&lt;/h3&gt;
+    &lt;p&gt;Táto chyba sa zobrazí, keď máte v počítači alebo mobilnom zariadení nesprávny dátum a čas.&lt;/p&gt;
+    &lt;p&gt;Ak chcete túto chybu odstrániť, otvorte v zariadení aplikáciu hodín. Uistite sa, že uvádza správny dátum a čas.&lt;/p&gt;
+    &lt;h3&gt;„Softvér vo vašom počítači bráni Chromu bezpečne sa pripojiť k webu“ (iba počítače so systémom Windows)&lt;/h3&gt;
+    &lt;p&gt;Táto chyba sa zobrazí, keď máte v počítači so systémom Windows softvér Superfish.&lt;/p&gt;
+    &lt;p&gt;Postupujte podľa týchto krokov a softvér dočasne zakážte, aby ste mohli prejsť na daný web. Budete potrebovať oprávnenia správcu.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Kliknite na položku &lt;strong&gt;Štart&lt;/strong&gt;, potom vyhľadajte a vyberte položku &lt;strong&gt;Zobraziť lokálne služby&lt;/strong&gt;.
+    &lt;li&gt;Vyberte položku &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;V časti &lt;strong&gt;Typ spúšťania&lt;/strong&gt; vyberte možnosť &lt;strong&gt;Vypnuté&lt;/strong&gt;.
+    &lt;li&gt;V časti &lt;strong&gt;Stav služby&lt;/strong&gt; kliknite na položku &lt;strong&gt;Zastaviť&lt;/strong&gt;.
+    &lt;li&gt;Kliknite na položku &lt;strong&gt;Použiť&lt;/strong&gt; a následne na položku &lt;strong&gt;OK&lt;/strong&gt;.
+    &lt;li&gt;Ďalšie informácie o tom, ako natrvalo odstrániť softvér z počítača, nájdete v &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;centre pomoci Chromu&lt;/a&gt;.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Zadajte správny dátum vypršania platnosti</translation>
 <translation id="36224234498066874">Vymazať dáta prehliadania...</translation>
 <translation id="362276910939193118">Zobraziť celú históriu</translation>
@@ -428,6 +473,7 @@
 <translation id="4103249731201008433">Sériové číslo zariadenia je neplatné</translation>
 <translation id="410351446219883937">Automatické prehrávanie</translation>
 <translation id="4103763322291513355">Na stránke &lt;strong&gt;chrome://policy&lt;/strong&gt; nájdete zoznam zakázaných webových adries a ďalšie pravidlá vynútené vaším správcom systému.</translation>
+<translation id="4110652170750985508">Kontrola platby</translation>
 <translation id="4116663294526079822">Vždy povoliť na tomto webe</translation>
 <translation id="4117700440116928470">Rozsah pravidla nie je podporovaný.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 ďalšia}few{# ďalšie}many{# ďalšej}other{# ďalších}}</translation>
@@ -799,6 +845,7 @@
 <translation id="7275334191706090484">Spravované záložky</translation>
 <translation id="7298195798382681320">Odporúčané</translation>
 <translation id="7309308571273880165">Správa o zlyhaní zaznamenaná v čase <ph name="CRASH_TIME" /> (nahranie vyžiadané používateľom, zatiaľ nebola nahraná)</translation>
+<translation id="7320336641823683070">Pomocník s pripojením</translation>
 <translation id="7334320624316649418">&amp;Znova zmeniť poradie</translation>
 <translation id="733923710415886693">Certifikát servera nebol zverejnený prostredníctvom pravidla transparentnosti certifikátov.</translation>
 <translation id="7353601530677266744">Príkazový riadok</translation>
@@ -883,6 +930,7 @@
 <translation id="782886543891417279">Sieť Wi‑Fi (<ph name="WIFI_NAME" />), ktorú používate, môže vyžadovať, aby ste navštívili jej prihlasovaciu stránku</translation>
 <translation id="785549533363645510">Nie ste však neviditeľný/-á. Prejdením do režimu inkognito neskryjete svoje prehliadanie pred zamestnávateľom, poskytovateľom internetových služieb ani pred navštívenými webmi.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Opustiť web?</translation>
 <translation id="7878176543348854470">Debetné a predplatené karty sú akceptované.</translation>
 <translation id="7878562273885520351">Vaše heslo mohlo byť napadnuté</translation>
 <translation id="7887683347370398519">Skontrolujte svoj kód CVC a skúste to znova</translation>
@@ -905,6 +953,7 @@
 <translation id="8041940743680923270">Použiť predvolené všeobecné nastavenie (Opýtať sa)</translation>
 <translation id="8042918947222776840">Zvoliť spôsob vyzdvihnutia</translation>
 <translation id="8057711352706143257">Softvér <ph name="SOFTWARE_NAME" /> nie je správne nakonfigurovaný. Tento problém sa zvyčajne odstráni odinštalovaním softvéru <ph name="SOFTWARE_NAME" />. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Znova načítať web?</translation>
 <translation id="8088680233425245692">Článok sa nepodarilo zobraziť.</translation>
 <translation id="8091372947890762290">Aktivácia čaká na server</translation>
 <translation id="8094917007353911263">Sieť, ktorú používate, môže vyžadovať, aby ste navštívili stránku <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /></translation>
@@ -920,6 +969,7 @@
 <translation id="8201077131113104583">Neplatná webová adresa aktualizácie pre rozšírenie s ID <ph name="EXTENSION_ID" />.</translation>
 <translation id="8202097416529803614">Súhrn objednávky</translation>
 <translation id="8205463626947051446">Web zvykne zobrazovať obťažujúce reklamy</translation>
+<translation id="8211406090763984747">Pripojenie je bezpečné</translation>
 <translation id="8218327578424803826">Pridelená poloha:</translation>
 <translation id="8225771182978767009">Osoba, ktorá nastavila tento počítač, sa rozhodla daný web blokovať.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

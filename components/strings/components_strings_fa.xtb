@@ -370,6 +370,56 @@
 <translation id="3583757800736429874">&amp;انجام مجدد انتقال</translation>
 <translation id="3586931643579894722">عدم نمایش جزئیات</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />، <ph name="DOMAIN" />، <ph name="TIME" /></translation>
+<translation id="3602137825010714926">‏&lt;h1&gt;برطرف کردن خطاهای اتصال&lt;/h1&gt;
+    &lt;p&gt;اگر هنگام تلاش برای بازدید از وب‌سایت پیام خطایی دریافت می‌کنید، این راه‌حل‌ها را امتحان کنید.
+.&lt;/p&gt;
+    &lt;h2&gt;برطرف کردن اکثر خطاهای اتصال
+&lt;/h2&gt;
+    &lt;p&gt;اگر می‌خواهید از وب‌سایتی بازدید کنید و باز نمی‌شود، ابتدا سعی کنید با این مراحل عیب‌یابی، خطا را برطرف کنید:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;بررسی کنید نشانی وب اشتباه تایپی نداشته باشد.&lt;/li&gt;
+    &lt;li&gt;مطمئن شوید اتصال اینترنت درست کار می‌کند.&lt;/li&gt;
+    &lt;li&gt;با مالک وب‌سایت تماس بگیرید.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;دریافت راهنمایی برای پیام خطایی خاص&lt;/h2&gt;
+    &lt;h3&gt;«اتصال شما خصوصی نیست» یا «NET::ERR_CERT_AUTHORITY_INVALID» یا «ERR_CERT_COMMON_NAME_INVALID» یا «NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM» یا «خطای گواهی ‏‏SSL‏»&lt;/h3&gt;
+    &lt;h4&gt;مرحله ۱: به سیستم پورتال وارد شوید&lt;/h4&gt;
+    &lt;p&gt;شبکه‌های Wi-Fi در مکان‌هایی مانند کافه‌ها یا فرودگاه‌ها از شما می‌خواهند که به سیستم وارد شوید.
+برای دیدن صفحه ورود به سیستم، به صفحه‌ای بروید که از &lt;code&gt;http://&lt;/code&gt;استفاده می‌کند.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;به وب‌سایتی بروید که با &lt;code&gt;http://&lt;/code&gt; شروع می‌شود مانند: &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;در صفحه ورود به سیستمی که باز می‌شود، برای استفاده از اینترنت به سیستم وارد شوید.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;مرحله ۲: صفحه وب را در حالت ناشناس باز کنید (فقط برای رایانه)&lt;/h4&gt;
+    &lt;p&gt;صفحه‌ای را که بازدید می‌کردید در پنجره ناشناس باز کنید.&lt;/p&gt;
+    &lt;p&gt;اگر صفحه باز شد، افزونه Chrome به‌درستی کار نمی‌کند. برای برطرف کردن خطا، افزونه را خاموش کنید.&lt;/p&gt;
+    &lt;h4&gt;مرحله ۳: سیستم عامل را به‌روزرسانی کنید&lt;/h4&gt;
+    &lt;p&gt;مطمئن شوید که دستگاهتان به‌روز است.&lt;/p&gt;
+    &lt;h4&gt;مرحله ۴: ضدویروس را موقتاً خاموش کنید&lt;/h4&gt;
+    &lt;p&gt;اگر ضدویروسی داشته باشید که دارای «محافظت HTTPS» یا «اسکن HTTPS» است، این خطا را خواهید دید. ضدویروس مانع Chrome برای ارائه امنیت می‌شود.&lt;/p&gt;
+    &lt;p&gt;برای برطرف کردن مشکل، نرم‌افزار ضدویروستان را خاموش کنید. اگر صفحه بعد از خاموش کردن نرم‌افزار کار کرد، وقتی از سایت‌های ایمن استفاده می‌کنید این نرم‌افزار را خاموش کنید.
+.&lt;/p&gt;
+    &lt;p&gt;وقتی کارتان تمام شد، فراموش نکنید که برنامه آنتی‌ویروس را دوباره روشن کنید.&lt;/p&gt;
+    &lt;h4&gt;مرحله ۵: دریافت راهنمایی بیشتر&lt;/h4&gt;
+    &lt;p&gt;اگر همچنان خطا را می‌بینید، با مالک وب‌سایت تماس بگیرید.&lt;/p&gt;
+    &lt;h3&gt;«اتصال به شبکه»&lt;/h3&gt;
+    &lt;p&gt;اگر از پورتالی از Wi-Fi استفاده می‌کنید که پیش از آنلاین شدن شما را ملزم به ورود به سیستم می‌کند، این خطا را مشاهده می‌کنید.&lt;/p&gt;
+    &lt;p&gt;برای برطرف کردن خطا، در صفحه‌ای که می‌خواهید باز کنید، روی &lt;strong&gt;اتصال&lt;/strong&gt; کلیک کنید.&lt;/p&gt;
+    &lt;h3&gt;«ساعت شما عقب است» یا «ساعت شما جلو است» "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;اگر تاریخ و زمان رایانه یا دستگاه همراهتان درست نباشد این خطا را خواهید دید.&lt;/p&gt;
+    &lt;p&gt;برای برطرف کردن این خطا، ساعت دستگاهتان را باز کنید. مطمئن شوید که ساعت و تاریخ نادرست است.&lt;/p&gt;
+    &lt;h3&gt;«نرم‌افزاری در رایانه شما مانع از اتصال ایمن Chrome به وب می‌شود»
+(فقط رایانه‌های Windows)&lt;/h3&gt;
+    &lt;p&gt;اگر در رایانه Windows نرم‌افزار Superfish داشته باشید، این خطا را می‌بینید.&lt;/p&gt;
+    &lt;p&gt;برای غیرفعال کردن موقت این نرم‌افزار و دسترسی به وب، این مراحل را دنبال کنید.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;روی &lt;strong&gt;شروع&lt;/strong&gt;کلیک کنید و سپس &lt;strong&gt;«مشاهده سرویس‌های محلی»&lt;/strong&gt; را جستجو و انتخاب کنید
+    &lt;li&gt;&lt;strong&gt;VisualDiscovery&lt;/strong&gt; را انتخاب کنید
+    &lt;li&gt;در بخش &lt;strong&gt;نوع راه‌اندازی&lt;/strong&gt; ،&lt;strong&gt;غیرفعال&lt;/strong&gt; را انتخاب کنید
+    &lt;li&gt;در بخش &lt;strong&gt;وضعیت سرویس&lt;/strong&gt; روی&lt;strong&gt;توقف&lt;/strong&gt; کلیک کنید
+    &lt;li&gt;روی &lt;strong&gt;اعمال&lt;/strong&gt; و سپس &lt;strong&gt;تأیید&lt;/strong&gt; کلیک کنید
+    &lt;li&gt;برای آشنایی با نحوه حذف دائم نرم‌افزار از رایانامه، &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;مرکز راهنمای ‏Chrome‏&lt;/a&gt; دیدن کنید
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">تاریخ انقضای معتبری وارد کنید</translation>
 <translation id="36224234498066874">پاک کردن داده‌های محصول مرور…</translation>
 <translation id="362276910939193118">نمایش کل سابقه</translation>
@@ -432,6 +482,7 @@
 <translation id="4103249731201008433">شماره سریال دستگاه نامعتبر است</translation>
 <translation id="410351446219883937">پخش خودکار</translation>
 <translation id="4103763322291513355">‏برای مشاهده فهرست نشانی‌های وب ممنوع و سایر خط‌مشی‌های اجباری براساس تصمیم سرپرست سیستم خود از &lt;strong&gt;chrome://policy&lt;/strong&gt; بازدید نمایید.</translation>
+<translation id="4110652170750985508">مرور پرداخت</translation>
 <translation id="4116663294526079822">همیشه مجاز در این سایت</translation>
 <translation id="4117700440116928470">محدوده خط‌مشی پشتیبانی نمی‌شود.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{۱ مورد دیگر}one{# مورد دیگر}other{# مورد دیگر}}</translation>
@@ -804,6 +855,7 @@
 <translation id="7275334191706090484">نشانک‌های مدیریت شده</translation>
 <translation id="7298195798382681320">توصیه می‌شود</translation>
 <translation id="7309308571273880165">گزارش خرابی ثبت‌شده در <ph name="CRASH_TIME" /> (کاربر درخواست بارگذاری کرده است، هنوز بارگذاری نشده است)</translation>
+<translation id="7320336641823683070">راهنمای اتصال</translation>
 <translation id="7334320624316649418">&amp;انجام مجدد ترتیب‌بندی مجدد</translation>
 <translation id="733923710415886693">گواهی سرور از طریق شفافیت گواهینامه نشان داده نشده بود.</translation>
 <translation id="7353601530677266744">خط فرمان</translation>
@@ -888,6 +940,7 @@
 <translation id="782886543891417279">‏شبکه Wi-Fi (<ph name="WIFI_NAME" />) مورد استفاده‌تان احتمالاً نیاز دارد که به یک صفحه ورود به سیستم بروید.</translation>
 <translation id="785549533363645510">اما، شما نامرئی نیستید. با استفاده از حالت ناشناس، مرورتان از چشمان کارفرمای شما، ارائه‌دهنده خدمات اینترنت یا وب‌‌سایت‌هایی که بازدید می‌کنید پنهان نمی‌ماند.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">سایت را ترک می‌کنید؟</translation>
 <translation id="7878176543348854470">کارت‌های نقدی و پیش‌پرداخت پذیرفته می‌شوند.</translation>
 <translation id="7878562273885520351">ممکن است گذرواژه‌تان درمعرض خطر باشد</translation>
 <translation id="7887683347370398519">‏CVC را بررسی کرده و دوباره امتحان کنید</translation>
@@ -910,6 +963,7 @@
 <translation id="8041940743680923270">استفاده از پیش‌فرض جهانی (سؤال شود)</translation>
 <translation id="8042918947222776840">انتخاب روش تحویل گرفتن</translation>
 <translation id="8057711352706143257">«<ph name="SOFTWARE_NAME" />» درست پیکربندی نمی‌شود. معمولاً حذف‌ نصب «<ph name="SOFTWARE_NAME" />» مشکل را برطرف می‌کند. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">سایت تازه‌سازی شود؟</translation>
 <translation id="8088680233425245692">مشاهده مقاله ناموفق بود.</translation>
 <translation id="8091372947890762290">فعال‌سازی در سرور در حالت تعلیق است</translation>
 <translation id="8094917007353911263">شبکه‌ای که از آن استفاده می‌کنید ممکن است از شما بخواهد که <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> را ببینید.</translation>
@@ -925,6 +979,7 @@
 <translation id="8201077131113104583">نشانی وب به‌روزرسانی نامعتبر برای برنامه افزودنی با شناسه «<ph name="EXTENSION_ID" />».</translation>
 <translation id="8202097416529803614">خلاصه سفارش</translation>
 <translation id="8205463626947051446">سایت تمایل دارد آگهی‌ها مزاحم نشان دهد</translation>
+<translation id="8211406090763984747">اتصال امن است</translation>
 <translation id="8218327578424803826">مکان اختصاص یافته:</translation>
 <translation id="8225771182978767009">شخصی که این رایانه را راه‌اندازی کرده این سایت را مسدود کرده است.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />،‏ <ph name="TYPE_2" /></translation>

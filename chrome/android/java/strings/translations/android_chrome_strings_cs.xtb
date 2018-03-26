@@ -88,6 +88,7 @@ Chcete-li fyzický web používat, je třeba aktivovat Bluetooth a určování 
 <translation id="1709438864123551175">Spořič dat</translation>
 <translation id="1718835860248848330">Poslední hodina</translation>
 <translation id="1729516292547892356">Chcete-li zobrazit obsah pro virtuální realitu, aktualizujte Google VR Services</translation>
+<translation id="1733116627827457509"><ph name="FILE_SIZE" /> – aktualizováno <ph name="TIME_SINCE_UPDATE" /></translation>
 <translation id="1749561566933687563">Synchronizace záložek</translation>
 <translation id="17513872634828108">Otevřené karty</translation>
 <translation id="1756600373018374892">Klepnutím na toto tlačítko získáte rychle přístup ke svým kartám.</translation>
@@ -798,6 +799,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="8200772114523450471">Pokračovat</translation>
 <translation id="8209050860603202033">Otevřít obrázek</translation>
 <translation id="8220488350232498290">Staženo: <ph name="GIGABYTES" /> GB</translation>
+<translation id="8249310407154411074">Přesunout na začátek</translation>
 <translation id="8250920743982581267">Dokumenty</translation>
 <translation id="8260126382462817229">Zkuste se přihlásit znovu.</translation>
 <translation id="8261506727792406068">Smazat</translation>

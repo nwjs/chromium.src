@@ -38,6 +38,7 @@
 <translation id="1540800554400757039">Adresa 1</translation>
 <translation id="1545749641540134597">Naskenovať kód QR</translation>
 <translation id="1580783302095112590">E-mail bol odoslaný.</translation>
+<translation id="1582732959743469162">Tým zastavíte akýkoľvek pokrok aktuálneho sťahovania.</translation>
 <translation id="1612730193129642006">Zobraziť karty v mriežke</translation>
 <translation id="1644574205037202324">História</translation>
 <translation id="1646446875146297738">Ak povolíte možnosť Nesledovať, žiadosť sa zahrnie do vašej aktivity prehliadania. Záleží na tom, či webové stránky na túto žiadosť zareagujú a akým spôsobom ju interpretujú.
@@ -283,6 +284,7 @@ Funkciu Handoff musíte povoliť v nastaveniach v časti Všeobecné a vaše zar
 <translation id="633809752005859102">Niečo sa vážne pokazilo. Na riešení pracujeme.</translation>
 <translation id="6342069812937806050">Práve teraz</translation>
 <translation id="6344783595350022745">Prehľadný text</translation>
+<translation id="6346549652287021269">Spustiť nové sťahovanie?</translation>
 <translation id="6362362396625799311">Žiadne karty inkognito</translation>
 <translation id="6374469231428023295">Skúsiť znova</translation>
 <translation id="6380866119319257197">Ak prístupovú frázu zabudnete alebo budete chcieť toto nastavenie zmeniť, <ph name="BEGIN_LINK" />resetujte synchronizáciu<ph name="END_LINK" />.</translation>
@@ -323,6 +325,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="7031882061095297553">Kam synchronizovať</translation>
 <translation id="7053983685419859001">Blokovať</translation>
 <translation id="7062545763355031412">Prijať a prepnúť účty</translation>
+<translation id="7102005569666697658">Sťahuje sa… <ph name="FILE_SIZE" /></translation>
 <translation id="7108338896283013870">Skryť</translation>
 <translation id="7133798577887235672">Celé meno</translation>
 <translation id="7136892417564438900">Kamera nie je k dispozícii</translation>
@@ -358,6 +361,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="7769602470925380267">Prijať a odhlásiť</translation>
 <translation id="7772032839648071052">Potvrďte prístupovú frázu</translation>
 <translation id="780301667611848630">Nie, ďakujem</translation>
+<translation id="7856733331829174190">Sťahovanie zlyhalo</translation>
 <translation id="7859704718976024901">História prehliadania</translation>
 <translation id="7938254975914653459">FaceTime</translation>
 <translation id="7939128259257418052">Exportovať heslá...</translation>
@@ -418,6 +422,7 @@ Vaše údaje boli <ph name="TIME" /> zašifrované pomocou vlastnej prístupovej
 <translation id="9083392325882095631">1 položka</translation>
 <translation id="9100610230175265781">Vyžaduje sa prístupová fráza</translation>
 <translation id="9148126808321036104">Znova sa prihlásiť</translation>
+<translation id="915371508759614899">Zrušiť sťahovanie?</translation>
 <translation id="9157836665414082580">Obmedziť dialógové okná</translation>
 <translation id="9188680907066685419">Odhlásenie zo spravovaného účtu</translation>
 <translation id="9203116392574189331">Handoff</translation>

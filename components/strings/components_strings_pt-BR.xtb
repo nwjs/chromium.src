@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Refazer mover</translation>
 <translation id="3586931643579894722">Ocultar detalhes</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Corrigir erros de conexão&lt;/h1&gt;
+    &lt;p&gt;Se você receber uma mensagem de erro ao tentar visitar um site, tente estas correções.&lt;/p&gt;
+    &lt;h2&gt;Corrigir a maioria dos erros de conexão&lt;/h2&gt;
+    &lt;p&gt;Se você tentar visitar um site e ele não abrir, tente primeiro corrigir o erro com estas etapas de solução de problemas:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Verifique se o endereço da Web foi digitado corretamente.&lt;/li&gt;
+    &lt;li&gt;Certifique-se de que a conexão com a Internet esteja funcionando normalmente.&lt;/li&gt;
+    &lt;li&gt;Entre em contato com o proprietário do site.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Receber ajuda com uma mensagem de erro específica&lt;/h2&gt;
+    &lt;h3&gt;"Sua conexão não é particular", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" ou "Erro de certificado SSL"&lt;/h3&gt;
+    &lt;h4&gt;Etapa 1: fazer login no portal&lt;/h4&gt;
+    &lt;p&gt;As redes Wi-Fi em locais como cafés ou aeroportos exigem que você faça login. Para ver a página de login, visite uma página que use &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Acesse qualquer site que comece com &lt;code&gt;http://&lt;/code&gt;, como &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Na página de login que é aberta, faça login para usar a Internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Etapa 2: abrir a página no modo de navegação anônima (somente no computador)&lt;/h4&gt;
+    &lt;p&gt;Abra a página que você estava visitando em uma janela de navegação anônima.&lt;/p&gt;
+    &lt;p&gt;Se a página abrir, isso significa que uma extensão do Chrome não está funcionando corretamente. Para corrigir o erro, desative a extensão.&lt;/p&gt;
+    &lt;h4&gt;Etapa 3: atualizar o sistema operacional&lt;/h4&gt;
+    &lt;p&gt;Certifique-se de que seu dispositivo esteja atualizado.&lt;/p&gt;
+    &lt;h4&gt;Etapa 4: desativar o antivírus temporariamente&lt;/h4&gt;
+    &lt;p&gt;Você verá este erro se tiver um software antivírus que fornece "proteção de HTTPS" ou "verificação de HTTPS". O antivírus está impedindo que o Chrome forneça segurança.&lt;/p&gt;
+    &lt;p&gt;Para corrigir o problema, desative o software antivírus. Se a página funcionar após a desativação do software, desative-o quando usar sites seguros.&lt;/p&gt;
+    &lt;p&gt;Lembre-se de ativar seu programa de antivírus novamente quando terminar.&lt;/p&gt;
+    &lt;h4&gt;Etapa 5: receber ajuda extra&lt;/h4&gt;
+    &lt;p&gt;Se ainda encontrar o erro, entre em contato com o proprietário do site.&lt;/p&gt;
+    &lt;h3&gt;"Conectar-se à rede"&lt;/h3&gt;
+    &lt;p&gt;Você verá esse erro se estiver usando um portal de Wi-Fi em que precisa fazer login para poder ficar on-line.&lt;/p&gt;
+    &lt;p&gt;Para corrigir esse erro, clique em &lt;strong&gt;Conectar&lt;/strong&gt; na página que você está tentando abrir.&lt;/p&gt;
+    &lt;h3&gt;"Seu relógio está atrasado", "Seu relógio está adiantado" ou "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Você verá esse erro se a data e a hora do seu computador ou dispositivo móvel estiverem incorretas.&lt;/p&gt;
+    &lt;p&gt;Para corrigir esse erro, abra o relógio do dispositivo. Certifique-se de que a data e a hora estejam corretas.&lt;/p&gt;
+    &lt;h3&gt;"Um software no computador está impedindo que o Chrome se conecte à Web com segurança" (somente em computadores Windows)&lt;/h3&gt;
+    &lt;p&gt;Você verá esse erro se tiver o software Superfish no computador Windows.&lt;/p&gt;
+    &lt;p&gt;Siga estas etapas para desativar o software temporariamente para que você possa entrar na Web. Você precisará de privilégios de administrador.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Clique em &lt;strong&gt;Iniciar&lt;/strong&gt;, procure e selecione &lt;strong&gt;Ver serviços locais&lt;/strong&gt;
+    &lt;li&gt;Selecione &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Em &lt;strong&gt;Tipo de inicialização&lt;/strong&gt;, selecione &lt;strong&gt;Desabilitada&lt;/strong&gt;
+    &lt;li&gt;Em &lt;strong&gt;Status do serviço&lt;/strong&gt;, clique em &lt;strong&gt;Parar&lt;/strong&gt;
+    &lt;li&gt;Clique em &lt;strong&gt;Aplicar&lt;/strong&gt; e depois em &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Visite a &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Central de Ajuda do Chrome&lt;/a&gt; para saber como remover permanentemente o software do computador
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Informe uma data de validade válida</translation>
 <translation id="36224234498066874">Limpar dados de navegação...</translation>
 <translation id="362276910939193118">Mostrar histórico completo</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Favoritos gerenciados</translation>
 <translation id="7298195798382681320">Recomendada</translation>
 <translation id="7309308571273880165">Relatório de erros capturado em <ph name="CRASH_TIME" /> (upload solicitado pelo usuário, upload ainda não realizado)</translation>
+<translation id="7320336641823683070">Ajuda de conexão</translation>
 <translation id="7334320624316649418">&amp;Refazer reordenar</translation>
 <translation id="733923710415886693">O certificado do servidor não foi divulgado por meio da Transparência dos certificados.</translation>
 <translation id="7353601530677266744">Linha de comando</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">O Wi-Fi que você está usando (<ph name="WIFI_NAME" />) pode exigir a visita a uma página de login.</translation>
 <translation id="785549533363645510">O modo invisível NÃO oculta seus dados de navegação. Seu empregador, seu provedor de Internet e os websites visitados continuam tendo acesso a essas informações.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Sair do site?</translation>
 <translation id="7878176543348854470">Cartões de débito e pré-pagos são aceitos.</translation>
 <translation id="7878562273885520351">Sua senha pode estar comprometida</translation>
 <translation id="7887683347370398519">Verifique seu CVC e tente novamente</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Usar padrão global (Perguntar)</translation>
 <translation id="8042918947222776840">Escolher método de retirada</translation>
 <translation id="8057711352706143257">O software "<ph name="SOFTWARE_NAME" />" não foi configurado corretamente. A desinstalação do "<ph name="SOFTWARE_NAME" />" costuma resolver o problema. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Atualizar o site?</translation>
 <translation id="8088680233425245692">Falha ao exibir artigo.</translation>
 <translation id="8091372947890762290">A ativação está pendente no servidor</translation>
 <translation id="8094917007353911263">A rede que você está usando pode exigir uma visita a <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">URL de atualização inválido para extensão com ID "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Resumo do pedido</translation>
 <translation id="8205463626947051446">O site costuma mostrar anúncios invasivos</translation>
+<translation id="8211406090763984747">A conexão é segura</translation>
 <translation id="8218327578424803826">Local designado:</translation>
 <translation id="8225771182978767009">A pessoa que configurou este computador optou por bloquear esse site.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

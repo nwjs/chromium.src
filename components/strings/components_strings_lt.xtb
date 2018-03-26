@@ -371,6 +371,51 @@
 <translation id="3583757800736429874">&amp;Perkelti dar kartą</translation>
 <translation id="3586931643579894722">Slėpti išsamią informaciją</translation>
 <translation id="3600246354004376029">„<ph name="TITLE" />“, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Ryšio klaidų taisymas&lt;/h1&gt;
+    &lt;p&gt;Jei bandant apsilankyti svetainėje pateikiamas klaidos pranešimas, išbandykite toliau nurodytus sprendimo būdus.&lt;/p&gt;
+    &lt;h2&gt;Daugumos ryšio klaidų taisymas&lt;/h2&gt;
+    &lt;p&gt;Jei bandote apsilankyti svetainėje, bet nepavyksta jos atidaryti, pirma pabandykite ištaisyti klaidą atlikdami nurodytus trikčių šalinimo veiksmus.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Patikrinkite, ar žiniatinklio adrese nėra rašybos klaidų.&lt;/li&gt;
+    &lt;li&gt;Įsitikinkite, kad interneto ryšys veikia tinkamai.&lt;/li&gt;
+    &lt;li&gt;Susisiekite su svetainės savininku.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Pagalbos dėl konkrečios klaidos pranešimo gavimas&lt;/h2&gt;
+    &lt;h3&gt;„Jūsų ryšys nėra privatus“, NET::ERR_CERT_AUTHORITY_INVALID, ERR_CERT_COMMON_NAME_INVALID, NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM arba „SSL sertifikato klaida“&lt;/h3&gt;
+    &lt;h4&gt;1 veiksmas: prisijunkite prie portalo&lt;/h4&gt;
+    &lt;p&gt;Norint naudotis „Wi-Fi“ tinklais tokiose vietose kaip kavinės ar oro uostai, reikia prisijungti. Jei norite pamatyti prisijungimo puslapį, apsilankykite puslapyje, kuriame naudojama &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Eikite į bet kokią svetainę, prasidedančią &lt;code&gt;http://&lt;/code&gt;, pvz., &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Atsidariusiame prisijungimo puslapyje prisijunkite, kad galėtumėte naudoti internetą.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2 veiksmas: atidarykite puslapį inkognito režimu (skirta tik kompiuteriams)&lt;/h4&gt;
+    &lt;p&gt;Atidarykite puslapį, kuriame lankėtės, inkognito lange.&lt;/p&gt;
+    &lt;p&gt;Jei puslapis atidaromas, reiškia, kad „Chrome“ plėtinys veikia netinkamai. Kad ištaisytumėte klaidą, išjunkite plėtinį.&lt;/p&gt;
+    &lt;h4&gt;3 veiksmas: atnaujinkite operacinę sistemą&lt;/h4&gt;
+    &lt;p&gt;Įsitikinkite, kad jūsų įrenginys atnaujintas.&lt;/p&gt;
+    &lt;h4&gt;4 veiksmas: laikinai išjunkite antivirusinę programą&lt;/h4&gt;
+    &lt;p&gt;Ši klaida rodoma, jei turite antivirusinę programinę įrangą, teikiančią HTTPS apsaugą arba HTTPS nuskaitymą. Antivirusinė programa trukdo „Chrome“ užtikrinti saugą.&lt;/p&gt;
+    &lt;p&gt;Kad išspręstumėte problemą, išjunkite antivirusinę programinę įrangą. Jei puslapis veikia išjungus programinę įrangą, išjunkite ją, kai naudojate saugias svetaines.&lt;/p&gt;
+    &lt;p&gt;Baigę nepamirškite vėl įjungti antivirusinės programos.&lt;/p&gt;
+    &lt;h4&gt;5 veiksmas: gaukite papildomos pagalbos&lt;/h4&gt;
+    &lt;p&gt;Jei vis tiek rodoma klaida, susisiekite su svetainės savininku.&lt;/p&gt;
+    &lt;h3&gt;„Prisijunkite prie tinklo“&lt;/h3&gt;
+    &lt;p&gt;Ši klaida rodoma, jei naudojate „Wi-Fi“ portalą, kuriame reikia prisijungti, kad galėtumėte naudotis internetu.&lt;/p&gt;
+    &lt;p&gt;Kad ištaisytumėte šią klaidą, puslapyje, kurį bandote atidaryti, spustelėkite &lt;strong&gt;Prisijungti&lt;/strong&gt;.&lt;/p&gt;
+    &lt;h3&gt;„Jūsų laikrodis atsilieka“, „Jūsų laikrodis skuba“ arba NET::ERR_CERT_DATE_INVALID&lt;/h3&gt;
+    &lt;p&gt;Ši klaida rodoma, jei netikslūs kompiuterio arba mobiliojo įrenginio data ir laikas.&lt;/p&gt;
+    &lt;p&gt;Kad ištaisytumėte klaidą, atidarykite įrenginio laikrodį. Įsitikinkite, kad laikas ir data tinkami.&lt;/p&gt;
+    &lt;h3&gt;„Programinė įranga jūsų kompiuteryje neleidžia „Chrome“ saugiai prisijungti prie žiniatinklio“ (tik „Windows“ kompiuteriai)&lt;/h3&gt;
+    &lt;p&gt;Ši klaida rodoma, jei „Windows“ kompiuteryje veikia programinė įranga „Superfish“.&lt;/p&gt;
+    &lt;p&gt;Jei norite laikinai išjungti programinę įrangą, kad galėtumėte pasiekti žiniatinklį, atlikite nurodytus veiksmus. Jums reikės administratoriaus teisių.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Spustelėkite &lt;strong&gt;Start&lt;/strong&gt;, tada suraskite ir pasirinkite &lt;strong&gt;"View local services"&lt;/strong&gt;
+    &lt;li&gt;Pasirinkite &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Skiltyje &lt;strong&gt;Startup type&lt;/strong&gt; pasirinkite &lt;strong&gt;Disabled&lt;/strong&gt;
+    &lt;li&gt;Skiltyje &lt;strong&gt;Service status&lt;/strong&gt; spustelėkite &lt;strong&gt;Stop&lt;/strong&gt;
+    &lt;li&gt;Spustelėkite &lt;strong&gt;Apply&lt;/strong&gt;, tada – &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Apsilankykite &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;„Chrome“ pagalbos centre&lt;/a&gt;, kad sužinotumėte, kaip visam laikui pašalinti programinę įrangą iš kompiuterio
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Įveskite tinkamą galiojimo laiko pabaigos datą</translation>
 <translation id="36224234498066874">Išvalyti naršymo duomenis...</translation>
 <translation id="362276910939193118">Rodyti visą istoriją</translation>
@@ -433,6 +478,7 @@
 <translation id="4103249731201008433">Netinkamas įrenginio serijos numeris</translation>
 <translation id="410351446219883937">Automatinis paleidimas</translation>
 <translation id="4103763322291513355">Apsilankykite &lt;strong&gt;chrome://policy&lt;/strong&gt;, kad peržiūrėtumėte į juodąjį sąrašą įtrauktų URL sąrašą ir kitą politiką, kurią priverstinai paleido sistemos administratorius.</translation>
+<translation id="4110652170750985508">Mokėjimo peržiūra</translation>
 <translation id="4116663294526079822">Visada leisti šioje svetainėje</translation>
 <translation id="4117700440116928470">Politikos aprėptis nepalaikoma.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{Dar 1}one{Dar #}few{Dar #}many{Dar #}other{Dar #}}</translation>
@@ -805,6 +851,7 @@
 <translation id="7275334191706090484">Tvarkomos žymės</translation>
 <translation id="7298195798382681320">Rekomenduojama</translation>
 <translation id="7309308571273880165">Strigčių ataskaita užfiksuota <ph name="CRASH_TIME" /> (įkėlimo užklausą pateikė naudotojas, dar neįkelta)</translation>
+<translation id="7320336641823683070">Su ryšiu susijusi pagalba</translation>
 <translation id="7334320624316649418">&amp;Pertvarkyti dar kartą</translation>
 <translation id="733923710415886693">Serverio sertifikatas nebuvo atskleistas taikant sertifikato skaidrumą.</translation>
 <translation id="7353601530677266744">Komandos eilutė</translation>
@@ -889,6 +936,7 @@
 <translation id="782886543891417279">Naudojant šį „Wi-Fi“ tinklą („<ph name="WIFI_NAME" />“) gali būti prašoma apsilankyti prisijungimo puslapyje.</translation>
 <translation id="785549533363645510">Tačiau nesate nematomi. Įjungus inkognito režimą, naršymo veiksmai vis tiek matomi darbdaviui, interneto paslaugų teikėjui ar svetainėms, kuriose lankotės.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Išeiti iš svetainės?</translation>
 <translation id="7878176543348854470">Debeto ir išankstinio mokėjimo kortelės tinkamos.</translation>
 <translation id="7878562273885520351">Jūsų slaptažodis gali būti pažeistas</translation>
 <translation id="7887683347370398519">Patikrinkite kortelės saugos kodą (CVC) ir bandykite dar kartą</translation>
@@ -911,6 +959,7 @@
 <translation id="8041940743680923270">Naudoti visuotinį numatytąjį nustatymą (klausti)</translation>
 <translation id="8042918947222776840">Pasirinkti paėmimo metodą</translation>
 <translation id="8057711352706143257">„<ph name="SOFTWARE_NAME" />“ netinkamai sukonfigūruota. Pašalinus „<ph name="SOFTWARE_NAME" />“ paprastai pavyksta išspręsti šią problemą. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Iš naujo įkelti svetainę?</translation>
 <translation id="8088680233425245692">Nepavyko peržiūrėti straipsnio.</translation>
 <translation id="8091372947890762290">Laukiama aktyvinimo serveryje</translation>
 <translation id="8094917007353911263">Naudojant šį tinklą gali būti prašoma apsilankyti <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -926,6 +975,7 @@
 <translation id="8201077131113104583">Netinkamas plėtinio, kurio ID „<ph name="EXTENSION_ID" />“, atnaujinimo URL.</translation>
 <translation id="8202097416529803614">Užsakymo suvestinė</translation>
 <translation id="8205463626947051446">Svetainėje bandoma rodyti nepageidaujamus skelbimus</translation>
+<translation id="8211406090763984747">Ryšys saugus</translation>
 <translation id="8218327578424803826">Priskirta vieta:</translation>
 <translation id="8225771182978767009">Šį kompiuterį nustatęs asmuo pasirinko blokuoti šią svetainę.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

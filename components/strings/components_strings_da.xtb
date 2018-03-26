@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Annuller fortryd flytning</translation>
 <translation id="3586931643579894722">Skjul oplysninger</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Ret forbindelsesfejl&lt;/h1&gt;
+    &lt;p&gt;Hvis der vises en fejlmeddelelse, når du forsøger at besøge et website, kan du prøve disse løsninger.&lt;/p&gt;
+    &lt;h2&gt;Ret de fleste forbindelsesfejl&lt;/h2&gt;
+    &lt;p&gt;Hvis du forsøger at besøge et website, som ikke åbnes, kan du starte med at prøve disse fejlfindingstrin:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Tjek, om der er tastefejl i webadressen.&lt;/li&gt;
+    &lt;li&gt;Tjek, at din internetforbindelse fungerer normalt.&lt;/li&gt;
+    &lt;li&gt;Kontakt ejeren af websitet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Få hjælp til en bestemt fejlmeddelelse&lt;/h2&gt;
+    &lt;h3&gt;"Din forbindelse er ikke privat" eller "NET::ERR_CERT_AUTHORITY_INVALID" eller "ERR_CERT_COMMON_NAME_INVALID" eller "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" eller "SSL-certifikatfejl"&lt;/h3&gt;
+    &lt;h4&gt;Trin 1: Log ind på portalen&lt;/h4&gt;
+    &lt;p&gt;Wi-Fi-netværk på steder som f.eks. caféer eller lufthavne kræver login. Du kan se loginsiden ved at gå til en side, der anvender&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Gå til et website, der starter med &lt;code&gt;http://&lt;/code&gt;, f.eks. &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Log ind på den loginside, der åbnes, for at få adgang til internettet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Trin 2: Åbn siden i inkognitotilstand (kun på computere)&lt;/h4&gt;
+    &lt;p&gt;Åbn den side, du vil besøge, i et inkognitovindue.&lt;/p&gt;
+    &lt;p&gt;Hvis siden åbnes, skyldes problemet, at en Chrome-udvidelse ikke fungerer korrekt. Ret fejlen ved at deaktivere udvidelsen.&lt;/p&gt;
+    &lt;h4&gt;Trin 3: Opdater dit operativsystem&lt;/h4&gt;
+    &lt;p&gt;Tjek, at din enhed er opdateret.&lt;/p&gt;
+    &lt;h4&gt;Trin 4: Deaktiver din antivirussoftware midlertidigt&lt;/h4&gt;
+    &lt;p&gt;Denne fejlmeddelelse vises, hvis du har installeret antivirussoftware, der leverer "HTTPS-beskyttelse" eller "HTTPS-scanning". Antivirussoftwaren forhindrer Chrome i at beskytte enheden.&lt;/p&gt;
+    &lt;p&gt;Løs problemet ved at deaktivere din antivirussoftware. Hvis siden fungerer, efter du har deaktiveret softwaren, skal du deaktivere denne software for at kunne bruge sikre websites.&lt;/p&gt;
+    &lt;p&gt;Husk at aktivere antivirusprogrammet igen, når du er færdig.&lt;/p&gt;
+    &lt;h4&gt;Trin 5: Få yderligere hjælp&lt;/h4&gt;
+    &lt;p&gt;Hvis fejlen stadig vises, bør du kontakte ejeren af websitet.&lt;/p&gt;
+    &lt;h3&gt;"Opret forbindelse til netværk"&lt;/h3&gt;
+    &lt;p&gt;Denne fejlmeddelelse vises, hvis du bruger en Wi-Fi-portal, hvor du skal logge ind, før du kan oprette forbindelse til internettet.&lt;/p&gt;
+    &lt;p&gt;Du kan rette fejlen ved at klikke på &lt;strong&gt;Opret forbindelse&lt;/strong&gt; på den side, du forsøger at åbne.&lt;/p&gt;
+    &lt;h3&gt;"Dit ur er bagud" eller "Dit ur er foran" eller "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Denne fejlmeddelelse vises, hvis dato og tid på din computer eller mobilenhed er forkerte.&lt;/p&gt;
+    &lt;p&gt;Du kan rette fejlen ved at åbne uret på enheden. Sørg for, at dato og klokkeslæt er indstillet korrekt.&lt;/p&gt;
+    &lt;h3&gt;"Der er software på computeren, som forhindrer, at Chrome kan oprette en sikker forbindelse til nettet" (kun på Windows-computere)&lt;/h3&gt;
+    &lt;p&gt;Denne fejlmeddelelse vises, hvis du har installeret Superfish-software på din Windows-computer.&lt;/p&gt;
+    &lt;p&gt;Følg denne vejledning for at deaktivere softwaren midlertidigt, så du kan komme på nettet. Du skal have administratorrettigheder.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Klik på &lt;strong&gt;Start&lt;/strong&gt;, og søg efter og vælg &lt;strong&gt;"Vis lokale tjenester"&lt;/strong&gt;
+    &lt;li&gt;Vælg &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Vælg &lt;strong&gt;Deaktiveret&lt;/strong&gt; under &lt;strong&gt;Starttype&lt;/strong&gt;
+    &lt;li&gt;Klik på &lt;strong&gt;Stop&lt;/strong&gt; under &lt;strong&gt;Tjenestestatus&lt;/strong&gt;
+    &lt;li&gt;Klik på &lt;strong&gt;Anvend&lt;/strong&gt; og derefter på &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Gå til &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Hjælp til Chrome&lt;/a&gt; for at få flere oplysninger om, hvordan du permanent fjerner softwaren fra din computer
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Angiv en gyldig udløbsdato</translation>
 <translation id="36224234498066874">Ryd browserdata...</translation>
 <translation id="362276910939193118">Vis hele historikken</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Administrerede bogmærker</translation>
 <translation id="7298195798382681320">Anbefalet</translation>
 <translation id="7309308571273880165">Nedbrudsrapport registreret <ph name="CRASH_TIME" /> (upload, som brugeren anmodede om, er endnu ikke uploadet)</translation>
+<translation id="7320336641823683070">Hjælp til at oprette forbindelse</translation>
 <translation id="7334320624316649418">&amp;Annuller fortryd omarrangering</translation>
 <translation id="733923710415886693">Servercertifikatet blev ikke fremvist via Certifikatsgennemsigtighed.</translation>
 <translation id="7353601530677266744">Kommandolinje</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">Det Wi-Fi-netværk, du bruger (<ph name="WIFI_NAME" />), kan kræve, at du går til netværkets loginside.</translation>
 <translation id="785549533363645510">Du er dog ikke usynlig. Inkognitotilstand skjuler ikke din browserhistorik over for din arbejdsgiver, din internetudbyder eller de websites, du besøger.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Vil du forlade websitet?</translation>
 <translation id="7878176543348854470">Betalingskort accepteres.</translation>
 <translation id="7878562273885520351">Din adgangskode kan være kompromitteret</translation>
 <translation id="7887683347370398519">Kontrollér, om din kontrolkode er korrekt, og prøv igen.</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Brug global standard (spørg)</translation>
 <translation id="8042918947222776840">Vælg afhentningsmetode</translation>
 <translation id="8057711352706143257">"<ph name="SOFTWARE_NAME" />" er ikke konfigureret korrekt. Problemet kan normalt løses ved at afinstallere "<ph name="SOFTWARE_NAME" />". <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Vil du genindlæse websitet?</translation>
 <translation id="8088680233425245692">Artiklen kunne ikke vises.</translation>
 <translation id="8091372947890762290">Aktivering afventer serveren</translation>
 <translation id="8094917007353911263">Det netværk, du bruger, kan kræve, at du går til <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">Ugyldig webadresse til opdatering for udvidelse med id'et "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Ordreoversigt</translation>
 <translation id="8205463626947051446">Websitet har tendens til at vise påtrængende annoncer</translation>
+<translation id="8211406090763984747">Forbindelsen er sikker</translation>
 <translation id="8218327578424803826">Tildelt placering:</translation>
 <translation id="8225771182978767009">Den person, der har konfigureret denne computer, har valgt at blokere dette website.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

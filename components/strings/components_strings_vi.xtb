@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Làm lại di chuyển</translation>
 <translation id="3586931643579894722">Ẩn chi tiết</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Khắc phục lỗi kết nối&lt;/h1&gt;
+    &lt;p&gt;Nếu bạn nhận được thông báo lỗi khi cố truy cập vào một trang web, hãy thử các cách khắc phục sau.&lt;/p&gt;
+    &lt;h2&gt;Khắc phục hầu hết các lỗi kết nối&lt;/h2&gt;
+    &lt;p&gt;Nếu bạn cố truy cập vào một trang web nhưng vẫn không mở được, trước tiên, hãy tìm cách khắc phục lỗi bằng các bước khắc phục sự cố dưới đây:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Kiểm tra xem địa chỉ web có lỗi chính tả không.&lt;/li&gt;
+    &lt;li&gt;Đảm bảo kết nối Internet hoạt động bình thường.&lt;/li&gt;
+    &lt;li&gt;Liên hệ với chủ sở hữu trang web.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Nhận trợ giúp với thông báo lỗi cụ thể&lt;/h2&gt;
+    &lt;h3&gt;"Kết nối của bạn không phải là kết nối riêng tư", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" hoặc "lỗi chứng chỉ SSL"&lt;/h3&gt;
+    &lt;h4&gt;Bước 1: Đăng nhập vào cổng&lt;/h4&gt;
+    &lt;p&gt;Mạng Wi-Fi ở những nơi như quán cà phê hoặc sân bay cần bạn phải đăng nhập. Để biết trang đăng nhập, hãy truy cập vào một trang sử dụng&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Truy cập vào một trang web bất kỳ bắt đầu bằng &lt;code&gt;http://&lt;/code&gt;, chẳng hạn như &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Trên trang đăng nhập mở ra, hãy đăng nhập để sử dụng Internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Bước 2: Mở trang trong chế độ ẩn danh (chỉ dành cho máy tính)&lt;/h4&gt;
+    &lt;p&gt;Mở trang bạn đã truy cập trong cửa sổ ẩn danh.&lt;/p&gt;
+    &lt;p&gt;Nếu trang mở ra, tức là tiện ích của Chrome hiện hoạt động không đúng cách. Để khắc phục lỗi này, hãy tắt tiện ích đó.&lt;/p&gt;
+    &lt;h4&gt;Bước 3: Cập nhật hệ điều hành&lt;/h4&gt;
+    &lt;p&gt;Đảm bảo thiết bị của bạn được cập nhật.&lt;/p&gt;
+    &lt;h4&gt;Bước 4: Tạm tắt phần mềm diệt vi-rút&lt;/h4&gt;
+    &lt;p&gt;Bạn sẽ gặp lỗi này nếu có phần mềm diệt vi-rút cung cấp tính năng "Bảo vệ HTTPS" hoặc "Quét HTTPS". Phần mềm diệt vi-rút đang ngăn không cho Chrome cung cấp bảo mật.&lt;/p&gt;
+    &lt;p&gt;Để khắc phục vấn đề, hãy tắt phần mềm diệt vi-rút. Nếu trang hoạt động sau khi tắt phần mềm, hãy tắt phần mềm này khi bạn sử dụng trang web an toàn.&lt;/p&gt;
+    &lt;p&gt;Hãy nhớ bật lại chương trình diệt vi-rút khi đã hoàn tất.&lt;/p&gt;
+    &lt;h4&gt;Bước 5: Nhận thêm trợ giúp&lt;/h4&gt;
+    &lt;p&gt;Nếu bạn vẫn gặp lỗi này, hãy liên hệ với chủ sở hữu trang web.&lt;/p&gt;
+    &lt;h3&gt;"Kết nối mạng"&lt;/h3&gt;
+    &lt;p&gt;Bạn sẽ gặp lỗi này nếu đang sử dụng cổng Wi-Fi yêu cầu bạn đăng nhập trước khi có thể vào mạng.&lt;/p&gt;
+    &lt;p&gt;Để khắc phục lỗi, hãy nhấp vào &lt;strong&gt;Kết nối&lt;/strong&gt; trên trang mà bạn đang cố mở.&lt;/p&gt;
+    &lt;h3&gt;"Đồng hồ của bạn chạy chậm", "Đồng hồ của bạn chạy nhanh" hoặc "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Bạn sẽ gặp lỗi này nếu ngày và giờ trên máy tính hay thiết bị di động của bạn không chính xác.&lt;/p&gt;
+    &lt;p&gt;Để khắc phục lỗi này, hãy mở đồng hồ trên thiết bị rồi đảm bảo rằng ngày và giờ chính xác.&lt;/p&gt;
+    &lt;h3&gt;"Phần mềm trên máy tính của bạn đang ngăn Chrome kết nối an toàn với web" (chỉ dành cho máy tính Windows)&lt;/h3&gt;
+    &lt;p&gt;Bạn sẽ gặp lỗi này nếu có phần mềm Superfish trên máy tính Windows.&lt;/p&gt;
+    &lt;p&gt;Thực hiện các bước sau để tạm tắt phần mềm giúp bạn có thể truy cập vào web. Bạn cần có đặc quyền của quản trị viên.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Nhấp vào &lt;strong&gt;Bắt đầu&lt;/strong&gt;, sau đó tìm kiếm và chọn &lt;strong&gt;"Xem dịch vụ cục bộ"&lt;/strong&gt;
+    &lt;li&gt;Chọn &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Trong phần &lt;strong&gt;Kiểu khởi động&lt;/strong&gt;, hãy chọn &lt;strong&gt;Đã tắt&lt;/strong&gt;
+    &lt;li&gt;Trong phần &lt;strong&gt;Trạng thái dịch vụ&lt;/strong&gt;, hãy nhấp vào &lt;strong&gt;Dừng&lt;/strong&gt;
+    &lt;li&gt;Nhấp vào &lt;strong&gt;Áp dụng&lt;/strong&gt;, sau đó nhấp vào &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Truy cập vào &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Trung tâm trợ giúp Chrome&lt;/a&gt; để tìm hiểu cách xóa vĩnh viễn phần mềm khỏi máy tính của bạn
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Nhập ngày hết hạn hợp lệ</translation>
 <translation id="36224234498066874">Xóa DL duyệt web</translation>
 <translation id="362276910939193118">Hiển thị Toàn bộ Lịch sử</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Dấu trang được quản lý</translation>
 <translation id="7298195798382681320">Được đề xuất</translation>
 <translation id="7309308571273880165">Báo cáo sự cố được ghi lại vào <ph name="CRASH_TIME" /> (người dùng yêu cầu tải lên, nhưng chưa được tải lên)</translation>
+<translation id="7320336641823683070">Trợ giúp kết nối</translation>
 <translation id="7334320624316649418">&amp;Làm lại sắp xếp lại</translation>
 <translation id="733923710415886693">Chứng chỉ của máy chủ đã không được tiết lộ qua Tính minh bạch của chứng chỉ.</translation>
 <translation id="7353601530677266744">Dòng Lệnh</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">Wi-Fi mà bạn đang sử dụng (<ph name="WIFI_NAME" />) có thể yêu cầu bạn phải truy cập trang đăng nhập của mạng đó.</translation>
 <translation id="785549533363645510">Tuy nhiên, bạn không ẩn. Việc chuyển sang chế độ ẩn danh sẽ không ẩn thao tác duyệt của bạn với chủ lao động, nhà cung cấp dịch vụ internet hoặc các trang web bạn truy cập.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Rời khỏi trang web?</translation>
 <translation id="7878176543348854470">Thẻ ghi nợ và thẻ trả trước được chấp nhận.</translation>
 <translation id="7878562273885520351">Mật khẩu của bạn có thể bị xâm phạm</translation>
 <translation id="7887683347370398519">Kiểm tra CVC của bạn và thử lại</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Sử dụng cài đặt mặc định chung (Hỏi)</translation>
 <translation id="8042918947222776840">Chọn phương thức nhận hàng</translation>
 <translation id="8057711352706143257">Cấu hình của "<ph name="SOFTWARE_NAME" />" không chính xác. Việc gỡ cài đặt "<ph name="SOFTWARE_NAME" />" thường sẽ khắc phục được sự cố này. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Tải lại trang web?</translation>
 <translation id="8088680233425245692">Không xem được bài viết.</translation>
 <translation id="8091372947890762290">Kích hoạt đang chờ xử lý trên máy chủ</translation>
 <translation id="8094917007353911263">Mạng mà bạn đang sử dụng có thể yêu cầu bạn phải truy cập <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">URL cập nhật không hợp lệ cho tiện ích có ID "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Tóm tắt đơn đặt hàng</translation>
 <translation id="8205463626947051446">Trang web thường hiển thị quảng cáo xâm nhập</translation>
+<translation id="8211406090763984747">Kết nối an toàn</translation>
 <translation id="8218327578424803826">Vị trí được gán:</translation>
 <translation id="8225771182978767009">Người thiết lập máy tính này đã chọn chặn trang web này.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

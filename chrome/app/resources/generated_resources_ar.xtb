@@ -539,6 +539,7 @@
 <translation id="180035236176489073">يجب أن تكون متصلاً بالإنترنت للدخول إلى هذه الملفات.</translation>
 <translation id="1802687198411089702">الصفحة لا تستجيب. يمكنك الانتظار أو الخروج منها.</translation>
 <translation id="1802931390041703523">‏تم حظر تشغيل Flash في هذه الصفحة</translation>
+<translation id="1804408978433653482">{NUM_APPLICATIONS,plural, =1{‏يمكن أن يكون التطبيق التالي يمنع Chrome من العمل بشكلٍ صحيح.}zero{‏يمكن أن تكون التطبيقات التالية تمنع Chrome من العمل بشكلٍ صحيح.}two{‏يمكن أن يكون التطبيقان التاليان يمنعان Chrome من العمل بشكلٍ صحيح.}few{‏يمكن أن تكون التطبيقات التالية تمنع Chrome من العمل بشكلٍ صحيح.}many{‏يمكن أن تكون التطبيقات التالية تمنع Chrome من العمل بشكلٍ صحيح.}other{‏يمكن أن تكون التطبيقات التالية تمنع Chrome من العمل بشكلٍ صحيح.}}</translation>
 <translation id="1805822111539868586">فحص القراءات</translation>
 <translation id="1807938677607439181">كل الملفات</translation>
 <translation id="1809734401532861917">إضافة الإشارات المرجعية، والسّجل، وكلمات المرور، والإعدادات الأخرى إلى <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -630,6 +631,7 @@
 <translation id="1944921356641260203">تم العثور على التحديث</translation>
 <translation id="1951615167417147110">تمرير صفحة واحدة لأعلى</translation>
 <translation id="1956050014111002555">احتوى الملف على شهادات متعددة، لم يتم استيراد أي منها:</translation>
+<translation id="1956390763342388273">سيؤدي ذلك إلى تحميل جميع الملفات من "<ph name="FOLDER_PATH" />". لا يمكنك تنفيذ ذلك إلا إذا كنت تثق في الموقع.</translation>
 <translation id="1962233722219655970">‏هذه الصفحة تستخدم تطبيق Native Client وهو لا يعمل على جهاز الكمبيوتر التابع لك.</translation>
 <translation id="1962969542251276847">قفل الشاشة</translation>
 <translation id="1963227389609234879">إزالة كلمات المرور كلّها</translation>
@@ -845,6 +847,7 @@
 <translation id="2294358108254308676">هل تريد تثبيت <ph name="PRODUCT_NAME" />؟</translation>
 <translation id="2296019197782308739">‏طريقة EAP:</translation>
 <translation id="2297705863329999812">البحث في الطابعات</translation>
+<translation id="2300383962156589922">تخصيص <ph name="APP_NAME" /> والتحكم فيه</translation>
 <translation id="2301382460326681002">دليل الجذر للإضافة غير صالح.</translation>
 <translation id="2302685579236571180">الانتقال إلى وضع التصفُّح المتخفّي</translation>
 <translation id="23030561267973084">تتطلب الإضافة "<ph name="EXTENSION_NAME" />" أذونات إضافية.</translation>
@@ -1337,6 +1340,7 @@
 <translation id="3012917896646559015">يُرجى الاتصال بجهة تصنيع الجهاز على الفور لإرسال جهاز الكمبيوتر إلى أحد مرافق الإصلاح.</translation>
 <translation id="3013291976881901233">‏أجهزة MIDI</translation>
 <translation id="3014095112974898292">في انتظار اكتمال الطلبات الأخرى...</translation>
+<translation id="3015639418649705390">إعادة التشغيل الآن</translation>
 <translation id="3015992588037997514">‏هل يظهر هذا الرمز على شاشة Chromebox؟</translation>
 <translation id="3016641847947582299">تم تحديث المُكوّن</translation>
 <translation id="3016780570757425217">معرفة موقعك</translation>
@@ -2216,6 +2220,7 @@
 <translation id="4430369329743628066">تمت إضافة إشارة</translation>
 <translation id="443454694385851356">قديم (غير آمن)</translation>
 <translation id="443464694732789311">متابعة</translation>
+<translation id="443475966875174318">تحديث التطبيقات غير المتوافقة أو إزالتها</translation>
 <translation id="4439318412377770121">‏هل ترغب في تسجيل <ph name="DEVICE_NAME" /> بأجهزة السحاب في Google؟</translation>
 <translation id="4441124369922430666">هل ترغب في تشغيل هذا التطبيق تلقائيًا عند تشغيل الجهاز؟</translation>
 <translation id="444134486829715816">توسيع...</translation>
@@ -2397,6 +2402,7 @@
 <translation id="473775607612524610">تحديث</translation>
 <translation id="474217410105706308">تجاهل علامة التبويب</translation>
 <translation id="4742746985488890273">تثبيت في الرف</translation>
+<translation id="4743260470722568160"><ph name="BEGIN_LINK" />التعرّف على كيفية تحديث التطبيقات<ph name="END_LINK" /></translation>
 <translation id="4744574733485822359">اكتمل التنزيل</translation>
 <translation id="4746971725921104503">يبدو أنك تدير مستخدم بهذا الاسم فعلاً. هل تريد <ph name="LINK_START" />استيراد <ph name="USER_DISPLAY_NAME" /> إلى هذا الجهاز<ph name="LINK_END" />؟</translation>
 <translation id="4748762018725435655">‏يلزم إضافة من سوق Chrome الإلكتروني</translation>
@@ -3209,6 +3215,7 @@
     <ph name="BEGIN_PARAGRAPH2" />يمكنك تشغيل هذا أو إيقاف تشغيله في أي وقت في إعدادات تطبيقات Android. ولن يؤثر ذلك في قدرة الجهاز على إرسال المعلومات اللازمة له لتلقّي الخدمات الضرورية مثل تحديثات النظام والأمان.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990386583461751448">مترجَمة</translation>
 <translation id="5991049340509704927">تكبير</translation>
+<translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{للتأكد من أنك ستتمكن من الاستمرار في تصفح الويب، اطلب من مشرفك إزالة هذا التطبيق.}zero{للتأكد من أنك ستتمكن من الاستمرار في تصفح الويب، اطلب من مشرفك إزالة هذه التطبيقات.}two{للتأكد من أنك ستتمكن من الاستمرار في تصفح الويب، اطلب من مشرفك إزالة هذين التطبيقين.}few{للتأكد من أنك ستتمكن من الاستمرار في تصفح الويب، اطلب من مشرفك إزالة هذه التطبيقات.}many{للتأكد من أنك ستتمكن من الاستمرار في تصفح الويب، اطلب من مشرفك إزالة هذه التطبيقات.}other{للتأكد من أنك ستتمكن من الاستمرار في تصفح الويب، اطلب من مشرفك إزالة هذه التطبيقات.}}</translation>
 <translation id="5993332328670040093">لن يتم قياس استخدام البيانات بعد ذلك.</translation>
 <translation id="600424552813877586">التطبيق غير صالح.</translation>
 <translation id="6005695835120147974">موجّه الوسائط</translation>
@@ -3867,6 +3874,7 @@
 <translation id="7040138676081995583">فتح باستخدام...</translation>
 <translation id="7040230719604914234">مشغل شبكة الجوّال</translation>
 <translation id="7042418530779813870">ل&amp;صق وبحث</translation>
+<translation id="7043108582968290193">انته الإجراء. لم يتم العثور على أي تطبيقات غير متوافقة.</translation>
 <translation id="7049293980323620022">هل تريد الاحتفاظ بالملف؟</translation>
 <translation id="7051943809462976355">جارٍ البحث عن الماوس...</translation>
 <translation id="7052237160939977163">إرسال بيانات تتبع مستوى الأداء</translation>
@@ -4039,6 +4047,7 @@
 <translation id="7328867076235380839">مجموعة غير صالحة</translation>
 <translation id="7329154610228416156">‏فشل تسجيل الدخول نظرًا لأنه قد تم ضبطه على استخدام عنوان URL غير آمن <ph name="BLOCKED_URL" />. يُرجى الاتصال بالمسؤول.</translation>
 <translation id="7334190995941642545">‏Smart Lock غير متاح حاليًا. يُرجى المحاولة مرة أخرى في وقت لاحق.</translation>
+<translation id="7334274148831027933">تفعيل المكبّر الذي تم إرساؤه</translation>
 <translation id="7339763383339757376">‏حفظ شهادة واحدة بتشفير PKCS #7</translation>
 <translation id="7339785458027436441">تحقق من التدقيق الإملائي أثناء الكتابة</translation>
 <translation id="7339898014177206373">نافذة جديدة</translation>
@@ -4413,6 +4422,7 @@
 <translation id="7912080627461681647">تم تغيير كلمة المرور على الخادم. يُرجى الخروج ثم تسجيل الدخول مجددًا.</translation>
 <translation id="7912883689016444961">تهيئة شبكة الجوّال</translation>
 <translation id="7915471803647590281">يُرجى إخبارنا بما يحدث قبل إرسال التعليقات.</translation>
+<translation id="792514962475806987">مستوى التكبير الذي تم إرساؤه:</translation>
 <translation id="7925247922861151263">‏تعذّر فحص AAA</translation>
 <translation id="7925285046818567682">في انتظار <ph name="HOST_NAME" />‏ ...</translation>
 <translation id="7925686952655276919">عدم استخدام بيانات الجوال للمزامنة</translation>
@@ -4794,6 +4804,7 @@
 <translation id="8546541260734613940">[*.]example.com</translation>
 <translation id="854655314928502177">‏عنوان URL لاكتشاف الخادم الوكيل للويب تلقائيًا:</translation>
 <translation id="8546930481464505581">تخصيص شريط اللمس</translation>
+<translation id="8547013269961688403">تفعيل مكبّر بملء الشاشة</translation>
 <translation id="85486688517848470">اضغط على مفتاح البحث باستمرار لتبديل سلوك مفاتيح الصف العلوي</translation>
 <translation id="855081842937141170">تثبيت علامة التبويب</translation>
 <translation id="8551388862522347954">التراخيص</translation>
@@ -4849,6 +4860,7 @@
 <translation id="8642947597466641025">لتكبير النص</translation>
 <translation id="8647834505253004544">ليس عنوان ويب صالحًا</translation>
 <translation id="8648252583955599667"><ph name="GET_HELP_LINK" /> أو <ph name="RE_SCAN_LINK" /></translation>
+<translation id="8650543407998814195">يظل بإمكانك إزالة ملفك الشخصي القديم حتى لو لم يعد بإمكانك الوصول إليه.</translation>
 <translation id="8651585100578802546">فرض إعادة تحميل هذه الصفحة</translation>
 <translation id="8652400352452647993">خطأ في حزمة الإضافة</translation>
 <translation id="8652487083013326477">زر اختيار نطاق الصفحة</translation>
@@ -4924,7 +4936,9 @@
 <translation id="8737685506611670901">فتح روابط <ph name="PROTOCOL" /> بدلاً من <ph name="REPLACED_HANDLER_TITLE" /></translation>
 <translation id="8737709691285775803">Shill</translation>
 <translation id="8741316211671074806">نافذة ضمن النافذة</translation>
+<translation id="8743390665131937741">مستوى التكبير بملء الشاشة:</translation>
 <translation id="8743864605301774756">تم التحديث قبل ساعة واحدة</translation>
+<translation id="874689135111202667">{0,plural, =1{هل تريد تحميل ملف واحد إلى هذا الموقع؟}zero{هل تريد تحميل # ملف إلى هذا الموقع؟}two{هل تريد تحميل ملفين (#) إلى هذا الموقع؟}few{هل تريد تحميل # ملفات إلى هذا الموقع؟}many{هل تريد تحميل # ملفًا إلى هذا الموقع؟}other{هل تريد تحميل # ملف إلى هذا الموقع؟}}</translation>
 <translation id="8749863574775030885">‏الدخول إلى أجهزة USB من مورد غير معروف</translation>
 <translation id="8754200782896249056">‏&lt;p&gt;عند تشغيل <ph name="PRODUCT_NAME" /> من خلال بيئة معتمدة لسطح المكتب، سيتم استخدام إعدادات الخادم الوكيل للنظام. ومع ذلك، يحتمل إما أن يكون نظامك غير مدعم أو أنه ربما حدثت مشكلة أثناء تشغيل تهيئة نظامك.&lt;/p&gt;
 
@@ -5231,6 +5245,7 @@
 <translation id="960719561871045870">رمز مشغل شبكة الجوال</translation>
 <translation id="960987915827980018">تتبقى ساعة واحدة تقريبًا</translation>
 <translation id="962802172452141067">شجرة مجلد الإشارات المرجعية</translation>
+<translation id="964439421054175458">{NUM_APLLICATIONS,plural, =1{تطبيق}zero{تطبيقات}two{تطبيقان}few{تطبيقات}many{تطبيقات}other{تطبيقات}}</translation>
 <translation id="968000525894980488">‏يُرجى تفعيل خدمات Google Play.</translation>
 <translation id="968174221497644223">ذاكرة التخزين المؤقت للتطبيق</translation>
 <translation id="969096075394517431">تغيير اللغات</translation>

@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Flytt likevel</translation>
 <translation id="3586931643579894722">Skjul detaljer</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Fiks tilkoblingsfeil&lt;/h1&gt;
+    &lt;p&gt;Hvis du får en feilmelding når du prøver å besøke et nettsted, kan du prøve disse løsningene.&lt;/p&gt;
+    &lt;h2&gt;Fiks de fleste tilkoblingsfeil&lt;/h2&gt;
+    &lt;p&gt;Hvis du prøver å gå til et nettsted og det ikke åpnes, bør du først prøve å løse feilen med disse feilsøkingstrinnene:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Sjekk at nettadressen er skrevet riktig.&lt;/li&gt;
+    &lt;li&gt;Sjekk at Internett-tilkoblingen din fungerer som den skal.&lt;/li&gt;
+    &lt;li&gt;Kontakt eieren av nettstedet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Få hjelp med spesifikke feilmeldinger&lt;/h2&gt;
+    &lt;h3&gt;«Tilkoblingen din er ikke privat», «NET::ERR_CERT_AUTHORITY_INVALID», «ERR_CERT_COMMON_NAME_INVALID», «NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM» eller «Feil i SSL-sertifikatet»&lt;/h3&gt;
+    &lt;h4&gt;Trinn 1: Logg på portalen&lt;/h4&gt;
+    &lt;p&gt;Wi-Fi-nettverk på steder som kaféer eller flyplasser krever at du logger på. For å se påloggingssiden, åpne en side som bruker &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Gå til et nettsted som begynner på &lt;code&gt;http://&lt;/code&gt; – for eksempel &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Logg på via påloggingssiden som åpnes, for å bruke Internett.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Trinn 2: Åpne siden i inkognitomodus (bare på datamaskiner)&lt;/h4&gt;
+    &lt;p&gt;Åpne siden du besøkte, i et inkognitovindu.&lt;/p&gt;
+    &lt;p&gt;Hvis siden åpnes, har du en Chrome-utvidelse som ikke fungerer som den skal. Du kan fikse feilen ved å slå av utvidelsen.&lt;/p&gt;
+    &lt;h4&gt;Trinn 3: Oppdater operativsystemet&lt;/h4&gt;
+    &lt;p&gt;Sørg for at enheten din er oppdatert.&lt;/p&gt;
+    &lt;h4&gt;Trinn 4: Slå av antivirusprogramvaren midlertidig&lt;/h4&gt;
+    &lt;p&gt;Du ser denne feilmeldingen hvis du har antivirusprogramvare som tilbyr «HTTPS-beskyttelse» eller «HTTPS-skanning», noe som gjør at sikkerhetsfunksjonene i Chrome ikke fungerer.&lt;/p&gt;
+    &lt;p&gt;For å fikse dette problemet, slå av antivirusprogramvaren. Hvis siden fungerer når du har slått av programvaren, bør du slå den av når du bruker sikre nettsteder.&lt;/p&gt;
+    &lt;p&gt;Husk å slå på antivirusprogramvaren igjen når du er ferdig.&lt;/p&gt;
+    &lt;h4&gt;Trinn 5: Få mer hjelp&lt;/h4&gt;
+    &lt;p&gt;Hvis du fortsatt får feilmeldingen, bør du kontakte eieren av nettstedet.&lt;/p&gt;
+    &lt;h3&gt;«Koble til nettverket»&lt;/h3&gt;
+    &lt;p&gt;Du ser denne feilmeldingen hvis du bruker en Wi-Fi-portal hvor du må logge på før du kommer deg på nettet.&lt;/p&gt;
+    &lt;p&gt;For å fikse feilen, klikk på &lt;strong&gt;Koble til&lt;/strong&gt; på siden du prøver å åpne.&lt;/p&gt;
+    &lt;h3&gt;«Klokken går for sent», «Klokken går for fort» eller «NET::ERR_CERT_DATE_INVALID»&lt;/h3&gt;
+    &lt;p&gt;Du ser denne feilmeldingen hvis datoen og klokkeslettet på datamaskinen eller mobilenheten din er unøyaktig.&lt;/p&gt;
+    &lt;p&gt;For å fikse feilen, åpne klokken på enheten, og sørg for at klokkeslettet og datoen er riktig.&lt;/p&gt;
+    &lt;h3&gt;«Det er programvare på datamaskinen din som hindrer Chrome i å koble trygt til Internett» (bare på Windows-datamaskiner)&lt;/h3&gt;
+    &lt;p&gt;Du ser denne feilen hvis du har Superfish-programvare på Windows-datamaskinen din.&lt;/p&gt;
+    &lt;p&gt;Følg disse trinnene for å deaktivere programvaren midlertidig, sånn at du kan komme deg på nettet. Du må ha administratorrettigheter.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Klikk på &lt;strong&gt;Start&lt;/strong&gt;, og søk etter og velg &lt;strong&gt;«Vis lokale tjenester»&lt;/strong&gt;
+    &lt;li&gt;Velg &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Gå til &lt;strong&gt;Oppstartstype&lt;/strong&gt;, og velg &lt;strong&gt;Deaktivert&lt;/strong&gt;
+    &lt;li&gt;Gå til &lt;strong&gt;Tjenestestatus&lt;/strong&gt;, og klikk på &lt;strong&gt;Stopp&lt;/strong&gt;
+    &lt;li&gt;Klikk på &lt;strong&gt;Bruk&lt;/strong&gt; og deretter på &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Gå til &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;brukerstøtten for Google Chrome&lt;/a&gt; for å finne ut hvordan du fjerner programvaren fra datamaskinen permanent
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Angi en gyldig utløpsdato</translation>
 <translation id="36224234498066874">Slett nettlesingsdata...</translation>
 <translation id="362276910939193118">Vis fullstendig logg</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Administrerte bokmerker</translation>
 <translation id="7298195798382681320">Anbefalt</translation>
 <translation id="7309308571273880165">Programstopprapport opprettet <ph name="CRASH_TIME" /> (opplasting er forespurt av brukeren, men den har ikke blitt utført ennå)</translation>
+<translation id="7320336641823683070">Tilkoblingshjelp</translation>
 <translation id="7334320624316649418">&amp;Omorganiser likevel</translation>
 <translation id="733923710415886693">Tjenerens sertifikat er ikke vist i henhold til regelen for sertifikatåpenhet.</translation>
 <translation id="7353601530677266744">Kommandolinje </translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">Det kan hende at Wi-Fi-nettverket du bruker (<ph name="WIFI_NAME" />), krever at du besøker en påloggingsside.</translation>
 <translation id="785549533363645510">Du er imidlertid ikke usynlig. Inkognitomodus skjuler ikke surfingen din for arbeidsgiveren din, Internett-leverandøren eller nettstedene du besøker.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Vil du forlate nettstedet?</translation>
 <translation id="7878176543348854470">Debetkort og forhåndsbetalte kort godtas.</translation>
 <translation id="7878562273885520351">Passordet ditt kan være kompromittert</translation>
 <translation id="7887683347370398519">Kontrollér CVC-koden din, og prøv igjen.</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Bruk global standardinnstilling (Spør)</translation>
 <translation id="8042918947222776840">Velg hentemåte</translation>
 <translation id="8057711352706143257">«<ph name="SOFTWARE_NAME" />» er ikke riktig konfigurert. Avinstallering av «<ph name="SOFTWARE_NAME" />» løser vanligvis problemet. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Vil du laste inn nettstedet på nytt?</translation>
 <translation id="8088680233425245692">Kunne ikke åpne artikkelen.</translation>
 <translation id="8091372947890762290">Aktivering venter på tjeneren</translation>
 <translation id="8094917007353911263">Det kan hende at nettverket du bruker, krever at du besøker <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">Ugyldig oppdaterings-URL for utvidelse med ID «<ph name="EXTENSION_ID" />».</translation>
 <translation id="8202097416529803614">Bestillingssammendrag</translation>
 <translation id="8205463626947051446">Nettstedet viser ofte forstyrrende annonser</translation>
+<translation id="8211406090763984747">Tilkoblingen er sikker</translation>
 <translation id="8218327578424803826">Tilordnet posisjon:</translation>
 <translation id="8225771182978767009">Personen som konfigurerte denne datamaskinen, har valgt å blokkere dette nettstedet.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

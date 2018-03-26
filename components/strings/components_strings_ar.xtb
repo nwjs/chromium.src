@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">إ&amp;عادة النقل</translation>
 <translation id="3586931643579894722">إخفاء التفاصيل</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />، و<ph name="DOMAIN" />، و<ph name="TIME" /></translation>
+<translation id="3602137825010714926">‏&lt;h1&gt;إصلاح أخطاء الاتصال&lt;/h1&gt;
+    &lt;p&gt;إذا تلقيت رسالة خطأ عند الانتقال إلى أحد مواقع الويب، يمكنك تجربة هذه الإصلاحات.&lt;/p&gt;
+    &lt;h2&gt;إصلاح معظم أخطاء الاتصال&lt;/h2&gt;
+    &lt;p&gt;إذا كنت تحاول الانتقال إلى أحد مواقع الويب وتعذّر فتحه، يُرجى تجربة إصلاح الخطأ أولاً باتباع الخطوات التالية لتحرّي الخلل وإصلاحه:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;تحقق من عنوان الويب بحثًا عن الأخطاء الإملائية.&lt;/li&gt;
+    &lt;li&gt;تأكد من أن اتصال الإنترنت يعمل بشكل طبيعي.&lt;/li&gt;
+    &lt;li&gt;الاتصال بمالك موقع الويب.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;الحصول على مساعدة بخصوص رسالة خطأ محددة&lt;/h2&gt;
+    &lt;h3&gt;"اتصالك لا يتمتع بالخصوصية" أو "NET::ERR_CERT_AUTHORITY_INVALID" أو "ERR_CERT_COMMON_NAME_INVALID" أو "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" أو "خطأ في شهادة طبقة المقابس الآمنة (SSL)"&lt;/h3&gt;
+    &lt;h4&gt;الخطوة 1: تسجيل الدخول إلى البوابة&lt;/h4&gt;
+    &lt;p&gt;تتطلب منك شبكات Wi-Fi في أماكن مثل المقاهي أو المطارات تسجيل الدخول. للاطلاع على صفحة تسجيل الدخول، انتقل إلى إحدى الصفحات التي تستخدم&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;انتقل إلى أي موقع ويب يبدأ بـ &lt;code&gt;http://&lt;/code&gt;، مثل &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;عندما تفتح صفحة تسجيل الدخول، سجّل الدخول لاستخدام الإنترنت.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;الخطوة 2: فتح الصفحة في وضع التصفح المتخفي (جهاز الكمبيوتر فقط)&lt;/h4&gt;
+    &lt;p&gt;افتح الصفحة التي كنت تعرضها في نافذة تصفح متخفٍ.&lt;/p&gt;
+    &lt;p&gt;في حال فتح إحدى الصفحات، لا تعمل إضافة Chrome بشكلٍ صحيح. ولإصلاح الخطأ، يمكنك إيقاف الإضافة.&lt;/p&gt;
+    &lt;h4&gt;الخطوة 3: تحديث نظام التشغيل&lt;/h4&gt;
+    &lt;p&gt;تأكد من تحديث جهازك.&lt;/p&gt;
+    &lt;h4&gt;الخطوة 4: إيقاف برامج مكافحة الفيروسات مؤقَّتًا&lt;/h4&gt;
+    &lt;p&gt;سيظهر لك هذا الخطأ إذا كان لديك برنامج لمكافحة الفيروسات يوفر "حماية HTTPS" أو "فحص HTTPS"، إذ يعمل برنامج مكافحة الفيروسات على منع متصفح Chrome من توفير الأمان.&lt;/p&gt;
+    &lt;p&gt;لإصلاح المشكلة، أوقف برنامج مكافحة الفيروسات على جهازك. وفي حال استمرار عمل الصفحة بعد إيقاف البرنامج، يمكنك إيقاف هذا البرنامج عند استخدام مواقع آمنة.&lt;/p&gt;
+    &lt;p&gt;ينبغي تفعيل برنامج مكافحة الفيروسات عند الانتهاء.&lt;/p&gt;
+    &lt;h4&gt;الخطوة 5: الحصول على مساعدة إضافية&lt;/h4&gt;
+    &lt;p&gt;في حال استمرار ظهور هذا الخطأ، اتصل بمالك موقع الويب.&lt;/p&gt;
+    &lt;h3&gt;"الاتصال بالشبكة"&lt;/h3&gt;
+    &lt;p&gt;سيظهر لك هذا الخطأ إذا كنت تستخدم بوابة شبكة Wi-Fi تطلب منك تسجيل الدخول قبل أن تتمكن من الاتصال بالإنترنت.&lt;/p&gt;
+    &lt;p&gt;يمكنك إصلاح الخطأ عن طريق النقر على &lt;strong&gt;اتصال&lt;/strong&gt; في الصفحة التي تحاول فتحها.&lt;/p&gt;
+    &lt;h3&gt;"توقيت ساعتك متأخِّر" أو "توقيت ساعتك متقدِّم" أو "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;سيظهر لك هذا الخطأ إذا كان الوقت والتاريخ لجهاز الكمبيوتر أو جهاز الجوّال غير دقيقين.&lt;/p&gt;
+    &lt;p&gt;لإصلاح هذا الخطأ، افتح ساعة جهازك، وتأكد من صحة الوقت والتاريخ.&lt;/p&gt;
+    &lt;h3&gt;"تعمل البرامج على جهاز الكمبيوتر على منع اتصال Chrome بأمان بالويب" (أجهزة الكمبيوتر المزوّدة بنظام التشغيل Windows فقط)&lt;/h3&gt;
+    &lt;p&gt;سيظهر لك هذا الخطأ إذا كان لديك برنامج Superfish على جهاز الكمبيوتر المزوّد بنظام التشغيل Windows.&lt;/p&gt;
+    &lt;p&gt;اتبع هذه الخطوات لإيقاف البرامج مؤقتًا حتى يتسنى لك الوصول إلى الويب. سيلزمك الحصول على امتيازات المشرف.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;انقر على &lt;strong&gt;البدء&lt;/strong&gt;، ثم ابحث عن &lt;strong&gt;"عرض الخدمات المحلّية"&lt;/strong&gt; واختره
+    &lt;li&gt;اختر &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;ضمن &lt;strong&gt;نوع التشغيل&lt;/strong&gt;، اختر &lt;strong&gt;متوقف&lt;/strong&gt;
+    &lt;li&gt;ضمن &lt;strong&gt;حالة الخدمة&lt;/strong&gt;، انقر على &lt;strong&gt;إيقاف&lt;/strong&gt;
+    &lt;li&gt;انقر على &lt;strong&gt;تطبيق&lt;/strong&gt;، ثم انقر على &lt;strong&gt;موافق&lt;/strong&gt;
+    &lt;li&gt;تفضَّل بزيارة &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;مركز مساعدة Chrome&lt;/a&gt; للتعرُّف على كيفية إزالة البرامج من جهاز الكمبيوتر نهائيًا
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">أدخِل تاريخ انتهاء صلاحية صحيحًا</translation>
 <translation id="36224234498066874">مسح بيانات التصفح...</translation>
 <translation id="362276910939193118">عرض السجل بكامله</translation>
@@ -432,6 +477,7 @@
 <translation id="4103249731201008433">الرقم التسلسلي للجهاز غير صالح</translation>
 <translation id="410351446219883937">تشغيل تلقائي</translation>
 <translation id="4103763322291513355">‏انتقل إلى &lt;strong&gt;chrome://policy&lt;/strong&gt; لمشاهدة قائمة بعناوين URL المضافة إلى القائمة السوداء والسياسات الأخرى التي فرضها مشرف النظام.</translation>
+<translation id="4110652170750985508">مراجعة الدفعة</translation>
 <translation id="4116663294526079822">إلغاء الحظر دومًا على هذا الموقع</translation>
 <translation id="4117700440116928470">نطاق السياسة غير متوافق.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{عنصر واحد آخر}zero{# عنصر آخر}two{عنصران آخران (#)}few{# عناصر أخرى}many{# عنصرًا آخر}other{# عنصر آخر}}</translation>
@@ -804,6 +850,7 @@
 <translation id="7275334191706090484">الإشارات المرجعية المُدارة</translation>
 <translation id="7298195798382681320">موصى بها</translation>
 <translation id="7309308571273880165">تقرير الأعطال الذي تم الحصول عليه في <ph name="CRASH_TIME" /> (التحميل مطلوب بواسطة المستخدم، لم يتم التحميل بعد)</translation>
+<translation id="7320336641823683070">المساعدة بشأن الاتصال</translation>
 <translation id="7334320624316649418">إعادة إ&amp;جراء الترتيب</translation>
 <translation id="733923710415886693">لم يتم الكشف عن شهادة الخادم عن طريق شهادة الشفافية.</translation>
 <translation id="7353601530677266744">سطر الأوامر</translation>
@@ -888,6 +935,7 @@
 <translation id="782886543891417279">‏قد يتطلب Wi-Fi الذي تستخدمه (<ph name="WIFI_NAME" />) زيارة صفحة تسجيل الدخول.</translation>
 <translation id="785549533363645510">ومع ذلك، أنت غير مرئي. لا يخفي الانتقال إلى وضع التخفي التصفح من صاحب العمل أو مزود خدمة الإنترنت أو المواقع التي تزورها.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">هل تريد مغادرة الموقع؟</translation>
 <translation id="7878176543348854470">يتم قبول بطاقات السحب الآلي وبطاقات الدفع المسبق.</translation>
 <translation id="7878562273885520351">من المحتمل أنه تم اختراق كلمة مرورك</translation>
 <translation id="7887683347370398519">‏تحقق من رمز التحقق من البطاقة (CVC) ثم أعد المحاولة.</translation>
@@ -910,6 +958,7 @@
 <translation id="8041940743680923270">استخدام الإعداد الافتراضي العمومي (طلب)</translation>
 <translation id="8042918947222776840">اختيار طريقة الاستلام من المستخدم</translation>
 <translation id="8057711352706143257">لم تتم تهيئة "<ph name="SOFTWARE_NAME" />" بشكل صحيح. يؤدي عادةً إلغاء تثبيت "<ph name="SOFTWARE_NAME" />" إلى إصلاح المشكلة. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">هل تريد إعادة تحميل الموقع؟</translation>
 <translation id="8088680233425245692">تعذّر عرض المقالة.</translation>
 <translation id="8091372947890762290">التنشيط قيد الانتظار في الخادم</translation>
 <translation id="8094917007353911263">قد تتطلب الشبكة التي تستخدمها زيارة <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +974,7 @@
 <translation id="8201077131113104583">‏عنوان URL لتحديث الإضافة التي تحتوي على رقم التعريف "<ph name="EXTENSION_ID" />" غير صالح.</translation>
 <translation id="8202097416529803614">ملخص الطلب</translation>
 <translation id="8205463626947051446">يميل الموقع إلى عرض إعلانات متداخلة</translation>
+<translation id="8211406090763984747">الاتصال آمن</translation>
 <translation id="8218327578424803826">الموقع الذي تم تعيينه:</translation>
 <translation id="8225771182978767009">اختار الشخص الذي أعد جهاز الكمبيوتر حظر موقع الويب هذا.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />، <ph name="TYPE_2" /></translation>

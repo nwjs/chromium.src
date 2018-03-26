@@ -88,6 +88,7 @@
 <translation id="1709438864123551175">توفير البيانات</translation>
 <translation id="1718835860248848330">آخر ساعة</translation>
 <translation id="1729516292547892356">‏لعرض محتوى الواقع الافتراضي، يلزمك تحديث خدمات Google VR</translation>
+<translation id="1733116627827457509"><ph name="FILE_SIZE" /> - تم التحديث منذ <ph name="TIME_SINCE_UPDATE" /> دقائق</translation>
 <translation id="1749561566933687563">مزامنة الإشارات المرجعية</translation>
 <translation id="17513872634828108">علامات التبويب المفتوحة</translation>
 <translation id="1756600373018374892">انقر على هذا الزر للوصول السريع إلى علامات التبويب.</translation>
@@ -799,6 +800,7 @@
 <translation id="8200772114523450471">استئناف</translation>
 <translation id="8209050860603202033">فتح الصورة</translation>
 <translation id="8220488350232498290">تم تنزيل <ph name="GIGABYTES" /> غيغابايت</translation>
+<translation id="8249310407154411074">نقل إلى الأعلى</translation>
 <translation id="8250920743982581267">المستندات</translation>
 <translation id="8260126382462817229">محاولة تسجيل الدخول مرة أخرى</translation>
 <translation id="8261506727792406068">حذف</translation>

@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Gawing Muli ang Paglilipat</translation>
 <translation id="3586931643579894722">Magtago ng mga detalye</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Ayusin ang mga error sa koneksyon&lt;/h1&gt;
+    &lt;p&gt;Kung makatanggap ka ng mensahe ng error kapag sinubukan mong bumisita sa isang website, subukan ang mga pag-aayos na ito.&lt;/p&gt;
+    &lt;h2&gt;Ayusin ang karamihan ng mga error sa koneksyon&lt;/h2&gt;
+    &lt;p&gt;Kung sinubukan mong bumisita sa isang website at hindi ito nagbubukas, subukan munang ayusin ang error sa pamamagitan ng mga hakbang na ito sa pag-troubleshoot:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Suriin kung may mga typo ang address sa web.&lt;/li&gt;
+    &lt;li&gt;Tiyaking gumagana nang normal ang iyong koneksyon sa internet.&lt;/li&gt;
+    &lt;li&gt;Makipag-ugnayan sa may-ari ng website.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Humingi ng tulong tungkol sa isang partikular na mensahe ng error&lt;/h2&gt;
+    &lt;h3&gt;"Hindi pribado ang iyong koneksyon" o "NET::ERR_CERT_AUTHORITY_INVALID" o "ERR_CERT_COMMON_NAME_INVALID" o "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" o "Error sa SSL certificate"&lt;/h3&gt;
+    &lt;h4&gt;Hakbang 1: Mag-sign sa portal&lt;/h4&gt;
+    &lt;p&gt;Kailangan mong mag-sign in sa mga Wi-Fi network sa mga lugar tulad ng mga cafe o airport. Para makita ang page ng pag-sign in, bisitahin ang isang page na gumagamit ng&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Pumunta sa anumang website na nagsisimula sa &lt;code&gt;http://&lt;/code&gt;, tulad ng &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Sa bubukas na page sa pag-sign in, mag-sign in para magamit ang internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Hakbang 2: Buksan ang page sa Incognito mode (computer lang)&lt;/h4&gt;
+    &lt;p&gt;Buksan ang page na binibisita mo sa isang Incognito window.&lt;/p&gt;
+    &lt;p&gt;Kung bubukas ang page, hindi gumagana nang maayos ang isang extension ng Chrome. Para ayusin ang error, i-off ang extension.&lt;/p&gt;
+    &lt;h4&gt;Hakbang 3: I-update ang iyong operating system&lt;/h4&gt;
+    &lt;p&gt;Tiyaking na-update ang iyong device.&lt;/p&gt;
+    &lt;h4&gt;Hakbang 4: Pansamantalang i-off ang iyong antivirus&lt;/h4&gt;
+    &lt;p&gt;Makikita mo ang error na ito kung mayroon kang antivirus software na nagbibigay ng "Proteksyon sa HTTPS" o "Pag-scan sa HTTPS." Pinipigilan ng antivirus ang Chrome sa pagbibigay ng seguridad.&lt;/p&gt;
+    &lt;p&gt;Para ayusin ang problema, i-off ang iyong antivirus software. Kung gagana ang page pagkatapos i-off ang software, i-off ang software na ito kapag gumagamit ka ng mga secure na site.&lt;/p&gt;
+    &lt;p&gt;Kapag tapos ka na, huwag kalimutang i-on muli ang iyong antivirus program.&lt;/p&gt;
+    &lt;h4&gt;Hakbang 5: Humingi ng karagdagang tulong&lt;/h4&gt;
+    &lt;p&gt;Kung nakikita mo pa rin ang error, makipag-ugnayan sa may-ari ng website.&lt;/p&gt;
+    &lt;h3&gt;"Kumonekta sa network"&lt;/h3&gt;
+    &lt;p&gt;Makikita mo ang error na ito kung gumagamit ka ng Wi-Fi portal kung saan kailangan mong mag-sign in bago ka makapag-online.&lt;/p&gt;
+    &lt;p&gt;Para ayusin ang error, i-click ang &lt;strong&gt;Kumonekta&lt;/strong&gt; sa page na sinusubukan mong buksan.&lt;/p&gt;
+    &lt;h3&gt;"Nahuhuli ang iyong orasan" o "Nauuna ang iyong orasan" o "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Makikita mo ang error na ito kung hindi tumpak ang petsa at oras ng iyong computer o mobile device.&lt;/p&gt;
+    &lt;p&gt;Para ayusin ang error, buksan ang orasan ng iyong device. Tiyaking tama ang oras at petsa.&lt;/p&gt;
+    &lt;h3&gt;"Pinipigilan ng software sa iyong computer na makakonekta nang ligtas ang Chrome sa web" (Mga Windows computer lang)&lt;/h3&gt;
+    &lt;p&gt;Makikita mo ang error na ito kung mayroon kang Superfish software sa iyong Windows computer.&lt;/p&gt;
+    &lt;p&gt;Sundin ang mga hakbang na ito para pansamantalang i-disable ang software para makapunta ka sa web. Kakailanganin mo ng mga pribilehiyong pang-administrator.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;I-click ang &lt;strong&gt;Magsimula&lt;/strong&gt;, pagkatapos ay hanapin at piliin ang &lt;strong&gt;"Tingnan ang mga lokal na serbisyo"&lt;/strong&gt;
+    &lt;li&gt;Piliin ang &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Sa ilalim ng &lt;strong&gt;Uri ng startup&lt;/strong&gt;, piliin ang &lt;strong&gt;Naka-disable&lt;/strong&gt;
+    &lt;li&gt;Piliin ang &lt;strong&gt;Status ng serbisyo&lt;/strong&gt;, i-click ang &lt;strong&gt;Ihinto&lt;/strong&gt;
+    &lt;li&gt;I-click ang &lt;strong&gt;Ilapat&lt;/strong&gt;, pagkatapos ay i-click ang &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Bisitahin ang&lt;a href="https://support.google.com/chrome/answer/6098869"&gt;help center ng Chrome &lt;/a&gt; para alamin kung paano permanenteng alisin ang software sa iyong computer
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Maglagay ng wastong petsa ng pag-expire</translation>
 <translation id="36224234498066874">I-clear ang Data sa Pag-browse...</translation>
 <translation id="362276910939193118">Ipakita ang Buong History</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Mga Pinamamahalaang Bookmark</translation>
 <translation id="7298195798382681320">Inirerekomenda</translation>
 <translation id="7309308571273880165">Ulat ng pag-crash na nakuha noong <ph name="CRASH_TIME" /> (humiling ng pag-upload ang user, hindi pa naa-upload)</translation>
+<translation id="7320336641823683070">Tulong sa Koneksyon</translation>
 <translation id="7334320624316649418">&amp;Gawing muli ang pagbabago sa ayos</translation>
 <translation id="733923710415886693">Ang certificate ng server ay hindi inihayag sa pamamagitan ng Transparency ng Certificate.</translation>
 <translation id="7353601530677266744">Command Line</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">Maaaring hilingin ng Wi-Fi na ginagamit mo (<ph name="WIFI_NAME" />) na bisitahin mo ang page nito sa pag-login.</translation>
 <translation id="785549533363645510">Gayunpaman, hindi ka invisible. Kahit mag-incognito ka, hindi matatago ang iyong pagba-browse mula sa iyong employer, sa iyong internet service provider o sa mga website na binibisita mo.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Umalis sa site?</translation>
 <translation id="7878176543348854470">Tinatanggap ang mga debit at prepaid card.</translation>
 <translation id="7878562273885520351">Maaaring makompromismo ang iyong password</translation>
 <translation id="7887683347370398519">Tingnan ang iyong CVC at subukang muli</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Gamitin ang pangkalahatang default (Tanungin)</translation>
 <translation id="8042918947222776840">Pumili ng Paraan ng Pag-pick up</translation>
 <translation id="8057711352706143257">Hindi maayos na naka-configure ang "<ph name="SOFTWARE_NAME" />." Kadalasang naaayos ang problema kapag in-uninstall ang "<ph name="SOFTWARE_NAME" />." <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">I-reload ang site?</translation>
 <translation id="8088680233425245692">Hindi natingnan ang artikulo.</translation>
 <translation id="8091372947890762290">Nakabinbin sa server ang pag-activate</translation>
 <translation id="8094917007353911263">Maaaring hilingin ng network na ginagamit mo na bisitahin mo ang <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">Di-wastong URL ng update para sa extension na may ID na "<ph name="EXTENSION_ID" />."</translation>
 <translation id="8202097416529803614">Buod ng order</translation>
 <translation id="8205463626947051446">Malamang na magpakita ang site ng mga nakakasagabal na ad</translation>
+<translation id="8211406090763984747">Secure ang koneksyon</translation>
 <translation id="8218327578424803826">Itinakdang Lokasyon:</translation>
 <translation id="8225771182978767009">Pinili ng taong nag-set up ng computer na ito na i-block ang site na ito.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

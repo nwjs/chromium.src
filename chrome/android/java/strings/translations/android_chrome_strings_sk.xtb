@@ -88,6 +88,7 @@ Ak chcete používať Fyzický web, musíte mať zapnuté rozhranie Bluetooth a�
 <translation id="1709438864123551175">Šetrič dát</translation>
 <translation id="1718835860248848330">Posledná hodina</translation>
 <translation id="1729516292547892356">Na zobrazenie obsahu virtuálnej reality je potrebné aktualizovať služby Google VR</translation>
+<translation id="1733116627827457509"><ph name="FILE_SIZE" /> – aktualizované <ph name="TIME_SINCE_UPDATE" /></translation>
 <translation id="1749561566933687563">Synchronizujte svoje záložky</translation>
 <translation id="17513872634828108">Otvorené karty</translation>
 <translation id="1756600373018374892">Klepnutím na toto tlačidlo rýchlo pristúpite k svojim kartám.</translation>
@@ -798,6 +799,7 @@ Niektoré weby môžu napríklad na túto žiadosť reagovať tak, že vám zobr
 <translation id="8200772114523450471">Pokračovať</translation>
 <translation id="8209050860603202033">Otvoriť obrázok</translation>
 <translation id="8220488350232498290">Stiahnuté: <ph name="GIGABYTES" /> GB</translation>
+<translation id="8249310407154411074">Presunúť na začiatok</translation>
 <translation id="8250920743982581267">Dokumenty</translation>
 <translation id="8260126382462817229">Skúste sa znova prihlásiť</translation>
 <translation id="8261506727792406068">Odstrániť</translation>

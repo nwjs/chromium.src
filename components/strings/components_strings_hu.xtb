@@ -368,6 +368,51 @@
 <translation id="3583757800736429874">&amp;Áthelyezés újra</translation>
 <translation id="3586931643579894722">Részletek elrejtése</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;A kapcsolódási problémák megoldása&lt;/h1&gt;
+    &lt;p&gt;Ha hibaüzenetet kap, amikor megpróbál megnyitni valamilyen webhelyet, akkor próbálkozzon az alábbi megoldásokkal.&lt;/p&gt;
+    &lt;h2&gt;A csatlakozási hibák többségének megoldása&lt;/h2&gt;
+    &lt;p&gt;Ha a felkeresni kívánt webhely nem nyílik meg, először próbálja meg kijavítani a hibát a következő problémamegoldó lépések végrehajtásával:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Keressen gépelési hibát az internetcímben.&lt;/li&gt;
+    &lt;li&gt;Győződjön meg arról, hogy internetkapcsolata megfelelően működik.&lt;/li&gt;
+    &lt;li&gt;Vegye fel a kapcsolatot a webhely tulajdonosával.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Segítségkérés konkrét hibaüzenettel kapcsolatban&lt;/h2&gt;
+    &lt;h3&gt;„Az Ön kapcsolata nem privát”, „NET::ERR_CERT_AUTHORITY_INVALID”, „ERR_CERT_COMMON_NAME_INVALID”, „NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM” vagy „SSL-tanúsítványhiba”&lt;/h3&gt;
+    &lt;h4&gt;1. lépés: Jelentkezzen be a portálra&lt;/h4&gt;
+    &lt;p&gt;Az olyan nyilvános helyek Wi-Fi-hálózatai esetében, mint a kávézók és a repterek, bejelentkezés szükséges. A bejelentkezési oldal megtekintéséhez keressen fel egy olyan oldalt, amely a &lt;code&gt;http://&lt;/code&gt; előtaggal kezdődik.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Keresse fel valamelyik tetszőleges, &lt;code&gt;http://&lt;/code&gt; karakterlánccal kezdődő webhelyet, amilyen például a következő: &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Az internet használatához jelentkezzen be a megnyíló bejelentkezési oldalon.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2. lépés: Nyissa meg a weboldalt inkognitómódban (csak számítógépen)&lt;/h4&gt;
+    &lt;p&gt;Nyissa meg a felkeresett weboldalt inkognitómódban.&lt;/p&gt;
+    &lt;p&gt;Ha az oldal megnyílik, akkor a Chrome egyik bővítménye nem működik megfelelően. A hiba kijavításához kapcsolja ki a bővítményt.&lt;/p&gt;
+    &lt;h4&gt;3. lépés: Frissítse operációs rendszerét&lt;/h4&gt;
+    &lt;p&gt;Győződjön meg arról, hogy eszközének operációs rendszere naprakész.&lt;/p&gt;
+    &lt;h4&gt;4. lépés: Ideiglenesen kapcsolja ki a vírusirtó szoftvert&lt;/h4&gt;
+    &lt;p&gt;Akkor láthatja ezt a hibaüzenetet, ha vírusirtó szoftvere HTTPS-védelmi vagy HTTPS-vizsgálati funkciót tartalmaz. A vírusirtó megakadályozza, hogy a Chrome biztonságos kapcsolatot létesítsen.&lt;/p&gt;
+    &lt;p&gt;A probléma megoldásához kapcsolja ki vírusirtó szoftverét. Ha a weboldal a szoftver kikapcsolása után működik, minden alkalommal kapcsolja ki, ha biztonságos webhelyen jár.&lt;/p&gt;
+    &lt;p&gt;Ne felejtse el újra bekapcsolni a vírusirtót, ha végzett.&lt;/p&gt;
+    &lt;h4&gt;5. lépés: Vegyen igénybe külső segítséget&lt;/h4&gt;
+    &lt;p&gt;Ha a hiba továbbra is fennáll, lépjen kapcsolatba a webhely tulajdonosával.&lt;/p&gt;
+    &lt;h3&gt;„Csatlakozás hálózathoz”&lt;/h3&gt;
+    &lt;p&gt;Akkor láthatja ezt a hibaüzenetet, ha olyan Wi-Fi-portált használ, amelybe be kell jelentkezni, hogy használhassa az internetet.&lt;/p&gt;
+    &lt;p&gt;A probléma megoldásához kattintson a megnyitni kívánt oldalon lévő &lt;strong&gt;Connect&lt;/strong&gt; (Csatlakozás) gombra.&lt;/p&gt;
+    &lt;h3&gt;„Az óra késik” vagy „Az óra siet”, illetve „NET::ERR_CERT_DATE_INVALID”&lt;/h3&gt;
+    &lt;p&gt;Akkor láthatja ezt a hibaüzenetet, ha számítógépén vagy mobileszközén pontatlanul van beállítva a dátum és az idő.&lt;/p&gt;
+    &lt;p&gt;A probléma megoldásához nyissa meg az eszköz óráját. Gondoskodjon a dátum és az idő helyes beállításáról.&lt;/p&gt;
+    &lt;h3&gt;„A számítógépen található valamelyik szoftver megakadályozza a Chrome-ot abban, hogy biztonságosan csatlakozzon az internetre” (csak Windows rendszerű számítógépeken)&lt;/h3&gt;
+    &lt;p&gt;Akkor láthatja ezt a hibaüzenetet, ha a Superfish szoftver telepítve van windowsos számítógépén.&lt;/p&gt;
+    &lt;p&gt;Kövesse ezeket a lépéseket, ha szeretné átmenetileg letiltani a szoftvert, hogy hozzáférjen az internethez. Rendszergazdai jogosultságokra lesz szüksége.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Kattintson a &lt;strong&gt;Start&lt;/strong&gt; menüre, majd keresse meg, és válassza ki a &lt;strong&gt;„Helyi szolgáltatások megjelenítése”&lt;/strong&gt; lehetőséget.
+    &lt;li&gt;Válassza ki a &lt;strong&gt;VisualDiscovery&lt;/strong&gt; szolgáltatást.
+    &lt;li&gt;Az &lt;strong&gt;Indítás típusa&lt;/strong&gt; legördülő menüben válassza ki a &lt;strong&gt;Letiltva&lt;/strong&gt; lehetőséget.
+    &lt;li&gt;A &lt;strong&gt;Szolgáltatás állapota&lt;/strong&gt; részben kattintson a &lt;strong&gt;Leállítás&lt;/strong&gt; gombra.
+    &lt;li&gt;Kattintson előbb az &lt;strong&gt;Alkalmaz&lt;/strong&gt;, majd az &lt;strong&gt;OK&lt;/strong&gt; gombra.
+    &lt;li&gt;A &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome súgójában&lt;/a&gt; többet is megtudhat arról, hogyan távolíthatja el véglegesen a szoftvert a számítógépéről.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Érvényes lejárati dátumot kell megadnia</translation>
 <translation id="36224234498066874">Böngészési adatok törlése…</translation>
 <translation id="362276910939193118">Minden előzmény megjelenítése</translation>
@@ -802,6 +847,7 @@
 <translation id="7275334191706090484">Kezelt könyvjelzők</translation>
 <translation id="7298195798382681320">Ajánlott</translation>
 <translation id="7309308571273880165">Hibajelentés készült: <ph name="CRASH_TIME" /> (a felhasználó által kért feltöltés – még nincs feltöltve)</translation>
+<translation id="7320336641823683070">Segítség a kapcsolódáshoz</translation>
 <translation id="7334320624316649418">&amp;Átrendezés újra</translation>
 <translation id="733923710415886693">A szerver tanúsítványát nem A tanúsítványok átláthatósága keretrendszeren keresztül hozták nyilvánosságra.</translation>
 <translation id="7353601530677266744">Parancssor</translation>
@@ -886,6 +932,7 @@
 <translation id="782886543891417279">Az Ön által használt Wi-Fi-hálózat (<ph name="WIFI_NAME" />) megkövetelheti a bejelentkezést a bejelentkezési oldalán.</translation>
 <translation id="785549533363645510">Azonban Ön nem teljesen láthatatlan. Az inkognitómód használata nem rejti el böngészési műveleteit munkáltatója, az internetszolgáltatója és a felkeresett webhelyek elől.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" />: <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Elhagyja a webhelyet?</translation>
 <translation id="7878176543348854470">Elfogadott bank- és feltöltőkártyák.</translation>
 <translation id="7878562273885520351">Előfordultat, hogy jelszava már nem biztonságos</translation>
 <translation id="7887683347370398519">Ellenőrizze a CVC-t, majd próbálja újra</translation>
@@ -908,6 +955,7 @@
 <translation id="8041940743680923270">Globális alapértelmezés használata (Megkérdezés)</translation>
 <translation id="8042918947222776840">Átvételi mód kiválasztása</translation>
 <translation id="8057711352706143257">A(z) „<ph name="SOFTWARE_NAME" />” nincs megfelelően beállítva. A(z) „<ph name="SOFTWARE_NAME" />” eltávolítása általában megoldja a problémát. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Újratölti a webhelyet?</translation>
 <translation id="8088680233425245692">Nem sikerült megtekinteni a cikket.</translation>
 <translation id="8091372947890762290">Az aktiválás függőben van a szerveren</translation>
 <translation id="8094917007353911263">Az Ön által használt hálózat megkövetelheti a(z) <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> felkeresését.</translation>
@@ -923,6 +971,7 @@
 <translation id="8201077131113104583">A(z) „<ph name="EXTENSION_ID" />” azonosítójú bővítmény frissítési URL-je érvénytelen.</translation>
 <translation id="8202097416529803614">Rendelés összegzése</translation>
 <translation id="8205463626947051446">A webhely jellemzően tolakodó hirdetéseket jelenít meg</translation>
+<translation id="8211406090763984747">A kapcsolat biztonságos</translation>
 <translation id="8218327578424803826">Hozzárendelt helyszín:</translation>
 <translation id="8225771182978767009">A számítógépet beállító személy a webhely letiltása mellett döntött.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" /> és <ph name="TYPE_2" /></translation>

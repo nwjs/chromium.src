@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">重做移動(&amp;R)</translation>
 <translation id="3586931643579894722">隱藏詳細資訊</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />，<ph name="DOMAIN" />，<ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;修正連線錯誤&lt;/h1&gt;
+    &lt;p&gt;如果您在嘗試瀏覽網站時收到錯誤訊息，建議您使用以下方法來修正問題。&lt;/p&gt;
+    &lt;h2&gt;修正常見連線錯誤&lt;/h2&gt;
+    &lt;p&gt;如果您無法順利開啟網站，請先嘗試按照以下疑難排解步驟修正相關錯誤：&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;檢查網址是否輸入錯誤。&lt;/li&gt;
+    &lt;li&gt;確認您的網際網路連線正常運作。&lt;/li&gt;
+    &lt;li&gt;與網站擁有者聯絡。&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;瞭解如何修正特定錯誤訊息指出的錯誤&lt;/h2&gt;
+    &lt;h3&gt;「你的連線不是私人連線」、「NET::ERR_CERT_AUTHORITY_INVALID」、「ERR_CERT_COMMON_NAME_INVALID」、「NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM」或「SSL 憑證錯誤」&lt;/h3&gt;
+    &lt;h4&gt;步驟 1：從入口網站登入&lt;/h4&gt;
+    &lt;p&gt;咖啡館或機場等地點的 Wi-Fi 網路必須先登入才能使用。如要查看登入頁面，請造訪使用 &lt;code&gt;http://&lt;/code&gt; 的網頁。&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;前往網址開頭為 &lt;code&gt;http://&lt;/code&gt; 的任何網站，例如 &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;。&lt;/li&gt;
+    &lt;li&gt;在隨即開啟的登入頁面登入後，即可使用網際網路。&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;步驟 2：以無痕模式開啟網頁 (僅適用於電腦)&lt;/h4&gt;
+    &lt;p&gt;使用無痕式視窗開啟您曾造訪的網頁。&lt;/p&gt;
+    &lt;p&gt;如果網頁可以順利開啟，表示有 Chrome 擴充功能並未正常運作。如要修正這項錯誤，請關閉該擴充功能。&lt;/p&gt;
+    &lt;h4&gt;步驟 3：更新您的作業系統&lt;/h4&gt;
+    &lt;p&gt;確認您的裝置已更新至最新版本的作業系統。&lt;/p&gt;
+    &lt;h4&gt;步驟 4：暫時關閉防毒軟體&lt;/h4&gt;
+    &lt;p&gt;如果您的電腦使用任何提供「HTTPS 保護」或「HTTPS 掃描」功能的防毒軟體，導致 Chrome 無法提供安全支援，系統就會顯示這則錯誤訊息。&lt;/p&gt;
+    &lt;p&gt;如要修正這個問題，請關閉防毒軟體。如果這麼做可以順利解決問題，代表您必須關閉防毒軟體，才能使用安全網站。&lt;/p&gt;
+    &lt;p&gt;事後請記得再次開啟防毒程式。&lt;/p&gt;
+    &lt;h4&gt;步驟 5：尋求更多協助&lt;/h4&gt;
+    &lt;p&gt;如果您仍看見錯誤訊息，請與網站擁有者聯絡。&lt;/p&gt;
+    &lt;h3&gt;「連線至網路」&lt;/h3&gt;
+    &lt;p&gt;如果您使用的 Wi-Fi 入口網站必須先登入才能連上網路，系統就會顯示這則錯誤訊息。&lt;/p&gt;
+    &lt;p&gt;如要修正這項錯誤，請在您要嘗試開啟的網頁上按一下 [連線]。&lt;strong&gt;&lt;/strong&gt;&lt;/p&gt;
+    &lt;h3&gt;「你的時鐘時間過慢」、「你的時鐘時間過快」或「NET::ERR_CERT_DATE_INVALID」&lt;/h3&gt;
+    &lt;p&gt;如果畫面顯示這則錯誤訊息，表示您電腦或行動裝置的日期或時間不正確。&lt;/p&gt;
+    &lt;p&gt;如要修正這項錯誤，請開啟裝置的時鐘，確認時間和日期是否正確無誤。&lt;/p&gt;
+    &lt;h3&gt;「你的電腦上有軟體阻止 Chrome 建立安全的網路連線」(僅限 Windows 電腦)&lt;/h3&gt;
+    &lt;p&gt;如果您的 Windows 電腦上有 Superfish 軟體，系統就會顯示這則錯誤訊息。&lt;/p&gt;
+    &lt;p&gt;請按照以下步驟暫時停用該軟體，以便順利連上網路。您需要管理員權限。&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;按一下 [開始]&lt;strong&gt;&lt;/strong&gt;，然後搜尋並選取「檢視本機服務」&lt;strong&gt;&lt;/strong&gt;
+    &lt;li&gt;選取 [VisualDiscovery]&lt;strong&gt;&lt;/strong&gt;
+    &lt;li&gt;在「啟動類型」&lt;strong&gt;&lt;/strong&gt;之下，選取 [已停用]&lt;strong&gt;&lt;/strong&gt;
+    &lt;li&gt;在「服務狀態」&lt;strong&gt;&lt;/strong&gt;之下，按一下 [停止]&lt;strong&gt;&lt;/strong&gt;
+    &lt;li&gt;依序按一下 [套用]&lt;strong&gt;&lt;/strong&gt; 和 [確定]&lt;strong&gt;&lt;/strong&gt;
+    &lt;li&gt;前往 &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome 說明中心&lt;/a&gt;瞭解如何將該軟體從電腦上永久移除
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">請輸入有效的到期日</translation>
 <translation id="36224234498066874">清除瀏覽資料...</translation>
 <translation id="362276910939193118">顯示完整記錄</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">受管理書籤</translation>
 <translation id="7298195798382681320">建議採用</translation>
 <translation id="7309308571273880165">當機報告擷取時間：<ph name="CRASH_TIME" /> (使用者要求上傳，但尚未上傳)</translation>
+<translation id="7320336641823683070">連線說明</translation>
 <translation id="7334320624316649418">重做重新排序(&amp;R)</translation>
 <translation id="733923710415886693">伺服器憑證未依憑證透明化政策公開。</translation>
 <translation id="7353601530677266744">命令列</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">目前使用的 Wi-Fi 網路 (<ph name="WIFI_NAME" />) 可能會要求您造訪登入網頁。</translation>
 <translation id="785549533363645510">不過，這並不意味著您可以完全隱形。使用無痕模式時，您的雇主和網際網路服務供應商仍然可以追蹤您的瀏覽紀錄，您所造訪的網站也可能會記錄您的瀏覽行為。</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">要離開網站嗎？</translation>
 <translation id="7878176543348854470">接受簽帳金融卡和預付卡。</translation>
 <translation id="7878562273885520351">你的密碼可能已經外洩</translation>
 <translation id="7887683347370398519">請檢查您的 CVC，然後再試一次</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">使用全域預設值 (要求確認)</translation>
 <translation id="8042918947222776840">選擇取件方式</translation>
 <translation id="8057711352706143257">「<ph name="SOFTWARE_NAME" />」的設定不正確。通常解除安裝「<ph name="SOFTWARE_NAME" />」即可修正這個問題。<ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">要重新載入網站嗎？</translation>
 <translation id="8088680233425245692">無法查看文章。</translation>
 <translation id="8091372947890762290">尚未在伺服器上啟動</translation>
 <translation id="8094917007353911263">目前使用的網路可能會要求您造訪 <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />。</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">擴充功能 (ID：「<ph name="EXTENSION_ID" />」) 的更新網址無效。</translation>
 <translation id="8202097416529803614">訂單摘要</translation>
 <translation id="8205463626947051446">網站經常顯示侵入式廣告</translation>
+<translation id="8211406090763984747">已建立安全連線</translation>
 <translation id="8218327578424803826">指派的位置：</translation>
 <translation id="8225771182978767009">設定這部電腦的使用者選擇封鎖這個網站。</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />、<ph name="TYPE_2" /></translation>

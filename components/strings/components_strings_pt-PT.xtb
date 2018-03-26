@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Refazer movimentação</translation>
 <translation id="3586931643579894722">Ocultar detalhes</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Corrigir erros de ligação&lt;/h1&gt;
+    &lt;p&gt;Se receber uma mensagem de erro ao tentar aceder a um Website, experimente estas correções.&lt;/p&gt;
+    &lt;h2&gt;Corrigir a maioria dos erros de ligação&lt;/h2&gt;
+    &lt;p&gt;Se tentar aceder a um Website e este não abrir, experimente primeiro corrigir o erro com estes passos de resolução de problemas:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Verifique se existem gralhas no endereço Web.&lt;/li&gt;
+    &lt;li&gt;Certifique-se de que a ligação à Internet está a funcionar normalmente.&lt;/li&gt;
+    &lt;li&gt;Contacte o proprietário do Website.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Obter ajuda relativamente a uma mensagem de erro específica&lt;/h2&gt;
+    &lt;h3&gt;"A sua ligação não é privada" ou "NET::ERR_CERT_AUTHORITY_INVALID" ou "ERR_CERT_COMMON_NAME_INVALID" ou "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" ou "Erro de certificado SSL"&lt;/h3&gt;
+    &lt;h4&gt;Passo 1: inicie sessão no portal&lt;/h4&gt;
+    &lt;p&gt;As redes Wi-Fi em locais como cafés ou aeroportos necessitam que inicie sessão. Para ver a página de início de sessão, aceda a uma página cujo endereço contenha o código &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Aceda a qualquer Website que comece por &lt;code&gt;http://&lt;/code&gt;, como &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Na página de início de sessão apresentada, inicie sessão para utilizar a Internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Passo 2: abra a página no modo de navegação anónima (apenas no computador)&lt;/h4&gt;
+    &lt;p&gt;Abra a página que estava a visitar numa janela de navegação anónima.&lt;/p&gt;
+    &lt;p&gt;Se conseguir abrir a página, significa que uma extensão do Chrome não está a funcionar corretamente. Para corrigir o erro, desative a extensão.&lt;/p&gt;
+    &lt;h4&gt;Passo 3: atualize o sistema operativo&lt;/h4&gt;
+    &lt;p&gt;Certifique-se de que o seu dispositivo está atualizado.&lt;/p&gt;
+    &lt;h4&gt;Passo 4: desative temporariamente o antivírus&lt;/h4&gt;
+    &lt;p&gt;Este erro é apresentado se tiver um software antivírus que forneça "Proteção HTTPS" ou "Análise de HTTPS". O antivírus impede o Chrome de fornecer segurança.&lt;/p&gt;
+    &lt;p&gt;Para resolver o problema, desative o software antivírus. Se a página funcionar depois de desativar o software, desative-o sempre que utilizar sites seguros.&lt;/p&gt;
+    &lt;p&gt;Lembre-se de ativar novamente o programa antivírus quando terminar.&lt;/p&gt;
+    &lt;h4&gt;Passo 5: obtenha ajuda adicional&lt;/h4&gt;
+    &lt;p&gt;Se o erro persistir, contacte o proprietário do Website.&lt;/p&gt;
+    &lt;h3&gt;"Ligue-se à rede"&lt;/h3&gt;
+    &lt;p&gt;Este erro é apresentado se estiver a utilizar um portal Wi-Fi que requer que inicie sessão para poder aceder à Internet.&lt;/p&gt;
+    &lt;p&gt;Para corrigir o erro, clique em &lt;strong&gt;Ligar&lt;/strong&gt; na página que está a tentar abrir.&lt;/p&gt;
+    &lt;h3&gt;"O seu relógio está atrasado", "O seu relógio está adiantado" ou "Net::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Este erro é apresentado se a data e a hora do computador ou do dispositivo móvel estiverem erradas.&lt;/p&gt;
+    &lt;p&gt;Para corrigir o erro, aceda ao relógio do dispositivo. Certifique-se de que a data e a hora estão corretas.&lt;/p&gt;
+    &lt;h3&gt;"Existe software no computador que está a impedir que o Chrome se ligue à Web em segurança" (apenas para computadores com Windows)&lt;/h3&gt;
+    &lt;p&gt;Este erro é apresentado se tiver software Superfish no seu computador Windows.&lt;/p&gt;
+    &lt;p&gt;Siga estes passos para desativar temporariamente o software para que possa aceder à Web. Precisa de privilégios de administrador.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Clique em &lt;strong&gt;Iniciar&lt;/strong&gt; e, de seguida, pesquise e selecione &lt;strong&gt;"Ver serviços locais"&lt;/strong&gt;
+    &lt;li&gt;Selecione &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Em &lt;strong&gt;Tipo de arranque&lt;/strong&gt;, selecione &lt;strong&gt;Desativado&lt;/strong&gt;
+    &lt;li&gt;Em &lt;strong&gt;Estado do serviço&lt;/strong&gt;, clique em &lt;strong&gt;Parar&lt;/strong&gt;
+    &lt;li&gt;Clique em &lt;strong&gt;Aplicar&lt;/strong&gt;e, de seguida, clique em &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Visite o &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centro de Ajuda do Chrome&lt;/a&gt; para saber como remover permanentemente o software do computador.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Introduza uma data de expiração válida</translation>
 <translation id="36224234498066874">Limpar dados de navegação...</translation>
 <translation id="362276910939193118">Mostrar histórico completo</translation>
@@ -804,6 +849,7 @@
 <translation id="7275334191706090484">Marcadores Geridos</translation>
 <translation id="7298195798382681320">Recomendado</translation>
 <translation id="7309308571273880165">Relatório de falhas capturado no(a) <ph name="CRASH_TIME" /> (carregamento pedido pelo utilizador, ainda não carregado)</translation>
+<translation id="7320336641823683070">Ajuda para estabelecer ligação</translation>
 <translation id="7334320624316649418">&amp;Refazer reordenação</translation>
 <translation id="733923710415886693">O certificado do servidor não foi divulgado através da Transparência de certificados.</translation>
 <translation id="7353601530677266744">Linha de comandos</translation>
@@ -888,6 +934,7 @@
 <translation id="782886543891417279">A rede Wi-Fi que está a utilizar (<ph name="WIFI_NAME" />) pode exigir que visite a respetiva página de início de sessão.</translation>
 <translation id="785549533363645510">No entanto, a navegação não é invisível. Passar para o modo de navegação anónima não oculta a navegação do empregador ou do fornecedor de serviços de Internet, nem dos Sites que visitar.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Pretende sair do site?</translation>
 <translation id="7878176543348854470">Os cartões de débito e pré-pagos são admitidos.</translation>
 <translation id="7878562273885520351">A palavra-passe pode estar comprometida</translation>
 <translation id="7887683347370398519">Verifique o Código de Segurança/CVC e tente novamente</translation>
@@ -910,6 +957,7 @@
 <translation id="8041940743680923270">Utilizar predefinição global (Perguntar)</translation>
 <translation id="8042918947222776840">Escolher método de levantamento</translation>
 <translation id="8057711352706143257">O "<ph name="SOFTWARE_NAME" />" não está configurado corretamente. Normalmente, a desinstalação do "<ph name="SOFTWARE_NAME" />" resolve o problema. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Pretende atualizar o site?</translation>
 <translation id="8088680233425245692">Falha ao ver o artigo.</translation>
 <translation id="8091372947890762290">Ativação pendente no servidor</translation>
 <translation id="8094917007353911263">A rede que está a utilizar pode exigir que visite <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +973,7 @@
 <translation id="8201077131113104583">Atualizar URL inválido para a extensão com o ID "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Resumo da encomenda</translation>
 <translation id="8205463626947051446">O site tem tendência para mostrar anúncios intrusivos</translation>
+<translation id="8211406090763984747">A ligação é segura</translation>
 <translation id="8218327578424803826">Localização atribuída:</translation>
 <translation id="8225771182978767009">A pessoa que configurou este computador optou por bloquear este site.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

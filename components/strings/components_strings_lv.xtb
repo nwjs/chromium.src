@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Pārvietošanas atsaukuma atcelšana</translation>
 <translation id="3586931643579894722">Slēpt detaļas</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Savienojuma kļūdu novēršana&lt;/h1&gt;
+    &lt;p&gt;Ja, mēģinot apmeklēt vietni, tiek rādīts kļūdas ziņojums, izmēģiniet šos risinājumus.&lt;/p&gt;
+    &lt;h2&gt;Vairākuma savienojuma kļūdu novēršana&lt;/h2&gt;
+    &lt;p&gt;Ja, mēģinot apmeklēt vietni, tā netiek atvērta, vispirms izmēģiniet tālāk norādītās kļūdu novēršanas darbības.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Pārbaudiet, vai tīmekļa adrese ir pareizi uzrakstīta.&lt;/li&gt;
+    &lt;li&gt;Pārbaudiet, vai interneta savienojums darbojas pareizi.&lt;/li&gt;
+    &lt;li&gt;Sazinieties ar vietnes īpašnieku.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Palīdzība par konkrētu kļūdas ziņojumu&lt;/h2&gt;
+    &lt;h3&gt;“Jūsu savienojums nav privāts”, “NET::ERR_CERT_AUTHORITY_INVALID”, “ERR_CERT_COMMON_NAME_INVALID”, “NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM” vai “SSL sertifikāta kļūda”&lt;/h3&gt;
+    &lt;h4&gt;1. darbība. Pierakstīšanās portālā&lt;/h4&gt;
+    &lt;p&gt;Wi-Fi tīklos tādās vietās kā kafejnīcas un lidostas ir jāveic pierakstīšanās. Lai atvērtu pierakstīšanās lapu, apmeklējiet lapu, kurā tiek izmantots &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Pārejiet uz jebkuru vietni, kuras adrese sākas ar &lt;code&gt;http://&lt;/code&gt;, piemēram, &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Atvērtajā pierakstīšanās lapā pierakstieties, lai izmantotu internetu.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;2. darbība. Lapas atvēršana inkognito režīmā (tikai datorā)&lt;/h4&gt;
+    &lt;p&gt;Atveriet apmeklēto lapu inkognito režīma logā.&lt;/p&gt;
+    &lt;p&gt;Ja lapa tiek atvērta, kāds Chrome paplašinājums nedarbojas pareizi. Lai novērstu šo kļūdu, izslēdziet attiecīgo paplašinājumu.&lt;/p&gt;
+    &lt;h4&gt;3. darbība. Operētājsistēmas atjaunināšana&lt;/h4&gt;
+    &lt;p&gt;Ierīcē ir jābūt instalētai jaunākajai operētājsistēmai.&lt;/p&gt;
+    &lt;h4&gt;4. darbība. Pretvīrusu programmas īslaicīga izslēgšana&lt;/h4&gt;
+    &lt;p&gt;Šis kļūdas ziņojums tiek rādīts, ja ierīcē ir instalēta pretvīrusu programmatūra, kas ietver HTTPS aizsardzību vai HTTPS skenēšanu. Šī antivīrusa programmatūra novērš Chrome drošības funkciju darbību.&lt;/p&gt;
+    &lt;p&gt;Lai novērstu šo problēmu, izslēdziet pretvīrusu programmatūru. Ja pēc programmatūras izslēgšanas lapa darbojas, izslēdziet šo programmatūru, kad apmeklējat drošas vietnes.&lt;/p&gt;
+    &lt;p&gt;Pēc darba pabeigšanas noteikti atkal ieslēdziet pretvīrusu programmu.&lt;/p&gt;
+    &lt;h4&gt;5. darbība. Papildu palīdzības saņemšana&lt;/h4&gt;
+    &lt;p&gt;Ja kļūda joprojām tiek rādīta, sazinieties ar vietnes īpašnieku.&lt;/p&gt;
+    &lt;h3&gt;“Izveidojiet savienojumu ar tīklu”&lt;/h3&gt;
+    &lt;p&gt;Šis kļūdas ziņojums tiek rādīts, ja izmantojat Wi-Fi portālu, kurā ir jāpierakstās, lai varētu pāriet tiešsaistē.&lt;/p&gt;
+    &lt;p&gt;Lai novērstu šo kļūdu, lapā, kuru mēģināt atvērt, noklikšķiniet uz &lt;strong&gt;Izveidot savienojumu&lt;/strong&gt;.&lt;/p&gt;
+    &lt;h3&gt;“Pulksteņa laiks ir pagātnē”, “Pulksteņa laiks ir nākotnē” vai “NET::ERR_CERT_DATE_INVALID”&lt;/h3&gt;
+    &lt;p&gt;Šis kļūdas ziņojums tiek rādīts, ja datora vai mobilās ierīces datums un laiks nav precīzs.&lt;/p&gt;
+    &lt;p&gt;Lai novērstu šo kļūdu, atveriet ierīces pulksteni. Ir jābūt iestatītam pareizam datumam un laikam.&lt;/p&gt;
+    &lt;h3&gt;“Programmatūra jūsu datorā, kuras dēļ pārlūkā Chrome nevar izveidot drošu tīmekļa savienojumu” (tikai Windows datoros)&lt;/h3&gt;
+    &lt;p&gt;Šis kļūdas ziņojums tiek rādīts, ja datorā ir instalēta programmatūra Superfish.&lt;/p&gt;
+    &lt;p&gt;Lai īslaicīgi atspējotu programmatūru un piekļūtu tīmeklim, veiciet tālāk norādītās darbības. Nepieciešamas administratora privilēģijas.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Noklikšķiniet uz &lt;strong&gt;Sākums&lt;/strong&gt; un pēc tam atrodiet un atlasiet vienumu &lt;strong&gt;Skatīt vietējos pakalpojumus&lt;/strong&gt;.
+    &lt;li&gt;Atlasiet vienumu &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;Sadaļā &lt;strong&gt;Startēšanas veids&lt;/strong&gt; atlasiet vienumu &lt;strong&gt;Atspējots&lt;/strong&gt;.
+    &lt;li&gt;Sadaļā &lt;strong&gt;Pakalpojuma statuss&lt;/strong&gt; noklikšķiniet uz &lt;strong&gt;Apturēt&lt;/strong&gt;.
+    &lt;li&gt;Noklikšķiniet uz &lt;strong&gt;Lietot&lt;/strong&gt;, pēc tam noklikšķiniet uz &lt;strong&gt;Labi&lt;/strong&gt;.
+    &lt;li&gt;Lai uzzinātu, kā neatgriezeniski noņemt programmatūru no datora, apmeklējiet &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome palīdzības centru&lt;/a&gt;.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Ievadiet derīgu datumu</translation>
 <translation id="36224234498066874">Dzēst pārlūkošanas datus...</translation>
 <translation id="362276910939193118">Rādīt pilnu vēsturi</translation>
@@ -803,6 +848,7 @@
 <translation id="7275334191706090484">Pārvaldītās grāmatzīmes</translation>
 <translation id="7298195798382681320">Ieteicams</translation>
 <translation id="7309308571273880165">Avārijas pārskats notverts: <ph name="CRASH_TIME" /> (augšupielādi pieprasījis lietotājs; augšupielāde vēl nav veikta)</translation>
+<translation id="7320336641823683070">Savienojuma palīdzība</translation>
 <translation id="7334320624316649418">&amp;Atcelt pārkārtošanas atsaukšanu</translation>
 <translation id="733923710415886693">Servera sertifikāts netika atklāts, izmantojot Certificate Transparency.</translation>
 <translation id="7353601530677266744">Komandrinda</translation>
@@ -887,6 +933,7 @@
 <translation id="782886543891417279">Iespējams, izmantotajā Wi-Fi tīklā (<ph name="WIFI_NAME" />) tiks pieprasīts apmeklēt pieteikšanās lapu.</translation>
 <translation id="785549533363645510">Tomēr jūs neesat neredzams. Pārlūkojot inkognito režīmā, jūsu pārlūkošanas darbības netiek slēptas no jūsu darba devēja, interneta pakalpojumu sniedzēja vai apmeklētajām vietnēm.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" />: <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Vai aizvērt vietni?</translation>
 <translation id="7878176543348854470">Tiek pieņemtas debetkartes un priekšapmaksas kartes.</translation>
 <translation id="7878562273885520351">Iespējams, jūsu parole ir apdraudēta</translation>
 <translation id="7887683347370398519">Pārbaudiet CVC kodu un mēģiniet vēlreiz.</translation>
@@ -909,6 +956,7 @@
 <translation id="8041940743680923270">Izmantot globālo noklusējumu (Vaicāt)</translation>
 <translation id="8042918947222776840">Izvēlēties saņemšanas veidu</translation>
 <translation id="8057711352706143257">Programmatūra <ph name="SOFTWARE_NAME" /> nav pareizi konfigurēta. Atinstalējot programmatūru <ph name="SOFTWARE_NAME" />, parasti problēma tiek novērsta. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Vai atkārtoti ielādēt vietni?</translation>
 <translation id="8088680233425245692">Rakstu neizdevās skatīt.</translation>
 <translation id="8091372947890762290">Aktivizācija vēl nav apstiprināta serverī.</translation>
 <translation id="8094917007353911263">Iespējams, izmantotajā tīklā tiks pieprasīts apmeklēt vietni <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -924,6 +972,7 @@
 <translation id="8201077131113104583">Nederīgs atjaunināšanas URL paplašinājumam ar ID “<ph name="EXTENSION_ID" />”.</translation>
 <translation id="8202097416529803614">Pasūtījuma kopsavilkums</translation>
 <translation id="8205463626947051446">Vietnē tiek rādītas traucējošas reklāmas.</translation>
+<translation id="8211406090763984747">Savienojums ir drošs</translation>
 <translation id="8218327578424803826">Piešķirtā atrašanās vieta:</translation>
 <translation id="8225771182978767009">Persona, kura iestatīja šo datoru, izvēlējās bloķēt šo vietni.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>

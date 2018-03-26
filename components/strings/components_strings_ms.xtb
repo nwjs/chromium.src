@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Buat Semula Pindahkan</translation>
 <translation id="3586931643579894722">Sembunyikan butiran</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Betulkan ralat sambungan&lt;/h1&gt;
+    &lt;p&gt;Jika anda menerima mesej ralat apabila anda cuba melawati tapak web, cuba pembetulan ini.&lt;/p&gt;
+    &lt;h2&gt;Betulkan kebanyakan ralat sambungan&lt;/h2&gt;
+    &lt;p&gt;Jika anda cuba melawati tapak web tetapi tapak tersebut tidak dapat dibuka, cuba betulkan ralat itu dengan langkah penyelesai masalah ini:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Semak alamat web untuk mengesan kesalahan menaip.&lt;/li&gt;
+    &lt;li&gt;Pastikan sambungan Internet anda berfungsi seperti biasa.&lt;/li&gt;
+    &lt;li&gt;Hubungi pemilik tapak web.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Dapatkan bantuan untuk mesej ralat tertentu&lt;/h2&gt;
+    &lt;h3&gt;"Sambungan anda tidak peribadi" atau "NET::ERR_CERT_AUTHORITY_INVALID" atau "ERR_CERT_COMMON_NAME_INVALID" atau "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" atau "Ralat sijil SSL"&lt;/h3&gt;
+    &lt;h4&gt;Langkah 1: Log masuk ke portal&lt;/h4&gt;
+    &lt;p&gt;Rangkaian Wi-Fi di tempat seperti kafe atau lapangan terbang menghendaki anda untuk log masuk. Untuk memaparkan halaman log masuk, lawati halaman yang menggunakan&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Pergi ke mana-mana tapak web yang bermula dengan &lt;code&gt;http://&lt;/code&gt;, seperti &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Pada halaman log masuk yang terbuka, log masuk untuk menggunakan Internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Langkah 2: Buka halaman dalam mod Inkognito (komputer sahaja)&lt;/h4&gt;
+    &lt;p&gt;Buka halaman yang anda lawati dalam tetingkap Inkognito.&lt;/p&gt;
+    &lt;p&gt;Jika halaman tersebut terbuka, terdapat sambungan Chrome yang tidak berfungsi dengan betul. Untuk membetulkan ralat ini, matikan sambungan tersebut.&lt;/p&gt;
+    &lt;h4&gt;Langkah 3: Kemas kini sistem pengendalian anda&lt;/h4&gt;
+    &lt;p&gt;Pastikan peranti anda dalam keadaan terkini.&lt;/p&gt;
+    &lt;h4&gt;Langkah 4: Matikan antivirus anda buat sementara waktu&lt;/h4&gt;
+    &lt;p&gt;Ralat ini akan kelihatan jika anda memasang antivirus yang menyediakan "perlindungan HTTPS" atau "pengimbasan HTTPS". Antivirus tersebut menghalang Chrome daripada menyediakan keselamatan.&lt;/p&gt;
+    &lt;p&gt;Untuk menyelesaikan masalah ini, matikan perisian antivirus anda. Jika halaman berfungsi selepas perisian dimatikan, matikan perisian ini apabila anda menggunakan tapak yang selamat.&lt;/p&gt;
+    &lt;p&gt;Jangan lupa untuk menghidupkan semula atur cara antivirus itu apabila anda sudah selesai.&lt;/p&gt;
+    &lt;h4&gt;Langkah 5: Dapatkan bantuan tambahan&lt;/h4&gt;
+    &lt;p&gt;Jika ralat masih kelihatan, hubungi pemilik tapak web.&lt;/p&gt;
+    &lt;h3&gt;"Sambung ke rangkaian"&lt;/h3&gt;
+    &lt;p&gt;Ralat ini akan dipaparkan jika anda menggunakan portal Wi-Fi yang menghendaki anda untuk log masuk sebelum anda dapat masuk ke dalam talian.&lt;/p&gt;
+    &lt;p&gt;Untuk membetulkan ralat ini, klik &lt;strong&gt;Sambung&lt;/strong&gt; pada halaman yang cuba dibuka.&lt;/p&gt;
+    &lt;h3&gt;"Jam anda lambat" atau "Jam anda cepat" atau "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Mesej ini akan dipaparkan jika tarikh dan masa komputer atau peranti mudah alih anda tidak tepat.&lt;/p&gt;
+    &lt;p&gt;Untuk membetulkan ralat ini, buka jam peranti anda. Pastikan tarikh dan masa adalah betul.&lt;/p&gt;
+    &lt;h3&gt;"Perisian pada komputer anda menghalang Chrome daripada menyambung ke web dengan selamat" (komputer Windows sahaja)&lt;/h3&gt;
+    &lt;p&gt;Ralat ini akan dipaparkan jika anda memasang perisian Superfish pada komputer Windows anda.&lt;/p&gt;
+    &lt;p&gt;Ikut langkah berikut untuk melumpuhkan perisian ini buat sementara waktu supaya anda dapat melayari web. Anda memerlukan keistimewaan pentadbir.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Klik &lt;strong&gt;Mula&lt;/strong&gt;, kemudian cari dan pilih &lt;strong&gt;"Lihat perkhidmatan setempat"&lt;/strong&gt;
+    &lt;li&gt;Pilih &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+    &lt;li&gt;Di bahagian &lt;strong&gt;Jenis permulaan&lt;/strong&gt;, pilih &lt;strong&gt;Lumpuhkan&lt;/strong&gt;
+    &lt;li&gt;Di bahagian &lt;strong&gt;Status perkhidmatan&lt;/strong&gt;, klik &lt;strong&gt;Hentikan&lt;/strong&gt;
+    &lt;li&gt;Klik &lt;strong&gt;Gunakan&lt;/strong&gt;, kemudian klik &lt;strong&gt;OK&lt;/strong&gt;
+    &lt;li&gt;Lawati &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Pusat bantuan Chrome&lt;/a&gt; untuk mengetahui cara mengalih keluar perisian tersebut secara kekal daripada komputer anda
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Masukkan tarikh tamat tempoh yang sah</translation>
 <translation id="36224234498066874">Kosongkan Data Semakan Imbas...</translation>
 <translation id="362276910939193118">Paparkan Sejarah Penuh</translation>
@@ -433,6 +478,7 @@
 <translation id="4103249731201008433">Nombor siri peranti tidak sah</translation>
 <translation id="410351446219883937">Automain</translation>
 <translation id="4103763322291513355">Lawati &lt;strong&gt;chrome://policy&lt;/strong&gt; untuk melihat senarai URL yang disenarai hitam dan dasar lain yang dikuatkuasakan oleh pentadbir sistem anda.</translation>
+<translation id="4110652170750985508">Semak pembayaran anda</translation>
 <translation id="4116663294526079822">Sentiasa benarkan di tapak ini</translation>
 <translation id="4117700440116928470">Skop dasar tidak disokong.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 yang lain}other{# yang lain}}</translation>
@@ -805,6 +851,7 @@
 <translation id="7275334191706090484">Penanda Halaman Terurus</translation>
 <translation id="7298195798382681320">Disyorkan</translation>
 <translation id="7309308571273880165">Laporan ranap sistem dirakam pada <ph name="CRASH_TIME" /> (muat naik diminta oleh pengguna, belum dimuat naik lagi)</translation>
+<translation id="7320336641823683070">Bantuan Sambungan</translation>
 <translation id="7334320624316649418">&amp;Buat semula susun semula</translation>
 <translation id="733923710415886693">Sijil pelayan tidak didedahkan melalui Ketelusan Sijil.</translation>
 <translation id="7353601530677266744">Baris Perintah</translation>
@@ -889,6 +936,7 @@
 <translation id="782886543891417279">Wi-Fi yang anda gunakan (<ph name="WIFI_NAME" />) mungkin memerlukan anda melawat halaman log masuknya.</translation>
 <translation id="785549533363645510">Walau bagaimanapun, anda tidak halimunan. Apabila anda menggunakan mod inkognito, penyemakan imbas anda tidak akan disembunyikan daripada majikan anda, penyedia perkhidmatan Internet anda atau tapak web yang anda lawati.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="CURRENCY_CODE" /> <ph name="FORMATTED_TOTAL_AMOUNT" /></translation>
+<translation id="7862185352068345852">Tinggalkan tapak?</translation>
 <translation id="7878176543348854470">Kad debit dan prabayar diterima.</translation>
 <translation id="7878562273885520351">Kata laluan anda mungkin terjejas</translation>
 <translation id="7887683347370398519">Semak CVC anda dan cuba lagi</translation>
@@ -911,6 +959,7 @@
 <translation id="8041940743680923270">Gunakan lalai global (Tanya)</translation>
 <translation id="8042918947222776840">Pilih Kaedah Pengambilan</translation>
 <translation id="8057711352706143257">"<ph name="SOFTWARE_NAME" />" tidak dikonfigurasi dengan betul. Tindakan menyahpasang "<ph name="SOFTWARE_NAME" />" biasanya dapat menyelesaikan masalah ini. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Muatkan semula tapak?</translation>
 <translation id="8088680233425245692">Gagal melihat artikel.</translation>
 <translation id="8091372947890762290">Pengaktifan belum selesai pada pelayan</translation>
 <translation id="8094917007353911263">Rangkaian yang anda gunakan mungkin memerlukan anda melawat <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -926,6 +975,7 @@
 <translation id="8201077131113104583">URL kemas kini tidak sah untuk sambungan dengan ID "<ph name="EXTENSION_ID" />".</translation>
 <translation id="8202097416529803614">Ringkasan pesanan</translation>
 <translation id="8205463626947051446">Tapak cenderung menyiarkan iklan yang mengganggu</translation>
+<translation id="8211406090763984747">Sambungan selamat</translation>
 <translation id="8218327578424803826">Lokasi yang Ditentukan:</translation>
 <translation id="8225771182978767009">Orang yang menyediakan komputer ini telah memilih untuk menyekat tapak ini.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>
