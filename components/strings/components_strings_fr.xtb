@@ -393,9 +393,9 @@
     &lt;h4&gt;Étape 3 : Mettez à jour votre système d'exploitation&lt;/h4&gt;
     &lt;p&gt;Assurez-vous que votre appareil est à jour.&lt;/p&gt;
     &lt;h4&gt;Étape 4 : Désactivez temporairement votre logiciel antivirus&lt;/h4&gt;
-    &lt;p&gt;Ce message s'affiche si vous avez un logiciel antivirus qui fournit une "protection HTTPS" ou une "analyse HTTPS" bloquant la fonctionnalité de sécurité de Chrome.&lt;/p&gt;
+    &lt;p&gt;Ce message s'affiche si vous avez un logiciel antivirus qui propose une "protection HTTPS" ou une "analyse HTTPS" bloquant la fonctionnalité de sécurité de Chrome.&lt;/p&gt;
     &lt;p&gt;Pour corriger cette erreur, désactivez votre logiciel antivirus. Si la page fonctionne à la suite de cette opération, désactivez ce logiciel lorsque vous utilisez des sites sécurisés.&lt;/p&gt;
-    &lt;p&gt;Pensez ensuite à réactiver votre logiciel antivirus.&lt;/p&gt;
+    &lt;p&gt;N'oubliez pas de le réactiver par la suite.&lt;/p&gt;
     &lt;h4&gt;Étape 5 : Obtenez de l'aide supplémentaire&lt;/h4&gt;
     &lt;p&gt;Si le message d'erreur s'affiche toujours, contactez le propriétaire du site.&lt;/p&gt;
     &lt;h3&gt;"Se connecter au réseau"&lt;/h3&gt;
@@ -408,12 +408,12 @@
     &lt;p&gt;Ce message d'erreur s'affiche si le logiciel Superfish est installé sur votre ordinateur Windows.&lt;/p&gt;
     &lt;p&gt;Suivez ces étapes pour désactiver temporairement le logiciel afin d'accéder au Web. Vous devez disposer des droits d'administrateur.&lt;/p&gt;
     &lt;ol&gt;
-    &lt;li&gt;Cliquez sur &lt;strong&gt;Démarrer&lt;/strong&gt;, puis recherchez et sélectionnez l'option &lt;strong&gt;Afficher les services locaux&lt;/strong&gt;
-    &lt;li&gt;Sélectionnez &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
-    &lt;li&gt;Sous &lt;strong&gt;Type de démarrage&lt;/strong&gt;, sélectionnez &lt;strong&gt;Désactivé&lt;/strong&gt;
-    &lt;li&gt;Sous &lt;strong&gt;État du service&lt;/strong&gt;, cliquez sur &lt;strong&gt;Arrêter&lt;/strong&gt;
-    &lt;li&gt;Cliquez sur &lt;strong&gt;Appliquer&lt;/strong&gt;, puis sur &lt;strong&gt;OK&lt;/strong&gt;
-    &lt;li&gt;Accédez au &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centre d'aide Chrome&lt;/a&gt; pour découvrir comment supprimer définitivement le logiciel de votre ordinateur
+    &lt;li&gt;Cliquez sur &lt;strong&gt;Démarrer&lt;/strong&gt;, puis recherchez et sélectionnez l'option &lt;strong&gt;Afficher les services locaux&lt;/strong&gt;.
+    &lt;li&gt;Sélectionnez &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;Sous &lt;strong&gt;Type de démarrage&lt;/strong&gt;, sélectionnez &lt;strong&gt;Désactivé&lt;/strong&gt;.
+    &lt;li&gt;Sous &lt;strong&gt;État du service&lt;/strong&gt;, cliquez sur &lt;strong&gt;Arrêter&lt;/strong&gt;.
+    &lt;li&gt;Cliquez sur &lt;strong&gt;Appliquer&lt;/strong&gt;, puis sur &lt;strong&gt;OK&lt;/strong&gt;.
+    &lt;li&gt;Accédez au &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centre d'aide Chrome&lt;/a&gt; pour découvrir comment supprimer définitivement le logiciel de votre ordinateur.
     &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Saisissez une date d'expiration valide</translation>
 <translation id="36224234498066874">Effacer les données de navigation...</translation>
@@ -477,6 +477,7 @@
 <translation id="4103249731201008433">Le numéro de série de l'appareil n'est pas valide.</translation>
 <translation id="410351446219883937">Lecture automatique</translation>
 <translation id="4103763322291513355">Accédez à &lt;strong&gt;chrome://policy&lt;/strong&gt; pour consulter une liste des URL ajoutées à la liste noire et des autres règles définies par votre administrateur système.</translation>
+<translation id="4110652170750985508">Vérifier votre paiement</translation>
 <translation id="4116663294526079822">Toujours autoriser sur ce site</translation>
 <translation id="4117700440116928470">La portée de la règle n'est pas compatible.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 autre}one{# autre}other{# autres}}</translation>

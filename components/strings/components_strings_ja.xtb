@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">移動のやり直し（&amp;R）</translation>
 <translation id="3586931643579894722">詳細を非表示</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />、<ph name="DOMAIN" />、<ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;接続エラーを解決する&lt;/h1&gt;
+    &lt;p&gt;ウェブサイトにアクセスしようとするとエラー メッセージが表示される場合は、以下の解決方法をお試しください。&lt;/p&gt;
+    &lt;h2&gt;一般的な接続エラーを解決する&lt;/h2&gt;
+    &lt;p&gt;ウェブサイトにアクセスしようとしてもサイトが開かない場合は、まず次の解決方法を行って、エラーが解消されるかご確認ください。&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;ウェブアドレスに入力ミスがないか確認します。&lt;/li&gt;
+    &lt;li&gt;インターネット接続に問題がないことを確認します。&lt;/li&gt;
+    &lt;li&gt;ウェブサイトの所有者に問い合わせます。&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;特定のエラー メッセージに関する情報&lt;/h2&gt;
+    &lt;h3&gt;「この接続ではプライバシーが保護されません」、「NET::ERR_CERT_AUTHORITY_INVALID」、「ERR_CERT_COMMON_NAME_INVALID」、「NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM」、「SSL 証明書エラー」&lt;/h3&gt;
+    &lt;h4&gt;ステップ 1: ポータルにログインする&lt;/h4&gt;
+    &lt;p&gt;カフェや空港といった場所の Wi-Fi ネットワークを使用するには、ログインが必要です。ログインページを表示するには、&lt;code&gt;http://&lt;/code&gt; を使用しているページにアクセスします。&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;&lt;code&gt;http://&lt;/code&gt; で始まる任意のウェブサイトにアクセスします（例: &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;）。&lt;/li&gt;
+    &lt;li&gt;インターネットを使用するには、表示されたログインページでログインします。&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;ステップ 2: シークレット モードでページを開く（パソコンのみ）&lt;/h4&gt;
+    &lt;p&gt;アクセスしたページをシークレット ウィンドウで開きます。&lt;/p&gt;
+    &lt;p&gt;この方法でページが表示された場合は、Chrome の拡張機能に問題があります。エラーを解決するには、問題のある拡張機能を無効にしてください。&lt;/p&gt;
+    &lt;h4&gt;ステップ 3: オペレーティング システムを更新する&lt;/h4&gt;
+    &lt;p&gt;端末が最新の状態であることを確認します。&lt;/p&gt;
+    &lt;h4&gt;ステップ 4: ウィルス対策ソフトウェアを一時的に無効にする&lt;/h4&gt;
+    &lt;p&gt;このエラーは、「HTTPS 保護」や「HTTPS スキャン」などの機能を備えたウィルス対策ソフトウェアを使用している場合に表示されます。こうしたウィルス対策ソフトウェアにより、Chrome のセキュリティが適用されなくなっています。&lt;/p&gt;
+    &lt;p&gt;問題を解決するには、ウィルス対策ソフトウェアを無効にします。無効にするとページを利用できるようになる場合は、セキュリティで保護されたサイトにアクセスするときにこのソフトウェアを無効にしてください。&lt;/p&gt;
+    &lt;p&gt;サイトの利用が終わったら、ウィルス対策ソフトウェアを有効にします。&lt;/p&gt;
+    &lt;h4&gt;ステップ 5: サポートを依頼する&lt;/h4&gt;
+    &lt;p&gt;引き続きエラーが表示される場合は、ウェブサイトの所有者にお問い合わせください。&lt;/p&gt;
+    &lt;h3&gt;「ネットワークに接続してください」&lt;/h3&gt;
+    &lt;p&gt;インターネットに接続するために Wi-Fi ポータルへのログインが必要な場合は、このエラーが表示されます。&lt;/p&gt;
+    &lt;p&gt;エラーを解決するには、開こうとしているページで [&lt;strong&gt;接続&lt;/strong&gt;] をクリックします。&lt;/p&gt;
+    &lt;h3&gt;「時計が遅れています」、「時計が進んでいます」、「NET::ERR_CERT_DATE_INVALID」&lt;/h3&gt;
+    &lt;p&gt;このエラーは、パソコンまたはモバイル端末の日付と時刻が正確ではない場合に表示されます。&lt;/p&gt;
+    &lt;p&gt;エラーを解決するには、端末の時計を開き、日付と時刻が正しいことを確認します。&lt;/p&gt;
+    &lt;h3&gt;「パソコンにインストールされているソフトウェアが原因で、Chrome からインターネットに安全に接続することができません」（Windows パソコンのみ）&lt;/h3&gt;
+    &lt;p&gt;このエラーは、Windows パソコンで Superfish ソフトウェアを使用している場合に表示されます。&lt;/p&gt;
+    &lt;p&gt;次の手順でソフトウェアを一時的に無効にすると、インターネットに接続できるようになります。なお、この操作には管理者権限が必要です。&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;[&lt;strong&gt;スタート&lt;/strong&gt;] をクリックし、[&lt;strong&gt;ローカル サービスの表示&lt;/strong&gt;] を検索して選択します。
+    &lt;li&gt;[&lt;strong&gt;VisualDiscovery&lt;/strong&gt;] を選択します。
+    &lt;li&gt;[&lt;strong&gt;スタートアップの種類&lt;/strong&gt;] で [&lt;strong&gt;無効&lt;/strong&gt;] を選択します。
+    &lt;li&gt;[&lt;strong&gt;サービスの状態&lt;/strong&gt;] で [&lt;strong&gt;停止&lt;/strong&gt;] をクリックします。
+    &lt;li&gt;[&lt;strong&gt;適用&lt;/strong&gt;] をクリックし、[&lt;strong&gt;OK&lt;/strong&gt;] をクリックします。
+    &lt;li&gt;このソフトウェアをパソコンから完全に削除する方法については、&lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome ヘルプセンター&lt;/a&gt;をご覧ください。
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">有効期限（日）を入力してください</translation>
 <translation id="36224234498066874">閲覧履歴を消去...</translation>
 <translation id="362276910939193118">全履歴を表示</translation>
@@ -432,6 +477,7 @@
 <translation id="4103249731201008433">デバイスのシリアル番号が無効です</translation>
 <translation id="410351446219883937">自動再生</translation>
 <translation id="4103763322291513355">&lt;strong&gt;chrome://policy&lt;/strong&gt; にアクセスして、ブラックリストに登録されている URL とシステム管理者が設定した他のポリシーを確認できます。</translation>
+<translation id="4110652170750985508">お支払いの確認</translation>
 <translation id="4116663294526079822">このサイトでは常に許可</translation>
 <translation id="4117700440116928470">ポリシーの適用範囲がサポートされていません。</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{他 1 件}other{他 # 件}}</translation>
@@ -804,6 +850,7 @@
 <translation id="7275334191706090484">管理対象のブックマーク</translation>
 <translation id="7298195798382681320">推奨</translation>
 <translation id="7309308571273880165"><ph name="CRASH_TIME" /> にクラッシュ レポートが作成されました（ユーザーからアップロードがリクエストされましたが、まだアップロードされていません）</translation>
+<translation id="7320336641823683070">接続に関するヘルプ</translation>
 <translation id="7334320624316649418">順序変更のやり直し（&amp;R）</translation>
 <translation id="733923710415886693">サーバーの証明書は、証明書の透明性ポリシーを介して公開されていません。</translation>
 <translation id="7353601530677266744">コマンドライン</translation>
@@ -888,6 +935,7 @@
 <translation id="782886543891417279">ご利用の Wi-Fi（<ph name="WIFI_NAME" />）では、ログインページへのアクセスが必要な可能性があります。</translation>
 <translation id="785549533363645510">あらゆる場所に記録が一切残らないわけではありません。シークレット モードを使っても、雇用主、インターネット サービス プロバイダ、訪問先のウェブサイトに閲覧内容が知られる可能性はあります。</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" /> <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">このサイトを離れますか？</translation>
 <translation id="7878176543348854470">デビットカードとプリペイド カードをご利用いただけます。</translation>
 <translation id="7878562273885520351">パスワードが不正使用される可能性があります</translation>
 <translation id="7887683347370398519">CVC を確認してからもう一度お試しください</translation>
@@ -910,6 +958,7 @@
 <translation id="8041940743680923270">グローバルのデフォルト値（[確認]）を使用</translation>
 <translation id="8042918947222776840">集荷方法を選択</translation>
 <translation id="8057711352706143257">「<ph name="SOFTWARE_NAME" />」が正しく設定されていません。通常、この問題は「<ph name="SOFTWARE_NAME" />」をアンインストールすることで解決します。<ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">このサイトを再読み込みしますか？</translation>
 <translation id="8088680233425245692">記事を表示できませんでした。</translation>
 <translation id="8091372947890762290">サーバーで有効化が保留になっています</translation>
 <translation id="8094917007353911263">ご利用のネットワークでは、<ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" /> へのアクセスが必要な可能性があります。</translation>
@@ -925,6 +974,7 @@
 <translation id="8201077131113104583">ID「<ph name="EXTENSION_ID" />」の拡張機能に対する無効な更新 URL です。</translation>
 <translation id="8202097416529803614">ご注文概要</translation>
 <translation id="8205463626947051446">煩わしい広告がよく表示されるサイト</translation>
+<translation id="8211406090763984747">この接続は保護されています</translation>
 <translation id="8218327578424803826">割り当てられた場所:</translation>
 <translation id="8225771182978767009">このサイトは、このパソコンを設定したユーザーによってブロックされています。</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />、<ph name="TYPE_2" /></translation>

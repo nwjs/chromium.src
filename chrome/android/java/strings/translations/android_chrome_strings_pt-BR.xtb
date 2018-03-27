@@ -88,6 +88,7 @@
 <translation id="1709438864123551175">Economia de dados</translation>
 <translation id="1718835860248848330">Última hora</translation>
 <translation id="1729516292547892356">Para ver conteúdo de realidade virtual, atualize os Serviços de RV do Google</translation>
+<translation id="1733116627827457509"><ph name="FILE_SIZE" /> — Última atualização: <ph name="TIME_SINCE_UPDATE" /></translation>
 <translation id="1749561566933687563">Sincronize seus favoritos</translation>
 <translation id="17513872634828108">Guias abertas</translation>
 <translation id="1756600373018374892">Toque neste botão para acessar rapidamente suas guias.</translation>
@@ -173,7 +174,7 @@
 <translation id="2498359688066513246">Ajuda e feedback</translation>
 <translation id="2501278716633472235">Voltar</translation>
 <translation id="2503472621226270518">Expandir o painel de navegação</translation>
-<translation id="2512222046227390255">Preenchimento automático de formulários</translation>
+<translation id="2512222046227390255">Preencher form. automaticamente</translation>
 <translation id="2526148617758225454">A economia de dados está ativada. Gerencie esse recurso em "Configurações".</translation>
 <translation id="2532336938189706096">Visualização da Web</translation>
 <translation id="2536728043171574184">Vendo uma cópia off-line desta página</translation>
@@ -797,6 +798,7 @@ Por exemplo, alguns websites podem reagir a esse pedido mostrando anúncios que 
 <translation id="8200772114523450471">Retomar</translation>
 <translation id="8209050860603202033">Abrir imagem</translation>
 <translation id="8220488350232498290"><ph name="GIGABYTES" /> GB transferido(s) por download</translation>
+<translation id="8249310407154411074">Mover para o início</translation>
 <translation id="8250920743982581267">Documentos</translation>
 <translation id="8260126382462817229">Tente fazer login novamente</translation>
 <translation id="8261506727792406068">Excluir</translation>

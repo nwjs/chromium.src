@@ -58,6 +58,15 @@
 
       Lorsqu'elle est appliquée, toutes les imprimantes sont mises à la disposition de l'utilisateur excepté pour les ID répertoriés dans cette règle.
       </translation>
+<translation id="1181881366217399113">
+      REMARQUE : Il s'agit d'une règle expérimentale qui peut bloquer certaines fonctionnalités.
+       Si cette règle est activée, chacune des origines définies et répertoriées dans une liste d'éléments séparés par des virgules
+       exécute son propre processus. Elle isole également les origines par sous-domaines. Par exemple, si vous indiquez
+       "https://example.com/", https://foo.example.com/ est également isolé en tant que partie du site https://example.com/.
+      Si cette règle est désactivée, la logique de gestion du processus d'isolation par site prend effet.
+      Si cette règle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
+      Pour <ph name="PRODUCT_OS_NAME" />, il est recommandé de définir également la règle relative aux appareils <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> sur la même valeur. Si les valeurs spécifiées par les deux règles sont différentes, un retard peut se produire lors de l'accès à une session utilisateur pendant que la valeur spécifiée par la règle relative aux utilisateurs est appliquée.
+      </translation>
 <translation id="1198465924256827162">Fréquence d'envoi des informations sur l'état de l'appareil, en millisecondes.
 
       Si cette règle n'est pas définie, le délai par défaut entre deux transmissions
@@ -258,7 +267,21 @@ Si ce paramètre n'est pas défini, les utilisateurs peuvent ouvrir normalement 
       Le format de la valeur correspond aux noms des fuseaux horaires de la "IANA Time Zone Database" (voir la page https://en.wikipedia.org/wiki/Tz_database). La plupart des fuseaux horaires se présentent sous la forme "continent/grande_ville" ou "océan/grande_ville".
 
       Si cette règle est définie, la mise à jour automatique du fuseau horaire selon la position de l'appareil est désactivée et la règle SystemTimezoneAutomaticDetection est également ignorée.</translation>
+<translation id="1888871729456797026">Le jeton d'enregistrement des règles relatives au cloud sur ordinateur</translation>
 <translation id="1897365952389968758">Autoriser tous les sites à exécuter JavaScript</translation>
+<translation id="1906888171268104594">Détermine si les statistiques d'utilisation et les données de diagnostic, telles que des rapports d'erreurs, doivent être envoyées à Google.
+
+      Si cette règle est définie sur "true", <ph name="PRODUCT_OS_NAME" /> envoie les rapports sur les statistiques d'utilisation et les données de diagnostic.
+
+      Si elle est définie sur "false", les rapports sur les statistiques et les données de diagnostic ne sont pas envoyés.
+
+      Si cette règle n'est pas configurée, les rapports sur les statistiques et les données de diagnostic ne sont pas envoyés sur les appareils non gérés, mais sont transmis sur les appareils gérés.</translation>
+<translation id="1911099080312850139">Configurez l'URL de modification de mot de passe (protocoles HTTP et HTTPS uniquement). Le service de protection par mot de passe redirigera les utilisateurs vers cette URL afin qu'ils modifient leur mot de passe s'ils ont été victimes d'une attaque d'hameçonnage.
+      Seuls les utilisateurs de GSuite disposant d'un système SSO/SAML peuvent se servir de ce paramètre.
+
+      Si ce paramètre est activé, le service de protection par mot de passe redirigera les utilisateurs vers cette URL afin qu'ils modifient leur mot de passe s'ils ont été victimes d'une attaque d'hameçonnage.
+      Si ce paramètre est désactivé ou n'est pas configuré, le service de protection par mot de passe redirigera les utilisateurs vers la page https://myaccounts.google.com afin qu'ils modifient leur mot de passe.
+      Cette règle n'est pas disponible sur les instances de Windows qui ne sont pas associées à un domaine <ph name="MS_AD_NAME" />.</translation>
 <translation id="193259052151668190">Liste blanche d'appareils USB amovibles</translation>
 <translation id="1933378685401357864">Image de fond d'écran</translation>
 <translation id="1956493342242507974">Configurer la gestion de l'alimentation sur l'écran de connexion dans <ph name="PRODUCT_OS_NAME" />.
@@ -438,6 +461,12 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 <translation id="2386362615870139244">Autoriser les WakeLock forçant l'activation de l'écran</translation>
 <translation id="2411817661175306360">L'avertissement relatif à la protection par mot de passe est désactivé</translation>
 <translation id="2411919772666155530">Bloquer les notifications sur ces sites</translation>
+<translation id="2415979855753196119">Vous permet de contrôler le déclenchement du signalement de compte à risque au niveau de la protection par mot de passe. Ce type de signalement permet d'informer Google que le compte concerné risque d'être piraté.
+
+      Si cette règle est définie sur "PasswordProtectionRiskOff", aucun signalement de compte à risque au niveau de la protection par mot de passe n'est déclenché.
+      Si elle est définie sur "PasswordProtectionRiskOnPasswordReuse", les comptes à risque au niveau de la protection par mot de passe sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites qui ne figurent pas dans la liste blanche.
+      Si cette règle est définie sur "PasswordProtectionRiskOnPhishingReuse", les comptes à risque au niveau de la protection par mot de passe sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites d'hameçonnage.
+      Si cette règle n'est pas configurée, les comptes à risque au niveau de la protection par mot de passe sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites d'hameçonnage, mais les utilisateurs peuvent modifier ce paramètre.</translation>
 <translation id="2418507228189425036">Désactive l'enregistrement de l'historique du navigateur dans <ph name="PRODUCT_NAME" /> et empêche les utilisateurs de modifier ce paramètre.
 
       Si ce paramètre est activé, l'historique de navigation n'est pas enregistré. Il désactive également la synchronisation des onglets.
@@ -640,6 +669,12 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
 
       Si vous activez ce paramètre, l'aperçu avant impression utilisera l'imprimante par défaut du système d'exploitation.</translation>
 <translation id="2867699958489427143">Rétablissez et conservez la version cible si elle est antérieure à la version de l'OS. Effectuez un Powerwash complet pendant le processus.</translation>
+<translation id="286802604195763750">Vous permet de contrôler le déclenchement de l'avertissement relatif à la protection par mot de passe. La protection par mot de passe affiche une alerte lorsque les utilisateurs réutilisent leur mot de passe protégé sur des sites potentiellement suspects.
+
+      Si cette règle est définie sur "PasswordProtectionWarningOff", aucun avertissement relatif à la protection par mot de passe ne s'affiche.
+      Si elle est définie sur "PasswordProtectionWarningOnPasswordReuse", l'avertissement relatif à la protection par mot de passe s'affiche lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites qui ne figurent pas dans la liste blanche.
+      Si cette règle est définie sur "PasswordProtectionWarningOnPhishingReuse", l'avertissement relatif à la protection par mot de passe s'affiche lorsqu'ils les réutilisent sur des sites d'hameçonnage.
+      Si cette règle n'est pas configurée, l'avertissement relatif à la protection par mot de passe s'affiche lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites d'hameçonnage, mais les utilisateurs peuvent modifier ce paramètre.</translation>
 <translation id="2872961005593481000">Éteindre</translation>
 <translation id="2874209944580848064">Remarque concernant les appareils <ph name="PRODUCT_OS_NAME" /> compatibles avec les applications Android :</translation>
 <translation id="2877225735001246144">Désactiver la consultation CNAME lors de la négociation de l'authentification Kerberos</translation>
@@ -674,6 +709,17 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
                       La valeur de cette règle doit être indiquée en millisecondes. Les valeurs doivent être inférieures ou égales au délai d'arrêt de l'écran (le cas échéant) et au délai d'inactivité.</translation>
 <translation id="2987155890997901449">Activer ARC</translation>
 <translation id="2987227569419001736">Contrôler l'utilisation de l'API Web Bluetooth</translation>
+<translation id="2998886474614739865">
+      REMARQUE : Il s'agit d'une règle expérimentale qui peut bloquer certaines fonctionnalités.
+      Cette règle s'applique à l'écran de connexion. Veuillez également consulter la règle <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> qui s'applique à la session utilisateur. Nous vous recommandons de définir les deux règles sur les mêmes valeurs. Si les valeurs sont différentes, un retard peut être constaté lors de l'accès à une session utilisateur du fait de l'application de la valeur spécifiée par la règle relative aux utilisateurs.
+      Si cette règle est activée, chacune des origines définies et répertoriées
+      dans une liste d'éléments séparés par des virgules exécute son propre
+      processus. Elle isole également les origines par sous-domaines. Par
+      exemple, si vous indiquez "https://example.com/", "https://foo.example.com/"
+      est également isolé en tant que partie du site "https://example.com/".
+      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de site prend effet.
+      Si cette règle n'est pas configurée, les paramètres d'isolation de site par défaut de la plate-forme sont utilisés pour l'écran de connexion.
+      </translation>
 <translation id="3016255526521614822">Les applications de prise de note ajoutées à la liste blanche sont autorisées sur l'écran de verrouillage de <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="3021562480854470924">Nombre de versions intermédiaires autorisées pour le rollback</translation>
 <translation id="3030000825273123558">Activer la génération de rapports sur les statistiques</translation>
@@ -783,6 +829,17 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 
           Si cette règle est définie sur une chaîne non vide, cette chaîne devient le nom de la destination <ph name="PRODUCT_NAME" />. Sinon, le nom de la destination est le nom de l'appareil. Si cette règle n'est pas définie, le nom de la destination est celui de l'appareil, et le propriétaire de l'appareil (ou un utilisateur du domaine gérant l'appareil) peut le modifier. Le nom est limité à 24 caractères.</translation>
 <translation id="3381968327636295719">Utiliser le navigateur hôte par défaut</translation>
+<translation id="3386001018488754001">
+      REMARQUE : Il s'agit d'une règle expérimentale qui peut bloquer certaines fonctionnalités.
+      Cette règle s'applique à l'écran de connexion. Veuillez également consulter la règle <ph name="SITE_PER_PROCESS_POLICY_NAME" /> qui s'applique à la session utilisateur. Nous vous recommandons de définir les deux règles sur les mêmes valeurs. Si les valeurs sont différentes, un retard peut être constaté lors de l'accès à une session utilisateur du fait de l'application de la valeur spécifiée par la règle relative aux utilisateurs.
+      Nous vous conseillons d'examiner le paramètre de la règle IsolateOrigins
+      pour obtenir le meilleur résultat, c'est-à-dire l'isolation avec un impact limité
+      sur les utilisateurs, et d'utiliser IsolateOrigins avec une liste des sites que
+      vous souhaitez isoler. Le paramètre SitePerProcess isole tous les sites.
+      Si cette règle est activée, chaque site exécute son propre processus.
+      Si elle est désactivée, la logique de gestion du processus d'isolation par site prend effet.
+      Si elle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
+      </translation>
 <translation id="3395348522300156660">Indique les imprimantes qu'un utilisateur peut employer.
 
       Cette règle est utilisée uniquement si <ph name="PRINTERS_WHITELIST" /> est sélectionné pour <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
@@ -821,6 +878,10 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
           Si la règle est définie sur "False" ou si elle n'a pas été configurée, les délais liés à la gestion de l'alimentation et la limite relative à la durée de la session sont activés dès que la session débute.</translation>
 <translation id="3478024346823118645">Effacer les données utilisateur à la déconnexion</translation>
 <translation id="348495353354674884">Activer le clavier virtuel</translation>
+<translation id="3487623755010328395">
+        Si cette règle est activée, <ph name="PRODUCT_NAME" /> tente de s'enregistrer et d'appliquer la règle relative au cloud associée à tous les profils.
+
+        La valeur de cette règle est un jeton d'inscription qui peut être récupéré depuis la console d'administration Google.</translation>
 <translation id="3496296378755072552">Gestionnaire de mots de passe</translation>
 <translation id="350443680860256679">Configurer ARC</translation>
 <translation id="3504791027627803580">Spécifie l'URL du moteur de recherche utilisé pour la recherche d'image. Les requêtes de recherche seront envoyées à l'aide la méthode GET. Si la règle "DefaultSearchProviderImageURLPostParams" est activée, elles seront envoyées à l'aide la méthode POST à la place de GET.
@@ -1412,6 +1473,17 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 
       Si cette règle n'est pas définie, ou si elle est définie sur la chaîne vide ou sur une portée de port non valide, WebRTC peut utiliser n'importe quel port UDP local disponible.</translation>
 <translation id="5290940294294002042">Répertorier les plug-ins pouvant être activés ou désactivés par l'utilisateur</translation>
+<translation id="5301787427319106606">
+      REMARQUE : Il s'agit d'une règle expérimentale qui peut bloquer certaines fonctionnalités.
+      Nous vous conseillons d'examiner le paramètre de la règle IsolateOrigins
+      pour obtenir le meilleur résultat, c'est-à-dire l'isolation avec un impact limité
+      sur les utilisateurs, et d'utiliser IsolateOrigins avec une liste des sites que
+      vous souhaitez isoler. Le paramètre SitePerProcess isole tous les sites.
+      Si cette règle est activée, chaque site exécute son propre processus.
+      Si elle est désactivée, la logique de gestion du processus d'isolation par site prend effet.
+      Si elle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
+      Pour <ph name="PRODUCT_OS_NAME" />, il est recommandé de définir également la règle relative aux appareils <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> sur la même valeur. Si les valeurs spécifiées par les deux règles sont différentes, un retard peut être constaté lors de l'accès à une session utilisateur du fait de l'application de la valeur spécifiée par la règle relative aux utilisateurs.
+      </translation>
 <translation id="5302612588919538756">Cette règle est abandonnée. Veuillez utiliser SyncDisabled à la place.
 
       Permet à l'utilisateur de se connecter à <ph name="PRODUCT_NAME" />.
@@ -2011,6 +2083,14 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 <translation id="706669471845501145">Autoriser les sites à afficher des notifications sur le bureau</translation>
 <translation id="7072208053150563108">Fréquence de modification du mot de passe machine</translation>
 <translation id="7072406291414141328">Active la limitation de la bande passante réseau</translation>
+<translation id="7074513465313721551">Configurez la liste des domaines de confiance pour la navigation privée. Cela signifie que, pour les domaines de cette liste :
+      la navigation privée ne recherchera pas la présence de ressources dangereuses (par exemple, hameçonnage, logiciels malveillants ou logiciels indésirables) si leur URL correspond à ces domaines ;
+      le service de protection des téléchargements de la navigation privée ne vérifiera pas les téléchargements hébergés sur ces domaines ;
+      le service de protection de mot de passe de la navigation privée ne contrôlera pas la réutilisation des mots de passe si l'URL de la page correspond à ces domaines.
+
+      Si ce paramètre est activé, la navigation privée fait confiance à ces domaines.
+      S'il est désactivé ou qu'il n'est pas configuré, la protection par défaut offerte par la navigation privée est appliquée à toutes les ressources.
+      Cette règle n'est pas disponible sur les instances de Windows qui ne sont pas associées à un domaine <ph name="MS_AD_NAME" />.</translation>
 <translation id="7079519252486108041">Bloquer les fenêtres pop-up sur ces sites</translation>
 <translation id="7106631983877564505">Activer le verrouillage lorsque les appareils exécutant <ph name="PRODUCT_OS_NAME" /> sont inactifs ou en veille.
 

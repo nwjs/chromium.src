@@ -370,6 +370,51 @@
 <translation id="3583757800736429874">&amp;Refés el moviment</translation>
 <translation id="3586931643579894722">Oculta els detalls</translation>
 <translation id="3600246354004376029"><ph name="TITLE" />, <ph name="DOMAIN" />, <ph name="TIME" /></translation>
+<translation id="3602137825010714926">&lt;h1&gt;Solucionar errors de connexió&lt;/h1&gt;
+    &lt;p&gt;Si veieu un missatge d'error en visitar un lloc web, proveu aquestes solucions.&lt;/p&gt;
+    &lt;h2&gt;Solucionar la majoria d'errors de connexió&lt;/h2&gt;
+    &lt;p&gt;Si proveu de visitar un lloc web i no s'obre, en primer lloc mireu de resoldre el problema amb aquests passos:&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Comproveu si hi ha errors ortogràfics a l'adreça web.&lt;/li&gt;
+    &lt;li&gt;Comproveu que la connexió a Internet funcioni amb normalitat.&lt;/li&gt;
+    &lt;li&gt;Contacteu amb el propietari del lloc web.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h2&gt;Obtenir ajuda amb un missatge d'error específic&lt;/h2&gt;
+    &lt;h3&gt;"La vostra connexió no és privada", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" o "Error de certificat SSL"&lt;/h3&gt;
+    &lt;h4&gt;Pas 1: inicieu la sessió al portal&lt;/h4&gt;
+    &lt;p&gt;Les xarxes Wi-Fi de llocs com ara cafeteries o aeroports requereixen que inicieu la sessió. Per veure la pàgina d'inici de sessió, aneu a una pàgina que faci servir &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Aneu a qualsevol lloc web que comenci per &lt;code&gt;http://&lt;/code&gt;, com ara &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;A la pàgina d'inici de sessió que s'obrirà, inicieu la sessió per utilitzar Internet.&lt;/li&gt;
+    &lt;/ol&gt;
+    &lt;h4&gt;Pas 2: obriu la pàgina en mode d'incògnit (només a l'ordinador)&lt;/h4&gt;
+    &lt;p&gt;Obriu en una finestra d'incògnit la pàgina que estàveu visitant.&lt;/p&gt;
+    &lt;p&gt;Si la pàgina s'obre, significa que alguna extensió de Chrome no funciona bé. Per solucionar l'error, desactiveu l'extensió.&lt;/p&gt;
+    &lt;h4&gt;Pas 3: actualitzeu el sistema operatiu&lt;/h4&gt;
+    &lt;p&gt;Assegureu-vos que el dispositiu estigui actualitzat.&lt;/p&gt;
+    &lt;h4&gt;Pas 4: desactiveu l'antivirus temporalment&lt;/h4&gt;
+    &lt;p&gt;Aquest error es mostra si teniu un programari antivirus amb "protecció d'HTTPS" o "anàlisi d'HTTPS". L'antivirus interfereix amb les funcions de seguretat de Chrome.&lt;/p&gt;
+    &lt;p&gt;Per solucionar el problema, desactiveu el programari antivirus. Si així funciona la pàgina, desactiveu-lo per consultar llocs web segurs.&lt;/p&gt;
+    &lt;p&gt;Recordeu que heu de tornar a activar el programari antivirus quan hàgiu acabat.&lt;/p&gt;
+    &lt;h4&gt;Pas 5: obteniu més ajuda&lt;/h4&gt;
+    &lt;p&gt;Si encara veieu l'error, contacteu amb el propietari del lloc web.&lt;/p&gt;
+    &lt;h3&gt;"Connecteu-vos a la xarxa"&lt;/h3&gt;
+    &lt;p&gt;Veureu aquest error si utilitzeu un portal Wi-Fi en què cal que inicieu la sessió per connectar-vos a Internet.&lt;/p&gt;
+    &lt;p&gt;Per solucionar l'error, feu clic a &lt;strong&gt;Connecta&lt;/strong&gt; a la pàgina que proveu d'obrir.&lt;/p&gt;
+    &lt;h3&gt;"El rellotge està endarrerit", "El rellotge està avançat" o "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
+    &lt;p&gt;Veureu aquest error si la data i l'hora de l'ordinador o del dispositiu mòbil són incorrectes.&lt;/p&gt;
+    &lt;p&gt;Per solucionar l'error, obriu el rellotge del dispositiu i comproveu que la data i l'hora siguin correctes.&lt;/p&gt;
+    &lt;h3&gt;"L'ordinador conté programari que impedeix que Chrome es connecti de manera segura al web" (només en ordinadors Windows)&lt;/h3&gt;
+    &lt;p&gt;Veureu aquest error si teniu el programari Superfish en un ordinador Windows.&lt;/p&gt;
+    &lt;p&gt;Seguiu aquests passos per desactivar temporalment el programari i poder accedir al web. Per fer-ho, necessitareu privilegis d'administrador.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;Feu clic a &lt;strong&gt;Inicia&lt;/strong&gt; i, a continuació, cerqueu i seleccioneu &lt;strong&gt;Visualitza els serveis locals&lt;/strong&gt;.
+    &lt;li&gt;Seleccioneu &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;A &lt;strong&gt;Tipus d'inici&lt;/strong&gt;, seleccioneu &lt;strong&gt;Inhabilitat&lt;/strong&gt;.
+    &lt;li&gt;A &lt;strong&gt;Estat del servei&lt;/strong&gt;, feu clic a &lt;strong&gt;Atura&lt;/strong&gt;.
+    &lt;li&gt;Feu clic a &lt;strong&gt;Aplica&lt;/strong&gt; i, a continuació, a &lt;strong&gt;D'acord&lt;/strong&gt;.
+    &lt;li&gt;Aneu al &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centre d'ajuda de Chrome&lt;/a&gt; per obtenir informació sobre com podeu suprimir permanentment el programari de l'ordinador.
+    &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Introdueix una data de caducitat vàlida</translation>
 <translation id="36224234498066874">Esborra dades de navegació</translation>
 <translation id="362276910939193118">Mostra l'historial complet</translation>
@@ -432,6 +477,7 @@
 <translation id="4103249731201008433">El número de sèrie del dispositiu no és vàlid</translation>
 <translation id="410351446219883937">Reproducció automàtica</translation>
 <translation id="4103763322291513355">Visiteu &lt;strong&gt;chrome://policy&lt;/strong&gt; per veure la llista d'URL inclosos a la llista negra i altres polítiques aplicades per l'administrador del sistema.</translation>
+<translation id="4110652170750985508">Revisa el pagament</translation>
 <translation id="4116663294526079822">Permet sempre en aquest lloc web</translation>
 <translation id="4117700440116928470">L'àmbit de la política no s'admet.</translation>
 <translation id="4129401438321186435">{COUNT,plural, =1{1 element més}other{# elements més}}</translation>
@@ -804,6 +850,7 @@
 <translation id="7275334191706090484">Adreces d'interès gestionades</translation>
 <translation id="7298195798382681320">Recomanada</translation>
 <translation id="7309308571273880165">S'ha capturat un informe d'error (<ph name="CRASH_TIME" />) (pujada sol·licitada per l'usuari, encara no s'ha dut a terme)</translation>
+<translation id="7320336641823683070">Ajuda amb la connexió</translation>
 <translation id="7334320624316649418">&amp;Refés el canvi d'ordre</translation>
 <translation id="733923710415886693">El certificat del servidor no s'ha divulgat mitjançant la Transparència de certificats.</translation>
 <translation id="7353601530677266744">Línia d'ordres</translation>
@@ -888,6 +935,7 @@
 <translation id="782886543891417279">És possible que la xarxa Wi-Fi (<ph name="WIFI_NAME" />) que esteu fent servir requereixi que visiteu la seva pàgina d'inici de sessió.</translation>
 <translation id="785549533363645510">Tanmateix, no sou invisible. La vostra empresa, el vostre proveïdor de serveis d'Internet i els llocs web que visiteu poden veure la vostra navegació d'incògnit.</translation>
 <translation id="7855695075675558090"><ph name="TOTAL_LABEL" />: <ph name="FORMATTED_TOTAL_AMOUNT" /> <ph name="CURRENCY_CODE" /></translation>
+<translation id="7862185352068345852">Vols sortir del lloc web?</translation>
 <translation id="7878176543348854470">S'accepten targetes de dèbit i de prepagament.</translation>
 <translation id="7878562273885520351">La teva contrasenya pot estar en perill</translation>
 <translation id="7887683347370398519">Comproveu el CVC i torneu-ho a provar</translation>
@@ -910,6 +958,7 @@
 <translation id="8041940743680923270">Utilitza l'opció predeterminada global (Pregunta)</translation>
 <translation id="8042918947222776840">Tria un mètode de recollida</translation>
 <translation id="8057711352706143257"><ph name="SOFTWARE_NAME" /> no s'ha configurat correctament. Normalment el problema se soluciona desinstal·lant <ph name="SOFTWARE_NAME" />. <ph name="FURTHER_EXPLANATION" /></translation>
+<translation id="8079031581361219619">Vols tornar a carregar el lloc web?</translation>
 <translation id="8088680233425245692">No s'ha pogut consultar l'article.</translation>
 <translation id="8091372947890762290">L'activació està pendent al servidor</translation>
 <translation id="8094917007353911263">És possible que la xarxa que esteu fent servir requereixi que visiteu <ph name="BEGIN_BOLD" /><ph name="LOGIN_URL" /><ph name="END_BOLD" />.</translation>
@@ -925,6 +974,7 @@
 <translation id="8201077131113104583">L'URL d'actualització per a l'extensió amb identificador "<ph name="EXTENSION_ID" />" no és vàlid.</translation>
 <translation id="8202097416529803614">Resum de la comanda</translation>
 <translation id="8205463626947051446">El lloc web acostuma a mostrar anuncis intrusius</translation>
+<translation id="8211406090763984747">La connexió és segura</translation>
 <translation id="8218327578424803826">Ubicació assignada:</translation>
 <translation id="8225771182978767009">La persona que ha configurat l'ordinador ha bloquejat aquest lloc.</translation>
 <translation id="822964464349305906"><ph name="TYPE_1" />, <ph name="TYPE_2" /></translation>
