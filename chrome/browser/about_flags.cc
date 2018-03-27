@@ -70,6 +70,7 @@
 #include "components/payments/core/features.h"
 #include "components/previews/core/previews_features.h"
 #include "components/previews/core/previews_switches.h"
+#include "components/printing/browser/features.h"
 #include "components/proximity_auth/switches.h"
 #include "components/search_provider_logos/features.h"
 #include "components/search_provider_logos/switches.h"
@@ -3793,6 +3794,11 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kVizHitTestDrawQuadName,
      flag_descriptions::kVizHitTestDrawQuadDescription, kOsAll,
      FEATURE_VALUE_TYPE(features::kEnableVizHitTestDrawQuad)},
+
+    {"use-pdf-compositor-service-for-print",
+     flag_descriptions::kUsePdfCompositorServiceName,
+     flag_descriptions::kUsePdfCompositorServiceDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(printing::features::kUsePdfCompositorServiceForPrint)},
 
     // NOTE: Adding a new flag requires adding a corresponding entry to enum
     // "LoginCustomFlags" in tools/metrics/histograms/enums.xml. See "Flag
