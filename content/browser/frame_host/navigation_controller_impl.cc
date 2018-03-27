@@ -254,7 +254,7 @@ base::Time NavigationControllerImpl::TimeSmoother::GetSmoothedTime(
 NavigationControllerImpl::NavigationControllerImpl(
     NavigationControllerDelegate* delegate,
     BrowserContext* browser_context)
-    : browser_context_(browser_context),
+    : history_initiator_(nullptr), browser_context_(browser_context),
       pending_entry_(nullptr),
       last_pending_entry_(nullptr),
       failed_pending_entry_id_(0),
@@ -2083,17 +2083,26 @@ bool NavigationControllerImpl::NavigateToPendingEntryInternal(
         std::make_pair(root, pending_entry_->GetFrameEntry(root)));
   }
 
+  FrameTreeNode* nwfaketop_node = nullptr;
+  if (history_initiator_) {
+    if (history_initiator_->frame_tree_node()->frame_owner_properties().nwfaketop)
+      nwfaketop_node = history_initiator_->frame_tree_node();
+  }
   // If all the frame loads fail, we will discard the pending entry.
   bool success = false;
 
   // Send all the same document frame loads before the different document loads.
   for (const auto& item : same_document_loads) {
     FrameTreeNode* frame = item.first;
+    if (nwfaketop_node && nwfaketop_node->IsDescendantOf(frame))
+      continue;
     success |= frame->navigator()->NavigateToPendingEntry(frame, *item.second,
                                                           reload_type, true);
   }
   for (const auto& item : different_document_loads) {
     FrameTreeNode* frame = item.first;
+    if (nwfaketop_node && nwfaketop_node->IsDescendantOf(frame))
+      continue;
     success |= frame->navigator()->NavigateToPendingEntry(frame, *item.second,
                                                           reload_type, false);
   }

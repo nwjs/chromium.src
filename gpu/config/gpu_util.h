@@ -33,6 +33,9 @@ GPU_EXPORT void GetGpuInfoFromCommandLine(const base::CommandLine& command_line,
 GPU_EXPORT GpuFeatureInfo
 ComputeGpuFeatureInfoWithHardwareAccelerationDisabled();
 
+// Set GPU feature status if GPU process is blocked.
+GPU_EXPORT GpuFeatureInfo ComputeGpuFeatureInfoWithNoGpuProcess();
+
 // Set GPU feature status for SwiftShader.
 GPU_EXPORT GpuFeatureInfo ComputeGpuFeatureInfoForSwiftShader();
 

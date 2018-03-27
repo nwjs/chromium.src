@@ -23,6 +23,7 @@
  */
 
 #include "core/html/HTMLIFrameElement.h"
+#include "core/frame/LocalFrame.h"
 
 #include "core/CSSPropertyNames.h"
 #include "core/frame/UseCounter.h"
@@ -139,6 +140,17 @@ void HTMLIFrameElement::ParseAttribute(
           "Error while parsing the 'sandbox' attribute: " + invalid_tokens));
     }
     UseCounter::Count(GetDocument(), WebFeature::kSandboxViaIFrame);
+  } else if (name == nwuseragentAttr) {
+    if (nwuseragent_ != value) {
+      nwuseragent_ = value;
+      FrameOwnerPropertiesChanged();
+    }
+  } else if (name == nwfaketopAttr) {
+    bool old_faketop = nwfaketop_;
+    nwfaketop_ = !value.IsNull();
+    if (nwfaketop_ != old_faketop) {
+      FrameOwnerPropertiesChanged();
+    }
   } else if (name == referrerpolicyAttr) {
     referrer_policy_ = kReferrerPolicyDefault;
     if (!value.IsNull()) {

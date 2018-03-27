@@ -109,7 +109,7 @@ base::string16 BrowserDistribution::GetStartMenuShortcutSubfolder(
 }
 
 base::string16 BrowserDistribution::GetPublisherName() {
-  return L"Chromium";
+  return L"nwjs";
 }
 
 base::string16 BrowserDistribution::GetAppDescription() {
@@ -123,7 +123,7 @@ base::string16 BrowserDistribution::GetLongAppDescription() {
 }
 
 std::string BrowserDistribution::GetSafeBrowsingName() {
-  return "chromium";
+  return "nwjs";
 }
 
 base::string16 BrowserDistribution::GetDistributionData(HKEY root_key) {

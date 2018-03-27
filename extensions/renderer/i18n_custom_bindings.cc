@@ -30,11 +30,11 @@ using namespace v8_helpers;
 namespace {
 
 // Max number of languages to detect.
-const int kCldNumLangs = 3;
+//const int kCldNumLangs = 3;
 
 // CLD3 minimum reliable byte threshold. Predictions for inputs below this size
 // in bytes will be considered unreliable.
-const int kCld3MinimumByteThreshold = 50;
+//const int kCld3MinimumByteThreshold = 50;
 
 struct DetectedLanguage {
   DetectedLanguage(const std::string& language, int percentage)
@@ -100,6 +100,7 @@ v8::Local<v8::Value> LanguageDetectionResult::ToValue(ScriptContext* context) {
   return handle_scope.Escape(result);
 }
 
+#if 0
 void InitDetectedLanguages(
     const std::vector<chrome_lang_id::NNetLanguageIdentifier::Result>&
         lang_results,
@@ -144,6 +145,7 @@ void InitDetectedLanguages(
     *is_reliable = false;
   }
 }
+#endif
 
 }  // namespace
 
@@ -235,6 +237,11 @@ void I18NCustomBindings::DetectTextLanguage(
   CHECK(args.Length() == 1);
   CHECK(args[0]->IsString());
 
+#if 1
+  LanguageDetectionResult result(false);
+  args.GetReturnValue().Set(result.ToValue(context()));
+#endif
+#if 0
   std::string text = *v8::String::Utf8Value(args.GetIsolate(), args[0]);
   chrome_lang_id::NNetLanguageIdentifier nnet_lang_id(/*min_num_bytes=*/0,
                                                       /*max_num_bytes=*/512);
@@ -255,6 +262,7 @@ void I18NCustomBindings::DetectTextLanguage(
   // and the corresponding percentages.
   InitDetectedLanguages(lang_results, &result);
   args.GetReturnValue().Set(result.ToValue(context()));
+#endif
 }
 
 }  // namespace extensions

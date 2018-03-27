@@ -10,7 +10,7 @@ if (is_android || current_cpu == "mipsel" || is_mac || is_ios || is_asan ||
     (is_linux && target_cpu == "arm64")) {
   _default_allocator = "none"
 } else {
-  _default_allocator = "tcmalloc"
+  _default_allocator = "none"
 }
 
 # The debug CRT on Windows has some debug features that are incompatible with

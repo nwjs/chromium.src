@@ -1794,6 +1794,8 @@ LocalFrame* WebLocalFrameImpl::CreateChildFrame(
       owner_element->MarginHeight(), owner_element->AllowFullscreen(),
       owner_element->AllowPaymentRequest(), owner_element->IsDisplayNone(),
       owner_element->Csp());
+  owner_properties.nwFakeTop = owner_element->FastHasAttribute(HTMLNames::nwfaketopAttr);
+  owner_properties.nwuseragent = owner_element->nwuseragent();
   // FIXME: Using subResourceAttributeName as fallback is not a perfect
   // solution. subResourceAttributeName returns just one attribute name. The
   // element might not have the attribute, and there might be other attributes

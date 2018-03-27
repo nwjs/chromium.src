@@ -19,6 +19,7 @@ import "third_party/WebKit/public/web/window_features.mojom";
 import "ui/base/mojo/window_open_disposition.mojom";
 import "url/mojo/url.mojom";
 import "ui/gfx/geometry/mojo/geometry.mojom";
+import "mojo/common/string16.mojom";
 
 // The name of the InterfaceProviderSpec in service manifests used by the
 // frame tree to expose frame-specific interfaces between renderer and browser.
@@ -152,6 +153,8 @@ struct CreateNewWindowParams {
 
   // The window features to use for the new window.
   blink.mojom.WindowFeatures features;
+
+  mojo.common.mojom.String16 nw_window_manifest;
 };
 
 // Operation result when the renderer asks the browser to create a new window.
@@ -202,6 +205,8 @@ struct DidCommitProvisionalLoadParams;
 // Implemented by the frame server (i.e. the browser process). For messages that
 // must be associated with the IPC channel.
 interface FrameHost {
+  SetNodeJS(bool node);
+  SetContextCreated(bool created);
   // Sent by the renderer to request the browser to create a new window. |reply|
   // is only non-null on when status == CreateNewWindowStatus::kSuccess.
   [Sync] CreateNewWindow(CreateNewWindowParams params)

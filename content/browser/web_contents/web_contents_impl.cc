@@ -10,6 +10,8 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/nw_base.h"
+
 #include "base/command_line.h"
 #include "base/debug/dump_without_crashing.h"
 #include "base/feature_list.h"
@@ -2364,10 +2366,11 @@ void WebContentsImpl::CreateNewWindow(
     AddDestructionObserver(new_contents);
   }
 
+  nw::SetCurrentNewWinManifest(params.nw_window_manifest);
   if (delegate_) {
     delegate_->WebContentsCreated(this, render_process_id,
                                   opener->GetRoutingID(), params.frame_name,
-                                  params.target_url, new_contents);
+                                  params.target_url, new_contents, params.nw_window_manifest);
   }
 
   if (opener) {
@@ -4049,10 +4052,16 @@ void WebContentsImpl::OnDidFinishLoad(RenderFrameHostImpl* source,
 }
 
 void WebContentsImpl::OnGoToEntryAtOffset(RenderViewHostImpl* source,
-                                          int offset) {
+                                          int offset, int frame_routing_id) {
   // All frames are allowed to navigate the global history.
-  if (!delegate_ || delegate_->OnGoToEntryOffset(offset))
+  if (!delegate_ || delegate_->OnGoToEntryOffset(offset)) {
+    RenderFrameHostImpl* frame_host = nullptr;
+    if (frame_routing_id > -1)
+      frame_host = RenderFrameHostImpl::FromID(source->GetProcess()->GetID(), frame_routing_id);
+    controller_.set_history_initiator(frame_host);
     controller_.GoToOffset(offset);
+    controller_.set_history_initiator(nullptr);
+  }
 }
 
 void WebContentsImpl::OnUpdateZoomLimits(RenderViewHostImpl* source,

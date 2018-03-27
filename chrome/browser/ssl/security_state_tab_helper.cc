@@ -208,6 +208,7 @@ bool SecurityStateTabHelper::UsedPolicyInstalledCertificate() const {
 
 security_state::MaliciousContentStatus
 SecurityStateTabHelper::GetMaliciousContentStatus() const {
+#if 0
   content::NavigationEntry* entry =
       web_contents()->GetController().GetVisibleEntry();
   if (!entry)
@@ -263,6 +264,7 @@ SecurityStateTabHelper::GetMaliciousContentStatus() const {
         break;
     }
   }
+#endif
   return security_state::MALICIOUS_CONTENT_STATUS_NONE;
 }
 

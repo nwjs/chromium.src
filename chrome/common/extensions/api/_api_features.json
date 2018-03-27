@@ -55,10 +55,10 @@
        "81986D4F846CEDDDB962643FA501D1780DD441BB"   // http://crbug.com/717501
     ]
   },
-  "action": {
-    "dependencies": ["manifest:action"],
-    "contexts": ["blessed_extension"]
-  },
+//  "action": {
+//    "dependencies": ["manifest:action"],
+//    "contexts": ["blessed_extension"]
+//  },
   "activityLogPrivate": {
     "dependencies": ["permission:activityLogPrivate"],
     "contexts": ["blessed_extension"]
@@ -751,10 +751,13 @@
   },
   "usersPrivate": [{
     "dependencies": ["permission:usersPrivate"],
+    "platforms": ["chromeos"],
     "contexts": ["blessed_extension"]
   }, {
     "channel": "stable",
     "contexts": ["webui"],
+    "dependencies": ["permission:usersPrivate"],
+    "platforms": ["chromeos"],
     "matches": [
       "chrome://settings/*"
     ]

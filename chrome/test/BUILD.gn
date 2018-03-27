@@ -31,7 +31,7 @@ import("//v8/gni/v8.gni")
 if (is_android) {
   import("//build/config/android/rules.gni")
 } else {
-  include_js_tests = !(is_asan || is_msan || is_tsan)
+  include_js_tests = false #!(is_asan || is_msan || is_tsan)
 }
 
 # This target exists to reference other test executables to bring these files
@@ -1319,7 +1319,7 @@ test("browser_tests") {
         # TODO(rockot) bug 505926: The chrome_extensions_browsertests target
         # should be deleted and this line removed. See the
         # chrome_extensions_browsertests target for more.
-        "//extensions:chrome_extensions_browsertests",
+        #"//extensions:chrome_extensions_browsertests",
         "//extensions/common/api",
       ]
 
@@ -2035,6 +2035,21 @@ test("browser_tests") {
     if (!is_android && !is_mac) {
       data_deps += [ "//chrome/browser/resources/media/mei_preload:component" ]
     }
+
+    sources = []
+    sources = [ 
+      "../../content/nw/src/nwjs_browsertest.cc",
+      "../browser/extensions/extension_apitest.cc",
+      "../browser/extensions/extension_browsertest.cc",
+      "../browser/apps/app_browsertest_util.cc",
+      "../browser/apps/app_browsertest_util.h",
+      "../browser/pdf/pdf_extension_test_util.cc",
+      "../browser/pdf/pdf_extension_test_util.h",
+      "../browser/extensions/updater/extension_cache_fake.cc",
+      "../browser/extensions/updater/extension_cache_fake.h",
+      "../browser/extensions/browsertest_util.cc",
+      "../browser/extensions/browsertest_util.h",
+    ]
   }
 }
 
