@@ -840,7 +840,7 @@ void RenderWidget::OnSetLocalSurfaceIdForAutoResize(
     const content::ScreenInfo& screen_info,
     uint32_t content_source_id,
     const viz::LocalSurfaceId& local_surface_id) {
-  if (!auto_resize_mode_ || resize_or_repaint_ack_num_ != sequence_number) {
+  if (!auto_resize_mode_ || auto_resize_sequence_number_ != sequence_number) {
     DidResizeOrRepaintAck();
     return;
   }
@@ -2382,6 +2382,7 @@ void RenderWidget::DidAutoResize(const gfx::Size& new_size) {
     // |size_| from |compositor_viewport_pixel_size_|. Also note that the
     // calculation of |new_compositor_viewport_pixel_size| does not appear to
     // take into account device emulation.
+    ++auto_resize_sequence_number_;
     gfx::Size new_compositor_viewport_pixel_size =
         gfx::ScaleToCeiledSize(size_, GetWebScreenInfo().device_scale_factor);
     UpdateSurfaceAndScreenInfo(viz::LocalSurfaceId(),
@@ -2751,7 +2752,7 @@ void RenderWidget::DidResizeOrRepaintAck() {
   ViewHostMsg_ResizeOrRepaint_ACK_Params params;
   params.view_size = size_;
   params.flags = next_paint_flags_;
-  params.sequence_number = ++resize_or_repaint_ack_num_;
+  params.sequence_number = auto_resize_sequence_number_;
 
   Send(new ViewHostMsg_ResizeOrRepaint_ACK(routing_id_, params));
   next_paint_flags_ = 0;
