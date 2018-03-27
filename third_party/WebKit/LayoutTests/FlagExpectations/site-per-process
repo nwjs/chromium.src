@@ -5,11 +5,7 @@
 crbug.com/802835 external/wpt/fetch/corb/img-png-mislabeled-as-html-nosniff.tentative.sub.html [ Pass ]
 crbug.com/802835 external/wpt/fetch/corb/script-html-correctly-labeled.tentative.sub.html [ Pass ]
 
-# https://crbug.com/794631: Recent regression.
-crbug.com/794631 virtual/unified-autoplay/external/wpt/feature-policy/autoplay-allowed-by-feature-policy-attribute.https.sub.html [ Failure ]
-crbug.com/794631 virtual/unified-autoplay/external/wpt/feature-policy/autoplay-allowed-by-feature-policy.https.sub.html [ Failure ]
-
-# https://crbug.com/793127: Crash related to frame consolidation CL.
+# https://crbug.com/793127: NOTREACHED() from clamy@ tickled by frame consolidation CL?
 crbug.com/793127 http/tests/security/upgrade-insecure-requests/iframe-upgrade.https.html [ Crash ]
 
 # https://crbug.com/789781: Document blocking should skip these cases.
