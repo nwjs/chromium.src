@@ -70,7 +70,7 @@ void RawDataPresenter::FeedNext(const net::UploadElementReader& reader) {
     const net::UploadFileElementReader* file_reader = reader.AsFileReader();
     FeedNextFile(file_reader->path().AsUTF8Unsafe());
   } else {
-    NOTIMPLEMENTED();
+    DVLOG(1) << "Ignoring unsupported upload data type for WebRequest API.";
   }
 }
 
