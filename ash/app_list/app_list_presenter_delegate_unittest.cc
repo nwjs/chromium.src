@@ -706,7 +706,8 @@ TEST_P(AppListPresenterDelegateTest, HalfToPeekingByClickOrTap) {
   EXPECT_FALSE(app_list_presenter_impl()->IsVisible());
 }
 
-// Tests that the half app list closes if the user taps outside its bounds.
+// Tests that the half app list transitions to peeking state and then closes
+// itself if the user taps outside its bounds.
 TEST_P(AppListPresenterDelegateTest, TapAndClickOutsideClosesHalfAppList) {
   // TODO(newcomer): Investigate mash failures crbug.com/726838
   app_list_presenter_impl()->ShowAndRunLoop(GetPrimaryDisplayId());
@@ -717,12 +718,26 @@ TEST_P(AppListPresenterDelegateTest, TapAndClickOutsideClosesHalfAppList) {
   app_list::AppListView* app_list = app_list_presenter_impl()->GetView();
   EXPECT_EQ(app_list::AppListViewState::HALF, app_list->app_list_state());
 
-  // Clicking/tapping outside the bounds closes the app list.
+  // A point outside the bounds of launcher.
+  gfx::Point to_point(
+      0, GetAppListView()->GetWidget()->GetWindowBoundsInScreen().y() - 1);
+
+  // Clicking/tapping outside the bounds closes the search results page.
   if (TestMouseEventParam()) {
-    generator.MoveMouseTo(gfx::Point(10, 10));
+    generator.MoveMouseTo(to_point);
     generator.ClickLeftButton();
   } else {
-    generator.GestureTapAt(gfx::Point(10, 10));
+    generator.GestureTapAt(to_point);
+  }
+  GetAppListTestHelper()->WaitUntilIdle();
+  GetAppListTestHelper()->CheckState(app_list::AppListViewState::PEEKING);
+
+  // Clicking/tapping outside the bounds closes the app list.
+  if (TestMouseEventParam()) {
+    generator.MoveMouseTo(to_point);
+    generator.ClickLeftButton();
+  } else {
+    generator.GestureTapAt(to_point);
   }
   EXPECT_FALSE(app_list_presenter_impl()->IsVisible());
 }

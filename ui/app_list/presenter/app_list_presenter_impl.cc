@@ -14,7 +14,9 @@
 #include "ui/app_list/app_list_view_delegate.h"
 #include "ui/app_list/pagination_model.h"
 #include "ui/app_list/presenter/app_list_presenter_delegate_factory.h"
+#include "ui/app_list/views/app_list_main_view.h"
 #include "ui/app_list/views/app_list_view.h"
+#include "ui/app_list/views/contents_view.h"
 #include "ui/aura/client/focus_client.h"
 #include "ui/aura/window.h"
 #include "ui/compositor/layer.h"
@@ -123,6 +125,16 @@ void AppListPresenterImpl::Dismiss() {
   presenter_delegate_->OnDismissed();
   ScheduleAnimation();
   base::RecordAction(base::UserMetricsAction("Launcher_Dismiss"));
+}
+
+bool AppListPresenterImpl::Back() {
+  if (!is_visible_)
+    return false;
+
+  // If the app list is currently visible, there should be an existing view.
+  DCHECK(view_);
+
+  return view_->app_list_main_view()->contents_view()->Back();
 }
 
 void AppListPresenterImpl::ToggleAppList(int64_t display_id) {
