@@ -274,3 +274,7 @@
 # https://crbug.com/815379
 -WindowOpenApiTest.RemoveLockedFullscreenFromWindow
 -WindowOpenApiTest.RemoveLockedFullscreenFromWindowWithoutPermission
+
+# Segfaults after massive recursion setting ash::kWindowStateTypeKey:
+# crbug.com/824458
+-PresentationReceiverWindowViewBrowserTest.ChromeOSHardwareFullscreenButton
