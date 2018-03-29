@@ -338,3 +338,12 @@ IN_PROC_BROWSER_TEST_F(MediaEngagementAutoplayBrowserTest,
   LoadTestPage("engagement_autoplay_test.html");
   ExpectAutoplayDenied();
 }
+
+IN_PROC_BROWSER_TEST_F(MediaEngagementAutoplayBrowserTest, TopFrameNavigation) {
+  SetScores(SecondaryOrigin(), 20, 20);
+  LoadTestPage("engagement_autoplay_test.html");
+  ExpectAutoplayDenied();
+
+  LoadTestPageSecondaryOrigin("engagement_autoplay_test.html");
+  ExpectAutoplayAllowed();
+}
