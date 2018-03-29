@@ -214,13 +214,15 @@ void CrossProcessFrameConnector::BubbleScrollEvent(
   auto* event_router =
       parent_view->GetRenderWidgetHostImpl()->delegate()->GetInputEventRouter();
 
-  gfx::Vector2d offset_from_parent =
-      screen_space_rect_in_dip_.OffsetFromOrigin();
+  // We will only convert the coordinates back to the root here. The
+  // RenderWidgetHostInputEventRouter will determine which ancestor view will
+  // receive a resent gesture event, so it will be responsible for converting to
+  // the coordinates of the target view.
   blink::WebGestureEvent resent_gesture_event(event);
-  // TODO(kenrb, wjmaclean): Do we need to account for transforms here?
-  // See https://crbug.com/626020.
-  resent_gesture_event.x += offset_from_parent.x();
-  resent_gesture_event.y += offset_from_parent.y();
+  const gfx::Point root_point =
+      view_->TransformPointToRootCoordSpace(gfx::Point(event.x, event.y));
+  resent_gesture_event.x = root_point.x();
+  resent_gesture_event.y = root_point.y();
 
   if (view_->wheel_scroll_latching_enabled()) {
     if (event.GetType() == blink::WebInputEvent::kGestureScrollBegin) {
