@@ -33,6 +33,17 @@
 #include <memory>
 #include "bindings/core/v8/V8CacheOptions.h"
 #include "core/CoreInitializer.h"
+
+#include "third_party/node-nw/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "core/dom/Document.h"
 #include "core/events/MessageEvent.h"
 #include "core/inspector/ConsoleMessage.h"
@@ -204,7 +215,8 @@ void WebSharedWorkerImpl::ConnectTaskOnWorkerThread(
   worker_global_scope->DispatchEvent(CreateConnectEvent(port));
 }
 
-void WebSharedWorkerImpl::StartWorkerContext(
+void WebSharedWorkerImpl::StartWorkerContext(bool nodejs,
+                                             const base::FilePath& root_path,
     const WebURL& url,
     const WebString& name,
     const WebString& content_security_policy,
@@ -214,6 +226,8 @@ void WebSharedWorkerImpl::StartWorkerContext(
     mojo::ScopedMessagePipeHandle content_settings_handle,
     mojo::ScopedMessagePipeHandle interface_provider) {
   DCHECK(IsMainThread());
+  nodejs_ = nodejs;
+  root_path_ = root_path;
   url_ = url;
   name_ = name;
   creation_address_space_ = creation_address_space;
@@ -265,6 +279,10 @@ void WebSharedWorkerImpl::OnScriptLoaderFinished() {
   Document* document = shadow_page_->GetDocument();
   const SecurityOrigin* starter_origin = document->GetSecurityOrigin();
   bool starter_secure_context = document->IsSecureContext();
+  std::string main_script = root_path_.AsUTF8Unsafe();
+  if (g_web_worker_start_thread_fn && nodejs_) {
+    (*g_web_worker_start_thread_fn)(nullptr, (void*)main_script_loader_->Url().GetPath().Utf8().data(), &main_script, &nodejs_);
+  }
 
   WorkerClients* worker_clients = WorkerClients::Create();
   CoreInitializer::GetInstance().ProvideLocalFileSystemToWorker(
@@ -305,6 +323,7 @@ void WebSharedWorkerImpl::OnScriptLoaderFinished() {
 
   auto global_scope_creation_params =
       std::make_unique<GlobalScopeCreationParams>(
+                                                 nodejs_, main_script,
           url_, document->UserAgent(),
           content_security_policy ? content_security_policy->Headers().get()
                                   : nullptr,

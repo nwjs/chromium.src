@@ -1130,6 +1130,7 @@ class FakeDownloadProtectionService
   }
 };
 
+#if 0
 class FakeSafeBrowsingService
     : public safe_browsing::TestSafeBrowsingService,
       public safe_browsing::ServicesDelegate::ServicesCreator {
@@ -1208,6 +1209,7 @@ class DownloadTestWithFakeSafeBrowsing : public DownloadTest {
   std::unique_ptr<TestSafeBrowsingServiceFactory> test_safe_browsing_factory_;
 };
 
+#endif
 }  // namespace
 
 // NOTES:

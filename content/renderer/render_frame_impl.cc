@@ -244,6 +244,9 @@
 
 using base::Time;
 using base::TimeDelta;
+
+#include "content/nw/src/nw_content.h"
+
 using blink::WebContentDecryptionModule;
 using blink::WebContextMenuData;
 using blink::WebData;
@@ -1048,6 +1051,16 @@ std::vector<int> RenderFrameImpl::UniqueNameFrameAdapter::GetFramePosition(
 blink::WebLocalFrame* RenderFrameImpl::UniqueNameFrameAdapter::GetWebFrame()
     const {
   return render_frame_->frame_;
+}
+
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                blink::WebFrame* frame,
+                                                const blink::WebURLRequest& request,
+                                                blink::WebNavigationPolicy* policy,
+                                                blink::WebString* manifest,
+                                                bool new_win) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_, frame, request, policy, manifest, new_win);
 }
 
 // static
@@ -4731,7 +4744,9 @@ bool RenderFrameImpl::RunFileChooser(
   ipc_params.capture = params.use_media_capture;
 #endif
   ipc_params.requestor = params.requestor;
-
+  ipc_params.initial_path = blink::WebStringToFilePath(params.initial_path);
+  ipc_params.extract_directory = params.extract_directory;
+  ipc_params.default_file_name = blink::WebStringToFilePath(params.initial_value).BaseName();
   return ScheduleFileChooser(ipc_params, chooser_completion);
 }
 
@@ -5147,6 +5162,7 @@ void RenderFrameImpl::DidCreateScriptContext(v8::Local<v8::Context> context,
     blink::WebContextFeatures::EnableMojoJS(context, true);
   }
 
+  GetFrameHost()->SetContextCreated(true);
   for (auto& observer : observers_)
     observer.DidCreateScriptContext(context, world_id);
 }
@@ -5155,6 +5171,7 @@ void RenderFrameImpl::WillReleaseScriptContext(v8::Local<v8::Context> context,
                                                int world_id) {
   for (auto& observer : observers_)
     observer.WillReleaseScriptContext(context, world_id);
+  GetFrameHost()->SetContextCreated(false);
 }
 
 void RenderFrameImpl::DidChangeScrollOffset() {
@@ -5224,6 +5241,10 @@ blink::WebEncryptedMediaClient* RenderFrameImpl::EncryptedMediaClient() {
 }
 
 blink::WebString RenderFrameImpl::UserAgentOverride() {
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    return WebString::FromUTF8(user_agent);
+
   if (!render_view_->webview() || !render_view_->webview()->MainFrame() ||
       render_view_->renderer_preferences_.user_agent_override.empty()) {
     return blink::WebString();

@@ -62,6 +62,9 @@
 #include "platform/bindings/V8PrivateProperty.h"
 #include "platform/wtf/Assertions.h"
 
+
+#include "bindings/core/v8/V8HTMLFrameElement.h"
+
 namespace blink {
 
 void V8Window::locationAttributeGetterCustom(
@@ -137,11 +140,46 @@ void V8Window::eventAttributeGetterCustom(
   V8SetReturnValue(info, js_event);
 }
 
+void V8Window::parentAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = ToLocalDOMWindow(V8Window::ToImpl(info.Holder()));
+  LocalFrame* frame = imp->GetFrame();
+  if (frame && frame->isNwFakeTop()) {
+    V8SetReturnValue(info, ToV8(imp, info.Holder(), info.GetIsolate()));
+    return;
+  }
+  V8SetReturnValue(info, ToV8(imp->parent(), info.Holder(), info.GetIsolate()));
+}
+
+void V8Window::topAttributeGetterCustom(const v8::PropertyCallbackInfo<v8::Value>& info)
+{
+  LocalDOMWindow* imp = ToLocalDOMWindow(V8Window::ToImpl(info.Holder()));
+  LocalFrame* frame = imp->GetFrame();
+  if (frame) {
+    for (LocalFrame* f = frame; f; ) {
+      if (f->isNwFakeTop()) {
+        V8SetReturnValue(info, ToV8(f->GetDocument()->domWindow(), info.Holder(), info.GetIsolate()));
+        return;
+      }
+      Frame* fr = f->Tree().Parent();
+      if (!fr || !fr->IsLocalFrame())
+        break;
+      f = ToLocalFrame(fr);
+    }
+  }
+  V8SetReturnValue(info, ToV8(imp->top(), info.Holder(), info.GetIsolate()));
+}
+
 void V8Window::frameElementAttributeGetterCustom(
     const v8::FunctionCallbackInfo<v8::Value>& info) {
   LocalDOMWindow* impl = ToLocalDOMWindow(V8Window::ToImpl(info.Holder()));
   Element* frameElement = impl->frameElement();
 
+  LocalFrame* frame = impl->GetFrame();
+  if (frame && frame->isNwFakeTop()) {
+    V8SetReturnValueNull(info);
+    return;
+  }
   if (!BindingSecurity::ShouldAllowAccessTo(
           CurrentDOMWindow(info.GetIsolate()), frameElement,
           BindingSecurity::ErrorReportOption::kDoNotReport)) {

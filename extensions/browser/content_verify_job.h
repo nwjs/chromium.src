@@ -9,6 +9,7 @@
 
 #include <memory>
 #include <string>
+#include "base/files/file.h"
 
 #include "base/callback.h"
 #include "base/files/file_path.h"
@@ -54,7 +55,9 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
 
     FAILURE_REASON_MAX
   };
-  using FailureCallback = base::OnceCallback<void(FailureReason)>;
+  using FailureCallback = base::OnceCallback<void(FailureReason, scoped_refptr<ContentVerifyJob>)>;
+  using ReadyCallback = base::Callback<void(scoped_refptr<ContentVerifyJob>)>;
+  using SuccessCallback = base::Callback<void(void)>;
 
   // The |failure_callback| will be called at most once if there was a failure.
   ContentVerifyJob(const ExtensionId& extension_id,
@@ -62,6 +65,11 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
                    const base::FilePath& extension_root,
                    const base::FilePath& relative_path,
                    FailureCallback failure_callback);
+
+  ContentVerifyJob(ContentHashReader* hash_reader,
+                   const ContentVerifierKey& content_verifier_key,
+                   FailureCallback failure_callback,
+                   const ReadyCallback& ready_callback);
 
   // This begins the process of getting expected hashes, so it should be called
   // as early as possible.
@@ -77,6 +85,9 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
 
   // Call once when finished adding bytes via BytesRead.
   void DoneReading();
+
+  void SetSuccessCallback(const SuccessCallback& success_callback) { success_callback_ = success_callback; }
+  const SuccessCallback& success_callback() { return success_callback_; }
 
   class TestObserver {
    public:
@@ -153,12 +164,20 @@ class ContentVerifyJob : public base::RefCountedThreadSafe<ContentVerifyJob> {
 
   // Called once if verification fails.
   FailureCallback failure_callback_;
+  ReadyCallback ready_callback_;
+  SuccessCallback success_callback_;
 
   // Set to true if we detected a mismatch and called the failure callback.
   bool failed_;
 
   // Used to synchronize all public methods.
   base::Lock lock_;
+
+ public:
+  int len_;
+  char* buf_;
+  base::File file_;
+
 
   DISALLOW_COPY_AND_ASSIGN(ContentVerifyJob);
 };

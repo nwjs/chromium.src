@@ -10,6 +10,9 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/views/widget/widget.h"
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
+
 // The Views implementation of OverlayWindow.
 class OverlayWindowViews : public OverlayWindow, public views::Widget {
  public:
@@ -49,5 +52,7 @@ class OverlayWindowViews : public OverlayWindow, public views::Widget {
 
   DISALLOW_COPY_AND_ASSIGN(OverlayWindowViews);
 };
+
+#pragma clang diagnostic pop
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OVERLAY_OVERLAY_WINDOW_VIEWS_H_

@@ -21,6 +21,8 @@ RemoteFrameOwner::RemoteFrameOwner(
     : sandbox_flags_(flags),
       browsing_context_container_name_(
           static_cast<String>(frame_owner_properties.name)),
+      nwfaketop_(frame_owner_properties.nwFakeTop),
+      nwuseragent_(frame_owner_properties.nwuseragent),
       scrolling_(
           static_cast<ScrollbarMode>(frame_owner_properties.scrolling_mode)),
       margin_width_(frame_owner_properties.margin_width),

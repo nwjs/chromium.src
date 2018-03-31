@@ -1506,8 +1506,8 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled",
-                    "enable_features": [
+                    "name": "Disabled",
+                    "disable_features": [
                         "GuestViewCrossProcessFrames"
                     ]
                 }

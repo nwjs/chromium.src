@@ -336,7 +336,7 @@ IN_PROC_BROWSER_TEST_F(ContentVerifierTest, PolicyCorrupted) {
   TestExtensionRegistryObserver registry_observer(
       ExtensionRegistry::Get(profile()), kExtensionId);
   ContentVerifier* verifier = system->content_verifier();
-  verifier->VerifyFailed(kExtensionId, ContentVerifyJob::HASH_MISMATCH);
+  verifier->VerifyFailed(kExtensionId, base::FilePath(), ContentVerifyJob::HASH_MISMATCH, nullptr);
 
   // Make sure the extension first got disabled due to corruption.
   EXPECT_TRUE(registry_observer.WaitForExtensionUnloaded());

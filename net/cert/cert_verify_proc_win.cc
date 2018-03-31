@@ -29,6 +29,7 @@
 #include "net/cert/test_root_certs.h"
 #include "net/cert/x509_certificate.h"
 #include "net/cert/x509_util_win.h"
+#include "net/cert/x509_util.h"
 
 #if !defined(CERT_TRUST_HAS_WEAK_SIGNATURE)
 // This was introduced in Windows 8 / Windows Server 2012, but retroactively
@@ -839,7 +840,7 @@ CertVerifyProcWin::CertVerifyProcWin() {}
 CertVerifyProcWin::~CertVerifyProcWin() {}
 
 bool CertVerifyProcWin::SupportsAdditionalTrustAnchors() const {
-  return false;
+  return true;
 }
 
 bool CertVerifyProcWin::SupportsOCSPStapling() const {
@@ -1109,8 +1110,36 @@ int CertVerifyProcWin::VerifyInternal(
 
   ScopedPCCERT_CHAIN_CONTEXT scoped_chain_context(chain_context);
 
+  DWORD errorStatus = chain_context->TrustStatus.dwErrorStatus;
+  bool skipPolicyCheck = false;
+  if (((errorStatus & CERT_TRUST_IS_UNTRUSTED_ROOT) || (errorStatus & (CERT_TRUST_IS_OFFLINE_REVOCATION | CERT_TRUST_REVOCATION_STATUS_UNKNOWN)))&&
+      !additional_trust_anchors.empty()) {
+    // check if the (untrusted) validated root is in the list of
+    // additional trust anchors
+    PCERT_SIMPLE_CHAIN first_chain = chain_context->rgpChain[0];
+    DWORD num_elements = first_chain->cElement;
+    if (num_elements >= 1) {
+      PCERT_CHAIN_ELEMENT* element = first_chain->rgpElement;
+      PCCERT_CONTEXT cert = element[num_elements - 1]->pCertContext;
+      for (size_t i=0; i<additional_trust_anchors.size(); i++) {
+	bssl::UniquePtr<CRYPTO_BUFFER> cert_handle(X509Certificate::CreateCertBufferFromBytes((const char*)(cert->pbCertEncoded), cert->cbCertEncoded));
+        if (x509_util::CryptoBufferEqual(cert_handle.get(),
+            additional_trust_anchors[i]->cert_buffer())) {
+          LOG(INFO) << "Untrusted root \"" <<
+              additional_trust_anchors[i]->subject().GetDisplayName() <<
+              "\" found in additional anchors, assuming trusted.";
+          verify_result->is_issued_by_additional_trust_anchor = true;
+          errorStatus &= ~(CERT_TRUST_IS_UNTRUSTED_ROOT | CERT_TRUST_IS_OFFLINE_REVOCATION 
+            | CERT_TRUST_REVOCATION_STATUS_UNKNOWN | CERT_TRUST_IS_PARTIAL_CHAIN);
+          skipPolicyCheck = true;
+          break;
+        }
+      }
+    }
+  }
+
   verify_result->cert_status |= MapCertChainErrorStatusToCertStatus(
-      chain_context->TrustStatus.dwErrorStatus);
+      errorStatus);
 
   // Flag certificates that have a Subject common name with a NULL character.
   if (CertSubjectCommonNameHasNull(cert_list.get()))
@@ -1118,6 +1147,7 @@ int CertVerifyProcWin::VerifyInternal(
 
   base::string16 hostname16 = base::ASCIIToUTF16(hostname);
 
+  if (!skipPolicyCheck) {
   SSL_EXTRA_CERT_CHAIN_POLICY_PARA extra_policy_para;
   memset(&extra_policy_para, 0, sizeof(extra_policy_para));
   extra_policy_para.cbSize = sizeof(extra_policy_para);
@@ -1151,7 +1181,7 @@ int CertVerifyProcWin::VerifyInternal(
     verify_result->cert_status |= MapNetErrorToCertStatus(
         MapSecurityError(policy_status.dwError));
   }
-
+  }
   // TODO(wtc): Suppress CERT_STATUS_NO_REVOCATION_MECHANISM for now to be
   // compatible with WinHTTP, which doesn't report this error (bug 3004).
   verify_result->cert_status &= ~CERT_STATUS_NO_REVOCATION_MECHANISM;

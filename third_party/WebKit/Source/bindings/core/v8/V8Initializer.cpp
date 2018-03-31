@@ -25,6 +25,7 @@
 
 #include "bindings/core/v8/V8Initializer.h"
 
+#include "third_party/node-nw/src/node_webkit.h"
 #include <memory>
 
 #include "base/memory/scoped_refptr.h"
@@ -72,6 +73,9 @@
 #include "public/platform/Platform.h"
 #include "public/platform/WebThread.h"
 #include "v8/include/v8-profiler.h"
+
+extern VoidHookFn g_promise_reject_callback_fn;
+
 
 namespace blink {
 
@@ -252,6 +256,12 @@ static void PromiseRejectHandler(v8::PromiseRejectMessage data,
 
   v8::Isolate* isolate = script_state->GetIsolate();
   ExecutionContext* context = ExecutionContext::From(script_state);
+
+#if 0 //FIXME (#4577)
+  LocalDOMWindow* window = currentDOMWindow(isolate);
+  if (window->frame()->isNodeJS() && g_promise_reject_callback_fn)
+    g_promise_reject_callback_fn(&data);
+#endif
 
   v8::Local<v8::Value> exception = data.GetValue();
   if (V8DOMWrapper::IsWrapper(isolate, exception)) {
@@ -541,6 +551,10 @@ static void InitializeV8Common(v8::Isolate* isolate) {
 
 namespace {
 
+#if defined(OS_WIN)
+HANDLE _process_heap;
+#endif
+
 class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
   // Allocate() methods return null to signal allocation failure to V8, which
   // should respond by throwing a RangeError, per
@@ -557,6 +571,18 @@ class ArrayBufferAllocator : public v8::ArrayBuffer::Allocator {
 
   void Free(void* data, size_t size) override {
     WTF::ArrayBufferContents::FreeMemory(data);
+  }
+
+  void Free(void* data, size_t length, AllocationMode mode) override {
+    if (mode == AllocationMode::kNodeJS) {
+#if defined(OS_WIN)
+        ::HeapFree(_process_heap, 0, data);
+#else
+        free(data);
+#endif
+        return;
+    } else
+      Free(data, length);
   }
 };
 
@@ -584,6 +610,9 @@ void V8Initializer::InitializeMainThread(const intptr_t* reference_table) {
   WTF::ArrayBufferContents::Initialize(AdjustAmountOfExternalAllocatedMemory);
 
   DEFINE_STATIC_LOCAL(ArrayBufferAllocator, array_buffer_allocator, ());
+#if defined(OS_WIN)
+  _process_heap = ::GetProcessHeap();
+#endif
   auto v8_extras_mode = RuntimeEnabledFeatures::ExperimentalV8ExtrasEnabled()
                             ? gin::IsolateHolder::kStableAndExperimentalV8Extras
                             : gin::IsolateHolder::kStableV8Extras;

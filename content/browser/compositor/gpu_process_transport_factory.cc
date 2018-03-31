@@ -154,6 +154,8 @@ bool CheckWorkerContextLost(viz::RasterContextProvider* context_provider) {
 
 namespace content {
 
+DISPLAY_EXPORT extern bool g_force_cpu_draw;
+
 struct GpuProcessTransportFactory::PerCompositorData {
   gpu::SurfaceHandle surface_handle = gpu::kNullSurfaceHandle;
   BrowserCompositorOutputSurface* display_output_surface = nullptr;
@@ -254,7 +256,10 @@ GpuProcessTransportFactory::CreateSoftwareOutputDevice(
 #elif defined(USE_X11)
   return std::make_unique<viz::SoftwareOutputDeviceX11>(widget);
 #elif defined(OS_MACOSX)
-  return std::make_unique<viz::SoftwareOutputDeviceMac>(widget);
+  //if (g_force_cpu_draw)
+  //  return std::make_unique<viz::SoftwareOutputDeviceForceCPUMac>(widget);
+  //else
+    return std::make_unique<viz::SoftwareOutputDeviceMac>(widget);
 #else
   NOTREACHED();
   return std::unique_ptr<viz::SoftwareOutputDevice>();

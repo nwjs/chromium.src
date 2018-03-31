@@ -76,6 +76,7 @@ const uint8_t kSha256Hash[] = {0x6a, 0xc6, 0x0e, 0xe8, 0xf3, 0x97, 0xc0, 0xd6,
 const base::FilePath::CharType kSwReporterExeName[] =
     FILE_PATH_LITERAL("software_reporter_tool.exe");
 
+#if 0
 void SRTHasCompleted(SRTCompleted value) {
   UMA_HISTOGRAM_ENUMERATION("SoftwareReporter.Cleaner.HasCompleted", value,
                             SRT_COMPLETED_MAX);
@@ -112,6 +113,7 @@ void ReportUploadsWithUma(const base::string16& upload_results) {
   UMA_HISTOGRAM_BOOLEAN("SoftwareReporter.LastUploadResult", last_result);
 }
 
+#endif
 void ReportExperimentError(SoftwareReporterExperimentError error) {
   UMA_HISTOGRAM_ENUMERATION("SoftwareReporter.ExperimentErrors", error,
                             SW_REPORTER_EXPERIMENT_ERROR_MAX);
@@ -128,6 +130,8 @@ bool ValidateString(const std::string& str,
                   extras.find(c) != std::string::npos;
          });
 }
+
+#if 0
 
 std::string GenerateSessionId() {
   std::string session_id;
@@ -337,6 +341,8 @@ void ReportUMAForLastCleanerRun() {
   }
 }
 
+#endif
+
 void ReportOnDemandUpdateSucceededHistogram(bool value) {
   UMA_HISTOGRAM_BOOLEAN("SoftwareReporter.OnDemandUpdateSucceeded", value);
 }
@@ -376,6 +382,7 @@ void SwReporterInstallerPolicy::ComponentReady(
     const base::Version& version,
     const base::FilePath& install_dir,
     std::unique_ptr<base::DictionaryValue> manifest) {
+#if 0
   safe_browsing::SwReporterInvocationSequence invocations(version);
   const base::FilePath exe_path(install_dir.Append(kSwReporterExeName));
   if (ExtractInvocationSequenceFromManifest(exe_path, std::move(manifest),
@@ -384,6 +391,7 @@ void SwReporterInstallerPolicy::ComponentReady(
     // |safe_browsing::OnSwReporterReady| to the UI thread.
     on_component_ready_callback_.Run(std::move(invocations));
   }
+#endif
 }
 
 base::FilePath SwReporterInstallerPolicy::GetRelativeInstallDir() const {
@@ -459,6 +467,9 @@ void SwReporterOnDemandFetcher::OnEvent(Events event, const std::string& id) {
 }
 
 void RegisterSwReporterComponent(ComponentUpdateService* cus) {
+#if 1
+  return;
+#else
   ReportUMAForLastCleanerRun();
 
   // Once the component is ready and browser startup is complete, run
@@ -479,6 +490,7 @@ void RegisterSwReporterComponent(ComponentUpdateService* cus) {
   auto installer = base::MakeRefCounted<ComponentInstaller>(
       std::make_unique<SwReporterInstallerPolicy>(base::BindRepeating(lambda)));
   installer->Register(cus, base::OnceClosure());
+#endif
 }
 
 void RegisterPrefsForSwReporter(PrefRegistrySimple* registry) {

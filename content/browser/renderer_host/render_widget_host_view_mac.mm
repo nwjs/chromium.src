@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
+#include "content/public/common/content_switches.h"
 
 #import <Carbon/Carbon.h>
 
@@ -54,6 +55,11 @@
 using blink::WebInputEvent;
 using blink::WebMouseEvent;
 using blink::WebGestureEvent;
+
+namespace content {
+  extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
+}
 
 // A window subclass that allows the fullscreen window to become main and gain
 // keyboard focus. This is only used for pepper flash. Normal fullscreen is
@@ -537,6 +543,7 @@ void RenderWidgetHostViewMac::Hide() {
   is_visible_ = false;
   ns_view_bridge_->SetVisible(is_visible_);
   host()->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 
@@ -553,6 +560,7 @@ void RenderWidgetHostViewMac::WasOccluded() {
     return;
 
   host()->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 

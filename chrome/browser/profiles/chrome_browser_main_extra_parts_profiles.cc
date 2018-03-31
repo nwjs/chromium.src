@@ -222,7 +222,9 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
   CaptivePortalServiceFactory::GetInstance();
 #endif
+#if 0
   CertificateReportingServiceFactory::GetInstance();
+#endif
 #if defined(OS_ANDROID)
   android::DataUseUITabModelFactory::GetInstance();
 #endif
@@ -367,7 +369,7 @@ EnsureBrowserContextKeyedServiceFactoriesBuilt() {
   TabRestoreServiceFactory::GetInstance();
   TemplateURLFetcherFactory::GetInstance();
   TemplateURLServiceFactory::GetInstance();
-  translate::TranslateRankerFactory::GetInstance();
+  //translate::TranslateRankerFactory::GetInstance();
 #if defined(OS_WIN)
   TriggeredProfileResetterFactory::GetInstance();
 #endif
