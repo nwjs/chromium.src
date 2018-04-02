@@ -512,8 +512,8 @@ void FrameLoader::DidFinishNavigation() {
   }
 
   Frame* parent = frame_->Tree().Parent();
-  if (parent && parent->IsLocalFrame())
-    ToLocalFrame(parent)->GetDocument()->CheckCompleted();
+  if (parent)
+    parent->CheckCompleted();
 }
 
 Frame* FrameLoader::Opener() {
