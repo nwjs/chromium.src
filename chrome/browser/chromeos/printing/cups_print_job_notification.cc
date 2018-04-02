@@ -37,7 +37,7 @@ const char kCupsPrintJobNotificationId[] =
 
 CupsPrintJobNotification::CupsPrintJobNotification(
     CupsPrintJobNotificationManager* manager,
-    CupsPrintJob* print_job,
+    base::WeakPtr<CupsPrintJob> print_job,
     Profile* profile)
     : notification_manager_(manager),
       notification_id_(print_job->GetUniqueId()),
@@ -90,9 +90,12 @@ void CupsPrintJobNotification::ButtonClick(int button_index) {
   CupsPrintJobManager* print_job_manager =
       CupsPrintJobManagerFactory::GetForBrowserContext(profile_);
 
+  if (!print_job_)
+    return;
+
   switch (button_commands_[button_index]) {
     case ButtonCommand::CANCEL_PRINTING:
-      print_job_manager->CancelPrintJob(print_job_);
+      print_job_manager->CancelPrintJob(print_job_.get());
       // print_job_ was deleted in CancelPrintJob.  Forget the pointer.
       print_job_ = nullptr;
 
@@ -103,10 +106,10 @@ void CupsPrintJobNotification::ButtonClick(int button_index) {
       notification_manager_->OnPrintJobNotificationRemoved(this);
       break;
     case ButtonCommand::PAUSE_PRINTING:
-      print_job_manager->SuspendPrintJob(print_job_);
+      print_job_manager->SuspendPrintJob(print_job_.get());
       break;
     case ButtonCommand::RESUME_PRINTING:
-      print_job_manager->ResumePrintJob(print_job_);
+      print_job_manager->ResumePrintJob(print_job_.get());
       break;
     case ButtonCommand::GET_HELP:
       break;
@@ -114,6 +117,8 @@ void CupsPrintJobNotification::ButtonClick(int button_index) {
 }
 
 void CupsPrintJobNotification::UpdateNotification() {
+  if (!print_job_)
+    return;
   UpdateNotificationTitle();
   UpdateNotificationIcon();
   UpdateNotificationBodyMessage();
@@ -149,6 +154,8 @@ void CupsPrintJobNotification::UpdateNotification() {
 }
 
 void CupsPrintJobNotification::UpdateNotificationTitle() {
+  if (!print_job_)
+    return;
   base::string16 title;
   switch (print_job_->state()) {
     case CupsPrintJob::State::STATE_WAITING:
@@ -178,6 +185,8 @@ void CupsPrintJobNotification::UpdateNotificationTitle() {
 }
 
 void CupsPrintJobNotification::UpdateNotificationIcon() {
+  if (!print_job_)
+    return;
   switch (print_job_->state()) {
     case CupsPrintJob::State::STATE_WAITING:
     case CupsPrintJob::State::STATE_STARTED:
@@ -206,6 +215,8 @@ void CupsPrintJobNotification::UpdateNotificationIcon() {
 }
 
 void CupsPrintJobNotification::UpdateNotificationBodyMessage() {
+  if (!print_job_)
+    return;
   base::string16 message;
   if (print_job_->total_page_number() > 1) {
     message = l10n_util::GetStringFUTF16(
@@ -221,6 +232,8 @@ void CupsPrintJobNotification::UpdateNotificationBodyMessage() {
 }
 
 void CupsPrintJobNotification::UpdateNotificationType() {
+  if (!print_job_)
+    return;
   switch (print_job_->state()) {
     case CupsPrintJob::State::STATE_WAITING:
     case CupsPrintJob::State::STATE_STARTED:
@@ -254,6 +267,8 @@ void CupsPrintJobNotification::UpdateNotificationButtons() {
 
 std::vector<CupsPrintJobNotification::ButtonCommand>
 CupsPrintJobNotification::GetButtonCommands() const {
+  if (!print_job_)
+    return {};
   std::vector<CupsPrintJobNotification::ButtonCommand> commands;
   switch (print_job_->state()) {
     case CupsPrintJob::State::STATE_WAITING:
