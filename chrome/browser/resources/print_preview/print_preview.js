@@ -1026,6 +1026,7 @@ cr.define('print_preview', function() {
       this.uiState_ = PrintPreviewUiState_.ERROR;
       this.isPreviewGenerationInProgress_ = false;
       this.printHeader_.isPrintButtonEnabled = false;
+      this.previewArea_.setDestinationValid(false);
     },
 
     /**
@@ -1311,8 +1312,10 @@ cr.define('print_preview', function() {
       }
       // Reset if we had a bad settings fetch since the user selected a new
       // printer.
-      if (this.uiState_ == PrintPreviewUiState_.ERROR)
+      if (this.uiState_ == PrintPreviewUiState_.ERROR) {
         this.uiState_ = PrintPreviewUiState_.READY;
+        this.previewArea_.setDestinationValid(true);
+      }
       if (this.destinationStore_.selectedDestination &&
           this.isInKioskAutoPrintMode_) {
         this.onPrintButtonClick_();
