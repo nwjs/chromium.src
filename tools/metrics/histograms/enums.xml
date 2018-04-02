@@ -44463,6 +44463,12 @@ Called by update_traffic_annotation_histograms.py.-->
   <int value="8" label="Active Directory"/>
 </enum>
 
+<enum name="UserTypeChanged">
+  <int value="0" label="Unknown (FATAL)"/>
+  <int value="1" label="Regular user changed type to child"/>
+  <int value="2" label="Child user changed type to regular"/>
+</enum>
+
 <enum name="V8CacheBehaviour">
   <int value="0" label="kProduceCodeCache">
     The compilation produced a code cache
