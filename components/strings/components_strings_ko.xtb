@@ -21,7 +21,7 @@
 <translation id="1113869188872983271">재정렬 실행 취소(&amp;U)</translation>
 <translation id="1126551341858583091">로컬 저장소는 <ph name="CRASH_SIZE" />입니다.</translation>
 <translation id="112840717907525620">정책 캐시 확인</translation>
-<translation id="1132774398110320017">Chrome 자동완성 설정...</translation>
+<translation id="1132774398110320017">Chrome 자동 완성 설정...</translation>
 <translation id="1150979032973867961">이 서버가 <ph name="DOMAIN" />임을 입증할 수 없으며 컴퓨터의 운영체제에서 신뢰하는 보안 인증서가 아닙니다. 서버를 잘못 설정했거나 불법 사용자가 연결을 가로채고 있기 때문일 수 있습니다.</translation>
 <translation id="1151972924205500581">비밀번호를 입력해야 합니다.</translation>
 <translation id="1152921474424827756"><ph name="URL" />의 <ph name="BEGIN_LINK" />캐시된 사본<ph name="END_LINK" />에 액세스</translation>
@@ -57,7 +57,7 @@
         <ph name="END_LIST" /></translation>
 <translation id="1339601241726513588">등록 도메인:</translation>
 <translation id="1340482604681802745">수령 주소</translation>
-<translation id="1344588688991793829">Chromium 자동완성 설정...</translation>
+<translation id="1344588688991793829">Chromium 자동 완성 설정...</translation>
 <translation id="1348198688976932919">방문하려는 사이트에 위험한 앱이 있습니다.</translation>
 <translation id="1374468813861204354">제안사항</translation>
 <translation id="1375198122581997741">버전 정보</translation>
@@ -234,7 +234,7 @@
 <translation id="2704283930420550640">값이 형식과 일치하지 않습니다.</translation>
 <translation id="2704951214193499422">현재 Chromium에서 카드를 확인할 수 없습니다. 나중에 다시 시도해 주세요.</translation>
 <translation id="2705137772291741111">사이트의 저장된(캐시된) 사본을 읽을 수 없습니다.</translation>
-<translation id="2709516037105925701">자동완성</translation>
+<translation id="2709516037105925701">자동 완성</translation>
 <translation id="2710942282213947212">컴퓨터에 설치된 소프트웨어로 인해 Chromium이 안전하게 웹에 접속할 수 없음</translation>
 <translation id="2712173769900027643">권한 요청</translation>
 <translation id="2720342946869265578">근처</translation>
@@ -1025,7 +1025,7 @@
 <translation id="859285277496340001">인증서는 취소 여부를 확인하는 매커니즘을 지정하지 않습니다.</translation>
 <translation id="8620436878122366504">부모님이 아직 승인하지 않았습니다.</translation>
 <translation id="8625384913736129811">이 기기에 카드 저장</translation>
-<translation id="8639963783467694461">자동완성 설정</translation>
+<translation id="8639963783467694461">자동 완성 설정</translation>
 <translation id="8680536109547170164"><ph name="QUERY" />, 답변, <ph name="ANSWER" /></translation>
 <translation id="8703575177326907206"><ph name="DOMAIN" />로의 연결은 암호화되지 않습니다.</translation>
 <translation id="8718314106902482036">결제가 완료되지 않음</translation>

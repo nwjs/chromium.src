@@ -64,10 +64,10 @@
       danh sách phân tách bằng dấu phẩy sẽ chạy theo quy trình riêng. Cài đặt này cũng sẽ cách ly
       các nguồn gốc được đặt tên theo miền phụ; chẳng hạn như việc chỉ định https://example.com/ cũng sẽ
       khiến cho https://foo.example.com/ bị cách ly vì là một phần của
-      trang web https://example.com/.
-      Nếu bạn tắt chính sách này, logic quản lý quy trình Cách ly trước khi khởi chạy trang web sẽ có hiệu lực.
+      trang https://example.com/.
+      Nếu bạn tắt chính sách này, logic quản lý quy trình Cách ly mỗi trang web sẽ có hiệu lực.
       Nếu bạn không định cấu hình chính sách này, người dùng sẽ có thể thay đổi cài đặt này.
-      Trên <ph name="PRODUCT_OS_NAME" />, bạn cũng nên đặt chính sách thiết bị <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> thành cùng một giá trị. Nếu các giá trị mà hai chính sách chỉ định không khớp nhau, thì có thể sẽ xảy ra hiện tượng chậm trễ khi vào một phiên người dùng trong khi áp dụng giá trị mà chính sách người dùng chỉ định.
+      Trên <ph name="PRODUCT_OS_NAME" />, bạn cũng nên đặt chính sách thiết bị <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> thành cùng một giá trị. Nếu các giá trị do hai chính sách chỉ định không khớp nhau, thì có thể sẽ xảy ra hiện tượng chậm trễ khi vào một phiên người dùng trong khi áp dụng giá trị mà chính sách người dùng chỉ định.
       </translation>
 <translation id="1198465924256827162">Tần suất tải lên trạng thái thiết bị, bằng mili giây.
 
@@ -709,8 +709,8 @@ Khi chính sách này được đặt thành false hoặc không được địn
       danh sách phân tách bằng dấu phẩy sẽ chạy theo quy trình riêng. Cài đặt này cũng sẽ cách ly
       các nguồn gốc được đặt tên theo miền phụ; chẳng hạn như việc chỉ định https://example.com/ cũng sẽ
       khiến cho https://foo.example.com/ bị cách ly vì là một phần của
-      trang web https://example.com/.
-      Nếu bạn tắt chính sách này, logic quản lý quy trình Cách ly trước khi khởi chạy trang web sẽ có hiệu lực.
+      trang https://example.com/.
+      Nếu bạn tắt chính sách này, logic quản lý quy trình Cách ly mỗi trang web sẽ có hiệu lực.
       Nếu bạn không định cấu hình chính sách này, cài đặt cách ly trang web mặc định của nền tảng sẽ được sử dụng cho màn hình đăng nhập.
       </translation>
 <translation id="3016255526521614822">Đưa các ứng dụng ghi chú được phép trên màn hình khóa của <ph name="PRODUCT_OS_NAME" /> vào danh sách cho phép</translation>
@@ -829,7 +829,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       IsolateOrigins cùng với danh sách các trang web mà bạn muốn cách ly. Cài đặt này,
       SitePerProcess, sẽ cách ly mọi trang web.
       Nếu bạn bật chính sách này, mỗi trang web sẽ chạy theo quy trình riêng.
-      Nếu bạn tắt chính sách này, logic quản lý quy trình Cách ly trước khi khởi chạy trang web sẽ có hiệu lực.
+      Nếu bạn tắt chính sách này, logic quản lý quy trình Cách ly mỗi trang web sẽ có hiệu lực.
       Nếu bạn không định cấu hình chính sách này, người dùng sẽ có thể thay đổi cài đặt này.
       </translation>
 <translation id="3395348522300156660">Chỉ định các máy in mà người dùng có thể sử dụng.
@@ -2058,7 +2058,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="706669471845501145">Cho phép các trang web hiển thị thông báo trên màn hình</translation>
 <translation id="7072208053150563108">Tần suất thay đổi mật khẩu máy</translation>
 <translation id="7072406291414141328">Bật điều chỉnh băng thông mạng</translation>
-<translation id="7074513465313721551">Định cấu hình danh sách bao gồm các miền mà Duyệt web an toàn sẽ tin tưởng. Điều này có nghĩa là:
+<translation id="7074513465313721551">Định cấu hình danh sách các miền mà tính năng Duyệt web an toàn sẽ tin tưởng. Điều này có nghĩa là:
       Duyệt web an toàn sẽ không kiểm tra để tìm các tài nguyên nguy hiểm (ví dụ: lừa đảo, phần mềm độc hại hoặc phần mềm không mong muốn) nếu URL của họ khớp với những miền này.
       Dịch vụ bảo vệ tài nguyên đã tải xuống của Duyệt web an toàn sẽ không kiểm tra các nội dung tải xuống được lưu trữ trên những miền này.
       Dịch vụ bảo vệ mật khẩu của Duyệt web an toàn sẽ không kiểm tra để phát hiện hành vi sử dụng lại mật khẩu nếu URL trang khớp với những miền này.

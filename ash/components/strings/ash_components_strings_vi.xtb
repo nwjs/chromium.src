@@ -28,6 +28,7 @@
 <translation id="2181097965834437145">Hiển thị hoặc ẩn thanh dấu trang</translation>
 <translation id="2185166372312820725">Quay về tab trước</translation>
 <translation id="2194790690264064655">Nhấn <ph name="CTRL" /> rồi nhấp vào một liên kết</translation>
+<translation id="2382644247745281995">Bố cục bàn phím hiện tại chưa được hỗ trợ</translation>
 <translation id="2424073332829844142">Bật và tắt Caps Lock</translation>
 <translation id="2441202986792279177">Chuyển nhanh giữa các cửa sổ</translation>
 <translation id="2478303094958140141">Bật hoặc tắt ChromeVox (phản hồi bằng giọng nói)</translation>
@@ -58,7 +59,7 @@
 <translation id="353037708190149633">Lưu tất cả các trang đang mở trong cửa sổ hiện tại của bạn làm dấu trang trong một thư mục mới</translation>
 <translation id="355103131818127604">Mở liên kết trong tab mới trên nền</translation>
 <translation id="3649256019230929621">Thu nhỏ cửa sổ</translation>
-<translation id="3655154169297074232">Tab và Windows</translation>
+<translation id="3655154169297074232">Tab và cửa sổ</translation>
 <translation id="3668361878347172356">Làm lại thao tác bạn thực hiện gần đây nhất</translation>
 <translation id="3720939646656082033">Mở liên kết trong một tab mới và chuyển sang tab mới đó</translation>
 <translation id="3725795051337497754">Đóng tab hiện tại</translation>
@@ -164,7 +165,7 @@
 <translation id="9052808072970550123">Chuyển sang người dùng tiếp theo</translation>
 <translation id="9106898733795143799">Trang và trình duyệt web</translation>
 <translation id="9179672198516322668">Các phím tắt thông dụng</translation>
-<translation id="93603345341560814">Nhấn phím <ph name="SHIFT" /> và nhấp vào liên kết</translation>
+<translation id="93603345341560814">Nhấn phím <ph name="SHIFT" /> và nhấp vào một liên kết</translation>
 <translation id="945383118875625837">Kéo liên kết vào thanh dấu trang</translation>
 <translation id="98120814841227350">Chuyển đến cuối tài liệu</translation>
 </translationbundle>

@@ -447,7 +447,7 @@
 <translation id="2386362615870139244">Permitir bloqueios de ativação do ecrã</translation>
 <translation id="2411817661175306360">O aviso de proteção por palavra-passe está desativado.</translation>
 <translation id="2411919772666155530">Bloquear notificações nestes Web sites</translation>
-<translation id="2415979855753196119">Permite-lhe controlar o acionamento da sinalização de conta protegidas por palavra-passe em risco. A sinalização de conta protegida por palavra-passe em risco consiste em informar a Google de que esta conta está em risco de ser acedida indevidamente.
+<translation id="2415979855753196119">Permite-lhe controlar o acionamento da sinalização de contas protegidas por palavra-passe em risco. A sinalização de conta protegida por palavra-passe em risco consiste em informar a Google de que esta conta está em risco de ser acedida indevidamente.
 
       Se esta política estiver definida como "PasswordProtectionRiskOff", não é acionada qualquer sinalização de conta protegida por palavra-passe em risco.
       Se esta política estiver definida como "PasswordProtectionRiskOnPasswordReuse", a sinalização de conta protegida por palavra-passe em risco é acionada quando os utilizadores reutilizarem as palavras-passe Google em sites que não tenham sido adicionados à lista de autorizações.

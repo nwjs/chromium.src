@@ -1950,7 +1950,7 @@
 <translation id="7072208053150563108">Taxa de alteração da senha da máquina</translation>
 <translation id="7072406291414141328">Ativa o acelerador de largura de banda da rede</translation>
 <translation id="7074513465313721551">Configure a lista de domínios em que o recurso Navegação segura confiará. Isso significa que:
-      o Navegação segura não verificará a existência de recursos perigosos (por exemplo, phishing, malware ou softwares indesejados) se os URLs deles corresponderem a esses domínios;
+      o Navegação segura não verificará a existência de recursos perigosos (por exemplo, phishing, malware ou softwares indesejados) se os URLs desses recursos corresponderem a esses domínios;
       o serviço de proteção de downloads do Navegação segura não verificará os downloads hospedados nesses domínios;
       o serviço de proteção de senhas do Navegação segura não verificará a reutilização de senhas se o URL da página corresponder a esses domínios.
 

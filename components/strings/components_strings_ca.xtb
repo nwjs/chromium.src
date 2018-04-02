@@ -362,7 +362,7 @@
 <translation id="3542684924769048008">Utilitzar la contrasenya per a:</translation>
 <translation id="3549644494707163724">Encripta totes les dades sincronitzades amb la teva frase de contrasenya de sincronització</translation>
 <translation id="3556433843310711081">El teu gestor te'l pot desbloquejar</translation>
-<translation id="3566021033012934673">La vostra connexió no és privada</translation>
+<translation id="3566021033012934673">La connexió no és privada</translation>
 <translation id="3574305903863751447"><ph name="CITY" />, <ph name="STATE" /> <ph name="COUNTRY" /></translation>
 <translation id="3576616784287504635">Una pàgina inserida a <ph name="SITE" /> diu</translation>
 <translation id="358285529439630156">S'accepten targetes de crèdit i de prepagament.</translation>
@@ -380,7 +380,7 @@
     &lt;li&gt;Contacteu amb el propietari del lloc web.&lt;/li&gt;
     &lt;/ol&gt;
     &lt;h2&gt;Obtenir ajuda amb un missatge d'error específic&lt;/h2&gt;
-    &lt;h3&gt;"La vostra connexió no és privada", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" o "Error de certificat SSL"&lt;/h3&gt;
+    &lt;h3&gt;"La connexió no és privada", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" o "Error de certificat SSL"&lt;/h3&gt;
     &lt;h4&gt;Pas 1: inicieu la sessió al portal&lt;/h4&gt;
     &lt;p&gt;Les xarxes Wi-Fi de llocs com ara cafeteries o aeroports requereixen que inicieu la sessió. Per veure la pàgina d'inici de sessió, aneu a una pàgina que faci servir &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
     &lt;ol&gt;
@@ -388,7 +388,7 @@
     &lt;li&gt;A la pàgina d'inici de sessió que s'obrirà, inicieu la sessió per utilitzar Internet.&lt;/li&gt;
     &lt;/ol&gt;
     &lt;h4&gt;Pas 2: obriu la pàgina en mode d'incògnit (només a l'ordinador)&lt;/h4&gt;
-    &lt;p&gt;Obriu en una finestra d'incògnit la pàgina que estàveu visitant.&lt;/p&gt;
+    &lt;p&gt;Obriu la pàgina que estàveu visitant en una finestra d'incògnit.&lt;/p&gt;
     &lt;p&gt;Si la pàgina s'obre, significa que alguna extensió de Chrome no funciona bé. Per solucionar l'error, desactiveu l'extensió.&lt;/p&gt;
     &lt;h4&gt;Pas 3: actualitzeu el sistema operatiu&lt;/h4&gt;
     &lt;p&gt;Assegureu-vos que el dispositiu estigui actualitzat.&lt;/p&gt;
@@ -398,7 +398,7 @@
     &lt;p&gt;Recordeu que heu de tornar a activar el programari antivirus quan hàgiu acabat.&lt;/p&gt;
     &lt;h4&gt;Pas 5: obteniu més ajuda&lt;/h4&gt;
     &lt;p&gt;Si encara veieu l'error, contacteu amb el propietari del lloc web.&lt;/p&gt;
-    &lt;h3&gt;"Connecteu-vos a la xarxa"&lt;/h3&gt;
+    &lt;h3&gt;"Connecta't a la xarxa"&lt;/h3&gt;
     &lt;p&gt;Veureu aquest error si utilitzeu un portal Wi-Fi en què cal que inicieu la sessió per connectar-vos a Internet.&lt;/p&gt;
     &lt;p&gt;Per solucionar l'error, feu clic a &lt;strong&gt;Connecta&lt;/strong&gt; a la pàgina que proveu d'obrir.&lt;/p&gt;
     &lt;h3&gt;"El rellotge està endarrerit", "El rellotge està avançat" o "NET::ERR_CERT_DATE_INVALID"&lt;/h3&gt;
@@ -1082,7 +1082,7 @@
 <translation id="9103872766612412690"><ph name="SITE" /> utilitza normalment l'encriptació per protegir la vostra informació. En aquesta ocasió, quan Chromium ha provat de connectar-se a <ph name="SITE" />, el lloc web ha enviat credencials poc comunes i incorrectes. Pot ser que un atacant estigui provant de fer-se passar per <ph name="SITE" /> o que una pantalla d'inici de sessió a la xarxa Wi-Fi hagi interromput la connexió. En qualsevol cas, la vostra informació continua estant segura, perquè Chromium ha aturat la connexió abans no s'intercanviés cap dada.</translation>
 <translation id="9106062320799175032">Afegeix una adreça de facturació</translation>
 <translation id="910908805481542201">Ajuda'm a solucionar-ho</translation>
-<translation id="9128870381267983090">Connecteu-vos a la xarxa</translation>
+<translation id="9128870381267983090">Connecta't a la xarxa</translation>
 <translation id="9137013805542155359">Mostra l'original</translation>
 <translation id="9137248913990643158">Obre Chrome i inicia-hi la sessió abans d'utilitzar aquesta aplicació.</translation>
 <translation id="9148088599418889305">Tria un mètode d'enviament</translation>

@@ -377,9 +377,9 @@
     &lt;ol&gt;
     &lt;li&gt;تحقق من عنوان الويب بحثًا عن الأخطاء الإملائية.&lt;/li&gt;
     &lt;li&gt;تأكد من أن اتصال الإنترنت يعمل بشكل طبيعي.&lt;/li&gt;
-    &lt;li&gt;الاتصال بمالك موقع الويب.&lt;/li&gt;
+    &lt;li&gt;اتّصل بمالك موقع الويب.&lt;/li&gt;
     &lt;/ol&gt;
-    &lt;h2&gt;الحصول على مساعدة بخصوص رسالة خطأ محددة&lt;/h2&gt;
+    &lt;h2&gt;احصل على المساعدة بخصوص رسالة خطأ محددة&lt;/h2&gt;
     &lt;h3&gt;"اتصالك لا يتمتع بالخصوصية" أو "NET::ERR_CERT_AUTHORITY_INVALID" أو "ERR_CERT_COMMON_NAME_INVALID" أو "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" أو "خطأ في شهادة طبقة المقابس الآمنة (SSL)"&lt;/h3&gt;
     &lt;h4&gt;الخطوة 1: تسجيل الدخول إلى البوابة&lt;/h4&gt;
     &lt;p&gt;تتطلب منك شبكات Wi-Fi في أماكن مثل المقاهي أو المطارات تسجيل الدخول. للاطلاع على صفحة تسجيل الدخول، انتقل إلى إحدى الصفحات التي تستخدم&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
@@ -391,7 +391,7 @@
     &lt;p&gt;افتح الصفحة التي كنت تعرضها في نافذة تصفح متخفٍ.&lt;/p&gt;
     &lt;p&gt;في حال فتح إحدى الصفحات، لا تعمل إضافة Chrome بشكلٍ صحيح. ولإصلاح الخطأ، يمكنك إيقاف الإضافة.&lt;/p&gt;
     &lt;h4&gt;الخطوة 3: تحديث نظام التشغيل&lt;/h4&gt;
-    &lt;p&gt;تأكد من تحديث جهازك.&lt;/p&gt;
+    &lt;p&gt;تأكد من تحديث نظام التحديث على جهازك.&lt;/p&gt;
     &lt;h4&gt;الخطوة 4: إيقاف برامج مكافحة الفيروسات مؤقَّتًا&lt;/h4&gt;
     &lt;p&gt;سيظهر لك هذا الخطأ إذا كان لديك برنامج لمكافحة الفيروسات يوفر "حماية HTTPS" أو "فحص HTTPS"، إذ يعمل برنامج مكافحة الفيروسات على منع متصفح Chrome من توفير الأمان.&lt;/p&gt;
     &lt;p&gt;لإصلاح المشكلة، أوقف برنامج مكافحة الفيروسات على جهازك. وفي حال استمرار عمل الصفحة بعد إيقاف البرنامج، يمكنك إيقاف هذا البرنامج عند استخدام مواقع آمنة.&lt;/p&gt;
@@ -406,14 +406,14 @@
     &lt;p&gt;لإصلاح هذا الخطأ، افتح ساعة جهازك، وتأكد من صحة الوقت والتاريخ.&lt;/p&gt;
     &lt;h3&gt;"تعمل البرامج على جهاز الكمبيوتر على منع اتصال Chrome بأمان بالويب" (أجهزة الكمبيوتر المزوّدة بنظام التشغيل Windows فقط)&lt;/h3&gt;
     &lt;p&gt;سيظهر لك هذا الخطأ إذا كان لديك برنامج Superfish على جهاز الكمبيوتر المزوّد بنظام التشغيل Windows.&lt;/p&gt;
-    &lt;p&gt;اتبع هذه الخطوات لإيقاف البرامج مؤقتًا حتى يتسنى لك الوصول إلى الويب. سيلزمك الحصول على امتيازات المشرف.&lt;/p&gt;
+    &lt;p&gt;اتبع هذه الخطوات لإيقاف البرامج مؤقتًا لتتمكّن من الوصول إلى الويب. سيلزمك الحصول على امتيازات المشرف.&lt;/p&gt;
     &lt;ol&gt;
-    &lt;li&gt;انقر على &lt;strong&gt;البدء&lt;/strong&gt;، ثم ابحث عن &lt;strong&gt;"عرض الخدمات المحلّية"&lt;/strong&gt; واختره
-    &lt;li&gt;اختر &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
-    &lt;li&gt;ضمن &lt;strong&gt;نوع التشغيل&lt;/strong&gt;، اختر &lt;strong&gt;متوقف&lt;/strong&gt;
-    &lt;li&gt;ضمن &lt;strong&gt;حالة الخدمة&lt;/strong&gt;، انقر على &lt;strong&gt;إيقاف&lt;/strong&gt;
-    &lt;li&gt;انقر على &lt;strong&gt;تطبيق&lt;/strong&gt;، ثم انقر على &lt;strong&gt;موافق&lt;/strong&gt;
-    &lt;li&gt;تفضَّل بزيارة &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;مركز مساعدة Chrome&lt;/a&gt; للتعرُّف على كيفية إزالة البرامج من جهاز الكمبيوتر نهائيًا
+    &lt;li&gt;انقر على &lt;strong&gt;البدء&lt;/strong&gt;، ثم ابحث عن &lt;strong&gt;"عرض الخدمات المحلّية"&lt;/strong&gt; واختَره.
+    &lt;li&gt;اختَر &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+    &lt;li&gt;ضمن &lt;strong&gt;نوع التشغيل&lt;/strong&gt;، اختَر &lt;strong&gt;متوقف&lt;/strong&gt;.
+    &lt;li&gt;ضمن &lt;strong&gt;حالة الخدمة&lt;/strong&gt;، انقر على &lt;strong&gt;إيقاف&lt;/strong&gt;.
+    &lt;li&gt;انقر على &lt;strong&gt;تطبيق&lt;/strong&gt;، ثم انقر على &lt;strong&gt;موافق&lt;/strong&gt;.
+    &lt;li&gt;تفضَّل بزيارة &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;مركز مساعدة Chrome&lt;/a&gt; للتعرُّف على كيفية إزالة البرامج من جهاز الكمبيوتر نهائيًا.
     &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">أدخِل تاريخ انتهاء صلاحية صحيحًا</translation>
 <translation id="36224234498066874">مسح بيانات التصفح...</translation>

@@ -28,6 +28,7 @@
 <translation id="2181097965834437145">عرض شريط الإشارات أو إخفاؤه</translation>
 <translation id="2185166372312820725">الانتقال إلى علامة التبويب السابقة</translation>
 <translation id="2194790690264064655">اضغط على <ph name="CTRL" /> وانقر على رابط</translation>
+<translation id="2382644247745281995">غير متاح مع التنسيق الحالي للوحة المفاتيح</translation>
 <translation id="2424073332829844142">‏تفعيل مفتاح Caps Lock وإيقافه</translation>
 <translation id="2441202986792279177">التبديل بين النوافذ بسرعة</translation>
 <translation id="2478303094958140141">‏تفعيل ChromeVox (التعليقات والملاحظات المنطوقة) أو إيقافه</translation>
@@ -162,7 +163,7 @@
 <translation id="8990356943438003669"><ph name="ALT" /><ph name="SEPARATOR" /> من 1 إلى 8</translation>
 <translation id="9041599225465145264">لصق المحتوى من الحافظة</translation>
 <translation id="9052808072970550123">التبديل إلى المستخدم التالي</translation>
-<translation id="9106898733795143799">الصفحة ومتصفح الويب</translation>
+<translation id="9106898733795143799">الصفحة ومتصفّح الويب</translation>
 <translation id="9179672198516322668">الاختصارات الشائعة</translation>
 <translation id="93603345341560814">اضغط على <ph name="SHIFT" /> وانقر على الرابط</translation>
 <translation id="945383118875625837">اسحب الرابط إلى شريط الإشارات</translation>

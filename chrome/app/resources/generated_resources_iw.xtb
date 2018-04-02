@@ -1030,7 +1030,7 @@
     והנתונים של המשתמש בפיקוח לא יעברו איתו למכשירים אחרים באמצעות סנכרון Chrome. הגדרת משתמש בפיקוח חלה על מכשיר זה בלבד.</translation>
 <translation id="258932246702879617">בחר באפשרות <ph name="BEGIN_BOLD" />הצמד לשורת המשימות<ph name="END_BOLD" /></translation>
 <translation id="259421303766146093">בטל הגדלה</translation>
-<translation id="2594999711683503743">זה המקום לחפש את מה שמעניין אותך או להקליד כתובת של אתר ספציפי</translation>
+<translation id="2594999711683503743">זה המקום לחפש את מה שמעניין או להקליד כתובת של אתר ספציפי</translation>
 <translation id="2597852038534460976">‏Chrome לא יכול לגשת לטפטים. התחבר לרשת.</translation>
 <translation id="2600115369439982409">קבצים ותוכנות:</translation>
 <translation id="2603115962224169880">ניקוי המחשב</translation>
@@ -3217,7 +3217,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
     <ph name="BEGIN_PARAGRAPH2" />ניתן להפעיל או להשבית את התכונה בכל עת דרך הגדרות האפליקציות ל-Android. הפעלה או השבתה של התכונה לא ישפיעו על היכולת של המכשיר לשלוח את המידע הנדרש כדי לקבל שירותים חיוניים כגון עדכוני מערכת ושירותי אבטחה.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990386583461751448">מתורגם</translation>
 <translation id="5991049340509704927">הגדל</translation>
-<translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{כדי לוודא שאפשר להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציה הזו.}two{כדי לוודא שאפשר להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציות האלה.}many{כדי לוודא שאפשר להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציות האלה.}other{כדי לוודא שאפשר להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציות האלה.}}</translation>
+<translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{כדי שאפשר יהיה להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציה הזו.}two{כדי שאפשר יהיה להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציות האלה.}many{כדי שאפשר יהיה להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציות האלה.}other{כדי שאפשר יהיה להמשיך לגלוש באינטרנט, צריך לבקש ממנהל המערכת להסיר את האפליקציות האלה.}}</translation>
 <translation id="5993332328670040093">השימוש בנתונים כבר לא יימדד.</translation>
 <translation id="600424552813877586">יישום לא חוקי.</translation>
 <translation id="6005695835120147974">נתב מדיה</translation>
@@ -3875,7 +3875,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7040138676081995583">פתח באמצעות...</translation>
 <translation id="7040230719604914234">ספק</translation>
 <translation id="7042418530779813870">הדבק וחפש</translation>
-<translation id="7043108582968290193">סיימת. לא נמצאו עוד אפליקציות שאינן תואמות.</translation>
+<translation id="7043108582968290193">סיימת. לא נמצאו יותר אפליקציות שאינן תואמות.</translation>
 <translation id="7049293980323620022">להשאיר את הקובץ?</translation>
 <translation id="7051943809462976355">מחפש עכבר...</translation>
 <translation id="7052237160939977163">שלח נתוני מעקב אחר ביצועים</translation>
@@ -4796,7 +4796,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8546541260734613940">‎[*.]example.com</translation>
 <translation id="854655314928502177">‏כתובת האתר לגילוי אוטומטי של שרת proxy באינטרנט:</translation>
 <translation id="8546930481464505581">התאם אישית את סרגל המגע</translation>
-<translation id="8547013269961688403">הפעלת מגדיל במסך מלא</translation>
+<translation id="8547013269961688403">הפעלת מגדיל למסך מלא</translation>
 <translation id="85486688517848470">החזק את מקש החיפוש כדי לשנות את ההתנהגות של מקשי השורה העליונה</translation>
 <translation id="855081842937141170">הצמד כרטיסייה</translation>
 <translation id="8551388862522347954">רישיונות</translation>
@@ -4928,7 +4928,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="8737685506611670901">פתיחת קישורי <ph name="PROTOCOL" /> במקום <ph name="REPLACED_HANDLER_TITLE" /></translation>
 <translation id="8737709691285775803">Shill</translation>
 <translation id="8741316211671074806">תמונה בתוך תמונה</translation>
-<translation id="8743390665131937741">רמת זום במסך מלא:</translation>
+<translation id="8743390665131937741">רמת זום למסך מלא:</translation>
 <translation id="8743864605301774756">עודכנה לפני שעה</translation>
 <translation id="874689135111202667">{0,plural, =1{להעלות קובץ אחד אל האתר הזה?}two{להעלות # קבצים אל האתר הזה?}many{להעלות # קבצים אל האתר הזה?}other{להעלות # קבצים אל האתר הזה?}}</translation>
 <translation id="8749863574775030885">‏גש למכשירי USB מספק לא ידוע</translation>

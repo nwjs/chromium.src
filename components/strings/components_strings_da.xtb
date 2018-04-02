@@ -373,7 +373,7 @@
 <translation id="3602137825010714926">&lt;h1&gt;Ret forbindelsesfejl&lt;/h1&gt;
     &lt;p&gt;Hvis der vises en fejlmeddelelse, når du forsøger at besøge et website, kan du prøve disse løsninger.&lt;/p&gt;
     &lt;h2&gt;Ret de fleste forbindelsesfejl&lt;/h2&gt;
-    &lt;p&gt;Hvis du forsøger at besøge et website, som ikke åbnes, kan du starte med at prøve disse fejlfindingstrin:&lt;/p&gt;
+    &lt;p&gt;Hvis du forsøger at gå til et website, som ikke åbnes, kan du starte med at prøve disse fejlfindingstrin:&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Tjek, om der er tastefejl i webadressen.&lt;/li&gt;
     &lt;li&gt;Tjek, at din internetforbindelse fungerer normalt.&lt;/li&gt;
@@ -384,7 +384,7 @@
     &lt;h4&gt;Trin 1: Log ind på portalen&lt;/h4&gt;
     &lt;p&gt;Wi-Fi-netværk på steder som f.eks. caféer eller lufthavne kræver login. Du kan se loginsiden ved at gå til en side, der anvender&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
     &lt;ol&gt;
-    &lt;li&gt;Gå til et website, der starter med &lt;code&gt;http://&lt;/code&gt;, f.eks. &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
+    &lt;li&gt;Gå til et website, der starter med &lt;code&gt;http://&lt;/code&gt;, f.eks. &lt;a&gt; href="http://eksempel.dk" target="_blank"&gt;http://eksempel.dk&lt;/a&gt;.&lt;/li&gt;
     &lt;li&gt;Log ind på den loginside, der åbnes, for at få adgang til internettet.&lt;/li&gt;
     &lt;/ol&gt;
     &lt;h4&gt;Trin 2: Åbn siden i inkognitotilstand (kun på computere)&lt;/h4&gt;
@@ -394,7 +394,7 @@
     &lt;p&gt;Tjek, at din enhed er opdateret.&lt;/p&gt;
     &lt;h4&gt;Trin 4: Deaktiver din antivirussoftware midlertidigt&lt;/h4&gt;
     &lt;p&gt;Denne fejlmeddelelse vises, hvis du har installeret antivirussoftware, der leverer "HTTPS-beskyttelse" eller "HTTPS-scanning". Antivirussoftwaren forhindrer Chrome i at beskytte enheden.&lt;/p&gt;
-    &lt;p&gt;Løs problemet ved at deaktivere din antivirussoftware. Hvis siden fungerer, efter du har deaktiveret softwaren, skal du deaktivere denne software for at kunne bruge sikre websites.&lt;/p&gt;
+    &lt;p&gt;Løs problemet ved at deaktivere din antivirussoftware. Hvis siden fungerer, efter du har deaktiveret softwaren, skal du deaktivere denne software, når du bruger sikre websites.&lt;/p&gt;
     &lt;p&gt;Husk at aktivere antivirusprogrammet igen, når du er færdig.&lt;/p&gt;
     &lt;h4&gt;Trin 5: Få yderligere hjælp&lt;/h4&gt;
     &lt;p&gt;Hvis fejlen stadig vises, bør du kontakte ejeren af websitet.&lt;/p&gt;
@@ -408,12 +408,12 @@
     &lt;p&gt;Denne fejlmeddelelse vises, hvis du har installeret Superfish-software på din Windows-computer.&lt;/p&gt;
     &lt;p&gt;Følg denne vejledning for at deaktivere softwaren midlertidigt, så du kan komme på nettet. Du skal have administratorrettigheder.&lt;/p&gt;
     &lt;ol&gt;
-    &lt;li&gt;Klik på &lt;strong&gt;Start&lt;/strong&gt;, og søg efter og vælg &lt;strong&gt;"Vis lokale tjenester"&lt;/strong&gt;
-    &lt;li&gt;Vælg &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
-    &lt;li&gt;Vælg &lt;strong&gt;Deaktiveret&lt;/strong&gt; under &lt;strong&gt;Starttype&lt;/strong&gt;
-    &lt;li&gt;Klik på &lt;strong&gt;Stop&lt;/strong&gt; under &lt;strong&gt;Tjenestestatus&lt;/strong&gt;
-    &lt;li&gt;Klik på &lt;strong&gt;Anvend&lt;/strong&gt; og derefter på &lt;strong&gt;OK&lt;/strong&gt;
-    &lt;li&gt;Gå til &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Hjælp til Chrome&lt;/a&gt; for at få flere oplysninger om, hvordan du permanent fjerner softwaren fra din computer
+    &lt;li&gt;Klik på &lt;strong&gt;Start&lt;/strong&gt;, og søg efter og vælg &lt;strong&gt;"Vis lokale tjenester"&lt;/strong&gt;&lt;/li&gt;
+    &lt;li&gt;Vælg &lt;strong&gt;VisualDiscovery&lt;/strong&gt;&lt;/li&gt;
+    &lt;li&gt;Vælg &lt;strong&gt;Deaktiveret&lt;/strong&gt; under &lt;strong&gt;Starttype&lt;/strong&gt;&lt;/li&gt;
+    &lt;li&gt;Klik på &lt;strong&gt;Stop&lt;/strong&gt; under &lt;strong&gt;Tjenestestatus&lt;/strong&gt;&lt;/li&gt;
+    &lt;li&gt;Klik på &lt;strong&gt;Anvend&lt;/strong&gt; og derefter på &lt;strong&gt;OK&lt;/strong&gt;&lt;/li&gt;
+    &lt;li&gt;Gå til &lt;a&gt; href="https://support.google.com/chrome/answer/6098869"&gt;Hjælp til Chrome&lt;/a&gt; for at få flere oplysninger om, hvordan du permanent fjerner softwaren fra din computer&lt;/li&gt;
     &lt;/ol&gt;</translation>
 <translation id="3615877443314183785">Angiv en gyldig udløbsdato</translation>
 <translation id="36224234498066874">Ryd browserdata...</translation>

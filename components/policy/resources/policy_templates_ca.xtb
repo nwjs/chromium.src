@@ -435,9 +435,9 @@
 <translation id="2415979855753196119">Permet controlar si s'activa el marcatge de la protecció de contrasenyes als comptes en perill, és a dir, si s'informa Google que el compte corre el risc que el pirategin.
 
       Si aquesta política s'estableix en "PasswordProtectionRiskOff", no s'activarà el marcatge de la protecció de contrasenyes als comptes en perill.
-      Si aquesta política s'estableix en "PasswordProtectionRiskOnPasswordReuse", el marcatge de la protecció de contrasenyes als comptes en perill s'activarà quan l'usuari utilitzi la contrasenya de Google en un lloc web que no estigui inclòs a la llista blanca.
-      Si aquesta política s'estableix en "PasswordProtectionRiskOnPhishingReuse", el marcatge de la protecció de contrasenyes als comptes en perill s'activarà quan l'usuari utilitzi la contrasenya de Google en un lloc web de pesca.
-      Si aquesta política es deixa sense establir, el marcatge de la protecció de contrasenyes als comptes en perill s'activarà quan l'usuari utilitzi la contrasenya de Google en un lloc web de pesca, però l'usuari podrà canviar-ho.</translation>
+      Si aquesta política s'estableix en "PasswordProtectionRiskOnPasswordReuse", el marcatge de la protecció de contrasenyes als comptes en perill s'activarà quan l'usuari reutilitzi la contrasenya de Google en un lloc web que no estigui inclòs a la llista blanca.
+      Si aquesta política s'estableix en "PasswordProtectionRiskOnPhishingReuse", el marcatge de la protecció de contrasenyes als comptes en perill s'activarà quan l'usuari reutilitzi la contrasenya de Google en un lloc web de pesca.
+      Si aquesta política es deixa sense establir, el marcatge de la protecció de contrasenyes als comptes en perill s'activarà quan l'usuari reutilitzi la contrasenya de Google en un lloc web de pesca, però l'usuari podrà canviar-ho.</translation>
 <translation id="2418507228189425036">Desactiva l'emmagatzematge de l'historial del navegador a <ph name="PRODUCT_NAME" /> i impedeix que els usuaris canviïn aquesta opció.
 
       Si aquesta opció s'activa, l'historial de navegació no es desa (i també es desactiva la sincronització de pestanyes).

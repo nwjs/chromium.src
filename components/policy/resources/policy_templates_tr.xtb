@@ -703,7 +703,7 @@
 <translation id="2987227569419001736">Web Bluetooth API'sının kullanımını kontrol et</translation>
 <translation id="2998886474614739865">
       NOT: Bu politika deneme niteliğinde olup işleyişi bozabilir!
-      Bu politika, oturum açma ekranı için geçerlidir. Lütfen ayrıca kullanıcı oturumu için geçerli olan <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse, kullanıcı politikası tarafından belirtilen değer uygulanırken kullanıcı oturuma girmesi gecikebilir.
+      Bu politika, oturum açma ekranı için geçerlidir. Lütfen ayrıca kullanıcı oturumu için geçerli olan <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse, kullanıcı politikası tarafından belirtilen değer uygulanırken kullanıcı oturumuna girişte bir gecikme olabilir.
       Bu politikanın etkinleştirilmesi halinde, virgülle ayrılmış listede ad verilmiş her kaynak kendi işleminde çalışır. Bu politika ayrıca alt alan adlarıyla adlandırılan kaynakları da izole eder; örneğin, https://example.com/ adresinin belirtilmesi, https://example.com/ sitesinin bir parçası olarak https://foo.example.com/ sitesinin de izole edilmesine neden olur.
       Bu politikanın devre dışı bırakılması halinde Site Bazlı İzolasyon işlem yönetimi mantığı etkin olur.
       Bu politikanın yapılandırılmaması halinde oturum açma ekranı için platformun varsayılan site izolasyonu ayarları kullanılır.
@@ -818,7 +818,7 @@
 <translation id="3381968327636295719">Varsayılan olarak ana makine tarayıcısını kullan</translation>
 <translation id="3386001018488754001">
       NOT: Bu politika deneme niteliğinde olup işleyişi bozabilir!
-      Bu politika, oturum açma ekranı için geçerlidir. Lütfen ayrıca kullanıcı oturumu için geçerli olan <ph name="SITE_PER_PROCESS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse, kullanıcı politikası tarafından belirtilen değer uygulanırken kullanıcı oturuma girmesi gecikebilir.
+      Bu politika, oturum açma ekranı için geçerlidir. Lütfen ayrıca kullanıcı oturumu için geçerli olan <ph name="SITE_PER_PROCESS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse, kullanıcı politikası tarafından belirtilen değer uygulanırken kullanıcı oturumuna girişte bir gecikme olabilir.
       Hem izolasyondan hem de kullanıcılar için sınırlı etkiden en iyi şekilde yararlanmak üzere IsolateOrigins politika ayarına bakmak isteyebilirsiniz. Bunun için, izole etmek istediğiniz sitelerin listesiyle IsolateOrigins'i kullanabilirsiniz. Bu ayar (SitePerProcess) tüm siteleri izole eder.
       Bu politikanın etkinleştirilmesi halinde her site kendi işleminde çalışır.
       Bu politikanın devre dışı bırakılması halinde Site Bazlı İzolasyon işlem yönetimi mantığı etkin olur.

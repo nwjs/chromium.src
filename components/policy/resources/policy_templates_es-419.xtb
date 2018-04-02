@@ -65,8 +65,8 @@
       sitios designados a partir de subdominios; p. ej., si se especifica
       https://ejemplo.com/, también se aislará https://foo.ejemplo.com/ como parte
       del sitio https://ejemplo.com/.
-      Si se inhabilita la política, se aplicará la lógica de administración del proceso previo de aislamiento por sitio.
-      Si esta política no se configura, el usuario podrá cambiar esta configuración.
+      Si se inhabilita la política, se aplicará la lógica de administración de procesos de aislamiento por sitio.
+      Si no se configura esta política, el usuario podrá cambiar esta configuración.
       En <ph name="PRODUCT_OS_NAME" />, se recomienda también configurar la política de dispositivo <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> con el mismo valor. Si los valores de ambas políticas no coinciden, es posible que se produzca un retraso al ingresar una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
       </translation>
 <translation id="1198465924256827162">Frecuencia de envío de cargas de estado del dispositivo, en milisegundos.
@@ -258,7 +258,7 @@
       El formato del valor sigue los nombres de las zonas horarias en la "Base de datos de zonas horarias de la IANA" (consulta "https://en.wikipedia.org/wiki/Tz_database"). De forma específica, la mayoría de las zonas horarias pueden referirse como "continente/ciudad importante" u "océano/ciudad importante".
 
       Si estableces esta política, se inhabilita por completo la configuración de la zona horaria según la ubicación del dispositivo. También anula la política SystemTimezoneAutomaticDetection.</translation>
-<translation id="1888871729456797026">El token de inscripción de la política de nube en la computadora de escritorio</translation>
+<translation id="1888871729456797026">El token de inscripción de la política de nube en computadoras de escritorio</translation>
 <translation id="1897365952389968758">Permitir que todos los sitios ejecuten JavaScript</translation>
 <translation id="1906888171268104594">Controla el envío de informes de errores, métricas de uso y datos de diagnóstico a Google.
 
@@ -266,7 +266,7 @@
 
       Si el valor se establece como falso, se inhabilitará el envío de datos de diagnóstico y métricas.
 
-      Si esta política no se configura, el envío de datos de diagnóstico y métricas se inhabilitará en los dispositivos no administrados y se inhabilitará en los dispositivos administrados.</translation>
+      Si esta política no se configura, el envío de datos de diagnóstico y métricas se inhabilitará en los dispositivos no administrados y se habilitará en los dispositivos administrados.</translation>
 <translation id="1911099080312850139">Configura la URL de cambio de contraseña (solo esquemas HTTP y HTTPS). El servicio de protección de contraseñas enviará a los usuarios a esta URL para que cambien sus contraseñas en el caso de que hayan sufrido un ataque de suplantación de identidad (phishing).
       Solo los usuarios de GSuite con un sistema de SSO/SAML deben usar esta configuración.
 
@@ -434,10 +434,10 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="2411919772666155530">Bloquear notificaciones en estos sitios</translation>
 <translation id="2415979855753196119">Permite controlar la forma en la que un servicio de protección de contraseñas indica que la cuenta del usuario está en riesgo, es decir, informa a Google cuando la cuenta corre riesgo de ser vulnerada.
 
-      Si esta política se establece como "PasswordProtectionRiskOff", no se activa la marca de la protección de la contraseña que indica que la cuenta está en riesgo.
-      Si se establece como "PasswordProtectionRiskOnPasswordReuse", se activa dicha marca cuando el usuario vuelve a usar las contraseñas de Google en sitios que no están incluidos en la lista blanca.
-      Si se establece como "PasswordProtectionRiskOnPhishingReuse", se activa la marca cuando el usuario vuelve a usar las contraseñas de Google en sitios de suplantación de identidad (phishing).
-      Si no se establece, se activa la marca cuando el usuario vuelve a usar las contraseñas de Google en sitios de suplantación de identidad (phishing); pero el usuario puede cambiar la configuración.</translation>
+      Si esta política se establece como "PasswordProtectionRiskOff", no se activará la marca de protección de contraseña que indica que la cuenta está en riesgo.
+      Si se establece como "PasswordProtectionRiskOnPasswordReuse", se activará la marca cuando el usuario vuelva a usar las contraseñas de Google en sitios que no están incluidos en la lista blanca.
+      Si se establece como "PasswordProtectionRiskOnPhishingReuse", se activará la marca cuando el usuario vuelva a usar las contraseñas de Google en sitios de suplantación de identidad (phishing).
+      Si no se establece, se activará la marca cuando el usuario vuelva a usar las contraseñas de Google en sitios de suplantación de identidad (phishing); pero el usuario puede cambiar la configuración.</translation>
 <translation id="2418507228189425036">Inhabilita el almacenamiento del historial de búsqueda en <ph name="PRODUCT_NAME" /> e impide que los usuarios cambien esta configuración.
 
       Si esta configuración se habilita, el historial de navegación no se guarda. También se inhabilita la sincronización de pestañas.
@@ -673,7 +673,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="2998886474614739865">
       NOTA: Esta política es experimental y puede provocar fallos.
       Esta política se aplica a la pantalla de acceso. Consulta también la política <ph name="ISOLATE_ORIGINS_POLICY_NAME" />, que se aplica a la sesión de usuario. Se recomienda establecer ambas políticas en el mismo valor. Si los valores no coinciden, es posible que se produzca un retraso al ingresar una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
-      Si se habilita la política, cada origen designado en una lista separada por
+      Si se habilita la política, cada origen designado en una lista de elementos separados por
       comas se ejecutará en su propio proceso. Esta acción también aislará
       los orígenes designados a partir de subdominios; p. ej., al especificar
       https://ejemplo.com/, también se aislará https://foo.ejemplo.com/ como parte
@@ -1957,10 +1957,10 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
 <translation id="7074513465313721551">Configura la lista de dominios en los que confiará Navegación segura. Esto significa lo siguiente:
       Navegación segura no revisará recursos peligrosos (p. ej., suplantación de identidad, software malicioso o software no deseado) si las URL coinciden con estos dominios.
       El servicio de protección de descargas de Navegación segura no comprobará las descargas alojadas en estos dominios.
-      El servicio de protección de contraseñas de Navegación segura no comprobará si se vuelve a usar la contraseña cuando la URL de la página coincide con estos dominios.
+      El servicio de protección de contraseñas de Navegación segura no comprobará si se está reutilizando la contraseña cuando la URL de la página coincida con estos dominios.
 
       Si se habilita esta configuración, Navegación segura confiará en estos dominios.
-      Si se inhabilita o no se establece, la protección de Navegación segura se aplica a todos los recursos.
+      Si se inhabilita o no se establece, la protección de Navegación segura se aplicará a todos los recursos.
       Esta política no está disponible en instancias de Windows que no estén unidas a un dominio de <ph name="MS_AD_NAME" />.</translation>
 <translation id="7079519252486108041">Bloquear ventanas emergentes en estos sitios</translation>
 <translation id="7106631983877564505">Habilitar el bloqueo cuando los dispositivos <ph name="PRODUCT_OS_NAME" /> están inactivos o suspendidos

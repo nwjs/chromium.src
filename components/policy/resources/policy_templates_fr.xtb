@@ -267,7 +267,7 @@ Si ce paramètre n'est pas défini, les utilisateurs peuvent ouvrir normalement 
       Le format de la valeur correspond aux noms des fuseaux horaires de la "IANA Time Zone Database" (voir la page https://en.wikipedia.org/wiki/Tz_database). La plupart des fuseaux horaires se présentent sous la forme "continent/grande_ville" ou "océan/grande_ville".
 
       Si cette règle est définie, la mise à jour automatique du fuseau horaire selon la position de l'appareil est désactivée et la règle SystemTimezoneAutomaticDetection est également ignorée.</translation>
-<translation id="1888871729456797026">Le jeton d'enregistrement des règles relatives au cloud sur ordinateur</translation>
+<translation id="1888871729456797026">Jeton d'enregistrement des règles relatives au cloud sur ordinateur</translation>
 <translation id="1897365952389968758">Autoriser tous les sites à exécuter JavaScript</translation>
 <translation id="1906888171268104594">Détermine si les statistiques d'utilisation et les données de diagnostic, telles que des rapports d'erreurs, doivent être envoyées à Google.
 
@@ -280,7 +280,7 @@ Si ce paramètre n'est pas défini, les utilisateurs peuvent ouvrir normalement 
       Seuls les utilisateurs de GSuite disposant d'un système SSO/SAML peuvent se servir de ce paramètre.
 
       Si ce paramètre est activé, le service de protection par mot de passe redirigera les utilisateurs vers cette URL afin qu'ils modifient leur mot de passe s'ils ont été victimes d'une attaque d'hameçonnage.
-      Si ce paramètre est désactivé ou n'est pas configuré, le service de protection par mot de passe redirigera les utilisateurs vers la page https://myaccounts.google.com afin qu'ils modifient leur mot de passe.
+      Si ce paramètre est désactivé ou n'est pas configuré, le service redirigera les utilisateurs vers la page https://myaccounts.google.com afin qu'ils modifient leur mot de passe.
       Cette règle n'est pas disponible sur les instances de Windows qui ne sont pas associées à un domaine <ph name="MS_AD_NAME" />.</translation>
 <translation id="193259052151668190">Liste blanche d'appareils USB amovibles</translation>
 <translation id="1933378685401357864">Image de fond d'écran</translation>
@@ -461,12 +461,12 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
 <translation id="2386362615870139244">Autoriser les WakeLock forçant l'activation de l'écran</translation>
 <translation id="2411817661175306360">L'avertissement relatif à la protection par mot de passe est désactivé</translation>
 <translation id="2411919772666155530">Bloquer les notifications sur ces sites</translation>
-<translation id="2415979855753196119">Vous permet de contrôler le déclenchement du signalement de compte à risque au niveau de la protection par mot de passe. Ce type de signalement permet d'informer Google que le compte concerné risque d'être piraté.
+<translation id="2415979855753196119">Vous permet de définir les conditions de signalement d'un compte dont la protection par mot de passe est en danger. Ce type de signalement permet d'informer Google que le compte concerné risque d'être piraté.
 
-      Si cette règle est définie sur "PasswordProtectionRiskOff", aucun signalement de compte à risque au niveau de la protection par mot de passe n'est déclenché.
-      Si elle est définie sur "PasswordProtectionRiskOnPasswordReuse", les comptes à risque au niveau de la protection par mot de passe sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites qui ne figurent pas dans la liste blanche.
-      Si cette règle est définie sur "PasswordProtectionRiskOnPhishingReuse", les comptes à risque au niveau de la protection par mot de passe sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites d'hameçonnage.
-      Si cette règle n'est pas configurée, les comptes à risque au niveau de la protection par mot de passe sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites d'hameçonnage, mais les utilisateurs peuvent modifier ce paramètre.</translation>
+      Si cette règle est définie sur "PasswordProtectionRiskOff", aucun signalement n'est déclenché.
+      Si elle est définie sur "PasswordProtectionRiskOnPasswordReuse", les comptes dont la protection par mot de passe est en péril sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites qui ne figurent pas sur la liste blanche.
+      Si elle est définie sur "PasswordProtectionRiskOnPhishingReuse", les comptes à risque sont signalés lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites d'hameçonnage.
+      Il en va de même lorsque la règle n'est pas configurée, excepté que les utilisateurs peuvent modifier ce paramètre.</translation>
 <translation id="2418507228189425036">Désactive l'enregistrement de l'historique du navigateur dans <ph name="PRODUCT_NAME" /> et empêche les utilisateurs de modifier ce paramètre.
 
       Si ce paramètre est activé, l'historique de navigation n'est pas enregistré. Il désactive également la synchronisation des onglets.
@@ -671,10 +671,10 @@ Si cette règle est définie sur "False", les utilisateurs ne pourront pas jouer
 <translation id="2867699958489427143">Rétablissez et conservez la version cible si elle est antérieure à la version de l'OS. Effectuez un Powerwash complet pendant le processus.</translation>
 <translation id="286802604195763750">Vous permet de contrôler le déclenchement de l'avertissement relatif à la protection par mot de passe. La protection par mot de passe affiche une alerte lorsque les utilisateurs réutilisent leur mot de passe protégé sur des sites potentiellement suspects.
 
-      Si cette règle est définie sur "PasswordProtectionWarningOff", aucun avertissement relatif à la protection par mot de passe ne s'affiche.
-      Si elle est définie sur "PasswordProtectionWarningOnPasswordReuse", l'avertissement relatif à la protection par mot de passe s'affiche lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites qui ne figurent pas dans la liste blanche.
-      Si cette règle est définie sur "PasswordProtectionWarningOnPhishingReuse", l'avertissement relatif à la protection par mot de passe s'affiche lorsqu'ils les réutilisent sur des sites d'hameçonnage.
-      Si cette règle n'est pas configurée, l'avertissement relatif à la protection par mot de passe s'affiche lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites d'hameçonnage, mais les utilisateurs peuvent modifier ce paramètre.</translation>
+      Si cette règle est définie sur "PasswordProtectionWarningOff", aucun avertissement ne s'affiche.
+      Si elle est définie sur "PasswordProtectionWarningOnPasswordReuse", l'avertissement s'affiche lorsque les utilisateurs réutilisent leurs mots de passe Google sur des sites qui ne figurent pas sur la liste blanche.
+      Si elle est définie sur "PasswordProtectionWarningOnPhishingReuse", il s'affiche lorsqu'ils les réutilisent sur des sites d'hameçonnage.
+      Il en va de même lorsque la règle n'est pas configurée, excepté que les utilisateurs peuvent modifier ce paramètre.</translation>
 <translation id="2872961005593481000">Éteindre</translation>
 <translation id="2874209944580848064">Remarque concernant les appareils <ph name="PRODUCT_OS_NAME" /> compatibles avec les applications Android :</translation>
 <translation id="2877225735001246144">Désactiver la consultation CNAME lors de la négociation de l'authentification Kerberos</translation>

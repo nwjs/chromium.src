@@ -88,7 +88,7 @@
 <translation id="1709438864123551175">流量节省程序</translation>
 <translation id="1718835860248848330">过去一小时</translation>
 <translation id="1729516292547892356">要查看虚拟实境内容，请更新 Google VR 服务</translation>
-<translation id="1733116627827457509"><ph name="FILE_SIZE" /> - 在 <ph name="TIME_SINCE_UPDATE" />进行了更新</translation>
+<translation id="1733116627827457509"><ph name="FILE_SIZE" /> - 更新时间：<ph name="TIME_SINCE_UPDATE" /></translation>
 <translation id="1749561566933687563">同步您的书签</translation>
 <translation id="17513872634828108">目前打开的标签页</translation>
 <translation id="1756600373018374892">点按此按钮即可快速访问您的标签页。</translation>

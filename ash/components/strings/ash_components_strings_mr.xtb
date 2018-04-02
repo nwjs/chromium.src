@@ -28,6 +28,7 @@
 <translation id="2181097965834437145">बुकमार्क बार दाखवा किंवा लपवा</translation>
 <translation id="2185166372312820725">आधीच्या टॅबवर जा</translation>
 <translation id="2194790690264064655"><ph name="CTRL" /> दाबा आणि एखाद्या लिंकवर क्लिक करा</translation>
+<translation id="2382644247745281995">सद्य कीबोर्ड लेआउटने सपोर्ट करत नाही</translation>
 <translation id="2424073332829844142">कॅप्स लॉक चालू करा आणि बंद करा</translation>
 <translation id="2441202986792279177">विंडोंदरम्यान झटपट स्विच करा</translation>
 <translation id="2478303094958140141">ChromeVox (वाचिक फीडबॅक) चालू किंवा बंद करा</translation>
@@ -75,7 +76,7 @@
 <translation id="4141203561740478845">पंक्ती अ‍ॅड्रेस बारने हायलाइट करा</translation>
 <translation id="4148761611071495477"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="G" /> किंवा <ph name="ENTER" /></translation>
 <translation id="4240486403425279990">अवलोकन मोड</translation>
-<translation id="4472417192667361414">सिस्टम आणि प्रदर्शन सेटिंग्ज</translation>
+<translation id="4472417192667361414">सिस्टम आणि डिस्प्ले सेटिंग्ज</translation>
 <translation id="4556221320735744018">कीबोर्ड शॉर्टकट मदतनीस पाहा</translation>
 <translation id="4628718545549558538">स्थिती क्षेत्र (जेथे तुमच्या खात्यावरील फोटो दिसतो) उघडा</translation>
 <translation id="4642092649622328492">अर्धा स्क्रीनशॉट घ्या</translation>
@@ -162,7 +163,7 @@
 <translation id="8990356943438003669"><ph name="ALT" /><ph name="SEPARATOR" /> १ ते ८</translation>
 <translation id="9041599225465145264">क्लिपबोर्डवरून आशय पेस्ट करा</translation>
 <translation id="9052808072970550123">पुढील वापरकर्त्यावर स्विच करा</translation>
-<translation id="9106898733795143799">पृष्ठ आणि वेब ब्राउझर</translation>
+<translation id="9106898733795143799">पेज आणि वेब ब्राउझर</translation>
 <translation id="9179672198516322668">लोकप्रिय शॉर्टकट</translation>
 <translation id="93603345341560814"><ph name="SHIFT" /> दाबा आणि लिंकवर क्लिक करा</translation>
 <translation id="945383118875625837">लिंक बुकमार्क बारवर ड्रॅग करा</translation>

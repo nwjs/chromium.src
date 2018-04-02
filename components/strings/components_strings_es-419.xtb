@@ -383,10 +383,10 @@
     &lt;h2&gt;Obtener ayuda con un mensaje de error específico&lt;/h2&gt;
     &lt;h3&gt;"La conexión no es privada", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" o "Se produjo un error en el certificado SSL"&lt;/h3&gt;
     &lt;h4&gt;Paso 1: Accede al portal&lt;/h4&gt;
-    &lt;p&gt;Debes acceder en las redes Wi-Fi de lugares como bares o aeropuertos. Para ver la página de acceso, visita una página con &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
+    &lt;p&gt;Para acceder a las redes Wi‑Fi de sitios como cafeterías o aeropuertos, tienes que iniciar sesión. Para ver la página de acceso, visita una página que comience con &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Visita cualquier sitio web que comience con &lt;code&gt;http://&lt;/code&gt;, como &lt;a href="http://example.com" target="_blank"&gt;http://ejemplo.com&lt;/a&gt;.&lt;/li&gt;
-    &lt;li&gt;En la página de acceso que se abre, accede para usar Internet.&lt;/li&gt;
+    &lt;li&gt;En la página de acceso que se abre, inicia sesión para usar Internet.&lt;/li&gt;
     &lt;/ol&gt;
     &lt;h4&gt;Paso 2: Abre la página en el modo de navegación incógnito (solo en computadoras)&lt;/h4&gt;
     &lt;p&gt;Abre la página que visitaste en una ventana de incógnito.&lt;/p&gt;
@@ -407,7 +407,7 @@
     &lt;p&gt;Para solucionar el error, abre el reloj del dispositivo y asegúrate de que la fecha y hora sean correctas.&lt;/p&gt;
     &lt;h3&gt;"Un software en tu computadora evita que Chrome se conecte de forma segura a la Web" (solo en computadoras con Windows)&lt;/h3&gt;
     &lt;p&gt;Se muestra este error si tienes el software Superfish en tu computadora con Windows.&lt;/p&gt;
-    &lt;p&gt;Realiza estos pasos para inhabilitar el software de forma temporal, para que puedas acceder a la Web. Necesitarás privilegios de administrador.&lt;/p&gt;
+    &lt;p&gt;Realiza estos pasos para inhabilitar el software de forma temporal para que puedas acceder a la Web. Necesitarás privilegios de administrador.&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Haz clic en &lt;strong&gt;Inicio&lt;/strong&gt;; luego, busca &lt;strong&gt;"Ver servicios locales" y selecciónalo&lt;/strong&gt;
     &lt;li&gt;Selecciona &lt;strong&gt;VisualDiscovery&lt;/strong&gt;

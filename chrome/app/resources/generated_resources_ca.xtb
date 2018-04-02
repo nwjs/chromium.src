@@ -1240,7 +1240,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2867768963760577682">Obre com a pestanya fixada</translation>
 <translation id="2868746137289129307">Aquesta extensió no està actualitzada i està desactivada per a la política d'empresa. És possible que s'activi de manera automàtica quan estigui disponible una versió nova.</translation>
 <translation id="2870560284913253234">Lloc</translation>
-<translation id="2870909136778269686">S'està actualitzant...</translation>
+<translation id="2870909136778269686">S'estan actualitzant...</translation>
 <translation id="2871813825302180988">Aquest compte ja s'utilitza en aquest dispositiu.</translation>
 <translation id="2872353916818027657">Canvia el monitor principal</translation>
 <translation id="287286579981869940">Afegeix <ph name="PROVIDER_NAME" />...</translation>
@@ -2404,7 +2404,7 @@ Per obtenir més informació sobre els usuaris supervisats, consulteu el <ph nam
 <translation id="473775607612524610">Actualitza</translation>
 <translation id="474217410105706308">Silenciar la pestanya</translation>
 <translation id="4742746985488890273">Fixa al prestatge</translation>
-<translation id="4743260470722568160"><ph name="BEGIN_LINK" />Informació sobre com s'actualitzen les aplicacions<ph name="END_LINK" /></translation>
+<translation id="4743260470722568160"><ph name="BEGIN_LINK" />Obtén informació sobre com s'actualitzen les aplicacions<ph name="END_LINK" /></translation>
 <translation id="4744574733485822359">S'ha completat la baixada</translation>
 <translation id="4746971725921104503">Sembla que ja gestioneu un usuari amb aquest nom. Volíeu <ph name="LINK_START" />importar <ph name="USER_DISPLAY_NAME" /> a aquest dispositiu<ph name="LINK_END" />?</translation>
 <translation id="4748762018725435655">Requereix una extensió de Chrome Web Store</translation>
@@ -5167,7 +5167,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="9124003689441359348">Les contrasenyes desades es mostraran aquí</translation>
 <translation id="912419004897138677">Còdec</translation>
 <translation id="9125466540846359910"><ph name="LICENSE_TYPE" /> (restants: <ph name="LICENSE_COUNT" />)</translation>
-<translation id="9128870381267983090">Connecteu-vos a la xarxa</translation>
+<translation id="9128870381267983090">Connecta't a la xarxa</translation>
 <translation id="9130015405878219958">Heu introduït un mode no vàlid.</translation>
 <translation id="9130775360844693113">Els membres de la unitat <ph name="DESTINATION_NAME" />, obtindran accés a aquets elements.</translation>
 <translation id="9131487537093447019">Enviar missatges a dispositius Bluetooth i rebre'n</translation>

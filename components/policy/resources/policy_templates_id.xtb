@@ -680,7 +680,7 @@
 <translation id="2987155890997901449">Aktifkan ARC</translation>
 <translation id="2987227569419001736">Mengontrol penggunaan API Bluetooth Web</translation>
 <translation id="2998886474614739865">
-      CATATAN: Kebijakan ini merupakan eksperimental dan mungkin mengganggu fungsi!
+      CATATAN: Kebijakan ini bersifat eksperimental dan mungkin mengganggu fungsi!
       Kebijakan ini berlaku untuk layar login. Harap lihat juga kebijakan <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> yang berlaku untuk sesi pengguna. Sebaiknya setel kedua kebijakan ini dengan nilai yang sama. Jika nilainya tidak sama, dapat menimbulkan penundaan saat memasukkan sesi pengguna ketika nilai yang ditentukan oleh kebijakan pengguna sedang diterapkan.
       Jika kebijakan ini diaktifkan, setiap asal yang diberi nama di daftar
       yang dipisahkan koma akan dijalankan dalam prosesnya masing-masing. Tindakan ini juga akan mengisolasi
@@ -1399,7 +1399,7 @@
       Jika kebijakan tidak disetel, atau jika disetel menjadi string kosong maupun rentang port yang tidak valid, WebRTC diizinkan untuk menggunakan port UDP lokal mana pun yang tersedia.</translation>
 <translation id="5290940294294002042">Tentukan daftar plugin yang dapat diaktifkan atau dinonaktifkan pengguna</translation>
 <translation id="5301787427319106606">
-      CATATAN: Kebijakan ini bersifat eksperimental dan mungkin menganggu fungsi!
+      CATATAN: Kebijakan ini bersifat eksperimental dan mungkin mengganggu fungsi!
       Sebaiknya lihat setelan kebijakan IsolateOrigins untuk mendapatkan
       yang terbaik dari keduanya, isolasi dan dampak terbatas bagi pengguna, dengan menggunakan
       IsolateOrigins yang berisi daftar situs yang ingin diisolasi. Setelan ini,
@@ -1965,13 +1965,13 @@
 <translation id="706669471845501145">Izinkan situs menampilkan pemberitahuan desktop</translation>
 <translation id="7072208053150563108">Tingkat perubahan sandi mesin</translation>
 <translation id="7072406291414141328">Mengaktifkan pembatasan bandwidth jaringan</translation>
-<translation id="7074513465313721551">Mengonfigurasi daftar domain yang akan dipercaya Penelusuran Aman. Hal ini berarti:
-      Penelusuran Aman tidak akan memeriksa resources berbahaya (misalnya, phishing, malware, atau software yang tidak diinginkan) jika URL cocok dengan domain ini.
-      Layanan perlindungan download Penelusuran Aman tidak akan memeriksa download yang dihosting di domain ini.
-      Layanan perlindungan sandi Penelusuran Aman tidak akan memeriksa penggunaan kembali sandi jika URL halaman cocok dengan domain ini.
+<translation id="7074513465313721551">Mengonfigurasi daftar domain yang akan dipercaya Safe Browsing. Hal ini berarti:
+      Safe Browsing tidak akan memeriksa resources berbahaya (misalnya, phishing, malware, atau software yang tidak diinginkan) jika URL cocok dengan domain ini.
+      Layanan perlindungan download Safe Browsing tidak akan memeriksa download yang dihosting di domain ini.
+      Layanan perlindungan sandi Safe Browsing tidak akan memeriksa penggunaan kembali sandi jika URL halaman cocok dengan domain ini.
 
-      Jika setelan ini diaktifkan, Penelusuran Aman akan memercayai domain ini.
-      Jika setelan ini dinonaktifkan atau tidak disetel, perlindungan Penelusuran Aman berlaku untuk semua resource.
+      Jika setelan ini diaktifkan, Safe Browsing akan memercayai domain ini.
+      Jika setelan ini dinonaktifkan atau tidak disetel, perlindungan Safe Browsing berlaku untuk semua resource.
       Kebijakan ini tidak tersedia di instance Windows yang tidak digabungkan dengan domain <ph name="MS_AD_NAME" />.</translation>
 <translation id="7079519252486108041">Cekal pop-up di situs ini</translation>
 <translation id="7106631983877564505">Mengaktifkan kunci jika perangkat <ph name="PRODUCT_OS_NAME" /> menganggur atau ditangguhkan.

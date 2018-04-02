@@ -381,7 +381,7 @@
     &lt;/ol&gt;
     &lt;h2&gt;Humingi ng tulong tungkol sa isang partikular na mensahe ng error&lt;/h2&gt;
     &lt;h3&gt;"Hindi pribado ang iyong koneksyon" o "NET::ERR_CERT_AUTHORITY_INVALID" o "ERR_CERT_COMMON_NAME_INVALID" o "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" o "Error sa SSL certificate"&lt;/h3&gt;
-    &lt;h4&gt;Hakbang 1: Mag-sign sa portal&lt;/h4&gt;
+    &lt;h4&gt;Hakbang 1: Mag-sign in sa portal&lt;/h4&gt;
     &lt;p&gt;Kailangan mong mag-sign in sa mga Wi-Fi network sa mga lugar tulad ng mga cafe o airport. Para makita ang page ng pag-sign in, bisitahin ang isang page na gumagamit ng&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Pumunta sa anumang website na nagsisimula sa &lt;code&gt;http://&lt;/code&gt;, tulad ng &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;

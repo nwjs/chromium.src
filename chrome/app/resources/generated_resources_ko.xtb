@@ -978,7 +978,7 @@
 <translation id="2508428939232952663">Google Play 스토어 계정</translation>
 <translation id="2509495747794740764">배율 값은 10에서 200 사이의 숫자여야 합니다.</translation>
 <translation id="2509566264613697683">8배</translation>
-<translation id="2512222046227390255">양식 자동완성</translation>
+<translation id="2512222046227390255">양식 자동 완성</translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2517472476991765520">검색</translation>
 <translation id="2518024842978892609">클라이언트 인증서 사용</translation>
@@ -1121,7 +1121,7 @@
 <translation id="2707024448553392710">구성요소 다운로드 중</translation>
 <translation id="270921614578699633">평균 이동</translation>
 <translation id="2709453993673701466">동기화 및 맞춤설정을 관리한 다음 사용 설정하시겠습니까? <ph name="BEGIN_LINK" />설정<ph name="END_LINK" />으로 이동하세요.</translation>
-<translation id="2709516037105925701">자동완성</translation>
+<translation id="2709516037105925701">자동 완성</translation>
 <translation id="271033894570825754">새 파일</translation>
 <translation id="2714393097308983682">Google Play 스토어</translation>
 <translation id="2715751256863167692">이 업그레이드를 설치하면 Chromebook이 재설정되며, 현재 사용자 데이터가 삭제됩니다.</translation>
@@ -3767,7 +3767,7 @@
 <translation id="6860097299815761905">프록시 설정...</translation>
 <translation id="6860427144121307915">탭에서 열기</translation>
 <translation id="6862635236584086457">이 폴더에 저장된 모든 파일은 온라인으로 자동 백업됨</translation>
-<translation id="6865313869410766144">양식 데이터 자동완성</translation>
+<translation id="6865313869410766144">양식 데이터 자동 완성</translation>
 <translation id="686664946474413495">색상 온도</translation>
 <translation id="6867678160199975333"><ph name="NEW_PROFILE_NAME" />(으)로 전환</translation>
 <translation id="6870888490422746447">공유할 앱 선택:</translation>
@@ -4858,7 +4858,7 @@
 <translation id="8637542770513281060">컴퓨터에 보안 모듈이 있습니다. 보안 모듈은 Chrome OS에서 여러 중요한 보안 기능을 구현하는 데 사용됩니다. 자세히 알아보려면 Chromebook 고객센터의 다음 페이지를 방문하세요. https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">시스템 업데이트 사용가능. 다운로드 준비 중…</translation>
 <translation id="8639047128869322042">유해한 소프트웨어 확인 중...</translation>
-<translation id="8639963783467694461">자동완성 설정</translation>
+<translation id="8639963783467694461">자동 완성 설정</translation>
 <translation id="8642171459927087831">액세스 토큰</translation>
 <translation id="8642267168767642381">손가락을 너무 느리게 움직였습니다.</translation>
 <translation id="8642947597466641025">텍스트 확대</translation>
@@ -5101,7 +5101,7 @@
 <translation id="901440679911238150">계정 세부정보가 만료되었습니다. <ph name="BEGIN_LINK" />다시 로그인하세요<ph name="END_LINK" />.</translation>
 <translation id="9014987600015527693">다른 휴대전화 표시</translation>
 <translation id="901834265349196618">이메일</translation>
-<translation id="9019062154811256702">자동완성 설정을 읽고 변경하기</translation>
+<translation id="9019062154811256702">자동 완성 설정을 읽고 변경하기</translation>
 <translation id="9020362265352758658">4배</translation>
 <translation id="9021662811137657072">바이러스가 발견됨</translation>
 <translation id="9022847679183471841">이미 <ph name="AVATAR_NAME" />이(가) 이 컴퓨터에서 이 계정을 사용하고 있습니다.</translation>
@@ -5138,7 +5138,7 @@
 <translation id="9062468308252555888">14배</translation>
 <translation id="9063208415146866933"><ph name="ERROR_LINE_START" />행부터 <ph name="ERROR_LINE_END" />행까지에 오류가 있음</translation>
 <translation id="9064142312330104323">Google 프로필 사진(로드 중)</translation>
-<translation id="9064275926664971810">클릭 한 번으로 양식을 작성하는 자동완성 사용</translation>
+<translation id="9064275926664971810">클릭 한 번으로 양식을 작성하는 자동 완성 사용</translation>
 <translation id="9064939804718829769">이전 중...</translation>
 <translation id="9065203028668620118">수정</translation>
 <translation id="9066782832737749352">텍스트 음성 변환</translation>

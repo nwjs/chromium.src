@@ -5226,7 +5226,7 @@
 <translation id="960719561871045870">运营商代码</translation>
 <translation id="960987915827980018">约剩 1 小时</translation>
 <translation id="962802172452141067">书签文件夹树</translation>
-<translation id="964439421054175458">{NUM_APLLICATIONS,plural, =1{1 款不兼容的应用}other{多款不兼容的应用}}</translation>
+<translation id="964439421054175458">{NUM_APLLICATIONS,plural, =1{应用}other{应用}}</translation>
 <translation id="968000525894980488">开启 Google Play 服务。</translation>
 <translation id="968174221497644223">应用缓存</translation>
 <translation id="969096075394517431">更改语言</translation>

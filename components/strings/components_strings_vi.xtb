@@ -373,15 +373,15 @@
 <translation id="3602137825010714926">&lt;h1&gt;Khắc phục lỗi kết nối&lt;/h1&gt;
     &lt;p&gt;Nếu bạn nhận được thông báo lỗi khi cố truy cập vào một trang web, hãy thử các cách khắc phục sau.&lt;/p&gt;
     &lt;h2&gt;Khắc phục hầu hết các lỗi kết nối&lt;/h2&gt;
-    &lt;p&gt;Nếu bạn cố truy cập vào một trang web nhưng vẫn không mở được, trước tiên, hãy tìm cách khắc phục lỗi bằng các bước khắc phục sự cố dưới đây:&lt;/p&gt;
+    &lt;p&gt;Nếu bạn cố truy cập vào một trang web nhưng trang đó không mở, trước tiên, hãy tìm cách khắc phục lỗi bằng các bước khắc phục sự cố dưới đây:&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Kiểm tra xem địa chỉ web có lỗi chính tả không.&lt;/li&gt;
     &lt;li&gt;Đảm bảo kết nối Internet hoạt động bình thường.&lt;/li&gt;
     &lt;li&gt;Liên hệ với chủ sở hữu trang web.&lt;/li&gt;
     &lt;/ol&gt;
-    &lt;h2&gt;Nhận trợ giúp với thông báo lỗi cụ thể&lt;/h2&gt;
+    &lt;h2&gt;Nhận trợ giúp về một thông báo lỗi cụ thể&lt;/h2&gt;
     &lt;h3&gt;"Kết nối của bạn không phải là kết nối riêng tư", "NET::ERR_CERT_AUTHORITY_INVALID", "ERR_CERT_COMMON_NAME_INVALID", "NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM" hoặc "lỗi chứng chỉ SSL"&lt;/h3&gt;
-    &lt;h4&gt;Bước 1: Đăng nhập vào cổng&lt;/h4&gt;
+    &lt;h4&gt;Bước 1: Đăng nhập vào cổng công tin&lt;/h4&gt;
     &lt;p&gt;Mạng Wi-Fi ở những nơi như quán cà phê hoặc sân bay cần bạn phải đăng nhập. Để biết trang đăng nhập, hãy truy cập vào một trang sử dụng&lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Truy cập vào một trang web bất kỳ bắt đầu bằng &lt;code&gt;http://&lt;/code&gt;, chẳng hạn như &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
@@ -392,7 +392,7 @@
     &lt;p&gt;Nếu trang mở ra, tức là tiện ích của Chrome hiện hoạt động không đúng cách. Để khắc phục lỗi này, hãy tắt tiện ích đó.&lt;/p&gt;
     &lt;h4&gt;Bước 3: Cập nhật hệ điều hành&lt;/h4&gt;
     &lt;p&gt;Đảm bảo thiết bị của bạn được cập nhật.&lt;/p&gt;
-    &lt;h4&gt;Bước 4: Tạm tắt phần mềm diệt vi-rút&lt;/h4&gt;
+    &lt;h4&gt;Bước 4: Tạm thời tắt phần mềm diệt vi-rút&lt;/h4&gt;
     &lt;p&gt;Bạn sẽ gặp lỗi này nếu có phần mềm diệt vi-rút cung cấp tính năng "Bảo vệ HTTPS" hoặc "Quét HTTPS". Phần mềm diệt vi-rút đang ngăn không cho Chrome cung cấp bảo mật.&lt;/p&gt;
     &lt;p&gt;Để khắc phục vấn đề, hãy tắt phần mềm diệt vi-rút. Nếu trang hoạt động sau khi tắt phần mềm, hãy tắt phần mềm này khi bạn sử dụng trang web an toàn.&lt;/p&gt;
     &lt;p&gt;Hãy nhớ bật lại chương trình diệt vi-rút khi đã hoàn tất.&lt;/p&gt;

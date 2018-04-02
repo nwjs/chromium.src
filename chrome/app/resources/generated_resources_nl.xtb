@@ -2224,7 +2224,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="4430369329743628066">Bladwijzer toegevoegd</translation>
 <translation id="443454694385851356">Verouderd (onveilig)</translation>
 <translation id="443464694732789311">Doorgaan</translation>
-<translation id="443475966875174318">Incompatibele apps updaten en verwijderen</translation>
+<translation id="443475966875174318">Ongeschikte apps updaten en verwijderen</translation>
 <translation id="4439318412377770121">Wil je de <ph name="DEVICE_NAME" /> registreren voor Google Cloud Devices?</translation>
 <translation id="4441124369922430666">Wil je dat deze app automatisch start wanneer het apparaat wordt ingeschakeld?</translation>
 <translation id="444134486829715816">Uitvouwen...</translation>
@@ -3879,7 +3879,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="7040138676081995583">Openen met...</translation>
 <translation id="7040230719604914234">Operator</translation>
 <translation id="7042418530779813870">&amp;Plakken en zoeken</translation>
-<translation id="7043108582968290193">Klaar. Geen incompatibele apps gevonden.</translation>
+<translation id="7043108582968290193">Klaar. Geen ongeschikte apps gevonden.</translation>
 <translation id="7049293980323620022">Bestand behouden?</translation>
 <translation id="7051943809462976355">Muis zoeken...</translation>
 <translation id="7052237160939977163">Gegevens over het bijhouden van prestaties verzenden</translation>

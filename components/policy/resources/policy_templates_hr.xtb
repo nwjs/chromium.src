@@ -263,9 +263,9 @@
 <translation id="1897365952389968758">Dopusti svim web-lokacijama izvođenje JavaScripta</translation>
 <translation id="1906888171268104594">Kontrolira šalju li se Googleu izvješća s mjernim podacima o upotrebi i dijagnostičkim podacima, uključujući izvješća o rušenju.
 
-      Ako se postavi na "točno", <ph name="PRODUCT_OS_NAME" /> slat će izvješća s mjernim podacima o upotrebi i dijagnostičkim podacima.
+      Ako se postavi na True, <ph name="PRODUCT_OS_NAME" /> slat će izvješća s mjernim podacima o upotrebi i dijagnostičkim podacima.
 
-      Ako se postavi na "netočno", izvješća s mjernim podacima o upotrebi i dijagnostičkim podacima bit će onemogućena.
+      Ako se postavi na False, izvješća s mjernim podacima o upotrebi i dijagnostičkim podacima bit će onemogućena.
 
       Ako se ne konfigurira, izvješća s mjernim podacima o upotrebi i dijagnostičkim podacima na neupravljanim će uređajima biti onemogućena, a na upravljanim omogućena.</translation>
 <translation id="1911099080312850139">Konfigurira URL za promjenu zaporke (samo sheme HTTP i HTTPS). To je URL na koji će usluga za zaštitu zaporke slati korisnike da promijene zaporku u slučaju krađe identiteta.

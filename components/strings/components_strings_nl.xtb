@@ -379,7 +379,7 @@
     &lt;h2&gt;Hulp bij een specifieke foutmelding&lt;/h2&gt;
     &lt;h3&gt;'Je verbinding is niet privé' of 'NET::ERR_CERT_AUTHORITY_INVALID' of 'ERR_CERT_COMMON_NAME_INVALID' of 'NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM' of 'SSL certificate error'&lt;/h3&gt;
     &lt;h4&gt;Stap 1: Log in bij de portal&lt;/h4&gt;
-    &lt;p&gt;Wifi-netwerken op openbare plekken zoals cafés en luchthavens vereisen dat je inlogt. Ga naar een pagina die&lt;code&gt;http://&lt;/code&gt;gebruikt om de inlogpagina weer te geven.&lt;/p&gt;
+    &lt;p&gt;Wifi-netwerken op openbare plekken zoals cafés en luchthavens vereisen dat je inlogt. Ga naar een pagina die &lt;code&gt;http://&lt;/code&gt; gebruikt om de inlogpagina weer te geven.&lt;/p&gt;
     &lt;ol&gt;
     &lt;li&gt;Ga naar een willekeurige website die begint met &lt;code&gt;http://&lt;/code&gt;, zoals &lt;a href="http://example.com" target="_blank"&gt;http://example.com&lt;/a&gt;.&lt;/li&gt;
     &lt;li&gt;Log in op de inlogpagina die wordt geopend om internet te gebruiken.&lt;/li&gt;

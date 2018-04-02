@@ -2050,7 +2050,7 @@ Geheugengegevens worden in alle gevallen aan de pagina gerapporteerd, afgezien v
 <translation id="7074513465313721551">Stel de lijst met domeinen in die door Safe Browsing worden vertrouwd. Dit betekent het volgende:
       Safe Browsing controleert niet op gevaarlijke bronnen (bijvoorbeeld phishing, malware of ongewenste software) als de URL's overeenkomen met deze domeinen.
       De downloadbeveiligingsservice van Safe Browsing controleert geen downloads die worden gehost op deze domeinen.
-      De wachtwoordbeveiligingsservice van Safe Browsing controleert niet of een wachtwoord opnieuw wordt gebruikt als pagina-URL overeenkomt met deze domeinen.
+      De wachtwoordbeveiligingsservice van Safe Browsing controleert niet of een wachtwoord opnieuw wordt gebruikt als de pagina-URL overeenkomt met deze domeinen.
 
       Als deze instelling is ingeschakeld, worden deze domeinen door Safe Browsing vertrouwd.
       Als deze instelling is uitgeschakeld of niet is ingesteld, wordt standaard de Safe Browsing-beveiliging toegepast op alle bronnen.

@@ -453,12 +453,12 @@
 <translation id="2386362615870139244">Ekraani aktiveerimise lukustamise lubamine</translation>
 <translation id="2411817661175306360">Paroolikaitse hoiatus on välja lülitatud</translation>
 <translation id="2411919772666155530">Blokeerige märguanded nendel saitidel</translation>
-<translation id="2415979855753196119">Võimaldab teil juhtida ohus olevate paroolikaitse kontode märgistamise käivitamist. Ohus olevate paroolikaitse kontode märgistamine tähendab, et Google'it teavitatakse, kui kontot ähvardab kaaperdamise oht.
+<translation id="2415979855753196119">Võimaldab teil juhtida paroolikaitse teavituse käivitamist riskantsetel kontodel. Paroolikaitse teavitus riskantsel kontol tähendab, et Google'it teavitatakse, et kontot ähvardab kaaperdamise oht.
 
-      Kui reegli väärtuseks määratakse „PasswordProtectionRiskOff”, ei käivitata ohus olevate paroolikaitse kontode märgistamist.
-      Kui reegli väärtuseks määratakse „PasswordProtectionRiskOnPasswordReuse”, käivitatakse ohus olevate paroolikaitse kontode märgistamine siis, kui kasutaja kasutab oma Google'i parooli saidil, mis ei kuulu lubatud saitide loendisse.
-      Kui reegli väärtuseks määratakse „PasswordProtectionRiskOnPhishingReuse”, käivitatakse ohus olevate paroolikaitse kontode märgistamine siis, kui kasutaja kasutab oma Google'i parooli andmepüügisaidil.
-      Kui see reegel jäetakse määramata, käivitatakse ohus olevate paroolikaitse kontode märgistamine siis, kui kasutaja kasutab oma Google'i parooli andmepüügisaidil, kuid kasutaja saab seda muuta.</translation>
+      Kui reegli väärtuseks määratakse „PasswordProtectionRiskOff”, ei käivitata riskantsetel kontodel paroolikaitse teavitust.
+      Kui reegli väärtuseks määratakse „PasswordProtectionRiskOnPasswordReuse”, käivitatakse riskantsetel kontodel paroolikaitse teavitus siis, kui kasutaja kasutab Google'i parooli saidil, mis ei kuulu lubatud saitide loendisse.
+      Kui reegli väärtuseks määratakse „PasswordProtectionRiskOnPhishingReuse”, käivitatakse riskantsetel kontodel paroolikaitse teavitus siis, kui kasutaja kasutab Google'i parooli andmepüügisaidil.
+      Kui see reegel jäetakse määramata, käivitatakse paroolikaitse teavitus riskantsetel kontodel siis, kui kasutaja kasutab Google'i parooli andmepüügisaidil, kuid kasutaja saab seda muuta.</translation>
 <translation id="2418507228189425036">Keelab brauseris <ph name="PRODUCT_NAME" /> sirvimisajaloo salvestamise ja takistab kasutajaid seadet muutmast.
 
       Kui seade on lubatud, ei salvestata sirvimisajalugu. Seade keelab ka vahelehtede sünkroonimise.
@@ -662,10 +662,10 @@
 
       Kui lubate selle seade, kasutab printimise eelvaade vaikesihtkohana operatsioonisüsteemi vaikeprinterit.</translation>
 <translation id="2867699958489427143">Mine tagasi ja jää sihtversioonile, kui operatsioonisüsteemi versioon on uuem kui sihtversioon. Protsessi käigus tehakse täielik Powerwash.</translation>
-<translation id="286802604195763750">Võimaldab teil juhtida paroolikaitse kontode hoiatuse käivitamist. Paroolikaitse hoiatab kasutajaid, kui nad kasutavad oma kaitstud parooli potentsiaalselt ohtlikel saitidel.
+<translation id="286802604195763750">Võimaldab teil juhtida paroolikaitse hoiatuse käivitamist. Paroolikaitse hoiatab kasutajaid, kui nad kasutavad oma kaitstud parooli potentsiaalselt ohtlikel saitidel.
 
-      Kui reegli väärtuseks määratakse „PasswordProtectionWarningOff”, siis paroolikaitse hoiatusi ei kuvata.
-      Kui reegli väärtuseks määratakse „PasswordProtectionWarningOnPasswordReuse”, kuvatakse paroolikaitse hoiatused siis, kui kasutaja kasutab oma Google'i parooli saidil, mis ei kuulu lubatud saitide loendisse.
+      Kui reegli väärtuseks määratakse „PasswordProtectionWarningOff”, siis paroolikaitse hoiatust ei kuvata.
+      Kui reegli väärtuseks määratakse „PasswordProtectionWarningOnPasswordReuse”, kuvatakse paroolikaitse hoiatus siis, kui kasutaja kasutab oma Google'i parooli saidil, mis ei kuulu lubatud saitide loendisse.
       Kui reegli väärtuseks määratakse „PasswordProtectionWarningOnPhishingReuse”, kuvatakse paroolikaitse hoiatus siis, kui kasutaja kasutab oma Google'i parooli andmepüügisaidil.
       Kui see reegel jäetakse määramata, käivitatakse paroolikaitse hoiatus siis, kui kasutaja kasutab oma Google'i parooli andmepüügisaidil, kuid kasutaja saab seda muuta.</translation>
 <translation id="2872961005593481000">Lülita välja</translation>
@@ -821,7 +821,7 @@
 <translation id="3386001018488754001">
       MÄRKUS. See reegel on katseline ja funktsioonid ei pruugi töötada.
       See reegel kehtib sisselogimisekraanil. Vaadake ka reeglit <ph name="SITE_PER_PROCESS_POLICY_NAME" />, mis kehtib kasutajaseansi puhul. Soovitatav on mõlemale reeglile määrata sama väärtus. Kui väärtused ei ühti, võib kasutajareegliga määratud väärtuse rakendamisel esineda kasutajaseanssi sisenemisel viivitusi.
-      Soovitame teil vaadata reegli  IsolateOrigins seadet, et kasutada nii
+      Soovitame teil vaadata reegli IsolateOrigins seadet, et kasutada nii
       isoleerimist kui ka piirata mõju kasutajate jaoks, kasutades reeglit
       IsolateOrigins saitide puhul, mille soovite isoleerida. Seade
       SitePerProcess isoleerib kõik saidid.
@@ -868,7 +868,7 @@
 <translation id="3478024346823118645">Kustuta kasutaja andmed väljalogimisel</translation>
 <translation id="348495353354674884">Luba virtuaalne klaviatuur</translation>
 <translation id="3487623755010328395">
-        Kui see reegel on määratud, üritab teenus <ph name="PRODUCT_NAME" /> end registreerida ja rakendada seotud  pilvepõhised reeglid kõikidele profiilidele.
+        Kui see reegel on määratud, üritab teenus <ph name="PRODUCT_NAME" /> end registreerida ja rakendada seotud pilvepõhised reeglid kõikidele profiilidele.
 
         Selle reegli väärtus on registreerimismärk, mille saab Google'i administraatorikonsoolilt.</translation>
 <translation id="3496296378755072552">Paroolihaldur</translation>
@@ -2061,8 +2061,8 @@
 <translation id="7072406291414141328">Lubab võrgu ribalaiuse piiramise</translation>
 <translation id="7074513465313721551">Seadistage loend domeenidest, mida ohutu sirvimise funktsioon usaldab. See tähendab järgmist.
       Ohutu sirvimise funktsioon ei kontrolli ohtlikke allikaid (nt andmepüük, pahavara või soovimatu tarkvara), kui nende URL-id ühtivad nende domeenidega.
-      Ohutu sirvimise funktsiooni allalaadimiskaitse teenus ei kontrolli nendel domeenidel hostitud allalaadimisi.
-      Ohutu sirvimise funktsiooni paroolikaitse teenus ei kontrolli parooli taaskasutamist, kui lehe URL ühtib nende domeenidega.
+      Ohutu sirvimise funktsiooni allalaadimiskaitseteenus ei kontrolli nendel domeenidel hostitud allalaadimisi.
+      Ohutu sirvimise funktsiooni paroolikaitseteenus ei kontrolli parooli taaskasutamist, kui lehe URL ühtib nende domeenidega.
 
       Kui see seade on lubatud, usaldab ohutu sirvimise funktsioon neid domeene.
       Kui see seade on keelatud või seadistamata, siis rakendatakse ohutu sirvimise funktsiooni vaikekaitse kõikidele allikatele.

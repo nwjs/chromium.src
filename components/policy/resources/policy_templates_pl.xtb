@@ -67,7 +67,7 @@
       sprzed izolacji witryny.
       Jeśli ta zasada nie jest skonfigurowana, użytkownik może zmienić
       to ustawienie.
-      W systemie <ph name="PRODUCT_OS_NAME" /> zaleca się również ustawienie tej samej wartości zasady dotyczącej urządzeń <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" />. Jeśli wartości tych zasad są różne, przy uruchamianiu sesji użytkownika może nastąpić opóźnienie, gdy stosowana jest wartość określona przez zasady dotyczące użytkowników.
+      W systemie <ph name="PRODUCT_OS_NAME" /> zaleca się również ustawienie tej samej wartości zasady <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> dotyczącej urządzeń. Jeśli wartości tych zasad są różne, przy uruchamianiu sesji użytkownika może nastąpić opóźnienie, gdy stosowana jest wartość określona przez zasady dotyczące użytkowników.
       </translation>
 <translation id="1198465924256827162">Częstotliwość wysyłania raportów o stanie urządzenia (w milisekundach).
 
@@ -263,11 +263,11 @@
 <translation id="1897365952389968758">Zezwalaj na wykonywanie kodu JavaScript we wszystkich witrynach</translation>
 <translation id="1906888171268104594">Określa, czy statystyki użytkowania i dane diagnostyczne (w tym raporty o awariach) mają być przesyłane do Google.
 
-      Jeśli włączysz tę opcję, <ph name="PRODUCT_OS_NAME" /> będzie przesyłać statystyki użytkowania i dane diagnostyczne.
+      Jeśli włączysz tę zasadę, <ph name="PRODUCT_OS_NAME" /> będzie przesyłać statystyki użytkowania i dane diagnostyczne.
 
       Jeśli jej nie włączysz, przesyłanie statystyk i danych diagnostycznych będzie wyłączone.
       Jeśli jej nie skonfigurujesz, przesyłanie statystyk użytkowania i danych diagnostycznych będzie wyłączone na urządzeniach niezarządzanych, ale włączone na zarządzanych.</translation>
-<translation id="1911099080312850139">Skonfiguruj adres URL do zmiany hasła (tylko schematy HTTP i HTTPS). Usługa ochrony haseł będzie kierować użytkowników na stronę pod tym adresem URL, by zmienili hasło, gdy staną się ofiarami phishingu.
+<translation id="1911099080312850139">Konfigurowanie adresu URL do zmiany hasła (tylko schematy HTTP i HTTPS). Usługa ochrony haseł będzie kierować użytkowników na stronę pod tym adresem URL, by zmienili hasło, gdy staną się ofiarami phishingu.
       
 Tego ustawienia powinni używać tylko użytkownicy G Suite korzystający z systemu SSO/SAML.
 
@@ -443,9 +443,9 @@ Tego ustawienia powinni używać tylko użytkownicy G Suite korzystający z sys
 <translation id="2415979855753196119">Umożliwia sterowanie wyzwalaniem oznaczania kont jako zagrożonych w zakresie ochrony hasłem. 
 Oznaczanie kont jako zagrożonych w zakresie ochrony hasłem oznacza informowanie Google, że dane konto jest narażone na włamanie.
 
-      Jeśli ta zasada ma ustawioną opcję „PasswordProtectionRiskOff”, oznaczanie kont jako zagrożonych w zakresie ochrony hasłem nie będzie nigdy wyzwalane.
-      Jeśli ma ustawioną opcję „PasswordProtectionRiskOnPasswordReuse”, oznaczanie kont jako zagrożonych w zakresie ochrony hasłem będzie wyzwalane, gdy użytkownicy będą stosować hasła do kont Google w innych witrynach spoza białej listy.
-      Jeśli ma ustawioną opcję „PasswordProtectionRiskOnPhishingReuse”, oznaczanie kont jako zagrożonych w zakresie ochrony hasłem będzie wyzwalane, gdy użytkownicy będą stosować hasła do kont Google w witrynach wyłudzających informacje.
+      Jeśli ta zasada ma ustawioną wartość „PasswordProtectionRiskOff”, oznaczanie kont jako zagrożonych w zakresie ochrony hasłem nie będzie nigdy wyzwalane.
+      Jeśli ma ustawioną wartość „PasswordProtectionRiskOnPasswordReuse”, oznaczanie kont jako zagrożonych w zakresie ochrony hasłem będzie wyzwalane, gdy użytkownicy będą stosować hasła do kont Google w innych witrynach spoza białej listy.
+      Przy ustawieniu „PasswordProtectionRiskOnPhishingReuse”, oznaczanie kont jako zagrożonych w zakresie ochrony hasłem będzie wyzwalane, gdy użytkownicy będą stosować hasła do kont Google w witrynach wyłudzających informacje.
       Jeśli zasada nie jest skonfigurowana, oznaczanie kont jako zagrożonych w zakresie ochrony hasłem będzie wyzwalane, gdy użytkownicy będą stosować hasła do kont Google w witrynach wyłudzających informacje, ale użytkownik może zmienić to ustawienie.</translation>
 <translation id="2418507228189425036">Wyłącza zapisywanie historii przeglądarki <ph name="PRODUCT_NAME" /> i blokuje możliwość zmiany tego ustawienia przez użytkowników.
 
@@ -640,7 +640,7 @@ Oznaczanie kont jako zagrożonych w zakresie ochrony hasłem oznacza informowani
       Jeśli włączysz to ustawienie, w podglądzie wydruku zostanie wybrana domyślna drukarka systemowa.</translation>
 <translation id="2867699958489427143">Cofnięcie i pozostawienie docelowej wersji systemu operacyjnego, jeśli zainstalowana jest wersja nowsza niż docelowa. W trakcie tego procesu zostanie wykonana pełna procedura Powerwash.</translation>
 <translation id="286802604195763750">Umożliwia sterowanie wyzwalaniem ostrzeżenia dotyczącego ochrony hasłem. 
-Alerty dotyczące ochrony hasłem ostrzegają użytkowników, gdy chcą stosować chronione hasła w potencjalnie niebezpiecznych witrynach.
+Alerty dotyczące ochrony hasłem ostrzegają użytkowników, gdy chcą oni stosować chronione hasła w potencjalnie niebezpiecznych witrynach.
 
       Jeśli ta zasada jest ustawiona na „PasswordProtectionWarningOff”, nie wyświetli się żadne ostrzeżenie dotyczące ochrony hasłem.
       Jeśli ta zasada jest ustawiona na „PasswordProtectionWarningOnPasswordReuse”, ostrzeżenie dotyczące ochrony hasłem wyświetli się, gdy użytkownicy będą stosować hasła do kont Google w witrynach, które nie znajdują się na białej liście.
@@ -1949,8 +1949,8 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="7072406291414141328">Włącza ograniczanie przepustowości sieci</translation>
 <translation id="7074513465313721551">Pozwala skonfigurować listę domen, którym będzie ufać Bezpieczne przeglądanie. Działanie zasady:
       Bezpieczne przeglądanie nie będzie sprawdzać, czy witryny zawierają niebezpieczne zasoby (np. wyłudzające informacje, złośliwe lub niechciane oprogramowanie), jeśli ich adresy URL pasują do tych domen.
-      Usługa ochrony przy pobieraniu Bezpiecznego przeglądania nie będzie sprawdzać plików pobieranych z tych domen.
-      Usługa ochrony haseł Bezpiecznego przeglądania nie będzie sprawdzać użycia haseł, jeśli adresy URL stron będą pasować do tych domen.
+      Funkcja Bezpiecznego przeglądania polegająca na ochronie przy pobieraniu nie będzie sprawdzać plików pobieranych z tych domen.
+      Funkcja Bezpiecznego przeglądania polegająca na ochronie haseł nie będzie sprawdzać użycia haseł, jeśli adresy URL stron będą pasować do tych domen.
 
       Jeśli ta zasada jest włączona, Bezpieczne przeglądanie będzie ufać tym domenom.
       Jeśli to ustawienie jest wyłączone lub nieskonfigurowane, funkcje Bezpiecznego przeglądania są stosowane do wszystkich zasobów.

@@ -535,7 +535,7 @@
 <translation id="180035236176489073">باید آنلاین باشید تا به این فایل‌ها دسترسی داشته باشید.</translation>
 <translation id="1802687198411089702">صفحه پاسخ نمی‌دهد. می‌توانید منتظر بمانید یا خارج شوید.</translation>
 <translation id="1802931390041703523">‏Flash در این صفحه مسدود شده است</translation>
-<translation id="1804408978433653482">{NUM_APPLICATIONS,plural, =1{‏برنامه زیر می‌تواند مانع عملکرد درست Chrome شود.}one{‏برنامه‌های زیر می‌توانند مانع عملکرد درست Chrome شوند.}other{‏برنامه‌های زیر می‌توانند مانع عملکرد درست Chrome شوند.}}</translation>
+<translation id="1804408978433653482">{NUM_APPLICATIONS,plural, =1{‏برنامه زیر می‌تواند مانع عملکرد درست Chrome شود.}one{‏برنامه‌ زیر می‌توانند مانع عملکرد درست Chrome شوند.}other{‏برنامه‌ زیر می‌توانند مانع عملکرد درست Chrome شوند.}}</translation>
 <translation id="1805822111539868586">بازرسی بازدیدها</translation>
 <translation id="1807938677607439181">همه فایل‌ها</translation>
 <translation id="1809734401532861917">نشانک‌ها، سابقه، گذرواژه‌ها و سایر تنظیماتم به <ph name="USER_EMAIL_ADDRESS" /> اضافه شود</translation>
