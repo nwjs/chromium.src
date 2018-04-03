@@ -418,7 +418,7 @@ bool WebNotificationTray::ShowPopups() {
   if (IsMessageCenterVisible())
     return false;
 
-  popup_collection_->DoUpdateIfPossible();
+  popup_collection_->DoUpdate();
   return true;
 }
 
