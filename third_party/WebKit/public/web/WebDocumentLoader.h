@@ -148,6 +148,11 @@ class BLINK_EXPORT WebDocumentLoader {
   virtual void SetIsAdSubframe(bool is_ad_subframe) = 0;
   virtual bool GetIsAdSubframe() const = 0;
 
+  // Used to pause or resume the parser. The document loader is still allowed to
+  // fetch new data.
+  virtual void BlockParser() = 0;
+  virtual void ResumeParser() = 0;
+
  protected:
   ~WebDocumentLoader() = default;
 };
