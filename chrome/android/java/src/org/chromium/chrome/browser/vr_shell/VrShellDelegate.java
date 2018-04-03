@@ -777,6 +777,7 @@ public class VrShellDelegate
         assert mActivity != null;
         if (mActivity == activity) return;
         mActivity = activity;
+        mListeningForWebVrActivateBeforePause = false;
         if (mVrDaydreamApi != null) mVrDaydreamApi.close();
         mVrDaydreamApi = mVrClassesWrapper.createVrDaydreamApi(mActivity);
     }
@@ -1087,13 +1088,29 @@ public class VrShellDelegate
             return;
         }
 
-        // Note that cancelling the animation below is what causes us to enter VR mode when Chrome
-        // is cold-started. We start an intermediate activity to cancel the animation which causes
-        // onPause and onResume to be called and we enter VR mode in onResume (because we set the
-        // mEnterVrOnStartup bit above). If Chrome is already running, onResume which will be called
-        // after VrShellDelegate#onNewIntentWithNative which will cancel the animation and enter VR
-        // after that.
-        if (!instance.mPaused) instance.cancelStartupAnimationIfNeeded();
+        if (!instance.mPaused) {
+            // Note that cancelling the animation below is what causes us to enter VR mode. We start
+            // an intermediate activity to cancel the animation which causes onPause and onResume to
+            // be called and we enter VR mode in onResume (because we set the mEnterVrOnStartup bit
+            // above). If Chrome is already running, onResume which will be called after
+            // VrShellDelegate#onNewIntentWithNative which will cancel the animation and enter VR
+            // after that.
+            if (!instance.cancelStartupAnimationIfNeeded()) {
+                // If we didn't cancel the startup animation, we won't be getting another onResume
+                // call, so enter VR here.
+                instance.handleDonFlowSuccess();
+
+                // This is extremely unlikely to happen in practice, but it's theoretically possible
+                // for the page to have loaded and registered an activate handler before this point.
+                // Usually the displayActivate is sent from
+                // VrShellDelegate#setListeningForWebVrActivate.
+                if (instance.mAutopresentWebVr && instance.mListeningForWebVrActivate) {
+                    // Dispatch vrdisplayactivate so that the WebVr page can call requestPresent
+                    // to start presentation.
+                    instance.nativeDisplayActivate(instance.mNativeVrShellDelegate);
+                }
+            }
+        }
     }
 
     /**
@@ -1101,6 +1118,8 @@ public class VrShellDelegate
      */
     public static void maybeHandleVrIntentPreNative(ChromeActivity activity, Intent intent) {
         if (!VrIntentUtils.isVrIntent(intent)) return;
+
+        if (sInstance != null) sInstance.swapHostActivity(activity);
 
         // We add a black overlay view so that we can show black while the VR UI is loading.
         // Note that this alone isn't sufficient to prevent 2D UI from showing when
