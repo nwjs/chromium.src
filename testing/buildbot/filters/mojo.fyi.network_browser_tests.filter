@@ -108,6 +108,7 @@
 -WebViewTests/WebViewTest.ClearData/1
 -WebViewTests/WebViewTest.ClearDataCache/0
 -WebViewTests/WebViewTest.ClearDataCache/1
+
 -WebViewTests/WebViewTest.ClearPersistentCookies/0
 -WebViewTests/WebViewTest.ClearPersistentCookies/1
 -WebViewTests/WebViewTest.ClearSessionCookies/0
@@ -124,6 +125,11 @@
 -WebViewTests/WebViewTest.StoragePersistence/1
 -WebViewTests/WebViewTest.WebViewInBackgroundPage/0
 -WebViewTests/WebViewTest.WebViewInBackgroundPage/1
+
+# Redirects to chrome-extension:// should be blocked unless the resource is
+# webaccessible.  https://crbug.com/821586
+-ProcessManagerBrowserTest.ServerRedirectToNonWebAccessibleResource
+-ProcessManagerBrowserTest.CrossExtensionEmbeddingOfWebAccessibleResources
 
 # Need support for DoNotTrack:
 # https://crbug.com/808948
