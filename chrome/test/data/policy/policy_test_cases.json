@@ -2341,13 +2341,7 @@
   },
 
   "RelaunchNotificationPeriod": {
-    "os": ["win", "linux", "mac", "chromeos"],
-    "test_policy": { "RelaunchNotificationPeriod": 86400000},
-    "pref_mappings": [
-      { "pref": "browser.relaunch_notification_period",
-        "local_state": true
-      }
-    ]
+    "note": "This policy is waiting for M67; see https://crbug.com/807072."
   },
 
   "----- Chrome OS policies ------------------------------------------------": {},
