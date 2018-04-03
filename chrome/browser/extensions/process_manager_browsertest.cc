@@ -1107,6 +1107,8 @@ IN_PROC_BROWSER_TEST_F(ProcessManagerBrowserTest,
     // Setup the test by navigating popup to an extension page. This is allowed
     // because it's web accessible.
     content::WebContents* popup = OpenPopup(main_frame, extension_url);
+    content::RenderFrameDeletedObserver popup_unload_observer(
+        popup->GetMainFrame());
 
     // This frame should now be in an extension process.
     EXPECT_EQ(1u, pm->GetAllFrames().size());
@@ -1120,6 +1122,7 @@ IN_PROC_BROWSER_TEST_F(ProcessManagerBrowserTest,
     EXPECT_TRUE(ExecuteScript(
         tab, "window.popup.location.href = '" + nested_url.spec() + "';"));
     WaitForLoadStop(popup);
+    popup_unload_observer.WaitUntilDeleted();
 
     // Because the navigation was blocked, it should be an empty page.
     EXPECT_NE(nested_url, popup->GetLastCommittedURL());
