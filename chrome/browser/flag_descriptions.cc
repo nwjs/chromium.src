@@ -2106,6 +2106,11 @@ const char kGrantNotificationsToDSENameDescription[] =
     "Automatically grant the notifications permission to the Default Search "
     "Engine";
 
+const char kHomePageButtonName[] = "Force Enable Home Page Button";
+const char kHomePageButtonDescription[] =
+    "Displays a home button if enabled. "
+    "Chrome must be restarted twice for this flag to take effect.";
+
 const char kKeepPrefetchedContentSuggestionsName[] =
     "Keep prefetched content suggestions";
 const char kKeepPrefetchedContentSuggestionsDescription[] =
