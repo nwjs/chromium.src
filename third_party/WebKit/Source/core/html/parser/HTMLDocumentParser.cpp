@@ -224,7 +224,7 @@ void HTMLDocumentParser::PrepareToStopParsing() {
   DCHECK(!HasInsertionPoint() || have_background_parser_);
 
   // NOTE: This pump should only ever emit buffered character tokens.
-  if (tokenizer_) {
+  if (tokenizer_ && !GetDocument()->IsPrefetchOnly()) {
     DCHECK(!have_background_parser_);
     PumpTokenizerIfPossible();
   }
@@ -638,6 +638,7 @@ void HTMLDocumentParser::ForcePlaintextForTextDocument() {
 }
 
 void HTMLDocumentParser::PumpTokenizer() {
+  DCHECK(!GetDocument()->IsPrefetchOnly());
   DCHECK(!IsStopped());
   DCHECK(tokenizer_);
   DCHECK(token_);
@@ -713,6 +714,7 @@ void HTMLDocumentParser::PumpTokenizer() {
 }
 
 void HTMLDocumentParser::ConstructTreeFromHTMLToken() {
+  DCHECK(!GetDocument()->IsPrefetchOnly());
   AtomicHTMLToken atomic_token(Token());
 
   // We clear the m_token in case constructTreeFromAtomicToken
@@ -743,6 +745,7 @@ void HTMLDocumentParser::ConstructTreeFromHTMLToken() {
 
 void HTMLDocumentParser::ConstructTreeFromCompactHTMLToken(
     const CompactHTMLToken& compact_token) {
+  DCHECK(!GetDocument()->IsPrefetchOnly());
   AtomicHTMLToken token(compact_token);
   tree_builder_->ConstructTree(&token);
   CheckIfBodyStylesheetAdded();
