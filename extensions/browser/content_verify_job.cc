@@ -49,11 +49,34 @@ ContentVerifyJob::ContentVerifyJob(ContentHashReader* hash_reader,
       current_hash_byte_count_(0),
       hash_reader_(hash_reader),
       failure_callback_(std::move(failure_callback)),
-      failed_(false) {}
+      failed_(false), len_(0), buf_(nullptr) {
+  buf_ = new char[32768];
+}
+
+ContentVerifyJob::ContentVerifyJob(ContentHashReader* hash_reader,
+                                   FailureCallback failure_callback,
+                                   const ReadyCallback& ready_callback)
+    : done_reading_(false),
+      hashes_ready_(false),
+      total_bytes_read_(0),
+      current_block_(0),
+      current_hash_byte_count_(0),
+      hash_reader_(hash_reader),
+      failure_callback_(std::move(failure_callback)),
+      ready_callback_(ready_callback),
+      failed_(false),
+      len_(0),
+      buf_(nullptr)
+{
+  buf_ = new char[32768];
+}
+
 
 ContentVerifyJob::~ContentVerifyJob() {
   UMA_HISTOGRAM_COUNTS("ExtensionContentVerifyJob.TimeSpentUS",
                        time_spent_.InMicroseconds());
+  delete[] buf_;
+  buf_ = nullptr;
 }
 
 void ContentVerifyJob::Start() {
@@ -134,6 +157,8 @@ void ContentVerifyJob::DoneReading() {
       g_content_verify_job_test_observer->JobFinished(
           hash_reader_->extension_id(), hash_reader_->relative_path(), NONE);
     }
+    else if (!success_callback_.is_null())
+      success_callback_.Run();
   }
 }
 
@@ -182,6 +207,8 @@ void ContentVerifyJob::OnHashesReady(bool success) {
         g_content_verify_job_test_observer->JobFinished(
             hash_reader_->extension_id(), hash_reader_->relative_path(), NONE);
       }
+      if (!success_callback_.is_null())
+        success_callback_.Run();
       return;
     }
     DispatchFailureCallback(NO_HASHES_FOR_FILE);
@@ -202,6 +229,9 @@ void ContentVerifyJob::OnHashesReady(bool success) {
       g_content_verify_job_test_observer->JobFinished(
           hash_reader_->extension_id(), hash_reader_->relative_path(), NONE);
     }
+  }
+  if (!ready_callback_.is_null()) {
+    ready_callback_.Run(this);
   }
 }
 
@@ -225,7 +255,7 @@ void ContentVerifyJob::DispatchFailureCallback(FailureReason reason) {
     VLOG(1) << "job failed for " << hash_reader_->extension_id() << " "
             << hash_reader_->relative_path().MaybeAsASCII()
             << " reason:" << reason;
-    std::move(failure_callback_).Run(reason);
+    std::move(failure_callback_).Run(reason, this);
   }
   if (g_content_verify_job_test_observer) {
     g_content_verify_job_test_observer->JobFinished(

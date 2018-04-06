@@ -32,6 +32,8 @@
 #include "content/public/browser/devtools_external_agent_proxy_delegate.h"
 #include "content/public/browser/devtools_manager_delegate.h"
 #include "content/public/browser/devtools_socket_factory.h"
+#include "content/public/browser/render_frame_host.h"
+#include "content/public/browser/web_contents.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/url_constants.h"
 #include "content/public/common/user_agent.h"
@@ -57,10 +59,14 @@ namespace {
 const base::FilePath::CharType kDevToolsActivePortFileName[] =
     FILE_PATH_LITERAL("DevToolsActivePort");
 
+#if defined(NWJS_SDK)
 const char kDevToolsHandlerThreadName[] = "Chrome_DevToolsHandlerThread";
+#endif
 
 const char kPageUrlPrefix[] = "/devtools/page/";
+#if defined(NWJS_SDK)
 const char kBrowserUrlPrefix[] = "/devtools/browser";
+#endif
 
 const char kTargetIdField[] = "id";
 const char kTargetParentIdField[] = "parentId";
@@ -634,8 +640,13 @@ void DevToolsHttpHandler::RespondToJsonList(
   DevToolsAgentHost::List agent_hosts = std::move(hosts);
   std::sort(agent_hosts.begin(), agent_hosts.end(), TimeComparator);
   base::ListValue list_value;
-  for (auto& agent_host : agent_hosts)
+  for (auto& agent_host : agent_hosts) {
+    WebContents* web_contents = agent_host->GetWebContents();
+    if (web_contents && web_contents->GetMainFrame())
+      if (!web_contents->GetMainFrame()->context_created())
+        continue;
     list_value.Append(SerializeDescriptor(agent_host, host));
+  }
   SendJson(connection_id, net::HTTP_OK, &list_value, std::string());
 }
 
@@ -711,6 +722,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
     const base::FilePath& output_directory,
     const base::FilePath& debug_frontend_dir)
     : frontend_url_(frontend_url), delegate_(delegate), weak_factory_(this) {
+#if defined(NWJS_SDK)
   browser_guid_ = delegate_->IsBrowserTargetDiscoverable()
                       ? kBrowserUrlPrefix
                       : base::StringPrintf("%s/%s", kBrowserUrlPrefix,
@@ -732,6 +744,7 @@ DevToolsHttpHandler::DevToolsHttpHandler(
                        output_directory, debug_frontend_dir, browser_guid_,
                        bundles_resources));
   }
+#endif
 }
 
 void DevToolsHttpHandler::ServerStarted(

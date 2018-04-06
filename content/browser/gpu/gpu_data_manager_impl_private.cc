@@ -334,15 +334,22 @@ gpu::GPUInfo GpuDataManagerImplPrivate::GetGPUInfo() const {
 
 bool GpuDataManagerImplPrivate::GpuAccessAllowed(
     std::string* reason) const {
+  bool swiftshader_available = false;
 #if BUILDFLAG(ENABLE_SWIFTSHADER)
-  if (swiftshader_disabled_) {
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableSoftwareRasterizer)) {
+    swiftshader_available = true;
+  }
+#endif
+  if (swiftshader_blocked_) {
     if (reason) {
       *reason = "GPU process crashed too many times with SwiftShader.";
     }
     return false;
   }
-  return true;
-#else
+  if (swiftshader_available)
+    return true;
+
   if (!gpu_process_accessible_) {
     if (reason) {
       *reason = "GPU process launch failed.";
@@ -356,8 +363,8 @@ bool GpuDataManagerImplPrivate::GpuAccessAllowed(
   if (card_disabled_) {
     if (reason) {
       *reason = "GPU access is disabled ";
-      base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
-      if (command_line->HasSwitch(switches::kDisableGpu))
+      if (base::CommandLine::ForCurrentProcess()->HasSwitch(
+              switches::kDisableGpu))
         *reason += "through commandline switch --disable-gpu.";
       else
         *reason += "in chrome://settings.";
@@ -365,7 +372,6 @@ bool GpuDataManagerImplPrivate::GpuAccessAllowed(
     return false;
   }
   return true;
-#endif
 }
 
 void GpuDataManagerImplPrivate::RequestCompleteGpuInfoIfNeeded() {
@@ -374,6 +380,8 @@ void GpuDataManagerImplPrivate::RequestCompleteGpuInfoIfNeeded() {
           switches::kGpuTestingNoCompleteInfoCollection)) {
     return;
   }
+  if (!GpuAccessAllowed(nullptr))
+    return;
 
   complete_gpu_info_already_requested_ = true;
 
@@ -616,7 +624,7 @@ void GpuDataManagerImplPrivate::AppendGpuCommandLine(
   std::string use_gl =
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kUseGL);
-  if (card_disabled_ && !swiftshader_disabled_ &&
+  if (card_disabled_ && !swiftshader_blocked_ &&
       !base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kDisableSoftwareRasterizer)) {
     command_line->AppendSwitchASCII(
@@ -716,25 +724,38 @@ void GpuDataManagerImplPrivate::DisableHardwareAcceleration() {
     return;
   }
   card_disabled_ = true;
-  bool reset_gpu_feature_info = true;
+  bool gpu_process_blocked = true;
 #if BUILDFLAG(ENABLE_SWIFTSHADER)
-  if (!swiftshader_disabled_)
-    reset_gpu_feature_info = false;
+  if (!swiftshader_blocked_ &&
+      !base::CommandLine::ForCurrentProcess()->HasSwitch(
+          switches::kDisableSoftwareRasterizer))
+    gpu_process_blocked = false;
 #endif
-  if (reset_gpu_feature_info) {
-    gpu::GpuFeatureInfo gpu_feature_info =
-        gpu::ComputeGpuFeatureInfoWithHardwareAccelerationDisabled();
-    UpdateGpuFeatureInfo(gpu_feature_info);
-  }
-  NotifyGpuInfoUpdate();
+  if (gpu_process_blocked)
+    OnGpuProcessBlocked();
 }
 
 bool GpuDataManagerImplPrivate::HardwareAccelerationEnabled() const {
   return !card_disabled_;
 }
 
-void GpuDataManagerImplPrivate::DisableSwiftShader() {
-  swiftshader_disabled_ = true;
+void GpuDataManagerImplPrivate::BlockSwiftShader() {
+  swiftshader_blocked_ = true;
+  OnGpuProcessBlocked();
+}
+
+void GpuDataManagerImplPrivate::OnGpuProcessBlocked() {
+  gpu::GpuFeatureInfo gpu_feature_info =
+      gpu::ComputeGpuFeatureInfoWithNoGpuProcess();
+  UpdateGpuFeatureInfo(gpu_feature_info);
+
+  // This is needed for IsEssentialGpuInfoAvailable() to return
+  // true. Otherwise some observers may keep waiting for the next
+  // GPUInfo update.
+  // TODO(zmo): Clean up this hack.
+  gpu_info_.context_info_state = gpu::kCollectInfoFatalFailure;
+  // Some observers might be waiting.
+  NotifyGpuInfoUpdate();
 }
 
 void GpuDataManagerImplPrivate::SetGpuInfo(const gpu::GPUInfo& gpu_info) {
@@ -905,7 +926,7 @@ GpuDataManagerImplPrivate::GpuDataManagerImplPrivate(GpuDataManagerImpl* owner)
     : complete_gpu_info_already_requested_(false),
       observer_list_(new GpuDataManagerObserverList),
       card_disabled_(false),
-      swiftshader_disabled_(false),
+      swiftshader_blocked_(false),
       update_histograms_(true),
       domain_blocking_enabled_(true),
       owner_(owner),
@@ -914,10 +935,7 @@ GpuDataManagerImplPrivate::GpuDataManagerImplPrivate(GpuDataManagerImpl* owner)
       finalized_(false),
       in_process_gpu_(false) {
   DCHECK(owner_);
-  const base::CommandLine* command_line =
-      base::CommandLine::ForCurrentProcess();
-  if (command_line->HasSwitch(switches::kDisableSoftwareRasterizer))
-    DisableSwiftShader();
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(switches::kDisableGpu))
     DisableHardwareAcceleration();
 

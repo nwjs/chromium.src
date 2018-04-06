@@ -350,7 +350,7 @@ bool PathProvider(int key, base::FilePath* result) {
     // was shipped along with chrome.  The value can be overridden
     // if it is installed via component updater.
     case chrome::DIR_PNACL_COMPONENT:
-#if defined(OS_MACOSX)
+#if 0
       // PNaCl really belongs in the InternalPluginsDirectory but actually
       // copying it there would result in the files also being shipped, which
       // we don't want yet. So for now, just find them in the directory where

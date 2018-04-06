@@ -87,6 +87,10 @@
 #include "components/printing/service/public/interfaces/pdf_compositor.mojom.h"  // nogncheck
 #endif
 
+#if defined(OS_WIN)
+#pragma warning(disable:4065)
+#endif
+
 namespace {
 
 #if !defined(OS_ANDROID)

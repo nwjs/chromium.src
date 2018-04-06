@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
+#include "content/public/common/content_switches.h"
 
 #import <Carbon/Carbon.h>
 #import <objc/runtime.h>
@@ -111,6 +112,11 @@ using blink::WebInputEvent;
 using blink::WebMouseEvent;
 using blink::WebMouseWheelEvent;
 using blink::WebGestureEvent;
+
+namespace content {
+  extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
+}
 
 namespace {
 
@@ -446,8 +452,15 @@ RenderWidgetHostViewMac::RenderWidgetHostViewMac(RenderWidgetHost* widget,
                   initWithRenderWidgetHostViewMac:this] autorelease];
 
   background_layer_.reset([[CALayer alloc] init]);
+
+  bool isOpaque = [cocoa_view_ isOpaque];
+  if (content::g_support_transparency) {
+    [background_layer_ setBackgroundColor: (isOpaque || !content::g_support_transparency) ?
+      CGColorGetConstantColor(kCGColorWhite) : CGColorGetConstantColor(kCGColorClear)];
+  }
+
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   viz::FrameSinkId frame_sink_id =
       render_widget_host_->AllocateFrameSinkId(is_guest_view_hack_);
@@ -757,6 +770,7 @@ void RenderWidgetHostViewMac::Hide() {
   [cocoa_view_ setHidden:YES];
 
   render_widget_host_->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 
@@ -767,6 +781,7 @@ void RenderWidgetHostViewMac::WasUnOccluded() {
 
 void RenderWidgetHostViewMac::WasOccluded() {
   render_widget_host_->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 
@@ -1863,6 +1878,19 @@ Class GetRenderWidgetHostViewCocoaClassForTesting() {
   return [super forwardingTargetForSelector:selector];
 }
 
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    //High Sierra 10.13 fix, previously we use [self layer],
+    //since we have set the layer to nil in AcceleratedWidgetMac::GotSoftwareFrame,
+    //we access the layer "directly" which is the "background_layer_" (see RenderWidgetHostViewMac constructor)
+    [renderWidgetHostView_->background_layer_ renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
+}
+
 - (void)setCanBeKeyView:(BOOL)can {
   canBeKeyView_ = can;
 }
@@ -2833,12 +2861,21 @@ Class GetRenderWidgetHostViewCocoaClassForTesting() {
 - (void)setFrameSize:(NSSize)newSize {
   TRACE_EVENT0("browser", "RenderWidgetHostViewCocoa::setFrameSize");
 
+  //High Sierra 10.13 fix, RenderWidgetHostViewCocoa CALayer must be nil
+  //so we can do drawRect "manually"
+  //here, we temporarily assign back the layer during resize, so the background_layer_ can be resized properly
+  if (content::g_force_cpu_draw)
+    [self setLayer:renderWidgetHostView_->background_layer_];
+
   // NB: -[NSView setFrame:] calls through -setFrameSize:, so overriding
   // -setFrame: isn't neccessary.
   [super setFrameSize:newSize];
 
-  if (!renderWidgetHostView_->render_widget_host_)
+  if (!renderWidgetHostView_->render_widget_host_) {
+    if (content::g_force_cpu_draw)
+      [self setLayer:nil];
     return;
+  }
 
   if (renderWidgetHostView_->render_widget_host_->delegate())
     renderWidgetHostView_->render_widget_host_->delegate()->SendScreenRects();
@@ -2852,6 +2889,8 @@ Class GetRenderWidgetHostViewCocoaClassForTesting() {
   // because the view widget is still hidden, and the pause call in WasShown
   // will have this effect for us.
   renderWidgetHostView_->PauseForPendingResizeOrRepaintsAndDraw();
+  if (content::g_force_cpu_draw)
+    [self setLayer:nil];
 }
 
 - (BOOL)canBecomeKeyView {

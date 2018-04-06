@@ -27,6 +27,9 @@ interface HTMLIFrameElement : HTMLElement {
     [CEReactions, PutForwards=value] readonly attribute DOMTokenList sandbox;
     // Note: The seamless attribute was once supported, but was removed.
     [CEReactions, Reflect] attribute boolean allowFullscreen;
+    [CEReactions, Reflect] attribute boolean nwdisable;
+    [CEReactions, Reflect] attribute boolean nwfaketop;
+    [CEReactions, Reflect, TreatNullAs=NullString, Custom=Setter] attribute DOMString nwUserAgent;
     [CEReactions, Reflect] attribute DOMString width;
     [CEReactions, Reflect] attribute DOMString height;
 

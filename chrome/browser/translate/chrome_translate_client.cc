@@ -113,7 +113,7 @@ void LogTranslateEvent(const content::WebContents* const web_contents,
 const base::Feature kDecoupleTranslateLanguageFeature{
     "DecoupleTranslateLanguageFeature", base::FEATURE_DISABLED_BY_DEFAULT};
 
-DEFINE_WEB_CONTENTS_USER_DATA_KEY(ChromeTranslateClient);
+//DEFINE_WEB_CONTENTS_USER_DATA_KEY(ChromeTranslateClient);
 
 ChromeTranslateClient::ChromeTranslateClient(content::WebContents* web_contents)
     : content::WebContentsObserver(web_contents),

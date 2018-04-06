@@ -58,10 +58,12 @@ void ChangePasswordHandler::HandleChangePassword(const base::ListValue* args) {
 }
 
 void ChangePasswordHandler::UpdateChangePasswordCardVisibility() {
+#if 0
   FireWebUIListener(
       "change-password-visibility",
       base::Value(safe_browsing::ChromePasswordProtectionService::
                       ShouldShowChangePasswordSettingUI(profile_)));
+#endif
 }
 
 }  // namespace settings

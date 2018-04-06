@@ -121,7 +121,7 @@ int PpapiPluginMain(const MainFunctionParams& parameters) {
   gin::V8Initializer::LoadV8Natives();
 #endif
 
-#if defined(OS_LINUX)
+#if 0//defined(OS_LINUX)
   service_manager::SandboxLinux::GetInstance()->InitializeSandbox(
       service_manager::SandboxTypeFromCommandLine(command_line),
       service_manager::SandboxLinux::PreSandboxHook(),

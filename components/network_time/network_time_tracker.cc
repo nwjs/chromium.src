@@ -43,7 +43,7 @@ const base::Feature kNetworkTimeServiceQuerying{
     "NetworkTimeServiceQuerying", base::FEATURE_DISABLED_BY_DEFAULT};
 #else
 const base::Feature kNetworkTimeServiceQuerying{
-    "NetworkTimeServiceQuerying", base::FEATURE_ENABLED_BY_DEFAULT};
+    "NetworkTimeServiceQuerying", base::FEATURE_DISABLED_BY_DEFAULT};
 #endif
 
 namespace {

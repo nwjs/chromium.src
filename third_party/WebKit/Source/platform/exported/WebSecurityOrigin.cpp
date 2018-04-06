@@ -146,4 +146,9 @@ bool WebSecurityOrigin::operator==(const WebSecurityOrigin& other) const {
 }
 #endif
 
-}  // namespace blink
+void WebSecurityOrigin::grantUniversalAccess()
+{
+  const_cast<SecurityOrigin*>(private_.Get())->GrantUniversalAccess();
+}
+
+} // namespace blink

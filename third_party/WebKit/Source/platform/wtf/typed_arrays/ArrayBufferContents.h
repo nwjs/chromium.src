@@ -51,7 +51,7 @@ class WTF_EXPORT ArrayBufferContents {
   // specifies the correct deleter.
   using DataDeleter = void (*)(void* data);
 
-  enum class AllocationKind { kNormal, kReservation };
+  enum class AllocationKind { kNormal, kReservation, kNodeJS };
 
   class DataHandle {
     DISALLOW_COPY_AND_ASSIGN(DataHandle);
@@ -99,6 +99,9 @@ class WTF_EXPORT ArrayBufferContents {
           return;
         case AllocationKind::kReservation:
           ReleaseReservedMemory(allocation_base_, allocation_length_);
+          return;
+        case AllocationKind::kNodeJS:
+          free(allocation_base_);
           return;
       }
     }

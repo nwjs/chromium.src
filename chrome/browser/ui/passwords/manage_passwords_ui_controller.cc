@@ -593,7 +593,8 @@ void ManagePasswordsUIController::DidFinishNavigation(
 }
 
 void ManagePasswordsUIController::WasHidden() {
-  TabDialogs::FromWebContents(web_contents())->HideManagePasswordsBubble();
+  if (TabDialogs::FromWebContents(web_contents()))
+    TabDialogs::FromWebContents(web_contents())->HideManagePasswordsBubble();
 }
 
 // static

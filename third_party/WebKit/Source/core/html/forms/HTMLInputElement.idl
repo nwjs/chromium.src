@@ -107,6 +107,9 @@ enum SelectionMode { "select", "start", "end", "preserve" };
     // https://w3c.github.io/html-media-capture/#the-capture-attribute
     [Measure, RuntimeEnabled=MediaCapture, Reflect] attribute DOMString capture;
 
+    attribute DOMString nwworkingdir;
+    [Reflect] attribute boolean nwdirectory;
+    attribute DOMString nwsaveas;
     // Non-standard APIs
     [Reflect, MeasureAs=PrefixedDirectoryAttribute] attribute boolean webkitdirectory;
     [Reflect, MeasureAs=IncrementalAttribute] attribute boolean incremental;

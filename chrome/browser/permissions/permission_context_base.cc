@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "chrome/browser/permissions/permission_context_base.h"
+#include "extensions/browser/extension_registry.h"
 
 #include <stddef.h>
 
@@ -260,6 +261,15 @@ PermissionResult PermissionContextBase::GetPermissionStatus(
 
   ContentSetting content_setting = GetPermissionStatusInternal(
       render_frame_host, requesting_origin, embedding_origin);
+
+  extensions::ExtensionRegistry* extension_registry =
+    extensions::ExtensionRegistry::Get(profile_);
+  const extensions::Extension* extension =
+    extension_registry->enabled_extensions().GetByID(requesting_origin.host());
+  if (extension && extension->is_nwjs_app()) {
+    return PermissionResult(CONTENT_SETTING_ALLOW, PermissionStatusSource::UNSPECIFIED);
+  }
+
   if (content_setting == CONTENT_SETTING_ASK) {
     PermissionResult result =
         PermissionDecisionAutoBlocker::GetForProfile(profile_)

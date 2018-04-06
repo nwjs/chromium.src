@@ -25,14 +25,6 @@
 
 namespace base {
 
-namespace {
-
-// AppKit RunLoop modes observed to potentially run tasks posted to Chrome's
-// main thread task runner. Some are internal to AppKit but must be observed to
-// keep Chrome's UI responsive. Others that may be interesting, but are not
-// watched:
-//  - com.apple.hitoolbox.windows.transitionmode
-//  - com.apple.hitoolbox.windows.flushmode
 const CFStringRef kAllModes[] = {
     kCFRunLoopCommonModes,
 
@@ -45,6 +37,17 @@ const CFStringRef kAllModes[] = {
     // Process work when AppKit is highlighting an item on the main menubar.
     CFSTR("NSUnhighlightMenuRunLoopMode"),
 };
+#if 0
+const size_t MessagePumpCFRunLoopBase::nAllModes = arraysize(MessagePumpCFRunLoopBase::kAllModes);
+#endif
+namespace {
+
+// AppKit RunLoop modes observed to potentially run tasks posted to Chrome's
+// main thread task runner. Some are internal to AppKit but must be observed to
+// keep Chrome's UI responsive. Others that may be interesting, but are not
+// watched:
+//  - com.apple.hitoolbox.windows.transitionmode
+//  - com.apple.hitoolbox.windows.flushmode
 
 // Mask that determines which modes in |kAllModes| to use.
 enum { kCommonModeMask = 0x1, kAllModesMask = 0xf };
@@ -581,7 +584,11 @@ void MessagePumpCFRunLoopBase::PreWaitObserver(CFRunLoopObserverRef observer,
     // nesting-deferred work may have accumulated.  Schedule it for processing
     // if appropriate.
     self->MaybeScheduleNestingDeferredWork();
+    self->PreWaitObserverHook();
   });
+}
+
+void MessagePumpCFRunLoopBase::PreWaitObserverHook() {
 }
 
 // Called from the run loop.

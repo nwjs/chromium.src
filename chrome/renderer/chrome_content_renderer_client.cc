@@ -190,6 +190,9 @@
 #include "chrome/renderer/media/webrtc_logging_message_filter.h"
 #endif
 
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/common/shell_switches.h"
+
 using autofill::AutofillAgent;
 using autofill::PasswordAutofillAgent;
 using autofill::PasswordGenerationAgent;
@@ -394,6 +397,15 @@ ChromeContentRendererClient::ChromeContentRendererClient()
 
 ChromeContentRendererClient::~ChromeContentRendererClient() = default;
 
+void ChromeContentRendererClient::willHandleNavigationPolicy(content::RenderView* rv,
+                                                             blink::WebFrame* frame,
+                                                             const blink::WebURLRequest& request,
+                                                             blink::WebNavigationPolicy* policy,
+                                                             blink::WebString* manifest,
+                                                             bool new_win) {
+  nw::willHandleNavigationPolicy(rv, frame, request, policy, manifest, new_win);
+}
+
 void ChromeContentRendererClient::RenderThreadStarted() {
   RenderThread* thread = RenderThread::Get();
 
@@ -440,10 +452,11 @@ void ChromeContentRendererClient::RenderThreadStarted() {
 
   prescient_networking_dispatcher_.reset(
       new network_hints::PrescientNetworkingDispatcher());
+  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
 #if BUILDFLAG(ENABLE_SPELLCHECK)
   // ChromeRenderViewTest::SetUp() creates a Spellcheck and injects it using
   // SetSpellcheck(). Don't overwrite it.
-  if (!spellcheck_) {
+  if (!spellcheck_ && command_line->HasSwitch(switches::kEnableSpellChecking)) {
     spellcheck_.reset(new SpellCheck(this));
     thread->AddObserver(spellcheck_.get());
   }
@@ -476,7 +489,6 @@ void ChromeContentRendererClient::RenderThreadStarted() {
 
   thread->RegisterExtension(extensions_v8::LoadTimesExtension::Get());
 
-  base::CommandLine* command_line = base::CommandLine::ForCurrentProcess();
   if (command_line->HasSwitch(variations::switches::kEnableBenchmarking))
     thread->RegisterExtension(extensions_v8::BenchmarkingExtension::Get());
   if (command_line->HasSwitch(switches::kEnableNetBenchmarking))
@@ -630,6 +642,7 @@ void ChromeContentRendererClient::RenderFrameCreated(
 #endif  // !defined(OS_ANDROID)
 
 #if BUILDFLAG(ENABLE_SPELLCHECK)
+  if (command_line->HasSwitch(switches::kEnableSpellChecking))
   new SpellCheckProvider(render_frame, spellcheck_.get(), this);
 
 #if BUILDFLAG(HAS_SPELLCHECK_PANEL)
@@ -1394,9 +1407,12 @@ bool ChromeContentRendererClient::IsExtensionOrSharedModuleWhitelisted(
 
 std::unique_ptr<blink::WebSocketHandshakeThrottle>
 ChromeContentRendererClient::CreateWebSocketHandshakeThrottle() {
+#if 0
   InitSafeBrowsingIfNecessary();
   return base::MakeUnique<safe_browsing::WebSocketSBHandshakeThrottle>(
       safe_browsing_.get());
+#endif
+  return nullptr;
 }
 
 std::unique_ptr<blink::WebSpeechSynthesizer>
@@ -1419,7 +1435,7 @@ bool ChromeContentRendererClient::AllowPepperMediaStreamAPI(
   // Allow only the Hangouts app to use the MediaStream APIs. It's OK to check
   // the whitelist in the renderer, since we're only preventing access until
   // these APIs are public and stable.
-  return (AppCategorizer::IsHangoutsUrl(url));
+  return true;
 #endif  // !defined(OS_ANDROID)
 }
 
@@ -1517,22 +1533,30 @@ ChromeContentRendererClient::CreateBrowserPluginDelegate(
 #endif
 }
 
+base::FilePath ChromeContentRendererClient::GetRootPath() {
+  return nw::GetRootPathRenderer();
+}
+
 void ChromeContentRendererClient::RecordRappor(const std::string& metric,
                                                const std::string& sample) {
+#if 0
   if (!rappor_recorder_) {
     RenderThread::Get()->GetConnector()->BindInterface(
         content::mojom::kBrowserServiceName, &rappor_recorder_);
   }
   rappor_recorder_->RecordRappor(metric, sample);
+#endif
 }
 
 void ChromeContentRendererClient::RecordRapporURL(const std::string& metric,
                                                   const GURL& url) {
+#if 0
   if (!rappor_recorder_) {
     RenderThread::Get()->GetConnector()->BindInterface(
         content::mojom::kBrowserServiceName, &rappor_recorder_);
   }
   rappor_recorder_->RecordRapporURL(metric, url);
+#endif
 }
 
 void ChromeContentRendererClient::AddImageContextMenuProperties(
