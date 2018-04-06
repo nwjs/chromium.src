@@ -930,9 +930,11 @@ WebTouchEvent WebPluginContainerImpl::TransformTouchEvent(
     // Translate the root frame position to content coordinates.
     absolute_location = parent.RootFrameToContents(absolute_location);
 
-    FloatPoint local_point = element_->GetLayoutObject()->AbsoluteToLocal(
-        absolute_location, kUseTransforms);
-    transformed_event.touches[i].SetPositionInWidget(local_point);
+    IntPoint local_point =
+        RoundedIntPoint(element_->GetLayoutObject()->AbsoluteToLocal(
+            absolute_location, kUseTransforms));
+    transformed_event.touches[i].SetPositionInWidget(local_point.X(),
+                                                     local_point.Y());
   }
   return transformed_event;
 }
