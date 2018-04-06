@@ -31,9 +31,6 @@ const char kAshDisableSmoothScreenRotation[] =
 const char kAshDisableTabletAutohideTitlebars[] =
     "ash-disable-tablet-autohide-titlebars";
 
-// Disables the split view on tablet mode.
-const char kAshDisableTabletSplitView[] = "disable-tablet-splitview";
-
 // Disables the trilinear filtering for overview and window cycle list.
 const char kAshDisableTrilinearFiltering[] = "ash-disable-trilinear-filtering";
 
@@ -70,6 +67,9 @@ const char kAshSidebarDisabled[] = "disable-ash-sidebar";
 // mode.  The flag is "enable-touchview" not "enable-tabletmode" as this
 // is used to enable tablet mode on convertible devices.
 const char kAshEnableTabletMode[] = "enable-touchview";
+
+// Enables the split view on tablet mode.
+const char kAshEnableTabletSplitView[] = "enable-tablet-splitview";
 
 // Enable the wayland server.
 const char kAshEnableWaylandServer[] = "ash-enable-wayland-server";
