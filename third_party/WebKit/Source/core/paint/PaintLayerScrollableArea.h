@@ -489,6 +489,7 @@ class CORE_EXPORT PaintLayerScrollableArea final
                                       bool needs_compositing_update = true);
   void InvalidatePaintForStickyDescendants();
   void UpdateLayerPositionForStickyDescendants();
+  bool HasStickyDescendants() const;
   bool HasNonCompositedStickyDescendants() const;
   uint32_t GetNonCompositedMainThreadScrollingReasons() {
     return non_composited_main_thread_scrolling_reasons_;
