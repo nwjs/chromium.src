@@ -388,7 +388,7 @@
     &lt;li&gt;A la pàgina d'inici de sessió que s'obrirà, inicieu la sessió per utilitzar Internet.&lt;/li&gt;
     &lt;/ol&gt;
     &lt;h4&gt;Pas 2: obriu la pàgina en mode d'incògnit (només a l'ordinador)&lt;/h4&gt;
-    &lt;p&gt;Obriu la pàgina que estàveu visitant en una finestra d'incògnit.&lt;/p&gt;
+    &lt;p&gt;Obriu en una finestra d'incògnit la pàgina que estàveu visitant.&lt;/p&gt;
     &lt;p&gt;Si la pàgina s'obre, significa que alguna extensió de Chrome no funciona bé. Per solucionar l'error, desactiveu l'extensió.&lt;/p&gt;
     &lt;h4&gt;Pas 3: actualitzeu el sistema operatiu&lt;/h4&gt;
     &lt;p&gt;Assegureu-vos que el dispositiu estigui actualitzat.&lt;/p&gt;
@@ -535,7 +535,7 @@
 <translation id="4668929960204016307">,</translation>
 <translation id="467662567472608290">El servidor no ha pogut comprovar que sigui <ph name="DOMAIN" /> perquè el seu certificat de seguretat conté errors. Això pot ser a causa d'una configuració incorrecta o d'un atacant que intercepta la vostra connexió.</translation>
 <translation id="4690462567478992370">Deixa de fer servir un certificat no vàlid</translation>
-<translation id="4690954380545377795">Podries perdre l'accés al compte de Google o o tenir problemes de suplantació d'identitat. Chrome et recomana que canviïs la contrasenya ara.</translation>
+<translation id="4690954380545377795">Podries perdre l'accés al compte de Google o tenir problemes de suplantació d'identitat. Chrome et recomana que canviïs la contrasenya ara.</translation>
 <translation id="4701488924964507374"><ph name="SENTENCE1" /> <ph name="SENTENCE2" /></translation>
 <translation id="4708268264240856090">La connexió s'ha interromput</translation>
 <translation id="471880041731876836">No tens permís per visitar aquest lloc web</translation>

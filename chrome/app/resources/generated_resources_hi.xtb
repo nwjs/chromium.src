@@ -718,7 +718,7 @@
 <translation id="2113479184312716848">&amp;फ़ाइल खोलें...</translation>
 <translation id="2113921862428609753">प्राधिकारी जानकारी पहुंच</translation>
 <translation id="2114224913786726438">मॉड्यूल (<ph name="TOTAL_COUNT" />) - कोई विरोध नहीं मिले</translation>
-<translation id="2114326799768592691">&amp;फ़्रेम पुन: लोड करें</translation>
+<translation id="2114326799768592691">&amp;फ़्रेम फिर लोड करें</translation>
 <translation id="2114896190328250491"><ph name="NAME" /> की फ़ोटो</translation>
 <translation id="2115103655317273167">फ़ोन पर भेजें</translation>
 <translation id="2115946962706216358">मशीन को डोमेन में शामिल नहीं किया जा सका. यह शायद सर्वर पर आपके खाते के लिए शामिल की जाने वाली मशीनों की अधिकतम स्वीकृत संख्या को पार करने के कारण हुआ.</translation>
@@ -861,7 +861,7 @@
 <translation id="2322193970951063277">शीर्षलेख और पादलेख</translation>
 <translation id="2325650632570794183">यह फ़ाइल प्रकार समर्थित नहीं है. इस प्रकार की फ़ाइल को खोल सकने वाला ऐप्स  ढूंढने के लिए कृपया Chrome वेब स्टोर पर जाएं.</translation>
 <translation id="2326606747676847821">गुप्त मोड में जाएं</translation>
-<translation id="2326931316514688470">&amp;ऐप पुन: लोड करें</translation>
+<translation id="2326931316514688470">&amp;ऐप फिर लोड करें</translation>
 <translation id="2327492829706409234">ऐप्स  सक्षम करें</translation>
 <translation id="2329597144923131178">सभी डिवाइसों पर बुकमार्क, इतिहास, पासवर्ड और अन्‍य सेटिंग प्राप्‍त करने हेतु प्रवेश करें.</translation>
 <translation id="2332131598580221120">स्टोर में देखें</translation>
@@ -1072,7 +1072,7 @@
 <translation id="2638942478653899953">Google डिस्क तक नहीं पहुंचा जा सका. कृपया <ph name="BEGIN_LINK" />लॉग आउट करें<ph name="END_LINK" /> और वापस प्रवेश करें.</translation>
 <translation id="2642111877055905627">सॉकर बॉल</translation>
 <translation id="2643698698624765890">विंडो मेनू में एक्सटेंशन क्लिक करके अपने एक्सटेंशन प्रबंधित करें.</translation>
-<translation id="2647142853114880570">पुन: लोड करें</translation>
+<translation id="2647142853114880570">फिर लोड करें</translation>
 <translation id="264810637653812429">कोई संगत डिवाइस नहीं मिला.</translation>
 <translation id="2648831393319960979">आपके खाते में डिवाइस जोड़ा रहा है - इसमें कुछ समय लग सकता है...</translation>
 <translation id="2649045351178520408">Base64-एन्कोड किया गया ASCII, प्रमाणपत्र चेन</translation>
@@ -1349,7 +1349,7 @@
 <translation id="3021678814754966447">फ़्रेम का स्रोत &amp;देखें</translation>
 <translation id="3022978424994383087">समझ नहीं आया.</translation>
 <translation id="3024374909719388945">24-घंटे की घड़ी का उपयोग करें</translation>
-<translation id="302781076327338683">बायपास होने वाले संचय को पुनः लोड करें</translation>
+<translation id="302781076327338683">कैश को बाइपास कर फिर लोड करें</translation>
 <translation id="3030243755303701754">निगरानी में रखा गया उपयोगकर्ता, आपके मार्गदर्शन में वेब को एक्सप्लोर कर सकता है. Chrome में निगरानी में रखे गए उपयोगकर्ता के प्रबंधक के रूप में, आप:
 
  • कुछ वेबसाइट को अनुमति दे सकते हैं या प्रतिबंधित कर सकते हैं,
@@ -1393,7 +1393,7 @@
 <translation id="3083193146044397360">आपकी सुरक्षा के लिए कुछ समय तक ब्लॉक किया गया</translation>
 <translation id="308330327687243295">https://mail.google.com/mail/?extsrc=mailto&amp;url=%s</translation>
 <translation id="3084548735795614657">इंस्टॉल करने के लिए यहां छोड़ें</translation>
-<translation id="3084771660770137092">Chrome की स्‍मृति समाप्‍त हो गई है या वेबपृष्‍ठ की प्रक्रिया किसी अन्‍य कारण से समाप्‍त कर दी गई है.  जारी रखने के लिए, पुन: लोड करें या अन्‍य पृष्‍ठ पर जाएं.</translation>
+<translation id="3084771660770137092">या तो Chrome की मेमोरी खत्म हो गई है या वेबपेज की प्रक्रिया किसी और वजह से खत्म कर दी गई है. जारी रखने के लिए, फिर लोड करें या किसी और पेज पर जाएं.</translation>
 <translation id="3085752524577180175">SOCKS होस्ट</translation>
 <translation id="3088325635286126843">&amp;नाम बदलें...</translation>
 <translation id="3089231390674410424">ऐसा लगता है कि आपके क्रेडेंशियल में कोई समस्या है. कृपया सुनिश्चित करें कि आपने ठीक तरह से प्रवेश किया हुआ है और पुनः प्रयास करें.</translation>
@@ -1472,7 +1472,7 @@
 <translation id="3225084153129302039">डिफ़ॉल्ट बैंगनी अवतार</translation>
 <translation id="3225319735946384299">कोड हस्ताक्षर</translation>
 <translation id="3227137524299004712">माइक्रोफ़ोन</translation>
-<translation id="32279126412636473">पुन: लोड करें (⌘R)</translation>
+<translation id="32279126412636473">फिर लोड करें (⌘R)</translation>
 <translation id="3228679360002431295">कनेक्ट कर रहा है और पुष्टि कर रहा है<ph name="ANIMATED_ELLIPSIS" /></translation>
 <translation id="3229922550070982305">चलाएं / रोकें</translation>
 <translation id="3232318083971127729">मान:</translation>
@@ -2944,7 +2944,7 @@
 <translation id="5554573843028719904">अन्‍य वाई-फ़ाई  नेटवर्क...</translation>
 <translation id="5554720593229208774">ईमेल प्रमाणन प्राधिकरण</translation>
 <translation id="5556206011531515970">अपना डिफ़ॉल्ट ब्राउज़र चुनने के लिए अगला क्लिक करें.</translation>
-<translation id="5556459405103347317">पुन: लोड करें</translation>
+<translation id="5556459405103347317">फिर लोड करें</translation>
 <translation id="555746285996217175">लॉक / पावर</translation>
 <translation id="5557579359142031072">आपकी सुरक्षा चाबी के बारे में पहचान करने लायक जानकारी देखना</translation>
 <translation id="5557991081552967863">प्रयोग में नहीं रहने के दौरान वाई-फ़ाई चालू रखें</translation>
@@ -3002,7 +3002,7 @@
 <translation id="5637476008227280525">मोबाइल डेटा सक्षम</translation>
 <translation id="5638309510554459422"><ph name="BEGIN_LINK" />Chrome वेब स्टोर<ph name="END_LINK" /> में एक्सटेंशन और थीम ढूंढें</translation>
 <translation id="5638497698949808140"><ph name="HOURS" /> घंटे पहले अपडेट किया गया</translation>
-<translation id="5639549361331209298">यह पेज पुन: लोड करें, अधिक विकल्प देखने के लिए रोककर रखें</translation>
+<translation id="5639549361331209298">यह पेज फिर लोड करें, ज़्यादा विकल्प देखने के लिए रोककर रखें</translation>
 <translation id="5642508497713047">CRL हस्ताक्षरकर्ता</translation>
 <translation id="5643620609347735571">साफ़ करें और जारी रखें</translation>
 <translation id="5646558797914161501">व्यवसायी</translation>
@@ -3370,7 +3370,7 @@
 <translation id="6232116551750539448"><ph name="NAME" /> से कनेक्शन टूट गया</translation>
 <translation id="6237816943013845465">आपको अपना स्क्रीन रिज़ॉल्‍यूशन समायोजित करने देती है</translation>
 <translation id="6238923052227198598">सबसे नया नोट लॉक स्क्रीन पर रखें</translation>
-<translation id="6239558157302047471">&amp;फ़्रेम पुन: लोड करें</translation>
+<translation id="6239558157302047471">&amp;फ़्रेम फिर लोड करें</translation>
 <translation id="6241530762627360640">अपने सिस्टम के साथ युग्मित ब्लूटूथ डिवाइस से संबंधित जानकारी एक्सेस करें और आस-पास के ब्लूटूथ डिवाइस की खोज करें.</translation>
 <translation id="6243774244933267674">सर्वर अनुपलब्‍ध है</translation>
 <translation id="6246413617632217567">निगरानी में रखे गए उपयोगकर्ता को आयात नहीं किया जा सका. कृपया अपने हार्ड ड्राइव का स्थान और अनुमतियां जाँचें तथा पुनः प्रयास करें.</translation>
@@ -3499,7 +3499,7 @@
 <translation id="6434309073475700221">अभी नहीं</translation>
 <translation id="6435285122322546452">किओस्क ऐप्लिकेशन प्रबंधित करें...</translation>
 <translation id="6436164536244065364">वेब स्टोर में देखें</translation>
-<translation id="6437213622978068772">पुन: लोड करें (Ctrl+R)</translation>
+<translation id="6437213622978068772">फिर लोड करें (Ctrl+R)</translation>
 <translation id="6438234780621650381">सेटिंग रीसेट करें</translation>
 <translation id="6438992844451964465"><ph name="WINDOW_TITLE" /> - ऑडियो चलाया जा रहा है</translation>
 <translation id="6442187272350399447">अद्भुत</translation>
@@ -3899,7 +3899,7 @@
 <translation id="7075513071073410194">RSA सुरक्षित तरीका के साथ PKCS #1 MD5</translation>
 <translation id="7075625805486468288">HTTPS/SSL प्रमाणपत्र और सेटिंग प्रबंधित करें</translation>
 <translation id="7076293881109082629">प्रवेश किया जा रहा है...</translation>
-<translation id="7077829361966535409">साइन-इन पेज वर्तमान प्रॉक्सी सेटिंग का उपयोग करके लोड होने में विफल रहा. कृपया <ph name="GAIA_RELOAD_LINK_START" />पुन: प्रवेश करने का प्रयास करें<ph name="GAIA_RELOAD_LINK_END" />, या अलग-अलग <ph name="PROXY_SETTINGS_LINK_START" />प्रॉक्सी सेटिंग<ph name="PROXY_SETTINGS_LINK_END" /> का उपयोग करें.</translation>
+<translation id="7077829361966535409">मौजूदा प्रॉक्सी सेटिंग के इस्तेमाल से साइन-इन पेज लोड नहीं हो सका. कृपया <ph name="GAIA_RELOAD_LINK_START" />फिर साइन इन करने की कोशिश करें<ph name="GAIA_RELOAD_LINK_END" />, या अलग-अलग <ph name="PROXY_SETTINGS_LINK_START" />प्रॉक्सी सेटिंग<ph name="PROXY_SETTINGS_LINK_END" /> का उपयोग करें.</translation>
 <translation id="7078120482318506217">सभी नेटवर्क</translation>
 <translation id="708060913198414444">ऑडियो के पते को कॉ&amp;पी करें</translation>
 <translation id="708278670402572152">स्कैन करना चालू करने के लिए डिसकनेक्ट करें</translation>
@@ -4325,7 +4325,7 @@
 <translation id="7784067724422331729">आपके कंप्यूटर की सुरक्षा सेटिंग ने इस फ़ाइल को अवरोधित किया है.</translation>
 <translation id="778480864305029524">झटपट टेदरिंग का इस्तेमाल करने के लिए, Google Play सेवाओं के लिए सूचनाएं चालू करें.</translation>
 <translation id="7786207843293321886">अतिथि सत्र से बाहर निकलें</translation>
-<translation id="7786889348652477777">&amp;ऐप पुन: लोड करें</translation>
+<translation id="7786889348652477777">&amp;ऐप फिर लोड करें</translation>
 <translation id="7787129790495067395">आप वर्तमान में एक पासफ़्रेज़ का उपयोग कर रहे हैं.  यदि आप अपना पासफ़्रेज़ भूल गए हैं, तो आप Google डैशबोर्ड का उपयोग करके Google के सर्वर से अपना डेटा साफ़ करने के लिए समन्वयन रीसेट कर सकते हैं.</translation>
 <translation id="7787308148023287649">किसी अन्य स्क्रीन पर दिखाएं</translation>
 <translation id="7788080748068240085">"<ph name="FILE_NAME" />" को ऑफ़लाइन सहेजने के लिए आपको <ph name="TOTAL_FILE_SIZE" /> का अतिखाली स्थान खाली करना होगा:<ph name="MARKUP_1" />
@@ -4664,7 +4664,7 @@
 <translation id="8274332263553132018">फ़ाइल कास्ट करें</translation>
 <translation id="8274924778568117936">अपडेट पूरा होने तक अपना <ph name="DEVICE_TYPE" /> बंद न करें. इंस्टॉलेशन पूरा हो जाने के बाद आपका <ph name="DEVICE_TYPE" /> फिर से चालू हो जाएगा.</translation>
 <translation id="8275038454117074363">आयात करें</translation>
-<translation id="8276560076771292512">संचय और कठिन पुन: लोड खाली करें</translation>
+<translation id="8276560076771292512">कैश और हार्ड रिलोड खाली करें</translation>
 <translation id="8281886186245836920">अभी नहीं</translation>
 <translation id="8282947398454257691">आपका अद्वितीय डिवाइस पहचानकर्ता पता करना</translation>
 <translation id="8283475148136688298">"<ph name="DEVICE_NAME" />" से कनेक्ट करते समय प्रमाणीकरण कोड अस्वीकार हो गया.</translation>

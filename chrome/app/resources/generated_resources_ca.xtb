@@ -633,7 +633,7 @@
 <translation id="1956390763342388273">Es penjaran tots els fitxers que hi ha a <ph name="FOLDER_PATH" />. Fes-ho només si confies en el lloc web.</translation>
 <translation id="1962233722219655970">Aquesta pàgina fa servir una aplicació de Native Client que no funciona al vostre ordinador.</translation>
 <translation id="1962969542251276847">Bloqueja la pantalla</translation>
-<translation id="1963227389609234879">Elimina-ho tot</translation>
+<translation id="1963227389609234879">Suprimeix-ho tot</translation>
 <translation id="1965328510789761112">Memòria privada</translation>
 <translation id="1965624977906726414">No té permisos especials.</translation>
 <translation id="1970368523891847084">S'ha activat el mode de vídeo</translation>
@@ -5074,7 +5074,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8977811652087512276">Contrasenya incorrecta o fitxer malmès</translation>
 <translation id="8978154919215542464">Activat: se sincronitza tot</translation>
 <translation id="8980951173413349704"><ph name="WINDOW_TITLE" />: ha fallat</translation>
-<translation id="8986362086234534611">Esborra</translation>
+<translation id="8986362086234534611">Oblida</translation>
 <translation id="8986494364107987395">Envia automàticament estadístiques d'ús i informes d'error a Google</translation>
 <translation id="8987927404178983737">Mes</translation>
 <translation id="899403249577094719">URL base de certificat de Netscape</translation>
