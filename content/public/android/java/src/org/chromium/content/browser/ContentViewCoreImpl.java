@@ -535,7 +535,8 @@ public class ContentViewCoreImpl implements ContentViewCore, DisplayAndroidObser
 
     @CalledByNative
     private void hidePopupsAndPreserveSelection() {
-        getSelectionPopupController().destroyActionModeAndKeepSelection();
+        SelectionPopupController controller = getSelectionPopupController();
+        if (controller != null) controller.destroyActionModeAndKeepSelection();
         hidePopups();
     }
 
@@ -573,7 +574,8 @@ public class ContentViewCoreImpl implements ContentViewCore, DisplayAndroidObser
         if (mWebContents == null) return;
         setTextHandlesTemporarilyHidden(!focused);
         if (focused) {
-            getSelectionPopupController().restoreSelectionPopupsIfNecessary();
+            SelectionPopupController controller = getSelectionPopupController();
+            if (controller != null) controller.restoreSelectionPopupsIfNecessary();
         } else {
             hidePopupsAndPreserveSelection();
         }
