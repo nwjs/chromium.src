@@ -737,16 +737,14 @@ void RenderWidgetHostInputEventRouter::SendMouseEnterOrLeaveEvents(
 }
 
 void RenderWidgetHostInputEventRouter::ReportBubblingScrollToSameView(
-    const blink::WebGestureEvent& event) {
-  static auto* type_key = base::debug::AllocateCrashKeyString(
-      "same-view-bubble-event-type", base::debug::CrashKeySize::Size32);
-  base::debug::ScopedCrashKeyString type_key_value(
-      type_key, std::to_string(event.GetType()));
-  static auto* device_key = base::debug::AllocateCrashKeyString(
-      "same-view-bubble-source-device", base::debug::CrashKeySize::Size32);
-  base::debug::ScopedCrashKeyString device_key_value(
-      device_key, std::to_string(event.source_device));
+    const blink::WebGestureEvent& event,
+    const RenderWidgetHostViewBase* view) {
+#if 0
+  // For now, we've disabled the DumpWithoutCrashing as it's no longer
+  // providing useful information.
+  // TODO(828422): Determine useful crash keys and reenable the report.
   base::debug::DumpWithoutCrashing();
+#endif
 }
 
 namespace {
@@ -828,9 +826,9 @@ void RenderWidgetHostInputEventRouter::BubbleScrollEvent(
     // We've seen reports of this, but don't know the cause yet. For now,
     // instead of CHECKing or hanging, we'll report the issue and abort scroll
     // bubbling.
-    // TODO(818214): Remove once this issue no longer occurs.
+    // TODO(828422): Remove once this issue no longer occurs.
     if (resending_view == bubbling_gesture_scroll_target_.target) {
-      ReportBubblingScrollToSameView(event);
+      ReportBubblingScrollToSameView(event, resending_view);
       first_bubbling_scroll_target_.target = nullptr;
       bubbling_gesture_scroll_target_.target = nullptr;
       return;
