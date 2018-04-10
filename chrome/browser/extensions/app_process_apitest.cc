@@ -740,20 +740,17 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, OpenWebPopupFromWebIframe) {
                                             ->GetProcess();
   EXPECT_TRUE(process_map->Contains(process->GetID()));
 
-  // Popup window should be in the app's process if site isolation is off;
-  // otherwise they should be in different processes.
+  // Popup window should be in the app's process.
   const BrowserList* active_browser_list = BrowserList::GetInstance();
   EXPECT_EQ(2U, active_browser_list->size());
   content::WebContents* popup_contents =
       active_browser_list->get(1)->tab_strip_model()->GetActiveWebContents();
   content::WaitForLoadStop(popup_contents);
 
-  bool should_be_in_same_process = !content::AreAllSitesIsolatedForTesting();
   content::RenderProcessHost* popup_process =
       popup_contents->GetMainFrame()->GetProcess();
-  EXPECT_EQ(should_be_in_same_process, process == popup_process);
-  EXPECT_EQ(should_be_in_same_process,
-            process_map->Contains(popup_process->GetID()));
+  EXPECT_EQ(process, popup_process);
+  EXPECT_TRUE(process_map->Contains(popup_process->GetID()));
 }
 
 // http://crbug.com/118502
@@ -831,10 +828,10 @@ IN_PROC_BROWSER_TEST_F(AppApiTest, SameBrowsingInstanceAfterSwap) {
   // Navigate the popup to another process outside the app.
   GURL non_app_url(base_url.Resolve("path3/empty.html"));
   ui_test_utils::NavigateToURL(active_browser_list->get(1), non_app_url);
-  SiteInstance* new_instance = popup_contents->GetSiteInstance();
-  EXPECT_NE(app_instance, new_instance);
-
-  // It should still be in the same BrowsingInstance, allowing postMessage to
+  // The popup will stay in the same SiteInstance, even in
+  // --site-per-process mode, because the popup is still same-site with its
+  // opener.  Staying in same SiteInstance implies that postMessage will still
   // work.
-  EXPECT_TRUE(app_instance->IsRelatedSiteInstance(new_instance));
+  SiteInstance* new_instance = popup_contents->GetSiteInstance();
+  EXPECT_EQ(app_instance, new_instance);
 }
