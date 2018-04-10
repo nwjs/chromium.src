@@ -590,6 +590,8 @@ bool ScrollableArea::ScrollbarsHidden() const {
 }
 
 void ScrollableArea::SetScrollbarsHidden(bool hidden) {
+  if (HasBeenDisposed())
+    return;
   if (scrollbars_hidden_ == static_cast<unsigned>(hidden))
     return;
 
