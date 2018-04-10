@@ -2546,6 +2546,10 @@ void PaintLayerScrollableArea::DelayScrollOffsetClampScope::
 }
 
 ScrollbarTheme& PaintLayerScrollableArea::GetPageScrollbarTheme() const {
+  // If PaintLayer is destructed before PaintLayerScrollable area, we can not
+  // get the page scrollbar theme setting.
+  DCHECK(!HasBeenDisposed());
+
   Page* page = GetLayoutBox()->GetFrame()->GetPage();
   DCHECK(page);
 
