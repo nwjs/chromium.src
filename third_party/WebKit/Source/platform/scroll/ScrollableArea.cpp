@@ -590,11 +590,6 @@ bool ScrollableArea::ScrollbarsHidden() const {
 }
 
 void ScrollableArea::SetScrollbarsHidden(bool hidden) {
-  // If scrollable area has been disposed, we can not get the page scrollbar
-  // theme setting. Should early return here.
-  if (HasBeenDisposed())
-    return;
-
   if (scrollbars_hidden_ == static_cast<unsigned>(hidden))
     return;
 
