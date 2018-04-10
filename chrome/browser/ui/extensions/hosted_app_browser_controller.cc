@@ -23,6 +23,7 @@
 #include "content/public/browser/navigation_entry.h"
 #include "content/public/browser/web_contents.h"
 #include "extensions/browser/extension_registry.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
 #include "net/base/registry_controlled_domains/registry_controlled_domain.h"
 #include "ui/gfx/favicon_size.h"
@@ -33,12 +34,27 @@ namespace extensions {
 
 namespace {
 
-// Returns true if |page_url| is both secure (https) and on the same origin as
-// |app_url|. Note that even if |app_url| is http, this still returns true as
+// Returns the scheme that page URLs should be, in order to be considered
+// "secure", for an app URL of scheme |scheme|.
+//
+// All pages (even if the app was created with scheme "http") are expected to
+// have scheme "https", since "http" is not secure. As a special exception,
+// pages for "chrome-extension" apps are expected to have the same scheme (since
+// that scheme is secure).
+base::StringPiece ExpectedSchemeForApp(base::StringPiece scheme) {
+  if (scheme == kExtensionScheme)
+    return scheme;
+
+  return url::kHttpsScheme;
+}
+
+// Returns true if |page_url| is both secure (not http) and on the same origin
+// as |app_url|. Note that even if |app_url| is http, this still returns true as
 // long as |page_url| is https.
 bool IsSameOriginAndSecure(const GURL& app_url, const GURL& page_url) {
   const std::string www("www.");
-  return page_url.scheme_piece() == url::kHttpsScheme &&
+  return ExpectedSchemeForApp(app_url.scheme_piece()) ==
+             page_url.scheme_piece() &&
          (app_url.host_piece() == page_url.host_piece() ||
           www + app_url.host() == page_url.host_piece()) &&
          app_url.port() == page_url.port();
