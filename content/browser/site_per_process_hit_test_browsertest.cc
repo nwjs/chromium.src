@@ -2008,9 +2008,8 @@ class SitePerProcessMouseWheelHitTestBrowserTest
   RenderWidgetHostViewAura* rwhv_root_;
 };
 
-IN_PROC_BROWSER_TEST_P(
-    SitePerProcessMouseWheelHitTestBrowserTestWheelScrollLatchingDisabled,
-    MultipleSubframeWheelEventsOnMainThread) {
+IN_PROC_BROWSER_TEST_P(SitePerProcessMouseWheelHitTestBrowserTest,
+                       MultipleSubframeWheelEventsOnMainThread) {
   feature_list_.InitWithFeatures({}, {features::kTouchpadAndWheelScrollLatching,
                                       features::kAsyncWheelEvents});
   GURL main_url(embedded_test_server()->GetURL(
