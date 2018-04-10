@@ -52,6 +52,8 @@ DECLARE_RESOURCE_ID(IDR_ANDROID_INFOBAR_SAVE_PASSWORD,
 DECLARE_RESOURCE_ID(IDR_ANDROID_INFOBAR_ADS_BLOCKED,
                     R.drawable.infobar_blocked_popups)
 DECLARE_RESOURCE_ID(IDR_ANDROID_INFOBAR_WARNING, R.drawable.infobar_warning)
+DECLARE_RESOURCE_ID(IDR_AUTOFILL_GOOGLE_PAY_WITH_DIVIDER,
+                    R.drawable.google_pay_with_divider)
 
 // PageInfoUI images, used in ConnectionInfoPopup
 // Good:
