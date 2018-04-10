@@ -1542,10 +1542,14 @@ RenderWidgetHostImpl* RenderWidgetHostViewMac::GetRenderWidgetHostImpl() const {
 }
 
 viz::LocalSurfaceId RenderWidgetHostViewMac::GetLocalSurfaceId() const {
+  if (!browser_compositor_)
+    return viz::LocalSurfaceId();
   return browser_compositor_->GetRendererLocalSurfaceId();
 }
 
 viz::FrameSinkId RenderWidgetHostViewMac::GetFrameSinkId() {
+  if (!browser_compositor_)
+    return viz::FrameSinkId();
   return browser_compositor_->GetDelegatedFrameHost()->frame_sink_id();
 }
 
@@ -1604,10 +1608,14 @@ bool RenderWidgetHostViewMac::TransformPointToCoordSpaceForView(
 }
 
 viz::FrameSinkId RenderWidgetHostViewMac::GetRootFrameSinkId() {
+  if (!browser_compositor_)
+    return viz::FrameSinkId();
   return browser_compositor_->GetRootFrameSinkId();
 }
 
 viz::SurfaceId RenderWidgetHostViewMac::GetCurrentSurfaceId() const {
+  if (!browser_compositor_)
+    return viz::SurfaceId();
   return browser_compositor_->GetDelegatedFrameHost()->GetCurrentSurfaceId();
 }
 
