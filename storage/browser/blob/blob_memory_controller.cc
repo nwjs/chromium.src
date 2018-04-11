@@ -49,6 +49,16 @@ using MemoryAllocation = BlobMemoryController::MemoryAllocation;
 using QuotaAllocationTask = BlobMemoryController::QuotaAllocationTask;
 using DiskSpaceFuncPtr = BlobMemoryController::DiskSpaceFuncPtr;
 
+File::Error CreateBlobDirectory(const FilePath& blob_storage_dir) {
+  File::Error error = File::FILE_OK;
+  base::CreateDirectoryAndGetError(blob_storage_dir, &error);
+  UMA_HISTOGRAM_ENUMERATION("Storage.Blob.CreateDirectoryResult", -error,
+                            -File::FILE_ERROR_MAX);
+  DLOG_IF(ERROR, error != File::FILE_OK)
+      << "Error creating blob storage directory: " << error;
+  return error;
+}
+
 // CrOS:
 // * Ram -  20%
 // * Disk - 50%
@@ -62,9 +72,10 @@ using DiskSpaceFuncPtr = BlobMemoryController::DiskSpaceFuncPtr;
 // * Disk - 10%
 BlobStorageLimits CalculateBlobStorageLimitsImpl(const FilePath& storage_dir,
                                                  bool disk_enabled) {
-  int64_t disk_size =
-      disk_enabled ? base::SysInfo::AmountOfTotalDiskSpace(storage_dir) : 0ull;
+  int64_t disk_size = 0ull;
   int64_t memory_size = base::SysInfo::AmountOfPhysicalMemory();
+  if (disk_enabled && CreateBlobDirectory(storage_dir) == base::File::FILE_OK)
+    disk_size = base::SysInfo::AmountOfTotalDiskSpace(storage_dir);
 
   BlobStorageLimits limits;
 
@@ -95,16 +106,6 @@ BlobStorageLimits CalculateBlobStorageLimitsImpl(const FilePath& storage_dir,
   limits.effective_max_disk_space = limits.desired_max_disk_space;
 
   return limits;
-}
-
-File::Error CreateBlobDirectory(const FilePath& blob_storage_dir) {
-  File::Error error = File::FILE_OK;
-  base::CreateDirectoryAndGetError(blob_storage_dir, &error);
-  UMA_HISTOGRAM_ENUMERATION("Storage.Blob.CreateDirectoryResult", -error,
-                            -File::FILE_ERROR_MAX);
-  DLOG_IF(ERROR, error != File::FILE_OK)
-      << "Error creating blob storage directory: " << error;
-  return error;
 }
 
 void DestructFile(File infos_without_references) {}
@@ -864,15 +865,12 @@ void BlobMemoryController::MaybeScheduleEvictionUntilSystemHealthy(
   // We try to page items to disk until our current system size + requested
   // memory is below our size limit.
   // Size limit is a lower |memory_limit_before_paging()| if we have disk space.
-  while (total_memory_usage > limits_.effective_max_disk_space ||
-         (disk_used_ < limits_.effective_max_disk_space &&
-          total_memory_usage > in_memory_limit)) {
+  while (disk_used_ < limits_.effective_max_disk_space &&
+         total_memory_usage > in_memory_limit) {
     const char* reason = nullptr;
     if (memory_pressure_level !=
         base::MemoryPressureListener::MEMORY_PRESSURE_LEVEL_NONE) {
       reason = "OnMemoryPressure";
-    } else if (total_memory_usage > limits_.effective_max_disk_space) {
-      reason = "SizeExceededMaxDiskSpace";
     } else {
       reason = "SizeExceededInMemoryLimit";
     }
