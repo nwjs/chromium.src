@@ -1293,9 +1293,10 @@ void MediaStreamManager::FinalizeRequestFailed(
       break;
     }
     case MEDIA_OPEN_DEVICE_PEPPER_ONLY: {
-      DCHECK(request->open_device_cb);
-      std::move(request->open_device_cb)
-          .Run(false /* success */, std::string(), MediaStreamDevice());
+      if (request->open_device_cb) {
+        std::move(request->open_device_cb)
+            .Run(false /* success */, std::string(), MediaStreamDevice());
+      }
       break;
     }
     case MEDIA_DEVICE_ACCESS: {
@@ -1315,10 +1316,10 @@ void MediaStreamManager::FinalizeRequestFailed(
 void MediaStreamManager::FinalizeOpenDevice(const std::string& label,
                                             DeviceRequest* request) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
-  DCHECK(request->open_device_cb);
-
-  std::move(request->open_device_cb)
-      .Run(true /* success */, label, request->devices.front());
+  if (request->open_device_cb) {
+    std::move(request->open_device_cb)
+        .Run(true /* success */, label, request->devices.front());
+  }
 }
 
 void MediaStreamManager::FinalizeMediaAccessRequest(
