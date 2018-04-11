@@ -156,7 +156,7 @@ void BacklightsForcedOffSetter::UpdateTouchscreenStatus() {
                                    (screen_state_ == ScreenState::OFF_AUTO &&
                                     disable_touchscreen_while_screen_off_);
   Shell::Get()->touch_devices_controller()->SetTouchscreenEnabled(
-      !disable_touchscreen, TouchscreenEnabledSource::GLOBAL);
+      !disable_touchscreen, TouchDeviceEnabledSource::GLOBAL);
 }
 
 }  // namespace ash
