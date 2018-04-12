@@ -704,10 +704,10 @@ TEST_P(ParameterizedLocalCaretRectTest, AfterLineBreak) {
   EXPECT_EQ(LocalCaretRect(foo->GetLayoutObject(), LayoutRect(30, 0, 1, 10)),
             LocalCaretRectOfPosition(PositionWithAffinity(
                 Position::AfterNode(*foo), TextAffinity::kDownstream)));
-  // TODO(yoichio): Following should return valid rect: crbug.com/812535.
-  EXPECT_EQ(LocalCaretRect(first_br->GetLayoutObject(), LayoutRect(0, 0, 0, 0)),
-            LocalCaretRectOfPosition(PositionWithAffinity(
-                Position::AfterNode(*first_br), TextAffinity::kDownstream)));
+  EXPECT_EQ(
+      LocalCaretRect(second_br->GetLayoutObject(), LayoutRect(0, 10, 1, 10)),
+      LocalCaretRectOfPosition(PositionWithAffinity(
+          Position::AfterNode(*first_br), TextAffinity::kDownstream)));
   EXPECT_EQ(
       LocalCaretRect(second_br->GetLayoutObject(), LayoutRect(0, 0, 0, 0)),
       LocalCaretRectOfPosition(PositionWithAffinity(
@@ -728,9 +728,9 @@ TEST_P(ParameterizedLocalCaretRectTest, AfterLineBreakTextArea) {
       LocalCaretRect(inner_text->GetLayoutObject(), LayoutRect(0, 10, 1, 10)),
       LocalCaretRectOfPosition(PositionWithAffinity(
           Position(inner_text, 4), TextAffinity::kDownstream)));
-  // TODO(yoichio): Following should return valid rect: crbug.com/812535.
+  const Node* hidden_br = inner_text->nextSibling();
   EXPECT_EQ(
-      LocalCaretRect(inner_text->GetLayoutObject(), LayoutRect(0, 0, 0, 0)),
+      LocalCaretRect(hidden_br->GetLayoutObject(), LayoutRect(0, 20, 1, 10)),
       LocalCaretRectOfPosition(PositionWithAffinity(
           Position(inner_text, 5), TextAffinity::kDownstream)));
 }
