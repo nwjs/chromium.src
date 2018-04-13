@@ -465,6 +465,7 @@ void StartupBrowserCreator::RegisterLocalStatePrefs(
   registry->RegisterStringPref(prefs::kLastWelcomedOSVersion, std::string());
   registry->RegisterBooleanPref(prefs::kWelcomePageOnOSUpgradeEnabled, true);
   registry->RegisterBooleanPref(prefs::kHasSeenWin10PromoPage, false);
+  registry->RegisterBooleanPref(prefs::kResetHasSeenWin10PromoPage, true);
 #endif
   registry->RegisterBooleanPref(prefs::kSuppressUnsupportedOSWarning, false);
   registry->RegisterBooleanPref(prefs::kWasRestarted, false);

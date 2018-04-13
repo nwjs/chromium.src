@@ -668,4 +668,10 @@ const base::Feature kTPMFirmwareUpdate{"TPMFirmwareUpdate",
 
 #endif  // defined(OS_CHROMEOS)
 
+#if defined(OS_WIN)
+// Enables the accelerated default browser flow for Windows 10.
+const base::Feature kWin10AcceleratedDefaultBrowserFlow{
+    "Win10AcceleratedDefaultBrowserFlow", base::FEATURE_DISABLED_BY_DEFAULT};
+#endif  // defined(OS_WIN)
+
 }  // namespace features

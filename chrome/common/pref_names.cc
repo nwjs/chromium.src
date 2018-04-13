@@ -1293,6 +1293,11 @@ const char kHasSeenWelcomePage[] = "browser.has_seen_welcome_page";
 #if defined(OS_WIN)
 // Whether or not this profile has been shown the Win10 promo page.
 const char kHasSeenWin10PromoPage[] = "browser.has_seen_win10_promo_page";
+
+// Whether or not the kHasSeenWin10PromoPage pref should be reset to its default
+// value. Used to trigger a one-time reset of the Win10 promo.
+const char kResetHasSeenWin10PromoPage[] =
+    "browser.reset_has_seen_win10_promo_page";
 #endif
 
 // *************** LOCAL STATE ***************
