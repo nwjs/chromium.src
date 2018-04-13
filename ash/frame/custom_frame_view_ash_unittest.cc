@@ -17,7 +17,6 @@
 #include "ash/wm/overview/window_selector_controller.h"
 #include "ash/wm/tablet_mode/tablet_mode_controller.h"
 #include "ash/wm/window_state.h"
-#include "ash/wm/window_state_delegate.h"
 #include "ash/wm/wm_event.h"
 #include "services/ui/public/interfaces/window_manager_constants.mojom.h"
 #include "ui/aura/client/aura_constants.h"
@@ -500,47 +499,10 @@ TEST_F(CustomFrameViewAshTest, FrameVisibility) {
   EXPECT_TRUE(widget->non_client_view()->frame_view()->visible());
 }
 
-namespace {
-
-class CustomFrameViewAshFrameColorTest
-    : public CustomFrameViewAshTest,
-      public testing::WithParamInterface<bool> {
- public:
-  CustomFrameViewAshFrameColorTest() = default;
-  ~CustomFrameViewAshFrameColorTest() override = default;
-
- private:
-  DISALLOW_COPY_AND_ASSIGN(CustomFrameViewAshFrameColorTest);
-};
-
-class TestWidgetDelegate : public TestWidgetConstraintsDelegate {
- public:
-  TestWidgetDelegate(bool custom) : custom_(custom) {}
-  ~TestWidgetDelegate() override = default;
-
-  // views::WidgetDelegate:
-  views::NonClientFrameView* CreateNonClientFrameView(
-      views::Widget* widget) override {
-    if (custom_) {
-      ash::wm::WindowState* window_state =
-          ash::wm::GetWindowState(widget->GetNativeWindow());
-      window_state->SetDelegate(std::make_unique<wm::WindowStateDelegate>());
-    }
-    return TestWidgetConstraintsDelegate::CreateNonClientFrameView(widget);
-  }
-
- private:
-  bool custom_;
-
-  DISALLOW_COPY_AND_ASSIGN(TestWidgetDelegate);
-};
-
-}  // namespace
-
 // Verify that CustomFrameViewAsh updates the active color based on the
 // ash::kFrameActiveColorKey window property.
-TEST_P(CustomFrameViewAshFrameColorTest, kFrameActiveColorKey) {
-  TestWidgetDelegate* delegate = new TestWidgetDelegate(GetParam());
+TEST_F(CustomFrameViewAshTest, kFrameActiveColorKey) {
+  TestWidgetConstraintsDelegate* delegate = new TestWidgetConstraintsDelegate;
   std::unique_ptr<views::Widget> widget(CreateWidget(delegate));
 
   SkColor active_color =
@@ -558,8 +520,8 @@ TEST_P(CustomFrameViewAshFrameColorTest, kFrameActiveColorKey) {
 
 // Verify that CustomFrameViewAsh updates the inactive color based on the
 // ash::kFrameInactiveColorKey window property.
-TEST_P(CustomFrameViewAshFrameColorTest, KFrameInactiveColor) {
-  TestWidgetDelegate* delegate = new TestWidgetDelegate(GetParam());
+TEST_F(CustomFrameViewAshTest, KFrameInactiveColor) {
+  TestWidgetConstraintsDelegate* delegate = new TestWidgetConstraintsDelegate;
   std::unique_ptr<views::Widget> widget(CreateWidget(delegate));
 
   SkColor active_color =
@@ -575,8 +537,5 @@ TEST_P(CustomFrameViewAshFrameColorTest, KFrameInactiveColor) {
   EXPECT_EQ(new_color,
             delegate->custom_frame_view()->GetInactiveFrameColorForTest());
 }
-
-// Run frame color tests with and without custom wm::WindowStateDelegate.
-INSTANTIATE_TEST_CASE_P(, CustomFrameViewAshFrameColorTest, testing::Bool());
 
 }  // namespace ash

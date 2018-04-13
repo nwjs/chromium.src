@@ -194,8 +194,6 @@ void HeaderView::SetShouldPaintHeader(bool paint) {
 void HeaderView::OnImmersiveRevealStarted() {
   fullscreen_visible_fraction_ = 0;
   SetPaintToLayer();
-  // The immersive layer should always be top.
-  layer()->parent()->StackAtTop(layer());
   parent()->Layout();
 }
 
