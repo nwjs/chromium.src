@@ -326,11 +326,7 @@ void ShelfView::Init() {
   overflow_button_->set_context_menu_controller(this);
   ConfigureChildView(overflow_button_);
   AddChildView(overflow_button_);
-
-  GetBackButton()->layer()->SetOpacity(IsTabletModeEnabled() ? 1.f : 0.f);
-  GetBackButton()->SetFocusBehavior(
-      IsTabletModeEnabled() ? FocusBehavior::ALWAYS : FocusBehavior::NEVER);
-
+  UpdateBackButton();
   // We'll layout when our bounds change.
 }
 
@@ -816,6 +812,7 @@ void ShelfView::LayoutToIdealBounds() {
   CalculateIdealBounds(&overflow_bounds);
   views::ViewModelUtils::SetViewBoundsToIdealBounds(*view_model_);
   overflow_button_->SetBoundsRect(overflow_bounds);
+  UpdateBackButton();
 }
 
 void ShelfView::UpdateShelfItemBackground(SkColor color) {
@@ -2023,9 +2020,7 @@ void ShelfView::OnBoundsAnimatorDone(views::BoundsAnimator* animator) {
     }
   }
 
-  GetBackButton()->layer()->SetOpacity(IsTabletModeEnabled() ? 1.f : 0.f);
-  GetBackButton()->SetFocusBehavior(
-      IsTabletModeEnabled() ? FocusBehavior::ALWAYS : FocusBehavior::NEVER);
+  UpdateBackButton();
 }
 
 bool ShelfView::IsRepostEvent(const ui::Event& event) {
@@ -2063,6 +2058,12 @@ bool ShelfView::CanPrepareForDrag(Pointer pointer,
   }
 
   return true;
+}
+
+void ShelfView::UpdateBackButton() {
+  GetBackButton()->layer()->SetOpacity(IsTabletModeEnabled() ? 1.f : 0.f);
+  GetBackButton()->SetFocusBehavior(
+      IsTabletModeEnabled() ? FocusBehavior::ALWAYS : FocusBehavior::NEVER);
 }
 
 }  // namespace ash

@@ -381,6 +381,9 @@ class ASH_EXPORT ShelfView : public views::View,
 
   bool CanPrepareForDrag(Pointer pointer, const ui::LocatedEvent& event);
 
+  // Updates the back button opacity and focus behavior based on tablet mode.
+  void UpdateBackButton();
+
   // The model; owned by Launcher.
   ShelfModel* model_;
 
