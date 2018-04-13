@@ -51,14 +51,19 @@ void MouseWheelPhaseHandler::AddPhaseIfNeededAndScheduleEndEvent(
         // Break the latching when the location difference between the current
         // and the initial wheel event positions exceeds the maximum allowed
         // threshold.
-        if (!IsWithinSlopRegion(mouse_wheel_event))
+        if (!IsWithinSlopRegion(mouse_wheel_event) ||
+            ShouldBreakLatchingDueToDirectionChange(mouse_wheel_event)) {
           DispatchPendingWheelEndEvent();
+        }
 
         if (!mouse_wheel_end_dispatch_timer_.IsRunning()) {
           mouse_wheel_event.phase = blink::WebMouseWheelEvent::kPhaseBegan;
           first_wheel_location_ =
               gfx::Vector2dF(mouse_wheel_event.PositionInWidget().x,
                              mouse_wheel_event.PositionInWidget().y);
+          initial_wheel_event_ = mouse_wheel_event;
+          first_scroll_update_ack_state_ =
+              FirstScrollUpdateAckState::kNotArrived;
           ScheduleMouseWheelEndDispatching(should_route_event,
                                            mouse_wheel_end_dispatch_timeout_);
         } else {  // mouse_wheel_end_dispatch_timer_.IsRunning()
@@ -157,6 +162,38 @@ bool MouseWheelPhaseHandler::IsWithinSlopRegion(
                                         wheel_event.PositionInWidget().y);
   return (current_wheel_location - first_wheel_location_).LengthSquared() <
          kWheelLatchingSlopRegion * kWheelLatchingSlopRegion;
+}
+
+bool MouseWheelPhaseHandler::ShouldBreakLatchingDueToDirectionChange(
+    const blink::WebMouseWheelEvent& wheel_event) const {
+  // This function is called to check if breaking timer-based wheel scroll
+  // latching sequence is needed or not, and timer-based wheel scroll latching
+  // happens only when scroll state is unknown.
+  DCHECK(scroll_phase_state_ == SCROLL_STATE_UNKNOWN);
+  if (first_scroll_update_ack_state_ != FirstScrollUpdateAckState::kNotConsumed)
+    return false;
+
+  bool consistent_x_direction =
+      (wheel_event.delta_x == 0 && initial_wheel_event_.delta_x == 0) ||
+      wheel_event.delta_x * initial_wheel_event_.delta_x > 0;
+  bool consistent_y_direction =
+      (wheel_event.delta_y == 0 && initial_wheel_event_.delta_y == 0) ||
+      wheel_event.delta_y * initial_wheel_event_.delta_y > 0;
+  return !consistent_x_direction || !consistent_y_direction;
+}
+
+void MouseWheelPhaseHandler::GestureEventAck(
+    const blink::WebGestureEvent& event,
+    InputEventAckState ack_result) {
+  if (event.GetType() != blink::WebInputEvent::kGestureScrollUpdate ||
+      first_scroll_update_ack_state_ !=
+          FirstScrollUpdateAckState::kNotArrived) {
+    return;
+  }
+  if (ack_result == INPUT_EVENT_ACK_STATE_CONSUMED)
+    first_scroll_update_ack_state_ = FirstScrollUpdateAckState::kConsumed;
+  else
+    first_scroll_update_ack_state_ = FirstScrollUpdateAckState::kNotConsumed;
 }
 
 }  // namespace content

@@ -1522,6 +1522,7 @@ void RenderWidgetHostViewMac::GestureEventAck(
     default:
       break;
   }
+  mouse_wheel_phase_handler_.GestureEventAck(event, ack_result);
 }
 
 void RenderWidgetHostViewMac::DidOverscroll(
