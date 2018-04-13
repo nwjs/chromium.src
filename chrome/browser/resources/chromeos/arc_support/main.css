@@ -53,16 +53,6 @@ p.title {
   width: 100%;
 }
 
-#service-container {
-  box-shadow: 0 -2px 2px -2px rgba(0, 0, 0, 0.14);
-  flex: auto;
-  margin: 40px 0 0 0;
-}
-
-#service-container::-webkit-scrollbar {
-  display: none;
-}
-
 #terms-view {
   display: block;
   margin: auto;
@@ -83,8 +73,7 @@ p.title {
 }
 
 #button-retry,
-#button-agree,
-#button-next {
+#button-agree {
   -webkit-margin-end: 18px;
 }
 
@@ -106,17 +95,17 @@ p.title {
   margin: 0;
 }
 
-#google-service-confirmation .content-text {
-  font-weight: 600;
-}
-
 .content {
-  /* height equals 464px, which is app height (640px) minus icon
+  /* height plus padding equals 464px, which is app height (640px) minus icon
    * header (96px) and bottom (80px).
    */
-  height: 464px;
+  height: 452px;
   margin: 0;
-  padding: 0 64px;
+  padding: 0 64px 12px 64px;
+}
+
+.subcontentcontainer {
+  padding: 0 20px;
 }
 
 .controlled-setting-indicator {
@@ -224,15 +213,15 @@ p.title {
 
 .section-checkbox-container {
   margin: auto;
-  max-width: 590px;
-  padding: 0 20px 16px 20px;
+  padding-top: 16px;
+  width: 100%;
 }
 
 .section-terms {
   border: 1px solid #d9d9d9;
   box-sizing: border-box;
   flex: auto;
-  margin: 0 0 16px 0;
+  margin: 40px 0 14px 0;
   padding: 0;
 }
 

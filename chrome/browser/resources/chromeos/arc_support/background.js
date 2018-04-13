@@ -279,12 +279,10 @@ class TermsOfServicePage {
    *     backup-restore preference.
    * @param {PreferenceCheckbox} locationServiceCheckbox The checkbox for the
    *     location service.
-   * @param {string} learnMorePaiService. Contents of learn more link of Play
-   *     auto install service.
    */
   constructor(
       container, isManaged, countryCode, metricsCheckbox, backupRestoreCheckbox,
-      locationServiceCheckbox, learnMorePaiService) {
+      locationServiceCheckbox) {
     this.loadingContainer_ =
         container.querySelector('#terms-of-service-loading');
     this.contentContainer_ =
@@ -339,33 +337,14 @@ class TermsOfServicePage {
     });
     this.state_ = LoadState.UNLOADED;
 
-    this.serviceContainer_ = container.querySelector('#service-container');
-    this.locationService_ =
-        container.querySelector('#location-service-preference');
-    this.paiService_ = container.querySelector('#pai-service-descirption');
-    this.googleServiceConfirmation_ =
-        container.querySelector('#google-service-confirmation');
-    this.agreeButton_ = container.querySelector('#button-agree');
-    this.nextButton_ = container.querySelector('#button-next');
-
     // On managed case, do not show TermsOfService section. Note that the
     // checkbox for the prefereces are still visible.
     var visibility = isManaged ? 'hidden' : 'visible';
     container.querySelector('#terms-container').style.visibility = visibility;
 
-    // PAI service.
-    var paiLabel = this.paiService_.querySelector('.content-text');
-    var paiLearnMoreLink = paiLabel.querySelector('#learn-more-link-pai');
-    if (paiLearnMoreLink) {
-      paiLearnMoreLink.onclick = function(event) {
-        event.stopPropagation();
-        showTextOverlay(learnMorePaiService);
-      };
-    }
-
     // Set event handler for buttons.
-    this.agreeButton_.addEventListener('click', () => this.onAgree());
-    this.nextButton_.addEventListener('click', () => this.onNext_());
+    container.querySelector('#button-agree')
+        .addEventListener('click', () => this.onAgree());
     container.querySelector('#button-cancel')
         .addEventListener('click', () => this.onCancel_());
   }
@@ -385,30 +364,12 @@ class TermsOfServicePage {
   showContent_() {
     this.loadingContainer_.hidden = true;
     this.contentContainer_.hidden = false;
-    this.locationService_.hidden = true;
-    this.paiService_.hidden = true;
-    this.googleServiceConfirmation_.hidden = true;
-    this.serviceContainer_.style.overflow = 'hidden';
-    this.agreeButton_.hidden = true;
-    this.nextButton_.hidden = false;
     this.updateTermsHeight_();
-    this.nextButton_.focus();
-  }
-
-  onNext_() {
-    this.locationService_.hidden = false;
-    this.paiService_.hidden = false;
-    this.googleServiceConfirmation_.hidden = false;
-    this.serviceContainer_.style.overflowY = 'auto';
-    this.serviceContainer_.scrollTop = this.serviceContainer_.scrollHeight;
-    this.agreeButton_.hidden = false;
-    this.nextButton_.hidden = true;
-    this.agreeButton_.focus();
+    this.contentContainer_.querySelector('#button-agree').focus();
   }
 
   /**
-   * Updates terms view height manually because webview is not automati
-   * cally
+   * Updates terms view height manually because webview is not automatically
    * resized in case parent div element gets resized.
    */
   updateTermsHeight_() {
@@ -720,8 +681,7 @@ function initialize(data, deviceId) {
       new PreferenceCheckbox(
           doc.getElementById('location-service-preference'),
           data.learnMoreLocationServices, '#learn-more-link-location-service',
-          data.controlledByPolicy),
-      data.learnMorePaiService);
+          data.controlledByPolicy));
 
   // Initialize the Active Directory SAML authentication page.
   activeDirectoryAuthPage =

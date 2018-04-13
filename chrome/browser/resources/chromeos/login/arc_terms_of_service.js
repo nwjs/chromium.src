@@ -45,15 +45,6 @@ Polymer({
   },
 
   /**
-   * On-tap event handler for Next button.
-   *
-   * @private
-   */
-  onNext_: function() {
-    this.screen.onNext();
-  },
-
-  /**
    * On-tap event handler for Retry button.
    *
    * @private
