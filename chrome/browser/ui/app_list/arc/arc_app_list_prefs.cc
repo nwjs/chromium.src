@@ -1568,8 +1568,14 @@ void ArcAppListPrefs::OnInstallationStarted(
     ++current_batch_installation_revision_;
   ++installing_packages_count_;
 
-  if (package_name.has_value() && default_apps_.HasPackage(*package_name))
+  if (!package_name.has_value())
+    return;
+
+  if (default_apps_.HasPackage(*package_name))
     default_apps_installations_.insert(*package_name);
+
+  for (auto& observer : observer_list_)
+    observer.OnInstallationStarted(*package_name);
 }
 
 void ArcAppListPrefs::OnInstallationFinished(
@@ -1579,6 +1585,11 @@ void ArcAppListPrefs::OnInstallationFinished(
 
     if (!result->success && !GetPackage(result->package_name))
       HandlePackageRemoved(result->package_name);
+  }
+
+  if (result) {
+    for (auto& observer : observer_list_)
+      observer.OnInstallationFinished(result->package_name, result->success);
   }
 
   if (!installing_packages_count_) {
