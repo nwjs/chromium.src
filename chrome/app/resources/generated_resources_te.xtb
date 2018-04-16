@@ -421,7 +421,6 @@
 <translation id="1627276047960621195">ఫైల్ వివరణలు</translation>
 <translation id="1627408615528139100">ఇప్పటికే డౌన్‌లోడ్ చేయబడింది</translation>
 <translation id="1632803087685957583">మీ కీబోర్డ్ పునరావృత రేటు, పద సూచన మొదలైనవి సర్దుబాటు చేయడానికి మిమ్మల్ని అనుమతిస్తుంది</translation>
-<translation id="1632840525091989276">ఈ పరికరం ప్రస్తుతం విశ్లేషణాత్మక మరియు వినియోగ డేటాను Googleకు పంపుతుంది. ఈ సెట్టింగ్ యజమాని ద్వారా అమలు చేయబడుతుంది. <ph name="BEGIN_LINK1" />మరింత తెలుసుకోండి<ph name="END_LINK1" /></translation>
 <translation id="1635033183663317347">మీ పర్యవేక్షకుడు ఇన్‌స్టాల్ చేసారు.</translation>
 <translation id="1637224376458524414">ఈ బుక్‌మార్క్‌ని మీ iPhoneలో పొందండి</translation>
 <translation id="1637765355341780467">మీ ప్రొఫైల్‌ను తెరుస్తున్నప్పుడు ఏదో తప్పు జరిగింది. కొన్ని లక్షణాలు అందుబాటులో ఉండకపోవచ్చు.</translation>
@@ -815,7 +814,6 @@
 <translation id="2251218783371366160">సిస్టమ్ వ్యూయర్‌తో తెరువు</translation>
 <translation id="225163402930830576">నెట్‌వర్క్‌లను రిఫ్రెష్ చేయి</translation>
 <translation id="225240747099314620">రక్షిత కంటెంట్ కోసం ఐడెంటిఫైయర్‌లను అనుమతించు (కంప్యూటర్ పునఃప్రారంభించాల్సి ఉండవచ్చు)</translation>
-<translation id="2254681226363050822">అంగీకరిస్తున్నాను</translation>
 <translation id="2255317897038918278">Microsoft Time Stamping</translation>
 <translation id="2256115617011615191">ఇప్పుడే పునఃప్రారంభించు</translation>
 <translation id="225614027745146050">స్వాగతం</translation>
@@ -973,7 +971,6 @@
 <translation id="2502441965851148920">స్వయంచాలక నవీకరణలు ప్రారంభించబడ్డాయి. స్వయంగా చేసే నవీకరణలను మాత్రం మీ నిర్వాహకులు నిలిపివేసారు.</translation>
 <translation id="2505324914378689427">{SCREEN_INDEX,plural, =1{స్క్రీన్ #}other{స్క్రీన్ #}}</translation>
 <translation id="2505402373176859469"><ph name="TOTAL_SIZE" />లో <ph name="RECEIVED_AMOUNT" /></translation>
-<translation id="2505993325121092464">Google Play సేవా నిబంధనలు</translation>
 <translation id="2508428939232952663">Google Play స్టోర్ ఖాతా</translation>
 <translation id="2509495747794740764">స్కేల్ ప్రమాణం తప్పనిసరిగా 10 మరియు 200 మధ్య ఉండే సంఖ్య అయ్యి ఉండాలి.</translation>
 <translation id="2509566264613697683">8x</translation>
@@ -1024,7 +1021,6 @@
 <translation id="2580889980133367162">బహుళ ఫైల్‌లను డౌన్‌లోడ్ చేయడానికి <ph name="HOST" />ని ఎల్లప్పుడూ అనుమతించు</translation>
 <translation id="2580924999637585241">మొత్తం: <ph name="NUMBER_OF_SHEETS" /> <ph name="SHEETS_LABEL" /></translation>
 <translation id="258095186877893873">ఎక్కువ</translation>
-<translation id="2581475589551312226">Play అనువర్తన డేటాను స్వయంచాలకంగా Google డిస్క్‌కి బ్యాకప్ చేస్తుంది మరియు పునరుద్ధరిస్తుంది. <ph name="BEGIN_LINK1" />మరింత తెలుసుకోండి<ph name="END_LINK1" /></translation>
 <translation id="2582253231918033891"><ph name="PRODUCT_NAME" /> <ph name="PRODUCT_VERSION" /> (ప్లాట్‌ఫారమ్ <ph name="PLATFORM_VERSION" />) <ph name="DEVICE_SERIAL_NUMBER" /></translation>
 <translation id="2585300050980572691">డిఫాల్ట్ శోధన సెట్టింగ్‌లు</translation>
 <translation id="2586657967955657006">క్లిప్‌బోర్డ్</translation>
@@ -1140,7 +1136,6 @@
 <translation id="2731392572903530958">మూ&amp;సిన విండోని మళ్ళీ తెరువు</translation>
 <translation id="2731700343119398978">దయచేసి వేచి ఉండండి...</translation>
 <translation id="2731710757838467317">మీ పర్యవేక్షించబడే వినియోగదారుని సృష్టిస్తోంది. దీనికి కొంత సమయం పట్టవచ్చు.</translation>
-<translation id="2733364097704495499">మీరు <ph name="PRINTER_NAME" /> ప్రింటర్‌ను Google మేఘ ముద్రణకు నమోదు చేయాలనుకుంటున్నారా?</translation>
 <translation id="2735438478659026460">మౌస్ కర్సర్ ఆపినప్పుడు స్వయంచాలకంగా క్లిక్ అవుతుంది</translation>
 <translation id="2735712963799620190">షెడ్యూల్</translation>
 <translation id="2737363922397526254">కుదించు...</translation>
@@ -1227,7 +1222,6 @@
 <translation id="2845382757467349449">ఎల్లప్పుడూ బుక్‌మార్క్‌ల బార్‌ను చూపు</translation>
 <translation id="2847759467426165163">దీనికి ప్రసారం చేయండి</translation>
 <translation id="284805635805850872">హానికరమైన సాఫ్ట్‌వేర్‌ని తీసివేయాలా?</translation>
-<translation id="2849362176025371110">విశ్లేషణ మరియు వినియోగ డేటాను స్వయంచాలకంగా Googleకు పంపుతుంది. మీరు దీన్ని మీ పరికర <ph name="BEGIN_LINK1" />సెట్టింగ్‌ల<ph name="END_LINK1" />లో ఎప్పుడైనా మార్చవచ్చు. <ph name="BEGIN_LINK2" />మరింత తెలుసుకోండి<ph name="END_LINK2" /></translation>
 <translation id="284970761985428403"><ph name="ASCII_NAME" /> (<ph name="UNICODE_NAME" />)</translation>
 <translation id="2849936225196189499">క్లిష్టమైన</translation>
 <translation id="2850124913210091882">బ్యాకప్ చేయి</translation>
@@ -1596,7 +1590,6 @@
 <translation id="3420980393175304359">వ్యక్తిని మార్చు</translation>
 <translation id="3421387094817716717">దీర్ఘవృత్తాకార వక్రరేఖ పబ్లిక్ కీ</translation>
 <translation id="3423463006624419153">మీ '<ph name="PHONE_NAME_1" />' మరియు '<ph name="PHONE_NAME_2" />'లో:</translation>
-<translation id="342383653005737728">యజమాని ఈ పరికరం యొక్క విశ్లేషణ మరియు వినియోగ డేటాను Googleకి పంపాలో లేదో నిర్ణయించవచ్చు. మీరు ఈ <ph name="BEGIN_LINK1" />సెట్టింగ్<ph name="END_LINK1" />ని ఇక్కడ వీక్షించవచ్చు. <ph name="BEGIN_LINK2" />మరింత తెలుసుకోండి<ph name="END_LINK2" /></translation>
 <translation id="3423858849633684918">దయచేసి  <ph name="PRODUCT_NAME" />ని తిరిగి ప్రారంభించండి</translation>
 <translation id="3424969259347320884">ట్యాబ్ క్రాష్ అయిన సమయంలో మీరు ఏం చేస్తున్నారో వివరించండి</translation>
 <translation id="3427092606871434483">అనుమతించు (డిఫాల్ట్)</translation>
@@ -1763,8 +1756,6 @@
 <translation id="3653999333232393305">మీ మైక్రోఫోన్‌ను ప్రాప్యత చేయడానికి <ph name="HOST" />కి అనుమతిని కొనసాగించండి</translation>
 <translation id="3654045516529121250">మీ ప్రాప్యత సెట్టింగ్‌లను చదవండి</translation>
 <translation id="3655712721956801464">{NUM_FILES,plural, =1{ఇది ఒక ఫైల్‌కు శాశ్వత ప్రాప్యతను కలిగి ఉంది.}other{ఇది # ఫైల్‌లకు శాశ్వత ప్రాప్యతను కలిగి ఉంది.}}</translation>
-<translation id="365793796291733849"><ph name="BEGIN_PARAGRAPH1" />మీరు స్వయంచాలక బ్యాకప్ ఆన్ చేసినప్పుడు, పరికర మరియు అనువర్తన డేటా కాలానుగుణంగా Google డిస్క్‌లోని ప్రైవేట్ ఫోల్డర్‌లో సేవ్ చేయబడుతుంది. పరిచయాలు, సందేశాలు మరియు ఫోటోల వంటి సంభావ్య గోప్య డేటాతో సహా అనువర్తనం సేవ్ చేసిన ఎలాంటి డేటా అయినా (డెవలపర్ సెట్టింగ్‌ల ఆధారంగా) అనువర్తన డేటాగా పరిగణించబడుతుంది.<ph name="END_PARAGRAPH1" />
-    <ph name="BEGIN_PARAGRAPH2" />బ్యాకప్ డేటా మీ డిస్క్ నిల్వ కోటాలో లెక్కించబడదు. పెద్ద ఫైల్‌లు లేదా డెవలపర్‌లు సేవ నుండి మినహాయించాలని ఎంపిక చేసిన ఫైల్‌లు బ్యాకప్ చేయబడవు.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="3660234220361471169">అవిశ్వసనీయ</translation>
 <translation id="3661054927247347545">సైన్ ఇన్ ప్రమాణపత్రం చెల్లదు, విండో <ph name="MINUTES" /> : <ph name="SECONDS" /> వ్యవధిలో మూసివేయబడుతుంది</translation>
 <translation id="3664511988987167893">ఎక్స్‌టెన్షన్ చిహ్నం</translation>
@@ -2110,6 +2101,7 @@
 <translation id="4206944295053515692">సూచనల కోసం Googleను అడగండి</translation>
 <translation id="4208390505124702064"><ph name="SITE_NAME" />లో శోధించు</translation>
 <translation id="4209092469652827314">పెద్దది</translation>
+<translation id="4209464433672152343">ముద్రించడం కోసం పత్రాలను సిద్ధం చేయడానికి అవి <ph name="BEGIN_LINK_HELP" />Googleకు పంపబడతాయి<ph name="END_LINK_HELP" />. <ph name="BEGIN_LINK_DASHBOARD" />Google మేఘ ముద్రణ డాష్‌బోర్డ్<ph name="END_LINK_DASHBOARD" />లో మీ ప్రింటర్‌లు మరియు ప్రింటర్ చరిత్రను చూడండి, సవరించండి మరియు నిర్వహించండి.</translation>
 <translation id="421017592316736757">ఈ ఫైల్‌ను ప్రాప్యత చేయడానికి మీరు తప్పనిసరిగా ఆన్‌లైన్‌లో ఉండాలి.</translation>
 <translation id="421182450098841253"> &amp;బుక్‌మార్క్‌ల బార్‌ను చూపు</translation>
 <translation id="42126664696688958">ఎగుమతి చేయి</translation>
@@ -2479,7 +2471,6 @@
 <translation id="4862050643946421924">పరికరాన్ని జోడించడం...</translation>
 <translation id="4862642413395066333">OCSP ప్రతిస్పందనలను సైన్ చేస్తోంది</translation>
 <translation id="4864369630010738180">సైన్ ఇన్ అవుతోంది...</translation>
-<translation id="4866139711390152178">యజమాని ఈ పరికరం యొక్క విశ్లేషణాత్మక మరియు వినియోగ డేటాను Googleకి పంపాలో లేదో ఎంచుకోవచ్చు. <ph name="BEGIN_LINK1" />మరింత తెలుసుకోండి<ph name="END_LINK1" /></translation>
 <translation id="486635084936119914">డౌన్‌లోడ్ చేసిన తర్వాత స్వయంచాలకంగా నిర్దిష్ట ఫైల్ రకాలను తెరువు</translation>
 <translation id="48704129375571883">అదనపు లక్షణాలను జోడించండి</translation>
 <translation id="4870903493621965035">జత చేయబడిన పరికరాలు లేవు</translation>
@@ -3216,8 +3207,6 @@
 <translation id="5979469435153841984">పేజీలను బుక్‌మార్క్ చేయాలంటే, చిరునామా బార్‌లో ఉన్న నక్షత్రాన్ని క్లిక్ చేయండి</translation>
 <translation id="5982621672636444458">క్రమబద్ధీకరణ ఎంపికలు</translation>
 <translation id="5984222099446776634">ఇటీవల సందర్శించినవి</translation>
-<translation id="5989712527536636369"><ph name="BEGIN_PARAGRAPH1" />ఇది మీ పరికరం గురించి మరియు మీరు దీన్ని ఉపయోగించే విధానం గురించి, ఉదా., బ్యాటరీ స్థాయి, మీరు అనువర్తనాలు ఎంత తరచుగా ఉపయోగిస్తుంటారు, మీ నెట్‌వర్క్ కనెక్షన్‌ల (Wi-Fi మరియు బ్లూటూత్ వంటివి) నాణ్యత మరియు వ్యవధి మరియు ఏవైనా సక్రమంగా పని చేయకుంటే వాటికి సంబంధించి అందించే క్రాష్ నివేదికల వంటి వాటి గురించి తెలిపే సాధారణ సమాచారం. ఆ సమాచారం అందరి కోసం Google ఉత్పత్తులు మరియు సేవలను మెరుగుపరచడానికి ఉపయోగించబడుతుంది. కొంత సమగ్ర సమాచారం Android డెవలపర్‌ల వంటి భాగస్వాములు వారి అనువర్తనాలు మరియు ఉత్పత్తులను మెరుగుపరచడంలో కూడా వారికి సహాయపడుతుంది.<ph name="END_PARAGRAPH1" />
-<ph name="BEGIN_PARAGRAPH2" />మీరు దీన్ని Android అనువర్తనాల సెట్టింగ్‌ల్లో ఎప్పుడైనా ఆన్ లేదా ఆఫ్ చేయవచ్చు. దీని వలన సిస్టమ్ నవీకరణలు మరియు భద్రత వంటి ఆవశ్యక సేవలను పొందడానికి అవసరమైన సమాచారాన్ని పంపగల మీ పరికర సామర్థ్యంపై ఎలాంటి ప్రభావం ఉండదు.<ph name="END_PARAGRAPH2" /></translation>
 <translation id="5990386583461751448">అనువదించబడింది</translation>
 <translation id="5991049340509704927">పెద్దదిగా చేయండి</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{వెబ్‌ను బ్రౌజ్ చేస్తూనే ఉండడాన్ని నిర్ధారించడానికి, మీ నిర్వాహకుడిని ఈ అప్లికేషన్‌న్ని తీసివేయమని కోరండి.}other{వెబ్‌ను బ్రౌజ్ చేస్తూనే ఉండడాన్ని నిర్ధారించడానికి, మీ నిర్వాహకుడిని ఈ అప్లికేషన్‌లను తీసివేయమని కోరండి.}}</translation>
@@ -4071,7 +4060,6 @@
 <translation id="7366415735885268578">సైట్‌ను జోడించండి</translation>
 <translation id="7366909168761621528">బ్రౌజింగ్ డేటా</translation>
 <translation id="7371006317849674875">ప్రారంభ సమయం</translation>
-<translation id="7373789336584437724">ఈ పరికరం ప్రస్తుతం విశ్లేషణ మరియు వినియోగ డేటాను Googleకు పంపుతుంది. మీరు దీన్ని మీ పరికర <ph name="BEGIN_LINK1" />సెట్టింగ్‌ల<ph name="END_LINK1" />లో ఎప్పుడైనా మార్చవచ్చు. <ph name="BEGIN_LINK2" />మరింత తెలుసుకోండి<ph name="END_LINK2" /></translation>
 <translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">మౌస్ కర్సర్ జరుగుతున్నప్పుడు దాన్ని హైలైట్ చేయి</translation>
 <translation id="7377169924702866686">Caps Lock ఆన్‌లో ఉంది.</translation>
@@ -4100,7 +4088,6 @@
 <translation id="7400839060291901923">మీ <ph name="PHONE_NAME" />లో కనెక్షన్‌ని సెటప్ చేయండి</translation>
 <translation id="7401543881546089382">సత్వరమార్గాన్ని తొలగించు</translation>
 <translation id="740624631517654988">పాప్-అప్ నిరోధించబడింది</translation>
-<translation id="7406691462051376731">ఈ పరికరం ప్రస్తుతం విశ్లేషణ మరియు వినియోగ డేటాను Googleకు పంపుతుంది. ఈ <ph name="BEGIN_LINK1" />సెట్టింగ్<ph name="END_LINK1" /> యజమాని ద్వారా అమలు చేయబడుతుంది. <ph name="BEGIN_LINK2" />మరింత తెలుసుకోండి<ph name="END_LINK2" /></translation>
 <translation id="7407430846095439694">దిగుమతి చేసి, అనుబంధించు</translation>
 <translation id="7409233648990234464">తిరిగి ప్రారంభించి, పవర్‌వాష్ చేయి</translation>
 <translation id="7409836189476010449">Flash అమలు చేయాలనుకుంటోంది</translation>
@@ -4450,7 +4437,6 @@
 <translation id="7957054228628133943">పాప్-అప్‌ను నిరోధించడాన్ని నిర్వహించు...</translation>
 <translation id="7957615753207896812">కీబోర్డ్ పరికర సెట్టింగ్‌లను తెరవండి</translation>
 <translation id="7959074893852789871">ఫైల్ దిగుమతి చెయ్యని కొన్ని బహుళ ప్రమాణపత్రాలను కలిగి ఉంది:</translation>
-<translation id="7959700692661109221"><ph name="BEGIN_PARAGRAPH" />Google స్థాన సేవ మీ పరికరం స్థానాన్ని వేగంగా మరియు మరింత ఖచ్చితంగా అంచనా వేయడంలో సహాయపడటానికి Wi-Fi వంటి మూలాధారాలను ఉపయోగిస్తుంది. మీరు Google స్థాన సేవలను ఆన్ చేసినప్పుడు, మీ పరికరం స్థాన సమాచారాన్ని అందించడానికి Wi-Fi ఉపయోగించే మోడ్‌లోకి ప్రవేశిస్తుంది. మీరు దీన్ని స్థాన సెట్టింగ్‌ల్లో ఎప్పుడైనా ఆఫ్ చేయవచ్చు.<ph name="END_PARAGRAPH" /></translation>
 <translation id="7961015016161918242">ఎప్పుడూ లేదు</translation>
 <translation id="7965010376480416255">భాగస్వామ్యం చెయ్యబడిన మెమరీ</translation>
 <translation id="7966241909927244760">చిత్రం చిరునామాను కా&amp;పీ చేయండి</translation>
@@ -4706,7 +4692,6 @@
 <translation id="8371695176452482769">ఇప్పుడు మాట్లాడండి</translation>
 <translation id="8372369524088641025">తప్పుడు WEP కీ</translation>
 <translation id="8373553483208508744">ట్యాబ్‌లను మ్యూట్ చేయి</translation>
-<translation id="8378285435971754261">మీ స్థానాన్ని త్వరగా మరియు ఖచ్చితంగా కనుగొనడంలో అనువర్తనాలకు సహాయపడేందుకు Google స్థాన సేవను అనుమతించండి, ఇది బ్యాటరీ వినియోగ శక్తిని తగ్గించవచ్చు. అనువర్తనాలు ఏవీ అమలులో లేనప్పటికీ అనామక స్థాన డేటా Googleకి పంపబడుతుంది. <ph name="BEGIN_LINK1" />మరింత తెలుసుకోండి<ph name="END_LINK1" /></translation>
 <translation id="8381179624334829711">కెమెరా సెట్టింగ్‌లను నిర్వహించండి...</translation>
 <translation id="8382913212082956454">&amp;ఇమెయిల్ చిరునామాను కాపీ చెయ్యి</translation>
 <translation id="8386903983509584791">స్కాన్ పూర్తయింది</translation>

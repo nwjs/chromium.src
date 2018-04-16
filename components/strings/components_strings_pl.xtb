@@ -380,7 +380,7 @@
     &lt;li&gt;Skontaktuj się z właścicielem strony.&lt;/li&gt;
     &lt;/ol&gt;
     &lt;h2&gt;Uzyskiwanie pomocy w przypadku konkretnego komunikatu o błędzie&lt;/h2&gt;
-    &lt;h3&gt;„Połączenie nie jest prywatne” lub „NET::ERR_CERT_AUTHORITY_INVALID” lub „ERR_CERT_COMMON_NAME_INVALID” lub „NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM” lub „Błąd certyfikatu protokołu SSL”&lt;/h3&gt;
+    &lt;h3&gt;„Połączenie nie jest prywatne” lub „NET::ERR_CERT_AUTHORITY_INVALID” lub „ERR_CERT_COMMON_NAME_INVALID” lub „NET::ERR_CERT_WEAK_SIGNATURE_ALGORITHM” lub „Błąd certyfikatu SSL”&lt;/h3&gt;
     &lt;h4&gt;Krok 1. Zaloguj się w portalu&lt;/h4&gt;
     &lt;p&gt;Aby w miejscach takich jak kawiarnie czy lotniska korzystać z sieci Wi-Fi, trzeba się w nich zalogować. Aby pojawiła się strona logowania, otwórz stronę rozpoczynającą się od &lt;code&gt;http://&lt;/code&gt;.&lt;/p&gt;
     &lt;ol&gt;
@@ -740,7 +740,7 @@
 <translation id="625755898061068298">Wyłączyłeś ostrzeżenia dotyczące bezpieczeństwa tej witryny.</translation>
 <translation id="6259156558325130047">&amp;Ponów zmianę kolejności</translation>
 <translation id="6263376278284652872">Zakładki <ph name="DOMAIN" /></translation>
-<translation id="6264485186158353794">Powrót do bezpieczeństwa</translation>
+<translation id="6264485186158353794">Wróć do bezpieczeństwa</translation>
 <translation id="6276112860590028508">Tu pojawią się strony z Twojej listy Do przeczytania</translation>
 <translation id="6280223929691119688">Nie można dostarczyć pod ten adres. Wybierz inny.</translation>
 <translation id="6282194474023008486">Kod pocztowy</translation>
