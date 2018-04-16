@@ -315,7 +315,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 
       Ak ho nastavíte na hodnotu False, ľubovoľné vzory webových adries nastavené v tomto pravidle sa budú môcť prehrávať.
 
-      Upozorňujeme, že ak toto pravidlo zmeníte, keď je prehliadač <ph name="PRODUCT_NAME" />, použije sa iba na nové otvorené karty. Pri niektorých kartách si budete môcť stále všimnúť predchádzajúce správanie.</translation>
+      Upozorňujeme, že ak toto pravidlo zmeníte, keď je prehliadač <ph name="PRODUCT_NAME" /> spustený, použije sa iba na nové otvorené karty. Pri niektorých kartách si budete môcť stále všimnúť predchádzajúce správanie.</translation>
 <translation id="2134437727173969994">Povoliť uzamykanie obrazovky</translation>
 <translation id="2137064848866899664">Ak nastavíte toto pravidlo, všetky obrazovky budú otočené
       určeným smerom, keď ich reštartujete alebo prvýkrát pripojíte
@@ -1293,8 +1293,8 @@ Ak toto pravidlo nie je nastavené alebo je prázdne, akýkoľvek používateľ 
 <translation id="4899802251198446659">Umožňuje ovládať, či sa majú videá prehrávať automaticky (bez súhlasu používateľa) so zvukovým obsahom v prehliadači <ph name="PRODUCT_NAME" />.
 
       Ak toto pravidlo nastavíte na hodnotu True, v prehliadači <ph name="PRODUCT_NAME" /> je povolené automatické prehrávanie médií.
-      Ak ho nastavíte na hodnotu False, v prehliadači <ph name="PRODUCT_NAME" /> je zakázané automatické prehrávanie médií. Toto správanie môžete v prípade určitých vzorov webových adries prepísať pomocou pravidla AutoplayWhitelistr.
-      Predvolene je v prehliadači <ph name="PRODUCT_NAME" /> automatické prehrávanie médií zakázané. Toto správanie môžete v prípade určitých vzorov webových adries prepísať pomocou pravidla AutoplayWhitelistr.
+      Ak ho nastavíte na hodnotu False, v prehliadači <ph name="PRODUCT_NAME" /> je zakázané automatické prehrávanie médií. Toto správanie môžete v prípade určitých vzorov webových adries prepísať pomocou pravidla AutoplayWhitelist.
+      Predvolene je v prehliadači <ph name="PRODUCT_NAME" /> automatické prehrávanie médií zakázané. Toto správanie môžete v prípade určitých vzorov webových adries prepísať pomocou pravidla AutoplayWhitelist.
 
       Upozorňujeme, že ak toto pravidlo zmeníte, keď je prehliadač <ph name="PRODUCT_NAME" /> spustený, použije sa iba v prípade nových otvorených kariet. Pri niektorých kartách si preto budete môcť všimnúť predchádzajúce správanie.
       </translation>

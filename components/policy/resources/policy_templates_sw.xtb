@@ -313,7 +313,7 @@ Sera hii ikiondolewa, chaguo-msingi zitatumika kwa mipangilio yote.</translation
 
       Ruwaza ya URL imeumbizwa kulingana na https://www.chromium.org/administrators/url-blacklist-filter-format.
 
-      Ikiwa sera ya Kucheza Kiotomatiki imewewa kuwa Ndivyo, basi sera hii haina athari yoyote.
+      Ikiwa sera ya Kucheza Kiotomatiki imewekwa kuwa Ndivyo, basi sera hii haina athari yoyote.
 
       Ikiwa sera ya Kucheza Kiotomatiki imewekwa kuwa Sivyo, basi ruwaza yoyote ya URL iliyowekwa katika sera hii bado itaruhusiwa kucheza.
 
@@ -939,7 +939,7 @@ Sera hii isipowekwa, mtumiaji bado anaweza kusakinisha kiendelezi chochote katik
       Kila ingizo la orodha lina kamusi ambayo ni lazima ijumuishe Kitambulisho cha kirefusho katika uga wa 'kitambulisho cha kirefusho', na URL sasishi yake katika uga wa 'url-sasishi'.</translation>
 <translation id="3873159954366380945">Hukuruhusu uweke kipindi ambapo arifa za kufunguliwa upya kwa <ph name="PRODUCT_NAME" /> huonyeshwa ili sasisho linalosubiri liwekwe.
 
-      Mipangilio ya sera hii inaweza kutumiwa kudhibiti kipindi, katika milisekunde, ambapo mtumiaji anaarifiwa mara kwa mara kwamba ni lazima afungue <ph name="PRODUCT_NAME" /> upya (au ni lazima azime kisha awashe <ph name="PRODUCT_OS_NAME" />) ili apate sasisho. Katika kipindi hiki, mtumiaji ataarifiwe mara kwa mara kuhusu umuhimu wa kusasisha, kulingana na mipangilio ya sera ya <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" />. Kama sera haijawekwa, kipindi chaguomsingi cha milisekunde 345600000 (siku nne) kitatumika katika <ph name="PRODUCT_OS_NAME" /> na milisekunde 604800000 (wiki moja) kitatumika katika mifumo yote mingine.</translation>
+      Mipangilio ya sera hii inaweza kutumiwa kudhibiti kipindi, katika milisekunde, ambapo mtumiaji anaarifiwa mara kwa mara kwamba ni lazima afungue <ph name="PRODUCT_NAME" /> upya (au ni lazima azime kisha awashe <ph name="PRODUCT_OS_NAME" />) ili apate sasisho. Katika kipindi hiki, mtumiaji ataarifiwa mara kwa mara kuhusu umuhimu wa kusasisha, kulingana na mipangilio ya sera ya <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" />. Kama sera haijawekwa, kipindi chaguomsingi cha milisekunde 345600000 (siku nne) kitatumika katika <ph name="PRODUCT_OS_NAME" /> na milisekunde 604800000 (wiki moja) kitatumika katika mifumo yote mingine.</translation>
 <translation id="3877517141460819966">Hali ya uthibitishaji wa hatua mbili iliyowekwa</translation>
 <translation id="388237772682176890">Sera imeacha kufanya kazi katika M53 na imeondolewa katika M54, kwa sababu matumizi ya SPDY/3.1 yameondolewa.
 

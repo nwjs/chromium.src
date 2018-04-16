@@ -612,7 +612,7 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 
       Če je pravilnik omogočen ali sploh ni nastavljen, lahko uporabniki dodajajo, konfigurirajo in tiskajo s svojimi izvornimi tiskalniki.
 
-      Če je pravilnik onemogočen, uporabniki ne morejo dodajati ali konfigurirati svojih izvornih tiskalnikov. Prav tako ne morejo tiskati s konfiguriranimi izvornimi tiskalniki.
+      Če je pravilnik onemogočen, uporabniki ne morejo dodajati ali konfigurirati svojih izvornih tiskalnikov. Prav tako ne morejo tiskati z že konfiguriranimi izvornimi tiskalniki.
       </translation>
 <translation id="2805707493867224476">Dovoli vsem mestom, da pokažejo pojavna okna</translation>
 <translation id="2808013382476173118">Omogoča uporabo strežnikov STUN, ko oddaljeni odjemalci poskušajo vzpostaviti zvezo s tem računalnikom.

@@ -317,7 +317,7 @@
 <translation id="2113068765175018713">Otomatik bir şekilde yeniden başlatarak cihazın açık kalma süresini sınırlandır</translation>
 <translation id="2127599828444728326">Bu sitelerde bildirimlere izin ver</translation>
 <translation id="2131902621292742709">Pil gücüyle çalışırken ekran karartma gecikmesi</translation>
-<translation id="2132732175597591362">URL kalıpları beyaz listesini kontrol ederek otomatik oynatmanın her zaman etkin olmasını sağlar.
+<translation id="2132732175597591362">Otomatik oynatmanın her zaman etkin olacağı URL kalıpları beyaz listesini kontrol eder.
 
       Otomatik oynatma etkinleştirilirse videolar <ph name="PRODUCT_NAME" /> üzerinde kullanıcı onayı gerekmeden otomatik olarak ses içeriğiyle oynatılabilir.
 
@@ -327,7 +327,7 @@
 
       AutoplayAllowed politikası Yanlış değerine ayarlanırsa bu politikada ayarlanan herhangi bir URL kalıbının oynatılmasına izin verilmeye devam edilir.
 
-      <ph name="PRODUCT_NAME" /> çalışırken bu politika değişirse, değişikliğin yalnızca yeni açılan sekmeler için geçerli olacağını unutmayın. Dolayısıyla bazı sekmeler hâlâ önceki davranışı yerine getiriyor olabilir.</translation>
+      <ph name="PRODUCT_NAME" /> çalışırken bu politika değişirse, değişikliğin yalnızca yeni açılan sekmeler için geçerli olacağını unutmayın. Dolayısıyla bazı sekmeler hâlâ önceki davranışı sergiliyor olabilir.</translation>
 <translation id="2134437727173969994">Ekranı kilitlemeye izin ver</translation>
 <translation id="2137064848866899664">Bu politika ayarlanırsa her bir ekran, her yeniden
       başlatmada ve politika değeri değiştirildikten sonra ilk kez bağlanıldığında
@@ -941,7 +941,7 @@ Bu politika yanlış seçeneğine ayarlanırsa kiosk oturum bilgileri rapor edil
       Her bir liste girişi, 'extension-id' alanında uzantı kimliği ve 'update-url' alanında güncelleme URL'si bulunması gereken bir sözlük içerir.</translation>
 <translation id="3873159954366380945">Bekleyen bir güncellemenin uygulanması için <ph name="PRODUCT_NAME" /> öğesinin yeniden başlatılmasıyla ilgili bildirimlerin gösterileceği dönemi ayarlamanıza olanak tanır.
 
-      Bu politika ayarı, kullanıcıya bir güncelleme için <ph name="PRODUCT_NAME" /> öğesinin (veya <ph name="PRODUCT_OS_NAME" /> işletim sisteminin) yeniden başlatılması gerektiği bilgisinin kademeli olarak verileceği dönemi milisaniye cinsinden kontrol etmek için kullanılabilir. Bu dönem boyunca, kullanıcıya <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> politikasının ayarına dayalı olarak bir güncelleme gerektiği konusunda, tekrarlanan şekilde bilgi verilir. Herhangi bir değer ayarlanmazsa, varsayılan olarak <ph name="PRODUCT_OS_NAME" /> için 345600000 milisaniye (dört gün), diğer tüm platformlar için de 604800000 milisaniye (bir hafta) değeri kullanılır.</translation>
+      Bu politika ayarı, kullanıcıya bir güncelleme için <ph name="PRODUCT_NAME" /> öğesinin (veya <ph name="PRODUCT_OS_NAME" /> işletim sisteminin) yeniden başlatılması gerektiği bilgisinin kademeli olarak verileceği dönemi milisaniye cinsinden kontrol etmek için kullanılabilir. Bu dönem boyunca, kullanıcıya <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> politikasının ayarına dayalı olarak bir güncelleme gerektiği konusunda, tekrarlanan şekilde bilgi verilir. Herhangi bir değer ayarlanmazsa, varsayılan olarak <ph name="PRODUCT_OS_NAME" /> için 345.600.000 milisaniye (dört gün), diğer tüm platformlar için de 604.800.000 milisaniye (bir hafta) değeri kullanılır.</translation>
 <translation id="3877517141460819966">Entegre iki etmenli kimlik doğrulama modu</translation>
 <translation id="388237772682176890">SPDY/3.1 desteği kaldırıldığı için bu politika M53 sürümünde kullanımdan kaldırılmış ve M54 sürümünde üründen çıkarılmıştır.
  
@@ -1320,7 +1320,7 @@ politikayı geçersiz kılamaz.
       Bu politika Yanlış değerine ayarlanırsa <ph name="PRODUCT_NAME" /> öğesinin medyayı otomatik olarak oynatmasına izin verilmez. AutoplayWhitelist politikası, belirli URL kalıpları için bunu geçersiz kılmak üzere kullanılabilir.
       Varsayılan olarak <ph name="PRODUCT_NAME" /> öğesinin medyayı otomatik olarak oynatmasına izin verilmez. AutoplayWhitelist politikası, belirli URL kalıpları için bunu geçersiz kılmak üzere kullanılabilir.
 
-      <ph name="PRODUCT_NAME" /> çalışırken bu politika değişirse, değişikliğin yalnızca yeni açılan sekmeler için geçerli olacağını unutmayın. Dolayısıyla bazı sekmeler hâlâ önceki davranışı yerine getiriyor olabilir.
+      <ph name="PRODUCT_NAME" /> çalışırken bu politika değişirse, değişikliğin yalnızca yeni açılan sekmeler için geçerli olacağını unutmayın. Dolayısıyla bazı sekmeler hâlâ önceki davranışı sergiliyor olabilir.
       </translation>
 <translation id="4906194810004762807">Aygıt Politikası için yenileme hızı</translation>
 <translation id="4917385247580444890">Güçlü</translation>

@@ -958,7 +958,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
        Elle répertorie les extensions qui sont automatiquement installées pour l'utilisateur de la démonstration sur les appareils en mode "point de vente". Celles-ci sont enregistrées dans l'appareil. Elles peuvent être installées hors connexion, une fois l'installation terminée.
 
        Chaque entrée de la liste contient un dictionnaire qui doit inclure l'identifiant d'extension dans le champ "extension-id", ainsi que son adresse URL dans le champ "update-url".</translation>
-<translation id="3873159954366380945">Permet de définir la période de notifications de relancement de <ph name="PRODUCT_NAME" /> pour l'application d'une mise à jour en attente.
+<translation id="3873159954366380945">Permet de définir la période de notifications de redémarrage de <ph name="PRODUCT_NAME" /> pour l'application d'une mise à jour en attente.
 
       Cette règle permet de contrôler la durée, en millisecondes, de la période durant laquelle un utilisateur est tenu informé que <ph name="PRODUCT_NAME" /> doit être relancé (ou que <ph name="PRODUCT_OS_NAME" /> doit être redémarré) en raison d'une mise à jour. Durant cette période, l'utilisateur recevra des notifications répétées l'informant de la nécessité d'une mise à jour, suivant la règle <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" />. Par défaut, la période définie est de 345 600 000 millisecondes (quatre jours) pour <ph name="PRODUCT_OS_NAME" /> et de 604 800 000 millisecondes (une semaine) pour toutes les autres plates-formes.</translation>
 <translation id="3877517141460819966">Mode d'authentification à deux facteurs intégré</translation>
@@ -2644,7 +2644,7 @@ indique uniquement les imprimantes qui peuvent être choisies.
 
       La valeur par défaut s'élève à 0 pour les particuliers et à 4 (environ la moitié d'un an) pour les appareils enregistrés par les entreprises.
 
-      La définition de cette règle empêche la protection contre le rollback de s'appliquer pour le nombre de versions intermédiaires spécifiées.
+      La définition de cette règle empêche la protection contre le rollback de s'appliquer, au minimum, pour le nombre de versions intermédiaires spécifiées.
 
       La sélection d'une valeur inférieure pour cette règle a un effet permanent : il n'est pas toujours possible de rétablir une version précédente, même en définissant une valeur supérieure.
 

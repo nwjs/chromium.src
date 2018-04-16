@@ -315,7 +315,7 @@
 
       Dacă politica AutoplayAllowed este activată, aceasta nu va avea niciun efect.
 
-      Dacă politica AutoplayAllowed este dezactivată, va fi permisă în continuare redarea tuturor șabloanelor de adrese URL setate în această politică.
+      Dacă politica AutoplayAllowed este dezactivată, va fi permisă în continuare redarea pentru toate șabloanele de adrese URL setate în această politică.
 
       Reține că, dacă <ph name="PRODUCT_NAME" /> rulează și această politică se modifică, ea se va aplica doar filelor nou deschise. Astfel, este posibil ca unele file să mențină comportamentul anterior.</translation>
 <translation id="2134437727173969994">Permite blocarea ecranului</translation>

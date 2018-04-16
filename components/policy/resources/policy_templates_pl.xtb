@@ -305,7 +305,7 @@
 <translation id="2131902621292742709">Opóźnienie przyciemnienia ekranu przy zasilaniu z baterii</translation>
 <translation id="2132732175597591362">Określa białą listę wzorców adresów URL, w przypadku których zawsze będzie działać autoodtwarzanie.
 
-      Jeśli autoodtwarzanie jest włączone, filmy mogą odtwarzać się automatycznie (bez zgody użytkownika) z dźwiękiem w <ph name="PRODUCT_NAME" />.
+      Jeśli autoodtwarzanie jest włączone, w <ph name="PRODUCT_NAME" /> filmy mogą odtwarzać się z dźwiękiem automatycznie (bez zgody użytkownika).
 
       Wzorzec adresu URL musi być sformatowany zgodnie z zasadami określonymi na https://www.chromium.org/administrators/url-blacklist-filter-format
 

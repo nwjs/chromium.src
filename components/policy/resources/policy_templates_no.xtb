@@ -598,9 +598,9 @@
       Hvis denne regelen er satt til false (usann), kan ikke brukerne spille dinosaurspillet når enheten ikke er koblet til. Hvis regelen er satt til true (sann), kan brukerne spille dinosaurspillet. Hvis denne regelen ikke er angitt, kan ikke brukerne spille dinosaurspillet på registrerte Chrome OS-installasjoner, men de kan spille det i andre situasjoner.</translation>
 <translation id="2802085784857530815">Lar deg styre om brukere har tilgang til ikke-bedriftsskrivere
 
-      Hvis regelen er satt til «True» (sann), eller ikke er angitt i det hele tatt, kan brukere legge til, konfigurere og skrive ut med egne integrerte skrivere.
+      Hvis regelen er satt til «True» (sann) eller ikke er angitt, kan brukerne legge til, konfigurere og skrive ut med sine egne skrivere.
 
-      Hvis regelen er satt til «False» (usann), kan ikke brukere legge til eller konfigurere egne integrerte skrivere. De kan heller ikke skrive ut på integrerte skrivere som er konfigurert tidligere.
+      Hvis regelen er satt til «False» (usann), kan ikke brukerne legge til eller konfigurere sine egne skrivere. De kan heller ikke skrive ut på egne skrivere som er konfigurert tidligere.
       </translation>
 <translation id="2805707493867224476">Tillat alle nettsteder å vise forgrunnsvinduer</translation>
 <translation id="2808013382476173118">Aktiverer bruk av STUN-servere når eksterne klienter prøver å opprette forbindelse til denne maskinen.

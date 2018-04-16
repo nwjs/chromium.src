@@ -42,9 +42,9 @@ Pokud je nastavena na hodnotu true nebo nastavena není, statistiky hlášeny bu
       Seznam proměnných, které lze použít, naleznete na stránce https://www.chromium.org/administrators/policy-list-3/user-data-directory-variables.
 
       Pokud tuto zásadu nenastavíte, bude použit výchozí adresář mezipaměti a uživatel jej bude moci přepsat pomocí příznaku příkazového řádku „--disk-cache-dir“.</translation>
-<translation id="1138294736309071213">Tato zásada je aktivní pouze v režimu prodeje.
+<translation id="1138294736309071213">Tato zásada je aktivní pouze v režimu pro obchody.
 
-      Určuje dobu nečinnosti před zobrazením spořiče obrazovky na přihlašovací obrazovce v režimu prodeje.
+      Určuje dobu nečinnosti před zobrazením spořiče obrazovky na přihlašovací obrazovce v režimu pro obchody.
 
       Hodnota zásady se určuje v milisekundách.</translation>
 <translation id="1151353063931113432">Povolit obrázky na těchto stránkách</translation>
@@ -528,7 +528,7 @@ Z prohlížeče <ph name="PRODUCT_NAME" /> verze 29 a novějších verzí bylo t
 
       Pokud zásadu nenastavíte, bude na uživatelích, aby zvolili, zda funkci datové komprese proxy serveru chtějí nebo nechtějí použít.</translation>
 <translation id="2587719089023392205">Nastavit <ph name="PRODUCT_NAME" /> jako výchozí prohlížeč</translation>
-<translation id="2592091433672667839">Doba nečinnosti před zobrazením spořiče obrazovky na přihlašovací obrazovce v režimu prodeje</translation>
+<translation id="2592091433672667839">Doba nečinnosti před zobrazením spořiče obrazovky na přihlašovací obrazovce v režimu pro obchody</translation>
 <translation id="2596260130957832043">Udává, zda je povolen protokol NTLMv2.
 
           Všechny verze serverů Samba a Windows z poslední doby protokol NTLMv2 podporují. Jeho zakázání snižuje bezpečnost ověřování a měli byste k němu přistupovat jen v případě, že potřebujete zajistit zpětnou kompatibilitu.
@@ -682,7 +682,7 @@ Pokud je tato zásada zakázána nebo není nakonfigurována, funkce WebDriver n
       Je-li tato zásada nastavena na hodnotu false, je optimalizace WPAD zakázána, a <ph name="PRODUCT_NAME" /> proto bude na servery WPAD založené na DNS čekat déle. Pokud tato zásada není nastavena, je optimalizace WPAD povolena.
 
       Nezávisle na tom, zda je tato zásada nastavena nebo jak je nastavena, uživatelé nastavení optimalizace WPAD nemohou změnit.</translation>
-<translation id="3072045631333522102">Spořič obrazovky, který bude použit na přihlašovací obrazovce v režimu prodeje</translation>
+<translation id="3072045631333522102">Spořič obrazovky, který bude použit na přihlašovací obrazovce v režimu pro obchody</translation>
 <translation id="3072847235228302527">Nastavit smluvní podmínky pro účet v zařízení</translation>
 <translation id="3086995894968271156">Nakonfigurujte přijímač Cast ve službě <ph name="PRODUCT_NAME" />.</translation>
 <translation id="3096595567015595053">Seznam aktivovaných pluginů</translation>
@@ -916,9 +916,9 @@ Pokud tuto zásadu nenastavíte, použije se pro všechny webové stránky glob�
 
           Tato zásada je respektována pouze v případě, že je aktivována zásada DefaultSearchProviderEnabled.</translation>
 <translation id="3866249974567520381">Popis</translation>
-<translation id="3868347814555911633">Tato zásada je aktivní pouze v režimu prodeje.
+<translation id="3868347814555911633">Tato zásada je aktivní pouze v režimu pro obchody.
 
-      Seznam rozšíření, která se automaticky nainstalují pro uživatele ukázky v zařízeních v režimu prodeje. Tato rozšíření se uloží v zařízení a po instalaci mohou být nainstalována v režimu offline.
+      Seznam rozšíření, která se automaticky nainstalují pro uživatele ukázky v zařízeních v režimu pro obchody. Tato rozšíření se uloží v zařízení a po instalaci mohou být nainstalována v režimu offline.
 
       Každý záznam v seznamu obsahuje adresář, který musí zahrnovat ID rozšíření v poli „extension-id“ a jeho webovou adresu pro aktualizace v poli „update-url“.</translation>
 <translation id="3873159954366380945">Umožňuje nastavit dobu, po kterou se budou zobrazovat oznámení o restartu prohlížeče <ph name="PRODUCT_NAME" /> za účelem použití aktualizace čekající na vyřízení.
@@ -1438,7 +1438,7 @@ Pokud zásadu nastavíte, můžete nakonfigurovat, zda má uživatel oprávněn�
 <translation id="5469825884154817306">Blokovat obrázky na těchto stránkách</translation>
 <translation id="5475361623548884387">Povolit tisk</translation>
 <translation id="547601067149622666">Nepovolovat reklamy na webech s rušivými reklamami</translation>
-<translation id="5499375345075963939">Tato zásada je aktivní pouze v režimu prodeje.
+<translation id="5499375345075963939">Tato zásada je aktivní pouze v režimu pro obchody.
 
       Je-li hodnota zásady nastavena a nerovná se 0, aktuálně přihlášený uživatel ukázky bude automaticky odhlášen po uplynutí zadané délky nečinnosti.
 
@@ -1850,7 +1850,7 @@ Není-li tato zásada nastavena na konkrétní hodnotu, bude předvídání sít
       Informace o paměti jsou stránce hlášeny bez ohledu na nastavení této možnosti. Velikosti jsou však hlášeny jen po určitých přírůstcích a frekvence aktualizací je z bezpečnostních důvodů omezena. Chcete-li získat přesná data v reálném čase, použijte prosím nástroje, jako je Telemetry.</translation>
 <translation id="6894178810167845842">Adresa URL stránky Nová karta</translation>
 <translation id="6899705656741990703">Zjistit nastavení proxy serveru automaticky</translation>
-<translation id="6903814433019432303">Tato zásada je aktivní pouze v režimu prodeje.
+<translation id="6903814433019432303">Tato zásada je aktivní pouze v režimu pro obchody.
 
       Určuje soubor adres URL, které se načtou po zahájení ukázkové relace. Tato zásada přepíše ostatní mechanismy pro nastavení úvodní adresy URL a může být tedy uplatněna pouze u relace, která není přiřazena konkrétnímu uživateli.</translation>
 <translation id="6908347296939885026">Aktivuje ve službě G Suite funkci omezeného přihlašování prohlížeče <ph name="PRODUCT_NAME" /> a znemožní uživatelům toto nastavení změnit.
@@ -2202,7 +2202,7 @@ Tato zásada je určena k internímu použití prohlížečem <ph name="PRODUCT_
 <translation id="787125417158068494">Pokud je tato zásada nastavena na hodnotu SyncDisabled nebo není nakonfigurována, certifikáty systému <ph name="PRODUCT_OS_NAME" /> nejsou k dispozici aplikacím ARC.
 
       Pokud je nastavena na hodnotu CopyCaCerts, všechny certifikáty CA nainstalované prostřednictvím ONC s atributem <ph name="WEB_TRUSTED_BIT" /> jsou k dispozici aplikacím ARC.</translation>
-<translation id="7882585827992171421">Tato zásada je aktivní pouze v režimu prodeje.
+<translation id="7882585827992171421">Tato zásada je aktivní pouze v režimu pro obchody.
 
       Určuje ID rozšíření, které se použije jako spořič obrazovky na přihlašovací obrazovce. Rozšíření musí být součásti balíčku AppPack, který je pro tuto doménu nakonfigurován v rámci zásady DeviceAppPack.</translation>
 <translation id="7882857838942884046">Deaktivace služby Google Sync způsobí, že zálohování a obnovení systému Android nebude fungovat správně.</translation>
@@ -2334,7 +2334,7 @@ Pokud tato zásada není nastavena nebo je nastavena na hodnotu False, uživatel
 <translation id="8312129124898414409">Umožňuje nastavit, zda weby mohou generovat klíče. Generování klíčů je možné všem webům buď povolit, nebo zakázat.
 
 Pokud tuto zásadu nenastavíte, použije se zásada BlockKeygen a uživatel ji bude moci změnit.</translation>
-<translation id="8329984337216493753">Tato zásada je aktivní pouze v režimu prodeje.
+<translation id="8329984337216493753">Tato zásada je aktivní pouze v režimu pro obchody.
 
       Pokud je určena zásada DeviceIdleLogoutTimeout, určuje tato zásada, jak dlouho před odhlášením se bude uživateli zobrazovat okno s upozorněním a časovačem.
 

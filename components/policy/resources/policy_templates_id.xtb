@@ -915,7 +915,7 @@
       Setiap entri cantuman berisi kamus yang harus menyertakan ID ekstensi dalam bidang 'extension-id', dan URL pembaruannya dalam bidang 'update-url'.</translation>
 <translation id="3873159954366380945">Mengizinkan Anda menyetel periode waktu notifikasi peluncuran ulang <ph name="PRODUCT_NAME" /> ditampilkan untuk menerapkan update yang tertunda.
 
-      Setelan kebijakan ini dapat digunakan untuk mengontrol periode waktu, dalam milidetik, dan selama periode waktu ini pengguna diberi tahu secara progresif bahwa <ph name="PRODUCT_NAME" /> harus diluncurkan ulang (atau <ph name="PRODUCT_OS_NAME" /> harus dimulai ulang) untuk melakukan update. Selama periode waktu ini, pengguna akan diberi tahu beberapa kali tentang perlunya update berdasarkan setelan kebijakan <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" />. Jika tidak disetel, periode default 345600000 milidetik (empat hari) digunakan untuk <ph name="PRODUCT_OS_NAME" /> dan 604800000 milidetik (satu minggu) untuk semua platform lainnya.</translation>
+      Setelan kebijakan ini dapat digunakan untuk mengontrol periode waktu, dalam milidetik, dan selama periode waktu ini pengguna diberi tahu secara progresif bahwa <ph name="PRODUCT_NAME" /> harus diluncurkan ulang (atau <ph name="PRODUCT_OS_NAME" /> harus dimulai ulang) untuk melakukan update. Selama periode waktu ini, pengguna akan diberi tahu beberapa kali tentang perlunya update berdasarkan setelan kebijakan <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" />. Jika tidak disetel, periode default 345600000 milidetik (4 hari) digunakan untuk <ph name="PRODUCT_OS_NAME" /> dan 604800000 milidetik (1 minggu) untuk semua platform lainnya.</translation>
 <translation id="3877517141460819966">Mode autentikasi faktor kedua yang terintegrasi</translation>
 <translation id="388237772682176890">Kebijakan ini sudah tidak digunakan di M53 dan dihapus di M54, karena dukungan SPDY/3.1 telah dihapus.
 
@@ -1258,10 +1258,10 @@
 <translation id="4899802251198446659">Mengizinkan Anda mengontrol apakah video dapat diputar otomatis (tanpa persetujuan pengguna) dengan konten audio di <ph name="PRODUCT_NAME" />.
 
       Jika kebijakan disetel ke True, <ph name="PRODUCT_NAME" /> diizinkan memutar otomatis media.
-      Jika kebijakan disetel ke False, <ph name="PRODUCT_NAME" /> tidak diizinkan memutar otomatis media. Kebijakan AutoplayWhitelist dapat digunakan mengganti ini untuk pola URL tertentu.
-      Secara default, <ph name="PRODUCT_NAME" /> tidak diizinkan memutar otomatis media. Kebijakan AutoplayWhitelist dapat digunakan mengganti ini untuk pola URL tertentu.
+      Jika kebijakan disetel ke False, <ph name="PRODUCT_NAME" /> tidak diizinkan memutar otomatis media. Kebijakan AutoplayWhitelist dapat digunakan untuk mengganti kebijakan ini untuk pola URL tertentu.
+      Secara default, <ph name="PRODUCT_NAME" /> tidak diizinkan memutar otomatis media. Kebijakan AutoplayWhitelist dapat digunakan untuk mengganti kebijakan ini untuk pola URL tertentu.
 
-      Perlu diperhatikan bahwa jika <ph name="PRODUCT_NAME" /> berjalan dan kebijakan ini berubah, kebijakan ini hanya akan diterapkan ke tab baru yang terbuka. Oleh karena itu, beberapa tab mungkin masih mengalami perilaku sebelumnya.
+      Perlu diperhatikan bahwa jika <ph name="PRODUCT_NAME" /> berjalan dan kebijakan ini berubah, kebijakan ini hanya akan diterapkan ke tab baru yang terbuka. Oleh karena itu, beberapa tab mungkin masih menunjukkan perilaku sebelumnya.
       </translation>
 <translation id="4906194810004762807">Segarkan peringkat untuk Kebijakan Perangkat</translation>
 <translation id="4917385247580444890">Kuat</translation>
@@ -2501,7 +2501,7 @@ Cara yang disarankan untuk mengonfigurasi kebijakan di Windows adalah melalui GP
 
       Menyetel kebijakan ini ke nilai yang lebih rendah akan memiliki dampak permanen: perangkat MUNGKIN tidak dapat dikembalikan ke versi sebelumnya setelah kebijakan disetel ulang ke nilai yang lebih tinggi.
 
-      Kemungkinan rollback aktual mungkin juga bergantung pada patch kerentanan yang luas dan kritis.</translation>
+      Kemungkinan rollback aktual juga dapat bergantung pada model perangkat dan patch kerentanan kritis.</translation>
 <translation id="913195841488580904">Cekal akses ke daftar URL</translation>
 <translation id="9135033364005346124">Mengaktifkan proxy <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="9136253551939494882">Daftar yang diizinkan mengontrol mode buka kunci cepat mana yang dapat dikonfigurasi dan digunakan oleh pengguna untuk membuka layar kunci.

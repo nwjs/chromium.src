@@ -302,7 +302,7 @@ Wenn diese Richtlinie nicht konfiguriert wird, so wird das standardmäßige Cach
 <translation id="2131902621292742709">Verzögerung für die Bildschirmabdunkelung im Akkubetrieb</translation>
 <translation id="2132732175597591362">Steuert die weiße Liste der URL-Muster, für die Autoplay immer aktiviert ist.
 
-      Wenn Autoplay aktiviert ist, können Videos mit Audioinhalten in <ph name="PRODUCT_NAME" /> ohne die Zustimmung des Nutzers automatisch abgespielt werden.
+      Wenn Autoplay aktiviert ist, können Videos mit Ton in <ph name="PRODUCT_NAME" /> ohne Zustimmung des Nutzers automatisch abgespielt werden.
 
       Ein URL-Muster muss den unter https://www.chromium.org/administrators/url-blacklist-filter-format beschriebenen Formaten entsprechen.
 
@@ -310,7 +310,7 @@ Wenn diese Richtlinie nicht konfiguriert wird, so wird das standardmäßige Cach
 
       Wird die Richtlinie "AutoplayAllowed" auf "false" gesetzt, dürfen die in dieser Richtlinie festgelegten URL-Muster dennoch abgespielt werden.
 
-      Hinweis: Wenn <ph name="PRODUCT_NAME" /> gerade läuft und diese Richtlinie geändert wird, wird sie nur auf Tabs angewendet, die neu geöffnet werden. Aus diesem Grund kann es passieren, dass einige Tabs das zuvor eingestellte Verhalten zeigen.</translation>
+      Hinweis: Wenn <ph name="PRODUCT_NAME" /> ausgeführt wird, während Sie diese Richtlinie ändern, wird sie nur für neue Tabs angewendet. Deshalb folgen einige Tabs möglicherweise der vorherigen Einstellung.</translation>
 <translation id="2134437727173969994">Sperren des Bildschirms erlauben</translation>
 <translation id="2137064848866899664">Bei Festlegen dieser Richtlinie wird jeder Bildschirm bei
       jedem Neustart und beim erstmaligen Herstellen der Verbindung nach
@@ -899,7 +899,7 @@ Falls die Richtlinie nicht festgelegt wird, bleibt die Varianten-Seed-URL unver�
        Jeder Eintrag enthält ein Verzeichnis, in dem im Feld "extension-id" die Erweiterungs-ID und im Feld "update-url" die Aktualisierungs-URL angegeben werden müssen.</translation>
 <translation id="3873159954366380945">Mit dieser Einstellung können Sie festlegen, wie lange Benachrichtigungen zum Neustart von <ph name="PRODUCT_NAME" /> angezeigt werden, um ein ausstehendes Update durchzuführen.
 
-      Mit dieser Richtlinieneinstellung kann der Zeitraum in Millisekunden festgelegt werden, in dem ein Nutzer fortschreitend darüber informiert wird, dass <ph name="PRODUCT_NAME" /> oder <ph name="PRODUCT_OS_NAME" /> für ein Update neu gestartet werden muss. Während dieses Zeitraums wird der Nutzer basierend auf der Einstellung der Richtlinie <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> wiederholt über die Notwendigkeit eines Updates informiert. Wenn die Richtlinie nicht festgelegt ist, wird der Standardzeitraum von 345.600.000 Millisekunden (vier Tage) für <ph name="PRODUCT_OS_NAME" /> und 604.800.000 Millisekunden (eine Woche) für alle anderen Plattformen verwendet.</translation>
+      Mit dieser Richtlinieneinstellung kann der Zeitraum in Millisekunden festgelegt werden, in dem ein Nutzer fortschreitend darüber informiert wird, dass <ph name="PRODUCT_NAME" /> oder <ph name="PRODUCT_OS_NAME" /> für ein Update neu gestartet werden muss. Während dieses Zeitraums wird der Nutzer entsprechend der Einstellung der Richtlinie <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> wiederholt über die Notwendigkeit eines Updates informiert. Wenn die Richtlinie nicht festgelegt ist, wird der Standardzeitraum von 345.600.000 Millisekunden (vier Tage) für <ph name="PRODUCT_OS_NAME" /> und 604.800.000 Millisekunden (eine Woche) für alle anderen Plattformen verwendet.</translation>
 <translation id="3877517141460819966">Integrierter Zwei-Faktor-Authentifizierungsmodus</translation>
 <translation id="388237772682176890">Da SPDY/3.1 nicht mehr unterstützt wird, wurde diese Richtlinie in M53 eingestellt und in M54 entfernt.
 
@@ -1243,13 +1243,13 @@ Falls die Richtlinie auf "false" gesetzt wird, werden Anfragen für Bildschirm-W
           Diese Richtlinie wird nur berücksichtigt, wenn die Richtlinie "DefaultSearchProviderEnabled" aktiviert ist.</translation>
 <translation id="489803897780524242">Parameter zur Steuerung der Suchbegriffersetzung für den Standardsuchanbieter</translation>
 <translation id="4899708173828500852">Safe Browsing aktivieren</translation>
-<translation id="4899802251198446659">Mit dieser Richtlinie können Sie festlegen, ob Videos mit Ton automatisch und ohne Zustimmung durch den Nutzer in <ph name="PRODUCT_NAME" /> abgespielt werden dürfen.
+<translation id="4899802251198446659">Mit dieser Richtlinie können Sie festlegen, ob Videos mit Ton in <ph name="PRODUCT_NAME" /> ohne Zustimmung des Nutzers automatisch abgespielt werden dürfen.
 
       Wenn die Richtlinie auf "true" gesetzt ist, darf <ph name="PRODUCT_NAME" /> Medien automatisch abspielen.
-      Wird die Richtlinie auf "false" festgelegt, darf <ph name="PRODUCT_NAME" /> Medien nicht automatisch abspielen. Die Richtlinie "AutoplayWhitelist" kann verwendet werden, um diese Einstellung für bestimmte URL-Muster zu überschreiben.
-      Standardmäßig darf <ph name="PRODUCT_NAME" /> Medien nicht automatisch abspielen. Die Richtlinie "AutoplayWhitelist" kann verwendet werden, um diese Einstellung für bestimmte URL-Muster zu überschreiben.
+      Wird die Richtlinie auf "false" festgelegt, darf <ph name="PRODUCT_NAME" /> Medien nicht automatisch abspielen. Mit der Richtlinie "AutoplayWhitelist" können Sie diese Einstellung für bestimmte URL-Muster überschreiben.
+      Standardmäßig darf <ph name="PRODUCT_NAME" /> Medien nicht automatisch abspielen. Mit der Richtlinie "AutoplayWhitelist" können Sie diese Einstellung für bestimmte URL-Muster überschreiben.
 
-      Hinweis: Wenn <ph name="PRODUCT_NAME" /> gerade läuft und diese Richtlinie geändert wird, wird sie nur auf Tabs angewendet, die neu geöffnet werden. Aus diesem Grund kann es passieren, dass einige Tabs das zuvor eingestellte Verhalten zeigen.
+      Hinweis: Wenn <ph name="PRODUCT_NAME" /> ausgeführt wird, während Sie diese Richtlinie ändern, wird sie nur für neue Tabs angewendet. Deshalb folgen einige Tabs möglicherweise der vorherigen Einstellung.
       </translation>
 <translation id="4906194810004762807">Aktualisierungsrate für Geräterichtlinien</translation>
 <translation id="4917385247580444890">Stark</translation>

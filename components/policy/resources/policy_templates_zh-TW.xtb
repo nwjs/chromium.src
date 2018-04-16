@@ -308,7 +308,7 @@
 <translation id="2131902621292742709">在電池供電環境下執行時的螢幕調暗延遲時間</translation>
 <translation id="2132732175597591362">控管一律開啟自動播放功能的網址模式許可清單。
 
-      如果開啟自動播放功能，<ph name="PRODUCT_NAME" /> 中的影片便可自動播放音訊內容 (不需使用者同意)。.
+      如果開啟自動播放功能，<ph name="PRODUCT_NAME" /> 中的影片便可自動播放音訊內容 (不需使用者同意)。
 
       網址模式的格式必須符合 https://www.chromium.org/administrators/url-blacklist-filter-format 中的規定。
 

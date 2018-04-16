@@ -948,7 +948,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
       Katrā saraksta ierakstā ir ietverta vārdnīca, kurai laukā “extension-id” ir jāiekļauj paplašinājuma ID, bet laukā “update-url”  — tā atjaunināšanas URL.</translation>
 <translation id="3873159954366380945">Ļauj iestatīt laika periodu, kurā tiek rādīti <ph name="PRODUCT_NAME" /> atkārtotas palaišanas paziņojumi, lai veiktu neapstrādātu atjauninājumu.
 
-      Šīs politikas iestatījumus var izmantot, lai kontrolētu laika periodu (milisekundēs), kurā lietotājs tiek pakāpeniski informēts, ka pārlūks <ph name="PRODUCT_NAME" /> ir atkārtoti jāpalaiž (vai ka pārlūks <ph name="PRODUCT_OS_NAME" /> ir jārestartē) atjaunināšanas nolūkā. Šajā laika periodā lietotājs tiks atkārtoti informēts par to, ka jāveic atjaunināšana, pamatojoties uz politikas <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> iestatījumu. Ja šī politika nav iestatīta, tiek izmantots noklusējuma periods — 345 600 000 milisekundes (četras dienas) operētājsistēmai <ph name="PRODUCT_OS_NAME" /> un 604 800 000 milisekundes (viena nedēļa) parējām platformām.</translation>
+      Šīs politikas iestatījumus var izmantot, lai kontrolētu laika periodu (milisekundēs), kurā lietotājs tiek pakāpeniski informēts, ka pārlūks <ph name="PRODUCT_NAME" /> ir atkārtoti jāpalaiž (vai ka pārlūks <ph name="PRODUCT_OS_NAME" /> ir jārestartē), lai to atjauninātu. Šajā laika periodā lietotājs tiks atkārtoti informēts par to, ka jāveic atjaunināšana, pamatojoties uz politikas <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" /> iestatījumu. Ja šī politika nav iestatīta, tiek izmantots noklusējuma periods — 345 600 000 milisekundes (četras dienas) operētājsistēmai <ph name="PRODUCT_OS_NAME" /> un 604 800 000 milisekundes (viena nedēļa) pārējām platformām.</translation>
 <translation id="3877517141460819966">Integrētais divfaktoru autentificēšanas režīms</translation>
 <translation id="388237772682176890">Šī politika ir novecojusi versijā M53 un noņemta no versijas M54, jo ir noņemts protokola SPDY/3.1 atbalsts.
 
@@ -1302,8 +1302,8 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="4899802251198446659">Atļauj kontrolēt, vai videoklipus var atskaņot automātiski kopā ar <ph name="PRODUCT_NAME" /> audio saturu (bez lietotāja piekrišanas).
 
       Ja politikai ir iestatīta vērtība “True”, <ph name="PRODUCT_NAME" /> ir atļauts automātiski atskaņot multivides saturu.
-      Ja politikai ir iestatīta vērtība “False”, <ph name="PRODUCT_NAME" /> nav atļauts automātiski atskaņot multivides saturu. Politiku AutoplayWhitelist var izmantot šīs politikas ignorēšanai noteiktiem URL rakstiem.
-      Pēc noklusējuma <ph name="PRODUCT_NAME" /> ir liegta automātiska multivides satura atskaņošana. Politiku AutoplayWhitelist var izmantot šīs politikas ignorēšanai noteiktiem URL rakstiem.
+      Ja politikai ir iestatīta vērtība “False”, <ph name="PRODUCT_NAME" /> nav atļauts automātiski atskaņot multivides saturu. Politiku AutoplayWhitelist var izmantot, lai ignorētu šo politiku noteiktiem URL rakstiem.
+      Pēc noklusējuma <ph name="PRODUCT_NAME" /> ir liegta automātiska multivides satura atskaņošana. Politiku AutoplayWhitelist var izmantot, lai ignorētu šo politiku noteiktiem URL rakstiem.
 
       Ņemiet vērā: ja darbojas <ph name="PRODUCT_NAME" /> un šīs politikas vērtība tiek mainīta, tā tiks piemērota tikai jaunākajām atvērtajām cilnēm. Tādējādi dažās cilnēs joprojām var tikt novērota iepriekšējā rīcība.
       </translation>

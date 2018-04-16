@@ -301,11 +301,11 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 
       Il formato dei pattern URL deve essere quello indicato all'indirizzo https://www.chromium.org/administrators/url-blacklist-filter-format.
 
-      Se la norma AutoplayAllowed viene impostata su True, questa norma non avrà effetto.
+      Se il criterio AutoplayAllowed viene impostato su True, questo criterio non avrà effetto.
 
-      Se la norma AutoplayAllowed viene impostata su False, sarà consentita la riproduzione dei pattern URL definiti in questa norma.
+      Se il criterio AutoplayAllowed viene impostato su False, sarà consentita la riproduzione dei pattern URL definiti in questo criterio.
 
-      Tieni presente che se questa norma viene cambiata mentre <ph name="PRODUCT_NAME" /> è in esecuzione, la norma viene applicata soltanto alle nuove schede aperte. Di conseguenza alcune schede potrebbero mantenere il comportamento precedente.</translation>
+      Tieni presente che se questo criterio viene cambiato mentre <ph name="PRODUCT_NAME" /> è in esecuzione, il criterio viene applicato soltanto alle nuove schede aperte. Di conseguenza alcune schede potrebbero mantenere il comportamento precedente.</translation>
 <translation id="2134437727173969994">Consenti blocco dello schermo</translation>
 <translation id="2137064848866899664">Se la norma viene impostata, ogni schermo viene ruotato secondo l'orientamento specificato, a ogni riavvio e la prima volta che viene collegato in seguito alla modifica della norma. Dopo aver eseguito l'accesso, gli utenti possono modificare la rotazione dello schermo tramite la pagina delle impostazioni ma, al successivo riavvio, la loro impostazione viene sostituita dal valore della norma.
 
@@ -887,7 +887,7 @@ Per impostazione predefinita sono autorizzati tutti gli host di messaggi nativi 
       Ogni voce dell'elenco contiene un dizionario che deve includere l'ID dell'estensione nel campo "extension-id" e il relativo URL di aggiornamento nel campo "update-url".</translation>
 <translation id="3873159954366380945">Ti consente di impostare il periodo di tempo durante il quale mostrare le notifiche relative al riavvio di <ph name="PRODUCT_NAME" /> per applicare un aggiornamento in attesa.
 
-      È possibile usare l'impostazione di questa norma per stabilire in millisecondi per quanto tempo un utente viene progressivamente informato della necessità di riavviare <ph name="PRODUCT_NAME" /> (o <ph name="PRODUCT_OS_NAME" />) per applicare un aggiornamento. Durante questo periodo di tempo l'utente verrà informato più volte della necessità di un aggiornamento in base all'impostazione della norma <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" />. Se non viene definito un periodo, viene usato il periodo predefinito di 345600000 millisecondi (quattro giorni) per <ph name="PRODUCT_OS_NAME" /> e di 604800000 millisecondi (una settimana) per tutte le altre piattaforme.</translation>
+      È possibile usare l'impostazione di questo criterio per stabilire per quanto tempo, in millisecondi, un utente viene progressivamente informato della necessità di riavviare <ph name="PRODUCT_NAME" /> (o <ph name="PRODUCT_OS_NAME" />) per applicare un aggiornamento. Durante questo periodo di tempo l'utente verrà informato più volte della necessità di un aggiornamento in base all'impostazione del criterio <ph name="RELAUNCH_NOTIFICATION_POLICY_NAME" />. Se non viene definito un periodo, viene usato il periodo predefinito di 345600000 millisecondi (quattro giorni) per <ph name="PRODUCT_OS_NAME" /> e di 604800000 millisecondi (una settimana) per tutte le altre piattaforme.</translation>
 <translation id="3877517141460819966">Modalità di autenticazione a due fattori integrata</translation>
 <translation id="388237772682176890">Questa norma è stata ritirata in M53 e rimossa in M54 perché è stato rimosso il supporto di SPDY/3.1.
 
@@ -1221,13 +1221,13 @@ Questa norma è facoltativa. Se non viene impostata, la richiesta di ricerca di 
 Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled" è attiva.</translation>
 <translation id="489803897780524242">Parametro di controllo sostituzione termini di ricerca per fornitore ricerca predefinito</translation>
 <translation id="4899708173828500852">Consenti Navigazione sicura</translation>
-<translation id="4899802251198446659">Ti consente di stabilire se permettere o meno la riproduzione automatica dei video (senza il consenso dell'utente) con i contenuti audio in <ph name="PRODUCT_NAME" />.
+<translation id="4899802251198446659">Ti consente di stabilire se permettere o meno la riproduzione automatica dei video (senza il consenso dell'utente) con contenuti audio in <ph name="PRODUCT_NAME" />.
 
-      Se la norma viene impostata su True, in <ph name="PRODUCT_NAME" /> è consentita la riproduzione automatica dei contenuti multimediali.
-      Se la norma viene impostata su False, in <ph name="PRODUCT_NAME" /> non è consentita la riproduzione automatica dei contenuti multimediali. È possibile usare la norma AutoplayWhitelist in sostituzione a questa norma per alcuni pattern URL.
-      Per impostazione predefinita, la riproduzione automatica di contenuti multimediali in <ph name="PRODUCT_NAME" /> non è consentita. È possibile usare la norma AutoplayWhitelist in sostituzione a questa norma per alcuni pattern URL.
+      Se il criterio viene impostato su True, in <ph name="PRODUCT_NAME" /> è consentita la riproduzione automatica dei contenuti multimediali.
+      Se il criterio viene impostato su False, in <ph name="PRODUCT_NAME" /> non è consentita la riproduzione automatica dei contenuti multimediali. È possibile usare il criterio AutoplayWhitelist in sostituzione di questo criterio per alcuni pattern URL.
+      Per impostazione predefinita, la riproduzione automatica di contenuti multimediali in <ph name="PRODUCT_NAME" /> non è consentita. È possibile usare il criterio AutoplayWhitelist in sostituzione di questo criterio per alcuni pattern URL.
 
-      Tieni presente che se questa norma viene cambiata mentre <ph name="PRODUCT_NAME" /> è in esecuzione, la norma viene applicata soltanto alle nuove schede aperte. Di conseguenza alcune schede potrebbero mantenere il comportamento precedente.
+      Tieni presente che se questo criterio viene cambiato mentre <ph name="PRODUCT_NAME" /> è in esecuzione, il criterio viene applicato soltanto alle nuove schede aperte. Di conseguenza alcune schede potrebbero mantenere il comportamento precedente.
       </translation>
 <translation id="4906194810004762807">Frequenza di aggiornamento per norma dispositivo</translation>
 <translation id="4917385247580444890">Forte</translation>

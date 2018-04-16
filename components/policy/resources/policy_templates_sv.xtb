@@ -2632,7 +2632,7 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 
       När den här principen har aktiverats upphävs återställningsskyddet för minst det här antalet milstolpar.
 
-      Om principen ställs in på ett lägre värde gäller det värdet permanent: det KANSKE inte går att återställa tidigare versioner än så på enheten ens om principen ändras till ett högre värde.
+      Om principen ställs in på ett lägre värde gäller det värdet permanent: det KANSKE inte går att återställa tidigare versioner på enheten ävenom principen ändras till ett högre värde.
 
       Vilka möjligheter till återställning som finns kan också bero på moderkortet och kritiska säkerhetskorrigeringar.</translation>
 <translation id="913195841488580904">Blockera åtkomst till en lista med webbadresser</translation>
