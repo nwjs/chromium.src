@@ -158,6 +158,16 @@ Se la norma non viene impostata, la modalità ad alto contrasto viene disattivat
 <translation id="1553684822621013552">Quando questo criterio è impostato su true, ARC è attivato (soggetto ad altri controlli delle impostazioni dei criteri - ARC continuerà a essere disattivato se nella sessione utente corrente è attivata la modalità temporanea o l'accesso simultaneo).
 
 Se l'impostazione è disattivata o non è stata configurata, gli utenti aziendali non potranno utilizzare ARC.</translation>
+<translation id="1561183922461862993">
+      Questa norma viene applicata alla schermata di accesso. Vedi anche la norma <ph name="SITE_PER_PROCESS_POLICY_NAME" /> che viene applicata alla sessione utente. È consigliabile impostare lo stesso valore per entrambe le norme. Se i valori non corrispondono, può verificarsi un ritardo durante l'accesso a una sessione utente mentre viene applicato il valore specificato dalla norma relativa agli utenti.
+      Potresti considerare l'impostazione della norma IsolateOrigins per ottenere
+      sia l'isolamento sia un impatto limitato per gli utenti. Usa IsolateOrigins con
+      un elenco dei siti che vuoi isolare. Questa impostazione, SitePerProcess,
+      isola tutti i siti.
+      Se la norma viene attivata, ogni sito verrà eseguito in un proprio processo.
+      Se la norma viene disattivata, viene applicata la logica della gestione del processo di isolamento per sito e le prove sul campo di IsolateOrigins e SitePerProcess saranno disattivate. Gli utenti potranno ancora attivare SitePerProcess manualmente.
+      Se la norma non viene configurata, l'utente potrà modificare questa impostazione.
+      </translation>
 <translation id="1561424797596341174">La norma sostituisce le build di debug dell'host di accesso remoto</translation>
 <translation id="1561967320164410511">U2F più estensioni per singola attestazione</translation>
 <translation id="1583248206450240930">Utilizza <ph name="PRODUCT_FRAME_NAME" /> per impostazione predefinita</translation>
@@ -713,6 +723,16 @@ Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearch
 <translation id="3214164532079860003">Se è attiva, questa norma impone l'importazione della pagina iniziale dal browser predefinito corrente. Se non è attiva, la pagina iniziale non viene importata. Se non viene impostata, all'utente potrebbe essere chiesto se desidera effettuare l'importazione, oppure l'importazione potrebbe avvenire automaticamente.</translation>
 <translation id="3219421230122020860">Modalità di navigazione in incognito disponibile</translation>
 <translation id="3220624000494482595">Se l'app kiosk è un'app Android, non avrà controllo sulla versione di <ph name="PRODUCT_OS_NAME" />, anche se la norma viene impostata su <ph name="TRUE" />.</translation>
+<translation id="3229833076897893450">
+      Potresti considerare l'impostazione della norma IsolateOrigins per ottenere
+      sia l'isolamento sia un impatto limitato per gli utenti. Usa
+      IsolateOrigins con un elenco dei siti che vuoi isolare. Questa impostazione,
+      SitePerProcess, isola tutti i siti.
+      Se la norma viene attivata, ogni sito verrà eseguito in un proprio processo.
+      Se la norma viene disattivata, viene applicata la logica della gestione del processo di isolamento per sito e le prove sul campo di IsolateOrigins e SitePerProcess saranno disattivate. Gli utenti potranno ancora attivare SitePerProcess manualmente.
+      Se la norma non viene configurata, l'utente potrà modificare questa impostazione.
+      In <ph name="PRODUCT_OS_NAME" />, si consiglia di impostare anche la norma relativa ai dispositivi <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> sullo stesso valore. Se i valori specificati dalle due norme non corrispondono, può verificarsi un ritardo durante l'accesso a una sessione utente mentre viene applicato il valore specificato dalla norma relativa agli utenti.
+      </translation>
 <translation id="3236046242843493070">Pattern URL per consentire installazioni di estensioni, applicazioni e script utente da</translation>
 <translation id="3240609035816615922">Norma di accesso alla configurazione delle stampanti.</translation>
 <translation id="3243309373265599239">Consente di specificare il periodo di tempo senza input dell'utente trascorso il quale lo schermo viene oscurato quando viene utilizzata la corrente alternata.
@@ -798,6 +818,16 @@ Questa norma è facoltativa. Se non viene impostata, non verrà utilizzata la ri
 Questa norma viene rispettata soltanto se viene attivata la norma "DefaultSearchProviderEnabled".</translation>
 <translation id="350797926066071931">Abilita traduzione</translation>
 <translation id="3512226956150568738">Se il modello del dispositivo client supportava già ARC prima che fosse necessaria la migrazione a ext4 per eseguire ARC e se la norma ArcEnabled è impostata su true, questa opzione si comporterà come AskUser (valore 3). In tutti gli altri casi (se il modello del dispositivo non supportava ARC in precedenza o se la norma ArcEnabled è impostata su false), questo valore equivale a DisallowArc (valore 0).</translation>
+<translation id="3519934027321156158">
+      Se la norma viene attivata, ogni origine indicata in un elenco di valori
+      separati da virgole verrà eseguita in un proprio processo.
+      Verranno inoltre isolate le origini indicate dai sottodomini; ad esempio,
+      se viene specificato il sito https://example.com/ viene isolato anche
+      https://foo.example.com/, perché fa parte del sito https://example.com/.
+      Se la norma viene disattivata, viene applicata la logica della gestione del processo di isolamento per sito e le prove sul campo di IsolateOrigins e SitePerProcess saranno disattivate. Gli utenti potranno ancora attivare IsolateOrigins manualmente.
+      Se la norma non viene configurata, l'utente potrà modificare questa impostazione.
+      In <ph name="PRODUCT_OS_NAME" />, si consiglia di impostare anche la norma relativa ai dispositivi <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> sullo stesso valore. Se i valori specificati dalle due norme non corrispondono, può verificarsi un ritardo durante l'accesso a una sessione utente mentre viene applicato il valore specificato dalla norma relativa agli utenti.
+      </translation>
 <translation id="3528000905991875314">Attiva pagine di errore sostitutive</translation>
 <translation id="3547954654003013442">Impostazioni proxy</translation>
 <translation id="3577251398714997599">Impostazione annunci per i siti con annunci invasivi</translation>
@@ -950,6 +980,16 @@ Per impostazione predefinita sono autorizzati tutti gli host di messaggi nativi 
       Se questa norma viene impostata su true o non viene impostata, gli utenti potranno utilizzare le offerte tramite la registrazione a Chrome OS.
 
       Se questa norma viene impostata su false, gli utenti non potranno utilizzare le offerte.</translation>
+<translation id="4002183184444060875">
+      Questa norma viene applicata alla schermata di accesso. Vedi anche la norma <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> che viene applicata alla sessione utente. È consigliabile impostare lo stesso valore per entrambe le norme. Se i valori non coincidono, può verificarsi un ritardo durante l'accesso a una sessione utente mentre viene applicato il valore specificato dalla norma relativa agli utenti.
+      Se la norma viene attivata, ogni origine indicata in un elenco di valori
+      separati da virgole verrà eseguita in un proprio processo. Verranno inoltre
+      isolate le origini indicate dai sottodomini; ad esempio, se viene specificato
+      il sito https://example.com/ viene isolato anche https://foo.example.com/,
+      perché fa parte del sito https://example.com/.
+      Se la norma viene disattivata, viene applicata la logica della gestione del processo di isolamento per sito e le prove sul campo di IsolateOrigins e SitePerProcess saranno disattivate. Gli utenti potranno ancora attivare IsolateOrigins manualmente.
+      Se la norma non viene configurata, per la schermata di accesso verranno usate le impostazioni di isolamento dei siti predefinite della piattaforma.
+      </translation>
 <translation id="4010738624545340900">Consenti richiamo di finestre di dialogo di selezione file</translation>
 <translation id="4012737788880122133">Se questa norma viene impostata su True, gli aggiornamenti automatici vengono disattivati.
 

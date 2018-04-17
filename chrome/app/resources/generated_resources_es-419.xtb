@@ -2497,7 +2497,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="48838266408104654">Adminis&amp;trador de tareas</translation>
 <translation id="4883898390143004266">Ayuda a que las apps encuentren tu ubicación. Usa el servicio de ubicación de Google para mejorar esta función en las apps. Es posible que Google recopile datos de ubicación anónimos periódicamente y los use para mejorar la precisión de la ubicación y los servicios que dependen de esta. <ph name="BEGIN_LINK1" />Más información<ph name="END_LINK1" /></translation>
 <translation id="4884740091792292473"><ph name="BEGIN_PARAGRAPH1" />Crea una copia de seguridad en Google Drive. Restablece fácilmente tus datos o cambia de dispositivo en cualquier momento. Tu copia de seguridad incluye datos de las apps.<ph name="END_PARAGRAPH1" />
-    <ph name="BEGIN_PARAGRAPH2" />Los datos de las apps pueden incluir cualquier información que una app haya guardado (en función de la configuración del programador), incluso datos potencialmente confidenciales, como los contactos, los mensajes y las fotos.<ph name="END_PARAGRAPH2" />
+    <ph name="BEGIN_PARAGRAPH2" />Los datos de las apps pueden incluir cualquier información que haya guardado una app (en función de la configuración del programador), incluso datos potencialmente confidenciales, como los contactos, los mensajes y las fotos.<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />La copia de seguridad de los datos no incide en la cuota de almacenamiento en Drive.<ph name="END_PARAGRAPH3" />
     <ph name="BEGIN_PARAGRAPH4" />Se puede desactivar este servicio en Configuración.<ph name="END_PARAGRAPH4" /></translation>
 <translation id="4884987973312178454">6x</translation>
@@ -2896,7 +2896,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="5487521232677179737">Borrar datos</translation>
 <translation id="5488093641312826914">"<ph name="COPIED_ITEM_NAME" />" copiado</translation>
 <translation id="5488468185303821006">Permitir modo incógnito</translation>
-<translation id="5491110079163012109">Envía los datos del sistema. Envía datos de diagnóstico y uso del dispositivo y de apps a Google automáticamente. El propietario aplica esta configuración y puede enviar datos de uso y diagnóstico para este dispositivo a Google. Puedes verlo en la configuración. Si activas la función adicional de Actividad web y de aplicaciones, esta información se almacenará con tu cuenta para que puedas administrarla en Mi actividad. <ph name="BEGIN_LINK1" />Más información<ph name="END_LINK1" /></translation>
+<translation id="5491110079163012109">Envía los datos del sistema. Envía datos de diagnóstico y uso del dispositivo y de apps a Google automáticamente. Esta configuración es aplicada por el propietario, que puede decidir si se envían datos de uso y diagnóstico para este dispositivo a Google. Puedes verlo en la configuración. Si activas la función adicional de Actividad web y de aplicaciones, esta información se almacenará con tu cuenta para que puedas administrarla en Mi actividad. <ph name="BEGIN_LINK1" />Más información<ph name="END_LINK1" /></translation>
 <translation id="5493792505296048976">pantalla encendida</translation>
 <translation id="5494362494988149300">Abrir cuan&amp;do esté listo</translation>
 <translation id="5494920125229734069">Seleccionar todo</translation>
@@ -3614,7 +3614,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="6607831829715835317">Más herramientas</translation>
 <translation id="6612358246767739896">Contenido protegido</translation>
 <translation id="6613452264606394692">Para regresar aquí rápidamente, agrega esta página a favoritos</translation>
-<translation id="6614893213975402384">Instala actualizaciones y apps. Al continuar, aceptas que probablemente este dispositivo también descargue e instale automáticamente actualizaciones y apps de Google, tu administrador y el fabricante del dispositivo, a través de datos móviles. Es posible que algunas de estas apps ofrezcan compras directas desde la aplicación. Puedes quitar estas apps en cualquier momento. <ph name="BEGIN_LINK1" />Más información<ph name="END_LINK1" /></translation>
+<translation id="6614893213975402384">Instala actualizaciones y apps. Al continuar, aceptas que este dispositivo también descargue e instale automáticamente actualizaciones y apps de Google, tu administrador y el fabricante del dispositivo, posiblemente a través de datos móviles. Es posible que algunas de estas apps ofrezcan compras directas desde la aplicación. Puedes quitar las apps en cualquier momento. <ph name="BEGIN_LINK1" />Más información<ph name="END_LINK1" /></translation>
 <translation id="6615455863669487791">Mostrarme</translation>
 <translation id="661719348160586794">Las contraseñas que guardaste aparecerán aquí.</translation>
 <translation id="6618097958368085618">Conservar de todos modos</translation>
@@ -4806,7 +4806,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="8534656636775144800">Se produjo un error al intentar unirse al dominio. Vuelve a intentarlo.</translation>
 <translation id="8535005006684281994">URL de renovación del certificado Netscape</translation>
 <translation id="8539727552378197395">No (HttpOnly)</translation>
-<translation id="8541166929715485291">Envía los datos del sistema. Envía datos de diagnóstico y uso del dispositivo y de apps a Google automáticamente. El propietario aplica esta configuración y puede enviar datos de uso y diagnóstico de este dispositivo a Google. Puedes verlo en la <ph name="BEGIN_LINK1" />configuración<ph name="END_LINK1" />. Si activaste la función adicional de Actividad web y de aplicaciones, esta información se almacenará con tu cuenta para que puedas administrarla en Mi actividad. <ph name="BEGIN_LINK2" />Más información<ph name="END_LINK2" /></translation>
+<translation id="8541166929715485291">Envía los datos del sistema. Envía datos de diagnóstico y uso del dispositivo y de apps a Google automáticamente. Esta configuración es aplicada por el propietario, que puede decidir si se envían datos de uso y diagnóstico de este dispositivo a Google. Puedes verlo en la <ph name="BEGIN_LINK1" />configuración<ph name="END_LINK1" />. Si activaste la función adicional de Actividad web y de aplicaciones, esta información se almacenará con tu cuenta para que puedas administrarla en Mi actividad. <ph name="BEGIN_LINK2" />Más información<ph name="END_LINK2" /></translation>
 <translation id="8545107379349809705">Ocultar información...</translation>
 <translation id="8545575359873600875">No se pudo verificar la contraseña. Es posible que el administrador de este usuario supervisado haya cambiado la contraseña recientemente. De ser así, la nueva contraseña se aplicará la próxima vez que accedas. Intenta utilizar la contraseña antigua.</translation>
 <translation id="8546186510985480118">El dispositivo tiene poco espacio</translation>

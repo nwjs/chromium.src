@@ -1074,7 +1074,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="264810637653812429">Geen geschikte apparaten gevonden.</translation>
 <translation id="2648831393319960979">Het apparaat wordt toegevoegd aan je account. Dit kan even duren…</translation>
 <translation id="2649045351178520408">Base64 Encoded ASCII, certificaatketen</translation>
-<translation id="2651353619134567122">Systeemgegevens verzenden. Dit apparaat verzendt momenteel automatisch diagnostische en gebruiks- en app-gegevens naar Google. Je kunt dit op elk gewenst moment wijzigen in de <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" /> van je apparaat. Als je 'Web- en app-activiteit' hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
+<translation id="2651353619134567122">Systeemgegevens verzenden. Dit apparaat verzendt momenteel automatisch diagnostische en app- en gebruiksgegevens naar Google. Je kunt dit op elk gewenst moment wijzigen in de <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" /> van je apparaat. Als je 'Web- en app-activiteit' hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
 <translation id="2653266418988778031">Als je een certificaat van een certificeringsinstantie verwijdert, vertrouwt je browser geen certificaten meer die door die certificeringsinstantie zijn verleend.</translation>
 <translation id="2653659639078652383">Verzenden</translation>
 <translation id="265390580714150011">Veldwaarde</translation>
@@ -1422,7 +1422,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="3140353188828248647">Adresbalk activeren</translation>
 <translation id="3141318088920353606">Luisteren...</translation>
 <translation id="3141917231319778873">Het opgegeven verzoek wordt niet ondersteund voor: <ph name="DEVICE_NAME" />.</translation>
-<translation id="3143695347784622594">Systeemgegevens verzenden. Automatisch diagnostische en gebruiks- en app-gegevens verzenden naar Google. Je kunt dit op elk gewenst moment wijzigen in de <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" /> van je apparaat. Als je 'Web- en app-activiteit' hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
+<translation id="3143695347784622594">Systeemgegevens verzenden. Automatisch diagnostische en app- en gebruiksgegevens verzenden naar Google. Je kunt dit op elk gewenst moment wijzigen in de <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" /> van je apparaat. Als je 'Web- en app-activiteit' hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
 <translation id="3144126448740580210">GEREED</translation>
 <translation id="3144647712221361880">Link openen als</translation>
 <translation id="3149510190863420837">Chrome-apps</translation>
@@ -2900,7 +2900,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="5487521232677179737">Gegevens wissen</translation>
 <translation id="5488093641312826914">'<ph name="COPIED_ITEM_NAME" />' gekopieerd</translation>
 <translation id="5488468185303821006">Toestaan in incognitomodus</translation>
-<translation id="5491110079163012109">Systeemgegevens verzenden. Automatisch diagnostische en gebruiksgegevens naar Google verzenden. Deze instelling wordt afgedwongen door de eigenaar. De eigenaar kan ervoor kiezen diagnostische en gebruiksgegevens van dit apparaat naar Google te verzenden. Je kunt dit bekijken in de instellingen. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK1" />Meer informatie<ph name="END_LINK1" /></translation>
+<translation id="5491110079163012109">Systeemgegevens verzenden. Automatisch diagnostische en app- en gebruiksgegevens naar Google verzenden. Deze instelling wordt afgedwongen door de eigenaar. De eigenaar kan ervoor kiezen diagnostische en gebruiksgegevens van dit apparaat naar Google te verzenden. Je kunt dit bekijken in de instellingen. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK1" />Meer informatie<ph name="END_LINK1" /></translation>
 <translation id="5493792505296048976">scherm aan</translation>
 <translation id="5494362494988149300">Openen wanneer geree&amp;d</translation>
 <translation id="5494920125229734069">Alles selecteren</translation>
@@ -3567,7 +3567,7 @@ Ga naar ons <ph name="BEGIN_LINK" />Helpcentrum<ph name="END_LINK" /> voor meer 
 <translation id="6528513914570774834">Andere gebruikers van dit apparaat toestaan om dit netwerk te gebruiken</translation>
 <translation id="652948702951888897">Chrome-geschiedenis</translation>
 <translation id="653019979737152879"><ph name="FILE_NAME" /> synchroniseren...</translation>
-<translation id="6530681427077572136">Systeemgegevens verzenden. Dit apparaat verzendt momenteel automatisch diagnostische en gebruiksgegevens naar Google. Je kunt dit op elk gewenst moment wijzigen in de instellingen van je apparaat. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK1" />Meer informatie<ph name="END_LINK1" /></translation>
+<translation id="6530681427077572136">Systeemgegevens verzenden. Dit apparaat verzendt momenteel automatisch diagnostische en app- en gebruiksgegevens naar Google. Je kunt dit op elk gewenst moment wijzigen in de instellingen van je apparaat. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK1" />Meer informatie<ph name="END_LINK1" /></translation>
 <translation id="6531282281159901044">Gevaarlijk bestand behouden</translation>
 <translation id="6534583978616527129">De verbinding wordt geïnitialiseerd</translation>
 <translation id="654039047105555694"><ph name="BEGIN_BOLD" />Opmerking:<ph name="END_BOLD" /> schakel dit alleen in als je weet wat je doet of als je bent gevraagd dit te doen, omdat het verzamelen van gegevens kan leiden tot verminderde prestaties.</translation>
@@ -4393,7 +4393,7 @@ Als je <ph name="APP_NAME" /> installeert, wordt er <ph name="DOWNLOAD_SIZE" /> 
 <translation id="7851457902707056880">Er kan alleen worden ingelogd met het account van de eigenaar. Start het apparaat opnieuw op en log in met het account van de eigenaar. Het apparaat wordt over 30 seconden automatisch opnieuw opgestart.</translation>
 <translation id="7851716364080026749">Toegang tot de camera en microfoon altijd blokkeren</translation>
 <translation id="7853747251428735">Meer hu&amp;lpprogramma's</translation>
-<translation id="7856006446339184955">Systeemgegevens verzenden. Dit apparaat verzendt momenteel diagnostische gegevens en gebruiksgegevens van het apparaat en apps automatisch naar Google. Deze <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" /> wordt afgedwongen door de eigenaar. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
+<translation id="7856006446339184955">Systeemgegevens verzenden. Dit apparaat verzendt momenteel diagnostische en app- en gebruiksgegevens automatisch naar Google. Deze <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" /> wordt afgedwongen door de eigenaar. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
 <translation id="7857117644404132472">Uitzondering toevoegen</translation>
 <translation id="7857949311770343000">Is dit de nieuwe pagina met tabbladen die je had verwacht?</translation>
 <translation id="786073089922909430">Service: <ph name="ARC_PROCESS_NAME" /></translation>
@@ -4808,7 +4808,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="8534656636775144800">Er is een fout opgetreden bij het verbinden met het domein. Probeer het opnieuw.</translation>
 <translation id="8535005006684281994">URL voor verlengen van Netscape-certificaat</translation>
 <translation id="8539727552378197395">Nee (HttpOnly)</translation>
-<translation id="8541166929715485291">Systeemgegevens verzenden. Automatisch diagnostische en gebruiksgegevens verzenden naar Google. Deze instelling wordt afgedwongen door de eigenaar. De eigenaar kan ervoor kiezen diagnostische en gebruiksgegevens van dit apparaat naar Google te verzenden. Je kunt dit bekijken in de <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" />. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
+<translation id="8541166929715485291">Systeemgegevens verzenden. Automatisch diagnostische en app- en gebruiksgegevens verzenden naar Google. Deze instelling wordt afgedwongen door de eigenaar. De eigenaar kan ervoor kiezen diagnostische en gebruiksgegevens van dit apparaat naar Google te verzenden. Je kunt dit bekijken in de <ph name="BEGIN_LINK1" />instellingen<ph name="END_LINK1" />. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK2" />Meer informatie<ph name="END_LINK2" /></translation>
 <translation id="8545107379349809705">Informatie verbergen...</translation>
 <translation id="8545575359873600875">Je wachtwoord kan niet worden geverifieerd. De beheerder van deze gebruiker met beperkte rechten heeft het wachtwoord misschien recent gewijzigd. Als dit het geval is, wordt het nieuwe wachtwoord toegepast wanneer je weer inlogt. Probeer je oude wachtwoord te gebruiken.</translation>
 <translation id="8546186510985480118">Weinig ruimte beschikbaar op het apparaat</translation>
@@ -5209,7 +5209,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="9157697743260533322">Kan automatische updates niet instellen voor alle gebruikers (lanceringsfout bij pre-flight-procedure: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="9158715103698450907">Er is een netwerkcommunicatieprobleem opgetreden tijdens de verificatie. Controleer je netwerkverbinding en probeer het opnieuw.</translation>
 <translation id="9161070040817969420">Subframes voor: <ph name="PARENT_SITE" /></translation>
-<translation id="916501514001398070">Systeemgegevens verzenden. Dit apparaat verzendt momenteel diagnostische gegevens en gebruiksgegevens van het apparaat en apps automatisch naar Google. Deze instelling wordt afgedwongen door de eigenaar. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK1" />Meer informatie<ph name="END_LINK1" /></translation>
+<translation id="916501514001398070">Systeemgegevens verzenden. Dit apparaat verzendt momenteel diagnostische app- en gebruiksgegevens automatisch naar Google. Deze instelling wordt afgedwongen door de eigenaar. Als je 'Web- en app-activiteit' ook hebt ingeschakeld, worden deze gegevens opgeslagen in je account, zodat je ze kunt beheren in 'Mijn activiteit'. <ph name="BEGIN_LINK1" />Meer informatie<ph name="END_LINK1" /></translation>
 <translation id="9169496697824289689">Sneltoetsen bekijken</translation>
 <translation id="9170397650136757332">Beweeg je vinger nu een beetje zodat alle delen van je vingerafdruk kunnen worden vastgelegd</translation>
 <translation id="9170848237812810038">&amp;Ongedaan maken</translation>

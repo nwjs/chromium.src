@@ -807,7 +807,7 @@
 <translation id="2239921694246509981">Betreuten Nutzer hinzufügen</translation>
 <translation id="2241053333139545397">Eigene Daten auf verschiedenen Websites lesen und ändern</translation>
 <translation id="2242687258748107519">Dateiinformationen</translation>
-<translation id="2243194103992005307">Sie können Apps deinstallieren, indem Sie zu "Einstellungen" &gt; "Apps" gehen oder den Anwendungsmanager aufrufen. Tippen Sie dann auf die App, die Sie deinstallieren möchten und wählen Sie "Deinstallieren" oder "Deaktivieren" aus. Möglicherweise müssen Sie nach rechts oder links wischen, um die App zu finden.</translation>
+<translation id="2243194103992005307">Sie können Apps deinstallieren, indem Sie zu "Einstellungen" &gt; "Apps" gehen oder den Anwendungsmanager aufrufen. Tippen Sie dann auf die App, die Sie deinstallieren möchten, und wählen Sie "Deinstallieren" oder "Deaktivieren" aus. Möglicherweise müssen Sie nach rechts oder links wischen, um die App zu finden.</translation>
 <translation id="2245240762616536227">Festlegen, wie anhand Ihres Browserverlaufs die Suche, Werbung und andere Google-Dienste personalisiert werden</translation>
 <translation id="2249605167705922988">z. B. 1-5, 8, 11-13</translation>
 <translation id="2251218783371366160">Mit System Viewer öffnen</translation>
@@ -3971,7 +3971,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="7191454237977785534">Datei speichern unter</translation>
 <translation id="7193374945610105795">Für <ph name="ORIGIN" /> sind keine Passwörter gespeichert</translation>
 <translation id="7196835305346730603">Suche nach Chromebox-Geräten in der Nähe läuft...</translation>
-<translation id="7197160646667308890"><ph name="BEGIN_PARAGRAPH1" />Dies sind allgemeine Informationen zu Ihrem Gerät und dessen Nutzung, zum Beispiel der Ladestatus des Akkus, die App-Nutzung und die Netzwerkkonnektivität. Die Daten werden verwendet, um Google-Produkte und -Dienste für alle Nutzer zu verbessern. Einige zusammengefasste Informationen helfen auch Partnern wie Android-Entwicklern dabei, ihre Apps und Produkte zu verbessern.<ph name="END_PARAGRAPH1" />
+<translation id="7197160646667308890"><ph name="BEGIN_PARAGRAPH1" />Dies sind allgemeine Informationen zu Ihrem Gerät und dessen Nutzung, zum Beispiel zum Ladestatus des Akkus, zur App-Nutzung und zur Netzwerkkonnektivität. Die Daten werden verwendet, um Google-Produkte und -Dienste für alle Nutzer zu verbessern. Einige zusammengefasste Informationen helfen auch Partnern wie Android-Entwicklern dabei, ihre Apps und Produkte zu verbessern.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Wenn Sie diese Funktion deaktivieren, kann Ihr Gerät dennoch die Informationen senden, die für wichtige Dienste wie Systemupdates und Sicherheitsmerkmale erforderlich sind.<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />Sie können diese Funktion unter "Einstellungen" &gt; "Google" steuern. Wählen Sie im angezeigten Menü "Nutzung &amp; Diagnose" aus.<ph name="END_PARAGRAPH3" /></translation>
 <translation id="7199158086730159431">H&amp;ilfe erhalten</translation>

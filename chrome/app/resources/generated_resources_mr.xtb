@@ -2494,9 +2494,9 @@
 <translation id="4883436287898674711">सर्व <ph name="WEBSITE_1" /> साइट</translation>
 <translation id="48838266408104654">&amp;कार्य व्यवस्थापक</translation>
 <translation id="4883898390143004266">अ‍ॅप्सना स्थान शोधण्यात मदत करा. अ‍ॅप्ससाठी स्थान सुधारण्यात मदत करण्यासाठी Google च्या स्थान सेवा वापरा. Google अधूनमधून स्थान डेटा गोळा करू शकतो आणि स्थान अचूकता आणि स्थान-आधारित सेवा सुधारित करण्यासाठी अनामिक मार्गाने डेटा वापरू शकतो.<ph name="BEGIN_LINK1" />अधिक जाणून घ्या<ph name="END_LINK1" /></translation>
-<translation id="4884740091792292473"><ph name="BEGIN_PARAGRAPH1" />Google ड्राइव्हवर बॅकअप घ्या. आपला डेटा सहजपणे रिस्टोअर करा किंवा कधीही डिव्हाइस स्विच करा. तुमच्या बॅकअपमध्ये अ‍ॅप डेटाचा समावेश आहे.<ph name="END_PARAGRAPH1" />
+<translation id="4884740091792292473"><ph name="BEGIN_PARAGRAPH1" />Google ड्राइव्हवर बॅकअप घ्या. तुमचा डेटा सहजपणे रिस्टोअर करा किंवा कधीही डिव्हाइस स्विच करा. तुमच्या बॅकअपमध्ये अ‍ॅप डेटाचा समावेश आहे.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />अ‍ॅप डेटा म्हणजे अ‍ॅपने सेव्ह केलेला कोणताही डेटा (डेव्हलपर सेटिंंग्जवर आधारित), ज्यात संपर्क, संदेश आणि फोटो सारख्या संभाव्य संवेदनशील डेटाचा समावेश आहे.<ph name="END_PARAGRAPH2" />
-    <ph name="BEGIN_PARAGRAPH3" />बॅकअप डेटा आपल्या ड्राइव्ह संचय कोट्यामध्ये गणला जाणार नाही.<ph name="END_PARAGRAPH3" />
+    <ph name="BEGIN_PARAGRAPH3" />बॅकअप डेटा तुमच्या ड्राइव्ह स्टोरेज कोट्यामध्ये गणला जाणार नाही.<ph name="END_PARAGRAPH3" />
     <ph name="BEGIN_PARAGRAPH4" />तुम्ही सेटिंग्जमध्ये ही सेवा बंद करू शकता<ph name="END_PARAGRAPH4" /></translation>
 <translation id="4884987973312178454">६x</translation>
 <translation id="4885705234041587624">MSCHAPv2</translation>

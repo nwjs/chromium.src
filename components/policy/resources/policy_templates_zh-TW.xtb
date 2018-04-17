@@ -165,6 +165,15 @@
 
       如果停用或未設定這項政策，企業使用者將
       無法使用 ARC。</translation>
+<translation id="1561183922461862993">
+      這項政策適用於登入畫面；另請參閱適用於使用者工作階段的 <ph name="SITE_PER_PROCESS_POLICY_NAME" /> 政策。建議你為這兩項政策設定相同的值。如果兩項政策指定的值不相符，在套用使用者政策指定的值的情況下，進入使用者工作階段時可能會發生延遲情況。
+      為了盡可能減少隔離功能對使用者的影響，建議你先查看 IsolateOrigins 政策
+      設定，瞭解如何使用 IsolateOrigins 設定需要隔離的網站清單。
+      SitePerProcess 這項設定會隔離所有網站。
+      如果啟用這項政策，每個網站就會以獨立程序執行。
+      如果停用這項政策，原先的網站隔離程序管理邏輯就會生效，IsolateOrigins 和SitePerProcess 的實場測試也會停用。使用者還是可以手動啟用 SitePerProcess。
+      如果沒有設定這項政策，使用者就能變更這項設定。
+      </translation>
 <translation id="1561424797596341174">針對遠端存取主機的偵錯版本覆寫政策</translation>
 <translation id="1561967320164410511">用於個人認證的 U2F 和擴充功能</translation>
 <translation id="1583248206450240930">根據預設使用 <ph name="PRODUCT_FRAME_NAME" /></translation>
@@ -182,7 +191,7 @@
 
       如果沒有設定這項政策，就沒有裝置印表機可供使用，且系統會忽略其他 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 政策。</translation>
 <translation id="1608755754295374538">系統會直接授權存取音訊擷取裝置而不需提示的網址</translation>
-<translation id="1617235075406854669">啟用刪除瀏覽器和下載紀錄</translation>
+<translation id="1617235075406854669">啟用刪除瀏覽器和下載記錄</translation>
 <translation id="163200210584085447">系統會比對這份清單中的模式與要求網址的
       安全性來源。如果找到相符的結果，系統就會
       在 SAML 登入網頁授權存取錄影裝置。如果找不到
@@ -376,7 +385,7 @@
 <translation id="2204753382813641270">控制檔案櫃自動隱藏功能</translation>
 <translation id="2208976000652006649">使用 POST 的搜尋網址參數</translation>
 <translation id="2223598546285729819">預設通知設定</translation>
-<translation id="2231817271680715693">第一次執行時從預設瀏覽器匯入瀏覽紀錄</translation>
+<translation id="2231817271680715693">第一次執行時從預設瀏覽器匯入瀏覽記錄</translation>
 <translation id="2236488539271255289">不允許任何網站設定本機資料</translation>
 <translation id="2240879329269430151">允許你設定是否要讓網站顯示彈出式視窗。你可以允許或禁止所有網站顯示彈出式視窗。如果未設定這項政策，系統會使用「BlockPopups」，不過使用者可以變更設定。</translation>
 <translation id="2274864612594831715">這項政策可設定在 Chrome 作業系統中啟用虛擬鍵盤做為輸入裝置。使用者無法覆寫這項政策。
@@ -434,11 +443,11 @@
       如果將這項政策設為「PasswordProtectionRiskOnPasswordReuse」，當使用者在任何非許可的網站上重複使用 Google 密碼時，就會觸發保護密碼的危險帳戶標記功能。
       如果將這項政策設為「PasswordProtectionRiskOnPhishingReuse」，當使用者在詐騙網站上重複使用 Google 密碼時，就會觸發保護密碼的危險帳戶標記功能。
       如果未設定這項政策，當使用者在詐騙網站上重複使用 Google 密碼時，就會觸發保護密碼的危險帳戶標記功能，但使用者可以變更這項設定。</translation>
-<translation id="2418507228189425036">停用 <ph name="PRODUCT_NAME" /> 的瀏覽紀錄儲存功能，並禁止使用者變更這項設定。
+<translation id="2418507228189425036">停用 <ph name="PRODUCT_NAME" /> 的瀏覽記錄儲存功能，並禁止使用者變更這項設定。
 
-      如果啟用這項設定，系統將不會儲存瀏覽紀錄 (分頁同步功能會一並遭到停用)。
+      如果啟用這項設定，系統將不會儲存瀏覽記錄 (分頁同步功能會一並遭到停用)。
 
-      如果停用或未指定這項設定，系統就會儲存瀏覽紀錄。</translation>
+      如果停用或未指定這項設定，系統就會儲存瀏覽記錄。</translation>
 <translation id="2424023834246613232">覆寫 <ph name="PRODUCT_NAME" /> 預設印表機選取規則。
 
       這項政策可讓您決定在 <ph name="PRODUCT_NAME" /> 中首次透過設定檔使用列印功能時選取預設印表機的規則。
@@ -636,7 +645,7 @@
 <translation id="2874209944580848064">支援 Android 裝置的 <ph name="PRODUCT_OS_NAME" />裝置注意事項：</translation>
 <translation id="2877225735001246144">在交涉 Kerberos 驗證時，停用 CNAME 查詢</translation>
 <translation id="2884728160143956392">只有本次工作階段允許這些網站的 Cookie</translation>
-<translation id="2893546967669465276">將系統紀錄傳送到管理伺服器</translation>
+<translation id="2893546967669465276">將系統記錄傳送到管理伺服器</translation>
 <translation id="2899002520262095963">Android 應用程式可以使用透過這項政策指定的網路設定和 CA 憑證，但無法存取部分設定選項。</translation>
 <translation id="2906874737073861391">AppPack 擴充功能清單</translation>
 <translation id="2907992746861405243">根據 <ph name="BULK_PRINTERS_POLICY" /> 設定哪些印表機是可供使用的。
@@ -733,6 +742,15 @@
 <translation id="3214164532079860003">如果啟用這項政策，則會強制從目前的預設瀏覽器匯入首頁。如果停用這項政策，則不會匯入首頁。如果未設定這項政策，系統會自動匯入首頁，或詢問使用者是否要匯入首頁。</translation>
 <translation id="3219421230122020860">可使用無痕模式</translation>
 <translation id="3220624000494482595">如果資訊站應用程式是 Android 應用程式，即使將這項政策設為 <ph name="TRUE" />，仍無法控制 <ph name="PRODUCT_OS_NAME" />版本。</translation>
+<translation id="3229833076897893450">
+      為了盡可能減少隔離功能對使用者的影響， 建議你先查看 IsolateOrigins
+      政策設定， 瞭解如何使用 IsolateOrigins 設定需要隔離的網站清單。
+      SitePerProcess 這項設定會隔離所有網站。
+      如果啟用這項政策，每個網站就會以獨立程序執行。
+      如果停用這項政策，原先的網站隔離程序管理邏輯就會生效，IsolateOrigins 和 SitePerProcess 的實場測試也會停用。使用者還是可以手動啟用 SitePerProcess。
+      如果沒有設定這項政策，使用者就能變更這項設定。
+      在 <ph name="PRODUCT_OS_NAME" /> 上，建議你也將「<ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" />」裝置政策設為相同的值。如果兩項政策指定的值不相符，在套用使用者政策指定的值的情況下，進入使用者工作階段時可能會發生延遲情況。
+      </translation>
 <translation id="3236046242843493070">允許安裝擴充功能、應用程式和使用者指令碼的來源網址模式清單</translation>
 <translation id="3240609035816615922">印表機設定存取權政策。</translation>
 <translation id="3243309373265599239">指定時間長度，如果系統在 AC 供電環境下執行且未偵測到使用者輸入行為，就會在這段時間過後將螢幕調暗。
@@ -819,6 +837,15 @@
           只有在啟用「DefaultSearchProviderEnabled」政策時，系統才會遵循這項政策。</translation>
 <translation id="350797926066071931">啟用翻譯</translation>
 <translation id="3512226956150568738">如果用戶端裝置型號在必須遷移至 Ext4 才能執行 ARC 之前已支援 ARC，且 ArcEnabled 政策設為 True，這個選項的行為會與 AskUser 相同 (值 3)。在所有其他情況下 (如果用戶端裝置型號之前不支援 ARC，或 ArcEnabled 政策設為 False)，這個值會等同於 DisallowArc (值 0)。</translation>
+<translation id="3519934027321156158">
+      如果啟用這項政策，逗號分隔清單中指出的來源就會以獨立程序執行。
+      這也會隔離使用子網域名稱的來源；例如指定 https://example.com/
+      也會造成 https://foo.example.com/ 受到隔離，因為後者同樣屬於
+      https://example.com/ 網站。
+      如果停用這項政策，原先的網站隔離程序管理邏輯就會生效，IsolateOrigins 和SitePerProcess 的實場測試也會停用。使用者還是可以手動啟用 IsolateOrigins。
+      如果沒有設定這項政策，使用者就能變更這項設定。
+      在 <ph name="PRODUCT_OS_NAME" /> 上，建議你也將「<ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" />」裝置政策設為相同的值。如果兩項政策指定的值不相符，在套用使用者政策指定的值的情況下，進入使用者工作階段時可能會發生延遲情況。
+      </translation>
 <translation id="3528000905991875314">啟用替代的錯誤網頁</translation>
 <translation id="3547954654003013442">Proxy 設定</translation>
 <translation id="3577251398714997599">含侵入式廣告的網站的廣告設定</translation>
@@ -973,6 +1000,15 @@
       如果將這項政策設為 True 或未設定這項政策，使用者將可透過註冊 Chrome 作業系統來兌換優惠。
 
       如果將這項政策設為 False，使用者將無法兌換優惠。</translation>
+<translation id="4002183184444060875">
+      這項政策適用於登入畫面；另請參閱適用於使用者工作階段的 <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> 政策。建議你為這兩項政策設定相同的值。如果兩項政策指定的值不相符，在套用使用者政策指定的值的情況下，進入使用者工作階段時可能會發生延遲情況。
+      如果啟用這項政策，逗號分隔清單中指出的來源就會以獨立程序執行。
+      這也會隔離使用子網域名稱的來源；例如指定 https://example.com/
+      也會造成 https://foo.example.com/ 受到隔離，因為後者同樣屬於
+      https://example.com/ 網站。
+      如果停用這項政策，原先的網站隔離程序管理邏輯就會生效，IsolateOrigins 和 SitePerProcess 的實場測試也會停用。使用者還是可以手動啟用 IsolateOrigins。
+      如果沒有設定這項政策，登入畫面就會採用平台的預設網站隔離設定。
+      </translation>
 <translation id="4010738624545340900">允許調用檔案選項對話方塊</translation>
 <translation id="4012737788880122133">在設為 True 時，停用自動更新。
 
@@ -1276,7 +1312,7 @@
 <translation id="4988291787868618635">在達到閒置延遲時間時要採取的動作</translation>
 <translation id="4995548127349206948">是否啟用 NTLMv2 驗證功能。</translation>
 <translation id="5047604665028708335">允許存取內容套件以外的網站</translation>
-<translation id="5052081091120171147">如果啟用這項政策，則會強制從目前的預設瀏覽器匯入瀏覽紀錄 (也會影響匯入對話方塊的選項)。如果停用這項政策，則不會匯入瀏覽紀錄。如果未設定這項政策，系統會自動匯入瀏覽紀錄，或詢問使用者是否要匯入瀏覽紀錄。</translation>
+<translation id="5052081091120171147">如果啟用這項政策，則會強制從目前的預設瀏覽器匯入瀏覽記錄 (也會影響匯入對話方塊的選項)。如果停用這項政策，則不會匯入瀏覽記錄。如果未設定這項政策，系統會自動匯入瀏覽記錄，或詢問使用者是否要匯入瀏覽記錄。</translation>
 <translation id="5056708224511062314">已停用螢幕放大鏡</translation>
 <translation id="5067143124345820993">登入使用者許可清單</translation>
 <translation id="5068140065960598044"><ph name="PRODUCT_NAME" /> 雲端政策覆寫裝置政策。</translation>
@@ -1997,7 +2033,7 @@
 
           只有在啟用「DefaultSearchProviderEnabled」政策時，系統才會遵循這項政策。</translation>
 <translation id="7302043767260300182">在 AC 供電環境下執行時的螢幕鎖定延遲時間</translation>
-<translation id="7311458740754205918">如果將這項政策設為 true 或未設定這項政策，系統可能會根據使用者的瀏覽紀錄、興趣或位置在新分頁顯示內容建議。
+<translation id="7311458740754205918">如果將這項政策設為 true 或未設定這項政策，系統可能會根據使用者的瀏覽記錄、興趣或位置在新分頁顯示內容建議。
 
       如果將這項政策設為 false，新分頁就不會顯示系統自動產生的內容建議。</translation>
 <translation id="7323896582714668701"><ph name="PRODUCT_NAME" /> 額外命令列參數</translation>
@@ -2251,7 +2287,7 @@
           如果你未設定這項政策，系統預設會停用高反差模式，但使用者隨時均可予以啟用。</translation>
 <translation id="815061180603915310">如果設定啟用這項政策，設定檔將會強制切換為暫時模式。如果指定以這項政策做為作業系統政策 (例如 Windows 系統的群組原則物件)，這項政策將套用到系統上的所有設定檔；如果將這項政策設為雲端政策，則這項政策只會套用到使用受管理帳戶登入的設定檔。
 
-      進入這個模式時，只有在使用者工作階段，設定檔資料才會保留在磁碟中。關閉瀏覽器後，各項功能 (例如瀏覽器紀錄)、各項擴充功能及其資料、網路資料 (例如 Cookie) 和網路資料庫均不會保留。不過，使用者可以手動將各種資料下載到磁碟、儲存網頁或列印網頁。
+      進入這個模式時，只有在使用者工作階段，設定檔資料才會保留在磁碟中。關閉瀏覽器後，各項功能 (例如瀏覽器記錄)、各項擴充功能及其資料、網路資料 (例如 Cookie) 和網路資料庫均不會保留。不過，使用者可以手動將各種資料下載到磁碟、儲存網頁或列印網頁。
 
       如果使用者啟用了同步處理功能，這些資料會全部保留在使用者的同步處理設定檔中，就像一般設定檔一樣。如果政策並未明確指定停用無痕模式，那麼使用者也能使用無痕模式。
 
@@ -2348,7 +2384,7 @@
           如果未設定這項政策，系統會針對所有網站使用「ChromeFrameRendererSettings」政策指定的預設轉譯器。
 
           如需模式範例，請參閱 https://www.chromium.org/developers/how-tos/chrome-frame-getting-started。</translation>
-<translation id="8493645415242333585">停用儲存瀏覽紀錄功能</translation>
+<translation id="8493645415242333585">停用儲存瀏覽記錄功能</translation>
 <translation id="8499172469244085141">預設設定 (使用者可覆寫)</translation>
 <translation id="8507835864888987300">設定自動更新的目標版本。
 
@@ -2404,13 +2440,13 @@
 <translation id="8711086062295757690">指定關鍵字，這是網址列用來為這個引擎觸發搜尋的捷徑。這項政策是選擇性的，如果未設定，就沒有關鍵字會啟動搜尋引擎。只有在啟用「DefaultSearchProviderEnabled」政策時，系統才會遵循這項政策。</translation>
 <translation id="8731693562790917685">內容設定允許你指定特定內容型類 (例如，Cookie、圖片或 JavaScript) 的處理方式。</translation>
 <translation id="8736538322216687231">強制執行低度的 YouTube 嚴格篩選模式</translation>
-<translation id="8749370016497832113">在 <ph name="PRODUCT_NAME" /> 中啟用刪除瀏覽器紀錄和下載紀錄，並防止使用者變更這項設定。
+<translation id="8749370016497832113">在 <ph name="PRODUCT_NAME" /> 中啟用刪除瀏覽器記錄和下載記錄，並防止使用者變更這項設定。
 
-      請注意，即使你停用這項政策，仍無法確保可保留瀏覽和下載紀錄。使用者可能可以直接編輯或刪除紀錄資料庫，且瀏覽器本身也隨時可能過期或封存任何或所有紀錄項目。
+      請注意，即使你停用這項政策，仍無法確保可保留瀏覽和下載記錄。使用者可能可以直接編輯或刪除記錄資料庫，且瀏覽器本身也隨時可能過期或封存任何或所有記錄項目。
 
-      如果啟用或未設定這項政策，使用者可刪除瀏覽和下載紀錄項目。
+      如果啟用或未設定這項政策，使用者可刪除瀏覽和下載記錄項目。
 
-      如果停用這項政策，則使用者無法刪除瀏覽和下載紀錄項目。</translation>
+      如果停用這項政策，則使用者無法刪除瀏覽和下載記錄項目。</translation>
 <translation id="8759829385824155666">允許的 Kerberos 加密類型</translation>
 <translation id="8764119899999036911">指定是否要根據標準 DNS 名稱或輸入的原始名稱來產生 Kerberos SPN。如果啟用這項設定，系統會略過 CNAME 查詢，並且使用先前輸入的伺服器名稱。如果你停用或未調整這項設定，伺服器的標準名稱會透過 CNAME 查詢決定。</translation>
 <translation id="87812015706645271">要求比對本機使用者和遠端存取主機擁有者的名稱</translation>
@@ -2537,11 +2573,11 @@
 
           在預設情況下，使用者無法在受管理的裝置上使用任何快速解鎖模式。</translation>
 <translation id="9136399279941091445">發佈指定裝置政策時的停機時間間隔</translation>
-<translation id="9147029539363974059">將系統紀錄傳送到管理伺服器，
-      讓管理員監控系統紀錄。
+<translation id="9147029539363974059">將系統記錄傳送到管理伺服器，
+      讓管理員監控系統記錄。
 
-      如果將這項政策設為 True，系統會傳送系統紀錄。
-      如果設為 False 或未設定，則不會傳送系統紀錄。</translation>
+      如果將這項政策設為 True，系統會傳送系統記錄。
+      如果設為 False 或未設定，則不會傳送系統記錄。</translation>
 <translation id="9150416707757015439">這項政策已被取代，請改用 IncognitoModeAvailability。在「<ph name="PRODUCT_NAME" />」中啟用無痕模式。如果這項設定已啟用或尚未設定，使用者皆可在無痕模式中開啟網頁。如果這項設定已停用，使用者就無法在無痕模式中開啟網頁。如果未設定這項政策，系統會啟用這項設定，且使用者可以使用無痕模式。</translation>
 <translation id="915194831143859291">如果將這項政策設為 False 或不予設定，<ph name="PRODUCT_OS_NAME" /> 會允許使用者關閉裝置。
       如果將這項政策設為 True，<ph name="PRODUCT_OS_NAME" /> 會在使用者關閉裝置時觸發重新啟動程序。此外，<ph name="PRODUCT_OS_NAME" /> 會將使用者介面中的所有關機按鈕改成重新啟動按鈕。如果使用者使用電源按鈕關閉裝置，即使您已啟用這項政策，裝置仍然不會自動重新啟動。</translation>

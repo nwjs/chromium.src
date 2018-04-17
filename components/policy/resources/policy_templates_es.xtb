@@ -163,6 +163,16 @@ Si esta política está establecida en "false" o no está establecida, se inhabi
 
       Si esta configuración se inhabilita o no se configura, los usuarios de empresas no
       podrán utilizar ARC.</translation>
+<translation id="1561183922461862993">
+      Esta política se aplica a la pantalla de inicio de sesión. También puedes consultar la política <ph name="SITE_PER_PROCESS_POLICY_NAME" /> que se aplica a la sesión del usuario. Te recomendamos que asignes el mismo valor a ambas políticas. Si los valores no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      Para conseguir tanto aislamiento como
+      un impacto limitado para los usuarios, utiliza la política
+      IsolateOrigins con una lista de los sitios web que quieras aislar. La opción
+      SitePerProcess aísla todos los sitios web.
+      Si se habilita la política, cada sitio web se ejecuta en un proceso propio.
+      Si se inhabilita, se aplicará la lógica previa de administración de procesos de aislamiento de sitios web y se inhabilitarán las pruebas de campo de IsolateOrigins y SitePerProcess. Los usuarios podrán seguir habilitando la política SitePerProcess manualmente.
+      Si no se configura la política, el usuario podrá cambiar esta opción.
+      </translation>
 <translation id="1561424797596341174">La política anula las compilaciones de depuración del host de acceso remoto.</translation>
 <translation id="1561967320164410511">U2F y extensiones de confirmación individual</translation>
 <translation id="1583248206450240930">Utilizar <ph name="PRODUCT_FRAME_NAME" /> de forma predeterminada</translation>
@@ -757,6 +767,16 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
       Si no se establece, es posible que se le pida al usuario que haga la importación o que la página de inicio se importe automáticamente.</translation>
 <translation id="3219421230122020860">Modo de incógnito disponible</translation>
 <translation id="3220624000494482595">Si la aplicación de kiosco es una aplicación para Android, no tendrá control sobre la versión de <ph name="PRODUCT_OS_NAME" />, incluso si se asigna el valor <ph name="TRUE" /> a esta política.</translation>
+<translation id="3229833076897893450">
+      Para conseguir tanto aislamiento como
+      un impacto limitado para los usuarios, utiliza la política
+      IsolateOrigins con una lista de los sitios web que quieras aislar. La opción
+      SitePerProcess aísla todos los sitios web.
+      Si se habilita la política, cada sitio web se ejecuta en un proceso propio.
+      Si se inhabilita, se aplicará la lógica previa de administración de procesos de aislamiento de sitios web y se inhabilitarán las pruebas de campo de IsolateOrigins y SitePerProcess. Los usuarios podrán seguir habilitando la política SitePerProcess manualmente.
+      Si no se configura la política, el usuario podrá cambiar esta opción.
+      En <ph name="PRODUCT_OS_NAME" /> también se recomienda asignar el mismo valor a la política de dispositivos <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" />.Si los valores especificados por las dos políticas no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      </translation>
 <translation id="3236046242843493070">Patrones de URL desde los que se puede instalar secuencias de comandos de usuario, aplicaciones y extensiones</translation>
 <translation id="3240609035816615922">Política de acceso a la configuración de impresoras.</translation>
 <translation id="3243309373265599239">Permite especificar el tiempo transcurrido hasta la atenuación de la pantalla (sin que el usuario realice ninguna acción) cuando el dispositivo está conectado a la red.
@@ -844,6 +864,17 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
           Esta política solo se respeta si se habilita la política "DefaultSearchProviderEnabled".</translation>
 <translation id="350797926066071931">Habilitar el Traductor</translation>
 <translation id="3512226956150568738">Si el modelo de dispositivo del cliente ya admitía ARC antes de que fuera necesario realizar la migración a ext4 para ejecutar ese formato y si se ha asignado el valor "True" a la política ArcEnabled, esta opción se comportará como AskUser (valor 3). En el resto de los casos (si el modelo de dispositivo no admitía ARC antes o si se ha asignado el valor "False" a la política ArcEnabled), este valor es equivalente a DisallowArc (valor 0).</translation>
+<translation id="3519934027321156158">
+      Si se habilita la política, cada uno de los orígenes especificados en una
+      lista de elementos separados por comas se ejecutará en un proceso propio. También se aislarán
+      los orígenes de los subdominios correspondientes (p. ej., si especificas https://example.com/
+      se aislará https://foo.example.com/ como parte del sitio web
+      https://example.com/).
+      
+Si se inhabilita, se aplicará la lógica previa de administración de procesos de aislamiento de sitios web y se inhabilitarán las pruebas de campo de IsolateOrigins y SitePerProcess. Los usuarios podrán seguir habilitando la política IsolateOrigins manualmente.
+      Si no se configura la política, el usuario podrá cambiar esta opción.
+      En <ph name="PRODUCT_OS_NAME" /> también se recomienda asignar el mismo valor a la política de dispositivos <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" />.Si los valores especificados por las dos políticas no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      </translation>
 <translation id="3528000905991875314">Habilitar páginas de error alternativas</translation>
 <translation id="3547954654003013442">Configuración de proxy</translation>
 <translation id="3577251398714997599">Configuración de anuncios de sitios web con anuncios invasivos</translation>
@@ -1006,6 +1037,17 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 Si esta política se establece en True o no se establece, los usuarios podrán canjear ofertas a través del servicio de registro de Chrome OS.
 
 Si esta política se establece en False, el usuario no podrá canjear ofertas.</translation>
+<translation id="4002183184444060875">
+      Esta política se aplica a la pantalla de inicio de sesión. También puedes consultar la política <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> que se aplica a la sesión del usuario. Te recomendamos que asignes el mismo valor a ambas políticas. Si los valores no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      
+Si se habilita la política, cada uno de los orígenes especificados en una
+      lista de elementos separados por comas se ejecutará en un proceso propio. También se aislarán
+      los orígenes de los subdominios correspondientes (p. ej., si especificas https://example.com/
+      se aislará https://foo.example.com/ como parte del sitio web
+      https://example.com/).
+      Si se inhabilita, se aplicará la lógica previa de administración de procesos de aislamiento de sitios web y se inhabilitarán las pruebas de campo de IsolateOrigins y SitePerProcess. Los usuarios podrán seguir habilitando la política IsolateOrigins manualmente.
+      Si no se configura, se utilizarán los ajustes predeterminados de aislamiento de sitios web de la plataforma para la pantalla de inicio de sesión.
+      </translation>
 <translation id="4010738624545340900">Permitir solicitud de cuadros de diálogo de selección de archivos</translation>
 <translation id="4012737788880122133">Si se asigna el valor True a esta política, se inhabilitarán las actualizaciones automáticas.
 

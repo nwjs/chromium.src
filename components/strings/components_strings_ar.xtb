@@ -866,7 +866,7 @@
 <translation id="7444046173054089907">تم حظر هذا الموقع</translation>
 <translation id="7445762425076701745">لا يمكن التحقق بصورة كاملة من صحة هوية الخادم الذي تتصل به. فأنت متصل بخادم باستخدام اسم صالح فقط ضمن شبكتك، والذي لن يتمكن المرجع المصدق الخارجي من التحقق من ملكيته. وحيث إن بعض المراجع المصدقة تُصدر الشهادات لهذه الأسماء على أي حال، فليست هناك طريقة للتأكد من أنك متصل بموقع الويب المقصود وليس بأحد المهاجمين.</translation>
 <translation id="7451311239929941790"><ph name="BEGIN_LINK" />مزيد من المعلومات<ph name="END_LINK" /> حول هذه المشكلة.</translation>
-<translation id="7455133967321480974">استخدام الإعداد الافتراضي العمومي (حظر)</translation>
+<translation id="7455133967321480974">استخدام الإعداد التلقائي العمومي (حظر)</translation>
 <translation id="7460163899615895653">تظهر علامات التبويب الأخيرة من الأجهزة الأخرى هنا</translation>
 <translation id="7469372306589899959">جارٍ التاكد من البطاقة</translation>
 <translation id="7481312909269577407">إلى الأمام</translation>
@@ -955,7 +955,7 @@
 <translation id="8034522405403831421">هذه الصفحة باللغة <ph name="SOURCE_LANGUAGE" />. هل تريد ترجمتها إلى اللغة <ph name="TARGET_LANGUAGE" />؟</translation>
 <translation id="8037357227543935929">الطلب (افتراضي)</translation>
 <translation id="8041089156583427627">إرسال تعليقات</translation>
-<translation id="8041940743680923270">استخدام الإعداد الافتراضي العمومي (طلب)</translation>
+<translation id="8041940743680923270">استخدام الإعداد التلقائي العمومي (طلب)</translation>
 <translation id="8042918947222776840">اختيار طريقة الاستلام من المستخدم</translation>
 <translation id="8057711352706143257">لم تتم تهيئة "<ph name="SOFTWARE_NAME" />" بشكل صحيح. يؤدي عادةً إلغاء تثبيت "<ph name="SOFTWARE_NAME" />" إلى إصلاح المشكلة. <ph name="FURTHER_EXPLANATION" /></translation>
 <translation id="8079031581361219619">هل تريد إعادة تحميل الموقع؟</translation>
@@ -968,7 +968,7 @@
 <translation id="8131740175452115882">التأكيد</translation>
 <translation id="8149426793427495338">خضع جهاز الكمبيوتر إلى وضع السكون.</translation>
 <translation id="8150722005171944719">الملف الموجود على <ph name="URL" /> غير قابل للقراءة. ربما تمت إزالته، أو ربما تكون أذونات الملف هي التي تمنع الدخول.</translation>
-<translation id="8184538546369750125">استخدام الإعداد الافتراضي العمومي (سماح)</translation>
+<translation id="8184538546369750125">استخدام الإعداد التلقائي العمومي (سماح)</translation>
 <translation id="8191494405820426728">معرّف الأعطال المحلي <ph name="CRASH_LOCAL_ID" /></translation>
 <translation id="8194797478851900357">تراجع عن ال&amp;نقل</translation>
 <translation id="8201077131113104583">‏عنوان URL لتحديث الإضافة التي تحتوي على رقم التعريف "<ph name="EXTENSION_ID" />" غير صالح.</translation>

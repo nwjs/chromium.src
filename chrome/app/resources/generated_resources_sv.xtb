@@ -196,7 +196,7 @@
 <translation id="1285320974508926690">Översätt aldrig den här webbplatsen</translation>
 <translation id="1285484354230578868">Spara data i Google Drive-kontot</translation>
 <translation id="1288037062697528143">Nattljuset tänds automatiskt vid solnedgången</translation>
-<translation id="1293177648337752319">Ta fram dold webbplats</translation>
+<translation id="1293177648337752319">Sätt på webbplatsens ljud</translation>
 <translation id="1293509594570842875">Det gick inte att skapa den nya kontrollerade användaren. Kontrollera nätverksanslutningen och försök igen senare.</translation>
 <translation id="1293556467332435079">Filer</translation>
 <translation id="1295794900245526845">Välj kontot som du har sparat med <ph name="PASSWORD_MANAGER_BRAND" /> för att logga in</translation>
@@ -380,7 +380,7 @@
 <translation id="1559235587769913376">Ange Unicode-tecken</translation>
 <translation id="1566049601598938765">Webbplats</translation>
 <translation id="1567993339577891801">JavaScript-konsol</translation>
-<translation id="1568067597247500137">Dölj webbplats</translation>
+<translation id="1568067597247500137">Stäng av webbplatsens ljud</translation>
 <translation id="1568323446248056064">Öppna enhetsinställningarna för skärm</translation>
 <translation id="1568822834048182062">Bokmärken, historik, lösenord och andra inställningar synkroniseras till ditt Google-konto.</translation>
 <translation id="1571313460229786892">&amp;Webbplatsinställningarna</translation>
@@ -1305,7 +1305,7 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="2972557485845626008">Fast programvara</translation>
 <translation id="2972581237482394796">&amp;Upprepa</translation>
 <translation id="2972642118232180842">Kör bara viktigt innehåll (rekommenderas)</translation>
-<translation id="2973324205039581528">Dölj webbplats</translation>
+<translation id="2973324205039581528">Stäng av webbplatsens ljud</translation>
 <translation id="2979639724566107830">Öppna i nytt fönster</translation>
 <translation id="2981113813906970160">Visa stor muspekare</translation>
 <translation id="2982970937345031">Rapportera anonymt</translation>
@@ -3302,7 +3302,7 @@ Besök vårt <ph name="BEGIN_LINK" />hjälpcenter<ph name="END_LINK" /> om du vi
 <translation id="6122875415561139701">Skrivbehörigheten för åtgärden saknas på: <ph name="DEVICE_NAME" />.</translation>
 <translation id="6124650939968185064">Följande tillägg är beroende av detta tillägg:</translation>
 <translation id="6125479973208104919">Du måste tyvärr lägga till ditt konto på <ph name="DEVICE_TYPE" /> igen.</translation>
-<translation id="612596694132302162">Ta fram dold webbplats</translation>
+<translation id="612596694132302162">Sätt på webbplatsens ljud</translation>
 <translation id="6129691635767514872">Den data som markerades har tagits bort från Chrome och från synkroniserade enheter. Det kan finnas webbhistorik av annat slag i Google-kontot på <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />, t.ex. sökningar och aktivitet på andra tjänster från Google.</translation>
 <translation id="6129938384427316298">Kommentar för Netscape-certifikat</translation>
 <translation id="6129953537138746214">Blanksteg</translation>

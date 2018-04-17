@@ -12,7 +12,7 @@
 <translation id="1396446129537741364">‏يحاول Chromium إظهار كلمات المرور.</translation>
 <translation id="1414495520565016063">‏تم تسجيل دخولك إلى Chromium!</translation>
 <translation id="1444754455097148408">‏تراخيص مفتوحة المصدر لـ Chromium</translation>
-<translation id="1502360822835740515">‏جعل Chromium المتصفح الافتراضي</translation>
+<translation id="1502360822835740515">‏جعل Chromium المتصفح التلقائي</translation>
 <translation id="151962892725702025">‏تعذر على نظام التشغيل Chromium مزامنة البيانات نظرًا لأن المزامنة غير متاحة في نطاقك.</translation>
 <translation id="1585657529869845941">النقر على زر <ph name="BEGIN_BOLD" />التبديل على أي حال<ph name="END_BOLD" /> في حال ظهوره</translation>
 <translation id="1668054258064581266">‏بعد إزالة حسابك من Chromium، قد تحتاج إلى إعادة تحميل علامات التبويب المفتوحة لتفعيلها.</translation>
@@ -26,7 +26,7 @@
 <translation id="1869480248812203386">‏يمكنك المساعدة في جعل Chromium أكثر أمانًا وأسهل استخدامًا بإبلاغ Google تلقائيًا بتفاصيل أي مخاطر أمنية محتملة.</translation>
 <translation id="1881322772814446296">‏أنت تسجل الدخول باستخدام حساب يخضع للإدارة وتتيح للمشرف إمكانية التحكم في ملفك الشخصي على Chromium. وستكون بياناتك في Chromium مثل تطبيقاتك وإشاراتك المرجعية وسجلك وكلمات المرور التابعة لك والإعدادات الأخرى مرتبطة دائمًا بالمستخدم <ph name="USER_NAME" />. ستتمكن من حذف هذه البيانات عبر لوحة تحكم حسابات Google، ولكنك لن تتمكن من إقران هذه البيانات بحساب آخر. ويُمكنك اختيار إنشاء ملف شخصي جديد للإبقاء على بياناتك الحالية في Chromium بشكل مستقل. <ph name="LEARN_MORE" /></translation>
 <translation id="1929939181775079593">‏لا يستجيب Chromium. هل تريد إعادة التشغيل الآن؟</translation>
-<translation id="1966382378801805537">‏يتعذَّر على Chromium تحديد المتصفح الافتراضي أو تعيينه</translation>
+<translation id="1966382378801805537">‏يتعذَّر على Chromium تحديد المتصفح التلقائي أو تعيينه</translation>
 <translation id="1967743265616885482">‏هناك وحدة تحمل الاسم نفسه ومعروف أنها تتعارض مع Chromium.</translation>
 <translation id="2008474315282236005">‏سيعمل هذا على حذف عنصر واحد من هذا الجهاز. لاسترداد بياناتك لاحقًا، سجّل الدخول إلى Chromium كـ <ph name="USER_EMAIL" />.</translation>
 <translation id="2077129598763517140">استخدام تسريع الأجهزة عند توفره</translation>
@@ -49,7 +49,7 @@
 <translation id="2705403826523567092">تسجيل الدخول للتمتع بتجربة تصفح مخصصة، والمزامنة في جميع الأجهزة</translation>
 <translation id="2711502716910134313">‏علامة تبويب Chromium</translation>
 <translation id="2718390899429598676">‏لمزيد من الأمان، سيشفر Chromium بياناتك</translation>
-<translation id="2770231113462710648">تغيير المتصفح الافتراضي إلى:</translation>
+<translation id="2770231113462710648">تغيير المتصفح التلقائي إلى:</translation>
 <translation id="2799223571221894425">إعادة تشغيل</translation>
 <translation id="2847479871509788944">‏إزالة من Chromium</translation>
 <translation id="2886012850691518054">‏اختياري: ساعد في تحسين Chromium عن طريق إرسال إحصائيات الاستخدام وتقارير الأعطال إلى Google تلقائيًا.</translation>
@@ -127,7 +127,7 @@
 <translation id="5358375970380395591">‏أنت تسجل الدخول باستخدام حساب يخضع للإدارة وتتيح للمشرف إمكانية التحكم في ملفك الشخصي على Chromium. وستكون بياناتك في Chromium مثل تطبيقاتك وإشاراتك المرجعية وسجلك وكلمات المرور التابعة لك والإعدادات الأخرى مرتبطة دائمًا بالمستخدم <ph name="USER_NAME" />. ستتمكن من حذف هذه البيانات عبر لوحة تحكم حسابات Google، ولكنك لن تتمكن من إقران هذه البيانات بحساب آخر. <ph name="LEARN_MORE" /></translation>
 <translation id="5386450000063123300">‏جارٍ تحديث Chromium (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="5398878173008909840">‏يتوفر إصدار جديد من Chromium.</translation>
-<translation id="5427571867875391349">‏تعيين Chromium المتصفح الافتراضي</translation>
+<translation id="5427571867875391349">‏تعيين Chromium المتصفح التلقائي</translation>
 <translation id="5438241569118040789">‏<ph name="PAGE_TITLE" /> - الإصدار التجريبي من Chromium</translation>
 <translation id="5466153949126434691">‏يجري تحديث Chromium تلقائيًا بحيث يكون لديك أحدث إصدار. عند اكتمال هذا التحميل، ستتم إعادة تشغيل Chromium وستبدأ العمل.</translation>
 <translation id="5479196819031988440">‏يتعذر على نظام التشغيل Chromium فتح هذه الصفحة.</translation>
@@ -155,7 +155,7 @@
 <translation id="6096348254544841612">‏تخصيص Chromium والتحكُّم فيه. هناك تحديث متوفر.</translation>
 <translation id="6129621093834146363">‏ملف <ph name="FILE_NAME" /> ضار، لذلك فقد حظره Chromium.</translation>
 <translation id="6212496753309875659">‏يحتوي هذا الكمبيوتر فعلاً على إصدار أحدث من Chromium. إذا كان البرنامج لا يعمل، فالرجاء إزالة Chromium وإعادة المحاولة.</translation>
-<translation id="6248213926982192922">‏جعل Chromium المتصفح الافتراضي</translation>
+<translation id="6248213926982192922">‏جعل Chromium المتصفح التلقائي</translation>
 <translation id="6295779123002464101">‏قد يكون ملف <ph name="FILE_NAME" /> ضارًا، لذلك فقد حظره Chromium.</translation>
 <translation id="6309712487085796862">‏يستخدم Chromium الكاميرا.</translation>
 <translation id="6333502561965082103">‏عملية أخرى على Chromium قيد التقدم. يُرجى إعادة المحاولة لاحقًا.</translation>

@@ -1075,7 +1075,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="264810637653812429">Không tìm thấy thiết bị tương thích nào.</translation>
 <translation id="2648831393319960979">Đang thêm thiết bị vào tài khoản của bạn - quá trình này có thể mất một lúc...</translation>
 <translation id="2649045351178520408">ASCII được mã hóa base64, chuỗi chứng chỉ</translation>
-<translation id="2651353619134567122">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Bạn có thể thay đổi cài đặt này bất kỳ lúc nào trong phần <ph name="BEGIN_LINK1" />cài đặt<ph name="END_LINK1" /> trên thiết bị. Nếu bạn đã bật Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
+<translation id="2651353619134567122">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Bạn có thể thay đổi cài đặt này bất kỳ lúc nào trong phần <ph name="BEGIN_LINK1" />cài đặt<ph name="END_LINK1" /> trên thiết bị. Nếu bạn đã bật tính năng Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
 <translation id="2653266418988778031">Nếu bạn xóa chứng chỉ của Tổ chức phát hành chứng chỉ (CA), trình duyệt của bạn sẽ không còn tin vào bất kỳ chứng chỉ nào do CA cấp nữa.</translation>
 <translation id="2653659639078652383">Gửi</translation>
 <translation id="265390580714150011">Giá trị Trường</translation>
@@ -1423,7 +1423,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="3140353188828248647">Thanh địa chỉ chính</translation>
 <translation id="3141318088920353606">Đang nghe...</translation>
 <translation id="3141917231319778873">Yêu cầu đưa ra không được hỗ trợ cho: "<ph name="DEVICE_NAME" />".</translation>
-<translation id="3143695347784622594">Gửi dữ liệu hệ thống. Tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Bạn có thể thay đổi cài đặt này bất kỳ lúc nào trong phần <ph name="BEGIN_LINK1" />cài đặt<ph name="END_LINK1" /> trên thiết bị. Nếu bạn đã bật Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
+<translation id="3143695347784622594">Gửi dữ liệu hệ thống. Tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Bạn có thể thay đổi cài đặt này bất kỳ lúc nào trong phần <ph name="BEGIN_LINK1" />cài đặt<ph name="END_LINK1" /> trên thiết bị. Nếu bạn đã bật tính năng Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
 <translation id="3144126448740580210">XONG</translation>
 <translation id="3144647712221361880">Mở liên kết bằng tài khoản</translation>
 <translation id="3149510190863420837">Ứng dụng Chrome</translation>
@@ -1984,7 +1984,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="3979748722126423326">Bật <ph name="NETWORKDEVICE" /></translation>
 <translation id="3981760180856053153">Loại lưu không hợp lệ được nhập.</translation>
 <translation id="3983586614702900908">thiết bị từ nhà cung cấp không xác định</translation>
-<translation id="3985261842049607969">Sao lưu vào Google Drive. Dễ dàng khôi phục dữ liệu hoặc chuyển đổi thiết bị bất kỳ lúc nào. Bản sao lưu bao gồm dữ liệu ứng dụng. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
+<translation id="3985261842049607969">Sao lưu vào Google Drive. Dễ dàng khôi phục dữ liệu hoặc chuyển đổi thiết bị bất kỳ lúc nào. Bản sao lưu bao gồm cả dữ liệu ứng dụng. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
 <translation id="3987348946546879621">Dữ liệu đã lưu</translation>
 <translation id="3987938432087324095">Rất tiếc, vẫn chưa hiểu được nội dung đó.</translation>
 <translation id="3988996860813292272">Chọn múi giờ</translation>
@@ -2499,8 +2499,8 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="4883178195103750615">Xuất dấu trang sang tệp  HTML...</translation>
 <translation id="4883436287898674711">Tất cả trang web <ph name="WEBSITE_1" /></translation>
 <translation id="48838266408104654">&amp;Trình quản lý Tác vụ</translation>
-<translation id="4883898390143004266">Giúp các ứng dụng tìm thấy vị trí. Bạn có thể sử dụng dịch vụ vị trí của Google để giúp cải thiện vị trí cho các ứng dụng. Google có thể định kỳ thu thập dữ liệu vị trí và sử dụng dữ liệu này theo cách ẩn danh để cải thiện độ chính xác của vị trí và các dịch vụ dựa trên vị trí. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
-<translation id="4884740091792292473"><ph name="BEGIN_PARAGRAPH1" />Sao lưu vào Google Drive. Dễ dàng khôi phục dữ liệu hoặc chuyển đổi thiết bị bất kỳ lúc nào. Bản sao lưu bao gồm dữ liệu ứng dụng.<ph name="END_PARAGRAPH1" />
+<translation id="4883898390143004266">Giúp các ứng dụng tìm vị trí. Bạn có thể sử dụng dịch vụ vị trí của Google để giúp cải thiện vị trí cho các ứng dụng. Google có thể định kỳ thu thập dữ liệu vị trí và sử dụng dữ liệu này theo cách ẩn danh để cải thiện độ chính xác của vị trí và các dịch vụ dựa trên vị trí. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
+<translation id="4884740091792292473"><ph name="BEGIN_PARAGRAPH1" />Sao lưu vào Google Drive. Dễ dàng khôi phục dữ liệu hoặc chuyển đổi thiết bị bất kỳ lúc nào. Bản sao lưu bao gồm cả dữ liệu ứng dụng.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Dữ liệu ứng dụng có thể là bất kỳ dữ liệu nào mà một ứng dụng đã lưu (dựa trên cài đặt của nhà phát triển), bao gồm dữ liệu có thể nhạy cảm như danh bạ, tin nhắn và ảnh.<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />Dữ liệu sao lưu sẽ không tính vào hạn mức bộ nhớ Drive.<ph name="END_PARAGRAPH3" />
     <ph name="BEGIN_PARAGRAPH4" />Bạn có thể tắt dịch vụ này trong phần Cài đặt.<ph name="END_PARAGRAPH4" /></translation>
@@ -2900,7 +2900,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="5487521232677179737">Xóa dữ liệu</translation>
 <translation id="5488093641312826914">Đã sao chép '<ph name="COPIED_ITEM_NAME" />'</translation>
 <translation id="5488468185303821006">Cho phép ở chế độ ẩn danh</translation>
-<translation id="5491110079163012109">Gửi dữ liệu hệ thống. Tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Cài đặt này do chủ sở hữu thực hiện. Chủ sở hữu có thể chọn gửi dữ liệu chẩn đoán và dữ liệu về mức sử dụng cho thiết bị này đến Google. Bạn có thể xem dữ liệu này trong phần cài đặt. Nếu bạn đã bật Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
+<translation id="5491110079163012109">Gửi dữ liệu hệ thống. Tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Cài đặt này do chủ sở hữu thiết bị thực thi. Chủ sở hữu có thể chọn gửi dữ liệu chẩn đoán và dữ liệu về mức sử dụng cho thiết bị này đến Google. Bạn có thể xem dữ liệu này trong phần cài đặt. Nếu bạn đã bật tính năng Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
 <translation id="5493792505296048976">màn hình bật</translation>
 <translation id="5494362494988149300">Mở Khi &amp;Hoàn tất</translation>
 <translation id="5494920125229734069">Chọn tất cả</translation>
@@ -3567,7 +3567,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="6528513914570774834">Cho phép người dùng khác của thiết bị sử dụng mạng này</translation>
 <translation id="652948702951888897">Lịch sử Chrome</translation>
 <translation id="653019979737152879">Đang đồng bộ hóa <ph name="FILE_NAME" />...</translation>
-<translation id="6530681427077572136">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Bạn có thể thay đổi cài đặt này bất kỳ lúc nào trong phần cài đặt trên thiết bị. Nếu bạn đã bật Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
+<translation id="6530681427077572136">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Bạn có thể thay đổi cài đặt này bất kỳ lúc nào trong phần cài đặt trên thiết bị. Nếu bạn đã bật tính năng Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
 <translation id="6531282281159901044">Giữ tệp nguy hiểm</translation>
 <translation id="6534583978616527129">Khởi tạo kết nối</translation>
 <translation id="654039047105555694"><ph name="BEGIN_BOLD" />Lưu ý:<ph name="END_BOLD" /> Chỉ bật nếu bạn biết mình đang làm gì hoặc nếu bạn đã được yêu cầu bật vì việc thu thập dữ liệu có thể giảm hiệu suất hoạt động.</translation>
@@ -3618,7 +3618,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="6607831829715835317">Côn&amp;g cụ khác</translation>
 <translation id="6612358246767739896">Nội dung được bảo vệ</translation>
 <translation id="6613452264606394692">Quay lại đây nhanh chóng bằng cách đánh dấu trang này</translation>
-<translation id="6614893213975402384">Cài đặt bản cập nhật và ứng dụng. Bằng cách tiếp tục, bạn đồng ý rằng thiết bị này cũng có thể tự động tải xuống và cài đặt bản cập nhật và ứng dụng từ Google, nhà mạng cũng như nhà sản xuất thiết bị của bạn và có thể sử dụng dữ liệu di động. Một số ứng dụng có thể cung cấp tùy chọn mua hàng trong ứng dụng. Bạn có thể xóa những ứng dụng này bất kỳ lúc nào. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
+<translation id="6614893213975402384">Cài đặt bản cập nhật và ứng dụng. Bằng việc tiếp tục, bạn đồng ý rằng thiết bị này cũng có thể tự động tải xuống và cài đặt các bản cập nhật cũng như ứng dụng từ Google, nhà mạng và nhà sản xuất thiết bị bằng cách sử dụng dữ liệu di động. Một vài ứng dụng có thể cung cấp tùy chọn mua hàng trong ứng dụng. Bạn có thể xóa những ứng dụng này bất kỳ lúc nào. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
 <translation id="6615455863669487791">Hiển thị cho tôi</translation>
 <translation id="661719348160586794">Mật khẩu đã lưu của bạn sẽ xuất hiện tại đây.</translation>
 <translation id="6618097958368085618">Vẫn tiếp tục</translation>
@@ -3976,9 +3976,9 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="7191454237977785534">Lưu tệp dưới dạng</translation>
 <translation id="7193374945610105795">Không có mật khẩu nào được lưu cho <ph name="ORIGIN" /></translation>
 <translation id="7196835305346730603">Đang tìm kiếm Chromebox ở gần...</translation>
-<translation id="7197160646667308890"><ph name="BEGIN_PARAGRAPH1" />Đây là thông tin chung về thiết bị và cách sử dụng thiết bị (chẳng hạn như mức pin, mức sử dụng ứng dụng và kết nối mạng). Dữ liệu sẽ dùng để cải thiện các sản phẩm và dịch vụ của Google cho mọi người. Một số thông tin tổng hợp cũng sẽ giúp các đối tác, chẳng hạn như nhà phát triển Android, cải thiện ứng dụng và sản phẩm của họ.<ph name="END_PARAGRAPH1" />
-    <ph name="BEGIN_PARAGRAPH2" />Việc tắt tính năng này không ảnh hưởng đến khả năng thiết bị gửi thông tin cần cho các dịch vụ thiết yếu như bảo mật và bản cập nhật hệ thống.<ph name="END_PARAGRAPH2" />
-    <ph name="BEGIN_PARAGRAPH3" />Bạn có thể kiểm soát tính năng này trong phần Cài đặt &gt; Google. Chọn Sử dụng và chẩn đoán từ menu.<ph name="END_PARAGRAPH3" /></translation>
+<translation id="7197160646667308890"><ph name="BEGIN_PARAGRAPH1" />Đây là thông tin chung về thiết bị và cách bạn sử dụng thiết bị (chẳng hạn như mức pin, mức sử dụng ứng dụng và kết nối mạng). Dữ liệu này sẽ dùng để cải thiện các sản phẩm và dịch vụ của Google cho mọi người. Một số thông tin tổng hợp cũng sẽ giúp các đối tác, chẳng hạn như nhà phát triển Android, cải thiện ứng dụng và sản phẩm của họ.<ph name="END_PARAGRAPH1" />
+    <ph name="BEGIN_PARAGRAPH2" />Việc tắt tính năng này không ảnh hưởng đến khả năng thiết bị gửi thông tin cần thiết cho các dịch vụ thiết yếu như bảo mật và bản cập nhật hệ thống.<ph name="END_PARAGRAPH2" />
+    <ph name="BEGIN_PARAGRAPH3" />Bạn có thể kiểm soát tính năng này trong phần Cài đặt &gt; Google. Sau đó, chọn Sử dụng và chẩn đoán từ menu này.<ph name="END_PARAGRAPH3" /></translation>
 <translation id="7199158086730159431">Nhận &amp;trợ giúp</translation>
 <translation id="720110658997053098">Vĩnh viễn giữ thiết bị này ở chế độ kiosk</translation>
 <translation id="7201118060536064622">Đã xóa '<ph name="DELETED_ITEM_NAME" />'</translation>
@@ -4394,7 +4394,7 @@ Việc cài đặt <ph name="APP_NAME" /> sẽ tải xuống <ph name="DOWNLOAD_
 <translation id="7851457902707056880">Đăng nhập chỉ bị hạn chế đối với tài khoản chủ sở hữu. Hãy khởi động lại và đăng nhập bằng tài khoản chủ sở hữu. Máy sẽ tự động khởi động lại sau 30 giây.</translation>
 <translation id="7851716364080026749">Luôn chặn truy cập vào máy ảnh và micrô</translation>
 <translation id="7853747251428735">Côn&amp;g cụ khác</translation>
-<translation id="7856006446339184955">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. <ph name="BEGIN_LINK1" />Cài đặt<ph name="END_LINK1" /> này do chủ sở hữu thực hiện. Nếu bạn đã bật Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
+<translation id="7856006446339184955">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. <ph name="BEGIN_LINK1" />Cài đặt<ph name="END_LINK1" /> này do chủ sở hữu thiết bị thực thi. Nếu bạn đã bật tính năng Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
 <translation id="7857117644404132472">Thêm ngoại lệ</translation>
 <translation id="7857949311770343000">Đây có phải là trang tab mới bạn muốn không?</translation>
 <translation id="786073089922909430">Dịch vụ: <ph name="ARC_PROCESS_NAME" /></translation>
@@ -4809,7 +4809,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8534656636775144800">Rất tiếc! Đã xảy ra lỗi khi tìm cách tham gia miền. Vui lòng thử lại.</translation>
 <translation id="8535005006684281994">URL Gia hạn Chứng chỉ của Netscape</translation>
 <translation id="8539727552378197395">Không (HttpOnly)</translation>
-<translation id="8541166929715485291">Gửi dữ liệu hệ thống. Tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Cài đặt này do chủ sở hữu thực hiện. Chủ sở hữu có thể chọn gửi dữ liệu chẩn đoán và dữ liệu về mức sử dụng cho thiết bị này đến Google. Bạn có thể xem dữ liệu này trong phần <ph name="BEGIN_LINK1" />cài đặt<ph name="END_LINK1" />. Nếu bạn đã bật Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
+<translation id="8541166929715485291">Gửi dữ liệu hệ thống. Tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Cài đặt này do chủ sở hữu thiết bị thực thi. Chủ sở hữu có thể chọn gửi dữ liệu chẩn đoán và dữ liệu về mức sử dụng cho thiết bị này đến Google. Bạn có thể xem dữ liệu này trong phần <ph name="BEGIN_LINK1" />cài đặt<ph name="END_LINK1" />. Nếu bạn đã bật tính năng Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK2" />Tìm hiểu thêm<ph name="END_LINK2" /></translation>
 <translation id="8545107379349809705">Ẩn thông tin...</translation>
 <translation id="8545575359873600875">Rất tiếc, không thể xác minh mật khẩu của bạn. Người quản lý của người dùng được giám sát này gần đây có thể đã thay đổi mật khẩu. Nếu vậy, mật khẩu mới sẽ được áp dụng vào lần tới khi bạn đăng nhập Hãy thử sử dụng mật khẩu cũ của bạn.</translation>
 <translation id="8546186510985480118">Thiết bị sắp hết dung lượng</translation>
@@ -5209,7 +5209,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="9157697743260533322">Không thiết lập được cập nhật tự động cho tất cả người dùng (lỗi khởi chạy kiểm tra <ph name="ERROR_NUMBER" /></translation>
 <translation id="9158715103698450907">Rất tiếc!  Đã xảy ra sự cố giao tiếp mạng trong khi xác thực.  Vui lòng kiểm tra kết nối mạng của bạn và thử lại.</translation>
 <translation id="9161070040817969420">Khung phụ cho: <ph name="PARENT_SITE" /></translation>
-<translation id="916501514001398070">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Cài đặt này do chủ sở hữu thực hiện. Nếu bạn đã bật Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
+<translation id="916501514001398070">Gửi dữ liệu hệ thống. Thiết bị này hiện đang tự động gửi dữ liệu chẩn đoán, dữ liệu về mức sử dụng thiết bị và ứng dụng đến Google. Cài đặt này do chủ sở hữu thiết bị thực thi. Nếu bạn đã bật tính năng Hoạt động web và ứng dụng bổ sung, thì thông tin này sẽ được lưu trữ cùng với tài khoản để bạn có thể quản lý trong mục Hoạt động của tôi. <ph name="BEGIN_LINK1" />Tìm hiểu thêm<ph name="END_LINK1" /></translation>
 <translation id="9169496697824289689">Xem phím tắt</translation>
 <translation id="9170397650136757332">Bây giờ, hãy di chuyển nhẹ ngón tay để chụp tất cả các phần khác nhau của dấu vân tay của bạn</translation>
 <translation id="9170848237812810038">H&amp;oàn tác</translation>
