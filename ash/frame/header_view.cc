@@ -127,6 +127,10 @@ SkColor HeaderView::GetInactiveFrameColor() const {
   return frame_header_->GetInactiveFrameColor();
 }
 
+void HeaderView::OnShowStateChanged(ui::WindowShowState show_state) {
+  frame_header_->OnShowStateChanged(show_state);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // HeaderView, views::View overrides:
 
