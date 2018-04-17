@@ -163,7 +163,7 @@ void CompositingInputsUpdater::UpdateRecursive(PaintLayer* layer,
         // (see kIgnoreOverflowClipAndScroll), so we need to add it in
         // now. Scroll offset is excluded so that we do not need to invalidate
         // the clip rect cache on scroll.
-        if (root_layer_->ScrollsOverflow()) {
+        if (root_layer_->GetScrollableArea()) {
           clip_rect.Move(
               LayoutSize(-root_layer_->GetScrollableArea()->GetScrollOffset()));
         }
