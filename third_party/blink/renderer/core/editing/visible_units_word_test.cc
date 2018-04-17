@@ -7,7 +7,6 @@
 #include "third_party/blink/renderer/core/editing/selection_template.h"
 #include "third_party/blink/renderer/core/editing/testing/editing_test_base.h"
 #include "third_party/blink/renderer/core/editing/visible_position.h"
-#include "third_party/blink/renderer/platform/testing/runtime_enabled_features_test_helpers.h"
 
 namespace blink {
 
@@ -60,20 +59,6 @@ class VisibleUnitsWordTest : public EditingTestBase {
     return CreateVisiblePosition(PositionInFlatTree(&anchor, offset), affinity);
   }
 };
-
-class ParameterizedVisibleUnitsWordTest
-    : public ::testing::WithParamInterface<bool>,
-      private ScopedLayoutNGForTest,
-      public VisibleUnitsWordTest {
- protected:
-  ParameterizedVisibleUnitsWordTest() : ScopedLayoutNGForTest(GetParam()) {}
-
-  bool LayoutNGEnabled() const { return GetParam(); }
-};
-
-INSTANTIATE_TEST_CASE_P(All,
-                        ParameterizedVisibleUnitsWordTest,
-                        ::testing::Bool());
 
 TEST_F(VisibleUnitsWordTest, StartOfWordBasic) {
   EXPECT_EQ("<p> |(1) abc def</p>", DoStartOfWord("<p>| (1) abc def</p>"));
@@ -382,7 +367,7 @@ TEST_F(VisibleUnitsWordTest, EndOfWordTextSecurity) {
   EXPECT_EQ("abc<s>foo bar</s>baz|", DoEndOfWord("abc<s>foo bar</s>b|az"));
 }
 
-TEST_P(ParameterizedVisibleUnitsWordTest, NextWordBasic) {
+TEST_F(VisibleUnitsWordTest, NextWordBasic) {
   EXPECT_EQ("<p> (1|) abc def</p>", DoNextWord("<p>| (1) abc def</p>"));
   EXPECT_EQ("<p> (1|) abc def</p>", DoNextWord("<p> |(1) abc def</p>"));
   EXPECT_EQ("<p> (1|) abc def</p>", DoNextWord("<p> (|1) abc def</p>"));
@@ -399,12 +384,12 @@ TEST_P(ParameterizedVisibleUnitsWordTest, NextWordBasic) {
   EXPECT_EQ("<p> (1) abc def|</p>", DoNextWord("<p> (1) abc def</p>|"));
 }
 
-TEST_P(ParameterizedVisibleUnitsWordTest, NextWordCrossingBlock) {
+TEST_F(VisibleUnitsWordTest, NextWordCrossingBlock) {
   EXPECT_EQ("<p>abc|</p><p>def</p>", DoNextWord("<p>|abc</p><p>def</p>"));
   EXPECT_EQ("<p>abc</p><p>def|</p>", DoNextWord("<p>abc|</p><p>def</p>"));
 }
 
-TEST_P(ParameterizedVisibleUnitsWordTest, NextWordMixedEditability) {
+TEST_F(VisibleUnitsWordTest, NextWordMixedEditability) {
   EXPECT_EQ(
       "<p contenteditable>"
       "abc<b contenteditable=\"false\">def ghi</b>|jkl mno</p>",
@@ -427,7 +412,7 @@ TEST_P(ParameterizedVisibleUnitsWordTest, NextWordMixedEditability) {
                  "abc<b contenteditable=false>def ghi|</b>jkl mno</p>"));
 }
 
-TEST_P(ParameterizedVisibleUnitsWordTest, NextWordPunctuation) {
+TEST_F(VisibleUnitsWordTest, NextWordPunctuation) {
   EXPECT_EQ("abc|.def", DoNextWord("|abc.def"));
   EXPECT_EQ("abc|.def", DoNextWord("a|bc.def"));
   EXPECT_EQ("abc|.def", DoNextWord("ab|c.def"));
@@ -443,7 +428,7 @@ TEST_P(ParameterizedVisibleUnitsWordTest, NextWordPunctuation) {
   EXPECT_EQ("abc...def|", DoNextWord("abc...|def"));
 }
 
-TEST_P(ParameterizedVisibleUnitsWordTest, NextWordSkipTab) {
+TEST_F(VisibleUnitsWordTest, NextWordSkipTab) {
   InsertStyleElement("s { white-space: pre }");
   EXPECT_EQ("<p><s>\t</s>foo|</p>", DoNextWord("<p><s>\t|</s>foo</p>"));
 }
