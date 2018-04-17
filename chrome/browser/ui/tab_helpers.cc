@@ -192,9 +192,11 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
                         web_contents->GetBrowserContext()));
   chrome_browser_net::NetErrorTabHelper::CreateForWebContents(web_contents);
   chrome_browser_net::PredictorTabHelper::CreateForWebContents(web_contents);
+#if 0
   if (base::FeatureList::IsEnabled(kDecoupleTranslateLanguageFeature)) {
     ChromeLanguageDetectionTabHelper::CreateForWebContents(web_contents);
   }
+#endif
   ChromePasswordManagerClient::CreateForWebContentsWithAutofillClient(
       web_contents,
       autofill::ChromeAutofillClient::FromWebContents(web_contents));
@@ -202,7 +204,7 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
           subresource_filter::kSafeBrowsingSubresourceFilter)) {
     ChromeSubresourceFilterClient::CreateForWebContents(web_contents);
   }
-  ChromeTranslateClient::CreateForWebContents(web_contents);
+  //ChromeTranslateClient::CreateForWebContents(web_contents);
   ClientHintsObserver::CreateForWebContents(web_contents);
   ConnectionHelpTabHelper::CreateForWebContents(web_contents);
   CoreTabHelper::CreateForWebContents(web_contents);
@@ -239,8 +241,10 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
   PrefsTabHelper::CreateForWebContents(web_contents);
   prerender::PrerenderTabHelper::CreateForWebContents(web_contents);
   PreviewsInfoBarTabHelper::CreateForWebContents(web_contents);
+#if 0
   safe_browsing::TriggerCreator::MaybeCreateTriggersForWebContents(
       profile, web_contents);
+#endif
   SearchEngineTabHelper::CreateForWebContents(web_contents);
   SecurityStateTabHelper::CreateForWebContents(web_contents);
   if (SiteEngagementService::IsEnabled())
@@ -289,10 +293,12 @@ void TabHelpers::AttachTabHelpers(WebContents* web_contents) {
                         new ChromePDFWebContentsHelperClient()));
   PluginObserver::CreateForWebContents(web_contents);
   SadTabHelper::CreateForWebContents(web_contents);
+#if 0
   safe_browsing::SafeBrowsingTabObserver::CreateForWebContents(web_contents);
   safe_browsing::SafeBrowsingNavigationObserver::MaybeCreateForWebContents(
       web_contents);
   SearchTabHelper::CreateForWebContents(web_contents);
+#endif
   TabContentsSyncedTabDelegate::CreateForWebContents(web_contents);
   TabDialogs::CreateForWebContents(web_contents);
   ThumbnailTabHelper::CreateForWebContents(web_contents);

@@ -1030,6 +1030,9 @@ v8::Local<v8::Object> {{v8_class}}::findInstanceInPrototypeChain(v8::Local<v8::V
     case v8::ArrayBuffer::Allocator::AllocationMode::kReservation:
       kind = WTF::ArrayBufferContents::AllocationKind::kReservation;
       break;
+    case v8::ArrayBuffer::Allocator::AllocationMode::kNodeJS:
+      kind = WTF::ArrayBufferContents::AllocationKind::kNodeJS;
+      break;
     default:
       NOTREACHED();
   };

@@ -174,7 +174,7 @@
 #if defined(OS_WIN)
 #include "chrome/browser/ui/webui/conflicts_ui.h"
 #include "chrome/browser/ui/webui/set_as_default_browser_ui_win.h"
-#include "chrome/browser/ui/webui/welcome_win10_ui.h"
+//#include "chrome/browser/ui/webui/welcome_win10_ui.h"
 #endif
 
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
@@ -223,11 +223,13 @@ WebUIController* NewWebUI(WebUI* web_ui, const GURL& url) {
   return new T(web_ui);
 }
 
+#if defined(NWJS_SDK)
 // Special case for older about: handlers.
 template<>
 WebUIController* NewWebUI<AboutUI>(WebUI* web_ui, const GURL& url) {
   return new AboutUI(web_ui, url.host());
 }
+#endif
 
 #if defined(OS_CHROMEOS)
 template<>
@@ -262,20 +264,23 @@ WebUIController* NewWebUI<dom_distiller::DomDistillerUi>(WebUI* web_ui,
       web_ui, service, dom_distiller::kDomDistillerScheme);
 }
 
-#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+//#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+
+#if 0
 template <>
 WebUIController* NewWebUI<WelcomeUI>(WebUI* web_ui, const GURL& url) {
   return new WelcomeUI(web_ui, url);
 }
 #endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 
-#if defined(OS_WIN)
+#if 0
 template <>
 WebUIController* NewWebUI<WelcomeWin10UI>(WebUI* web_ui, const GURL& url) {
   return new WelcomeWin10UI(web_ui, url);
 }
 #endif  // defined(OS_WIN)
 
+#if defined(NWJS_SDK)
 bool IsAboutUI(const GURL& url) {
   if (base::FeatureList::IsEnabled(features::kBundledConnectionHelpFeature) &&
       url.host_piece() == chrome::kChromeUIConnectionHelpHost) {
@@ -295,6 +300,7 @@ bool IsAboutUI(const GURL& url) {
 #endif
           );  // NOLINT
 }
+#endif
 
 // Returns a function that can be used to create the right type of WebUI for a
 // tab, based on its URL. Returns NULL if the URL doesn't have WebUI associated
@@ -320,8 +326,10 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   // print dialog.
   if (url.host_piece() == chrome::kChromeUIBluetoothInternalsHost)
     return &NewWebUI<BluetoothInternalsUI>;
+#if 0
   if (url.host_piece() == chrome::kChromeUIComponentsHost)
     return &NewWebUI<ComponentsUI>;
+#endif
   if (url.spec() == chrome::kChromeUIConstrainedHTMLTestURL)
     return &NewWebUI<ConstrainedWebDialogUI>;
   if (url.host_piece() == chrome::kChromeUICrashesHost)
@@ -336,6 +344,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<FlagsUI>;
   if (url.host_piece() == chrome::kChromeUIGCMInternalsHost)
     return &NewWebUI<GCMInternalsUI>;
+#if 0
   if (url.host_piece() == chrome::kChromeUIInterstitialHost)
     return &NewWebUI<InterstitialUI>;
   if (url.host_piece() == chrome::kChromeUIInterventionsInternalsHost)
@@ -380,6 +389,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
     return &NewWebUI<TranslateInternalsUI>;
   if (url.host_piece() == chrome::kChromeUIUsbInternalsHost)
     return &NewWebUI<UsbInternalsUI>;
+#endif
   if (url.host_piece() == chrome::kChromeUIUserActionsHost)
     return &NewWebUI<UserActionsUI>;
   if (url.host_piece() == chrome::kChromeUIVersionHost)
@@ -397,6 +407,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   }
 #endif  // defined(OS_CHROMEOS)
 
+#if 0
   // Bookmarks are part of NTP on Android.
   if (url.host_piece() == chrome::kChromeUIBookmarksHost) {
     return MdBookmarksUI::IsEnabled() ? &NewWebUI<MdBookmarksUI>
@@ -405,6 +416,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   // Downloads list on Android uses the built-in download manager.
   if (url.host_piece() == chrome::kChromeUIDownloadsHost)
     return &NewWebUI<MdDownloadsUI>;
+#endif
   // Identity API is not available on Android.
   if (url.host_piece() == chrome::kChromeUIIdentityInternalsHost)
     return &NewWebUI<IdentityInternalsUI>;
@@ -413,16 +425,20 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   // Settings are implemented with native UI elements on Android.
   if (url.host_piece() == chrome::kChromeUISettingsHost)
     return &NewWebUI<settings::MdSettingsUI>;
+#if defined(NWJS_SDK)
   if (url.host_piece() == chrome::kChromeUIExtensionsHost)
     return &NewWebUI<extensions::ExtensionsUI>;
+#endif
+#if 0
   if (url.host_piece() == chrome::kChromeUIHistoryHost)
     return &NewWebUI<MdHistoryUI>;
+#endif
   if (url.host_piece() == chrome::kChromeUISyncFileSystemInternalsHost)
     return &NewWebUI<SyncFileSystemInternalsUI>;
   if (url.host_piece() == chrome::kChromeUISystemInfoHost)
     return &NewWebUI<SystemInfoUI>;
 #endif  // !defined(OS_ANDROID)
-#if defined(OS_WIN)
+#if 0
   if (url.host_piece() == chrome::kChromeUIConflictsHost)
     return &NewWebUI<ConflictsUI>;
   if (url.host_piece() == chrome::kChromeUIMetroFlowHost)
@@ -496,6 +512,8 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)
   if (url.host_piece() == chrome::kChromeUIChromeSigninHost)
     return &NewWebUI<InlineLoginUI>;
+#endif
+#if 0
   if (url.host_piece() == chrome::kChromeUIMdUserManagerHost)
     return &NewWebUI<MDUserManagerUI>;
   if (url.host_piece() == chrome::kChromeUISigninErrorHost &&
@@ -511,7 +529,7 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   if (url.host_piece() == chrome::kChromeUIWelcomeHost)
     return &NewWebUI<WelcomeUI>;
 #endif
-#if defined(OS_WIN)
+#if 0
   if (url.host_piece() == chrome::kChromeUIWelcomeWin10Host)
     return &NewWebUI<WelcomeWin10UI>;
 #endif  // defined(OS_WIN)
@@ -546,8 +564,10 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
 #endif
 
 #if BUILDFLAG(ENABLE_EXTENSIONS)
+#if defined(NWJS_SDK)
   if (url.host_piece() == chrome::kChromeUIExtensionsFrameHost)
     return &NewWebUI<extensions::ExtensionsUI>;
+#endif
 #endif
 #if BUILDFLAG(ENABLE_PLUGINS)
   if (url.host_piece() == chrome::kChromeUIFlashHost)
@@ -568,39 +588,47 @@ WebUIFactoryFunction GetWebUIFactoryFunction(WebUI* web_ui,
   if (url.host_piece() == chrome::kChromeUIWebRtcLogsHost)
     return &NewWebUI<WebRtcLogsUI>;
 #endif
-#if !defined(OS_ANDROID)
+#if defined(NWJS_SDK)
   if (url.host_piece() == chrome::kChromeUIMediaRouterHost &&
       media_router::MediaRouterEnabled(profile)) {
     return &NewWebUI<media_router::MediaRouterUI>;
   }
-#endif
-#if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_CHROMEOS)
+
+#if 0
   if (url.host_piece() == chrome::kChromeUICastHost &&
       media_router::MediaRouterEnabled(profile)) {
     return &NewWebUI<CastUI>;
   }
 #endif
+#endif
+
 #if defined(OS_LINUX) || defined(OS_ANDROID)
   if (url.host_piece() == chrome::kChromeUISandboxHost) {
     return &NewWebUI<SandboxInternalsUI>;
   }
 #endif
+
 #if defined(OS_WIN) || defined(OS_MACOSX) || defined(OS_LINUX)
   if (url.host_piece() == chrome::kChromeUIDiscardsHost)
     return &NewWebUI<DiscardsUI>;
 #endif
+
+#if defined(NWJS_SDK)
   if (IsAboutUI(url))
     return &NewWebUI<AboutUI>;
+#endif
 
   if (dom_distiller::IsEnableDomDistillerSet() &&
       url.host_piece() == dom_distiller::kChromeUIDomDistillerHost) {
     return &NewWebUI<dom_distiller::DomDistillerUi>;
   }
 
+#if 0
   if (SiteEngagementService::IsEnabled() &&
       url.host_piece() == chrome::kChromeUISiteEngagementHost) {
     return &NewWebUI<SiteEngagementUI>;
   }
+#endif
 
   if (MediaEngagementService::IsEnabled() &&
       url.host_piece() == chrome::kChromeUIMediaEngagementHost) {
@@ -746,8 +774,10 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
   if (!content::HasWebUIScheme(page_url))
     return NULL;
 
+#if 0
   if (page_url.host_piece() == chrome::kChromeUIComponentsHost)
     return ComponentsUI::GetFaviconResourceBytes(scale_factor);
+#endif
 
 #if defined(OS_WIN)
   if (page_url.host_piece() == chrome::kChromeUIConflictsHost)
@@ -775,6 +805,7 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
   if (page_url.host_piece() == chrome::kChromeUIFlashHost)
     return FlashUI::GetFaviconResourceBytes(scale_factor);
 
+#if 0
   // Android uses the native download manager.
   if (page_url.host_piece() == chrome::kChromeUIDownloadsHost)
     return MdDownloadsUI::GetFaviconResourceBytes(scale_factor);
@@ -782,14 +813,16 @@ base::RefCountedMemory* ChromeWebUIControllerFactory::GetFaviconResourceBytes(
   // Android doesn't use the Options/Settings pages.
   if (page_url.host_piece() == chrome::kChromeUISettingsHost)
     return settings_utils::GetFaviconResourceBytes(scale_factor);
+#endif  // !defined(OS_ANDROID)
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if BUILDFLAG(ENABLE_EXTENSIONS) && defined(NWJS_SDK)
   if (page_url.host_piece() == chrome::kChromeUIExtensionsHost ||
       page_url.host_piece() == chrome::kChromeUIExtensionsFrameHost) {
     return extensions::ExtensionsUI::GetFaviconResourceBytes(scale_factor);
   }
 #endif  // BUILDFLAG(ENABLE_EXTENSIONS)
-#endif  // !defined(OS_ANDROID)
+
+#endif
 
   return NULL;
 }

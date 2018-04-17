@@ -10,6 +10,7 @@
 #include "build/build_config.h"
 #include "ui/base/l10n/l10n_util_win.h"
 #include "ui/base/ui_base_switches.h"
+#include "ui/display/display.h"
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/win/hwnd_message_handler.h"
 
@@ -92,8 +93,19 @@ void CalculateWindowStylesFromInitParams(
           native_widget_delegate->IsDialogBox() ? WS_EX_DLGMODALFRAME : 0;
 
       // See layered window comment below.
-      if (is_translucent)
-        *style &= ~(WS_THICKFRAME | WS_CAPTION);
+      if (content::g_support_transparency && is_translucent) {
+        if (params.remove_standard_frame) {
+          *style &= ~(WS_CAPTION);
+        }
+        if (!native_widget_delegate->IsDialogBox() && !native_widget_delegate->IsModal()) {
+          if (content::g_force_cpu_draw)
+            *ex_style |= WS_EX_LAYERED;
+        }
+      } else {
+        if (is_translucent)
+          *style &= ~(WS_THICKFRAME | WS_CAPTION);
+      }
+
       break;
     }
     case Widget::InitParams::TYPE_CONTROL:
@@ -153,9 +165,10 @@ void ConfigureWindowStyles(
   //
   // This doesn't work when Aero is disabled, so disable it in that case.
   // Software composited windows can continue to use WS_EX_LAYERED.
-  bool is_translucent =
+  bool is_translucent = !content::g_support_transparency ?
       (params.opacity == Widget::InitParams::TRANSLUCENT_WINDOW &&
-       (ui::win::IsAeroGlassEnabled() || params.force_software_compositing));
+       (ui::win::IsAeroGlassEnabled() || params.force_software_compositing)) :
+      (params.opacity == Widget::InitParams::TRANSLUCENT_WINDOW || params.force_software_compositing);
 
   CalculateWindowStylesFromInitParams(params, widget_delegate,
                                       native_widget_delegate, is_translucent,

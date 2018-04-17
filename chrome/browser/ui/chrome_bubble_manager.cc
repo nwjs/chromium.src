@@ -111,13 +111,15 @@ static void LogBubbleCloseReason(BubbleReference bubble,
 ChromeBubbleManager::ChromeBubbleManager(TabStripModel* tab_strip_model)
     : tab_strip_model_(tab_strip_model) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  DCHECK(tab_strip_model_);
-  tab_strip_model_->AddObserver(this);
+  //DCHECK(tab_strip_model_);
+  if (tab_strip_model_)
+    tab_strip_model_->AddObserver(this);
   AddBubbleManagerObserver(&chrome_bubble_metrics_);
 }
 
 ChromeBubbleManager::~ChromeBubbleManager() {
-  tab_strip_model_->RemoveObserver(this);
+  if (tab_strip_model_)
+    tab_strip_model_->RemoveObserver(this);
 
   // Finalize requests before removing the BubbleManagerObserver so it can
   // collect metrics when closing any open bubbles.

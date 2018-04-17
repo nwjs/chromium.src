@@ -100,8 +100,10 @@ std::unique_ptr<ContentHash> ContentHash::CreateImpl(
       key.verifier_key.data, key.verifier_key.size);
   if (!verified_contents->InitFrom(verified_contents_path)) {
     if (mode & Mode::kDeleteInvalidVerifiedContents) {
+#if 0
       if (!base::DeleteFile(verified_contents_path, false))
         LOG(WARNING) << "Failed to delete " << verified_contents_path.value();
+#endif
     }
     // kInvalid.
     return base::WrapUnique(new ContentHash(key, nullptr, nullptr));

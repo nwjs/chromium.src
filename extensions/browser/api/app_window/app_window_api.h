@@ -8,6 +8,10 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "extensions/browser/extension_function.h"
 
+namespace content {
+  class RenderFrameHost;
+}
+
 namespace extensions {
 
 namespace api {
@@ -27,6 +31,7 @@ class AppWindowCreateFunction : public UIThreadExtensionFunction {
 
  private:
   void OnAppWindowReadyToCommitFirstNavigationOrClosed(ResponseValue result_arg,
+                                                       content::RenderFrameHost* created_frame,
                                                        bool ready_to_commit);
 
   bool GetBoundsSpec(
