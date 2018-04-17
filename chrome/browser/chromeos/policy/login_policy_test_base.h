@@ -33,6 +33,7 @@ class LoginPolicyTestBase : public chromeos::OobeBaseTest {
 
   virtual void GetMandatoryPoliciesValue(base::DictionaryValue* policy) const;
   virtual void GetRecommendedPoliciesValue(base::DictionaryValue* policy) const;
+  virtual std::string GetAccount() const;
 
   UserPolicyTestHelper* user_policy_helper() {
     return user_policy_helper_.get();

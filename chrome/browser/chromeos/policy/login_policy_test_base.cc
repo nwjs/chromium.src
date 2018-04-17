@@ -61,6 +61,10 @@ void LoginPolicyTestBase::SetUpOnMainThread() {
   OobeBaseTest::SetUpOnMainThread();
 }
 
+std::string LoginPolicyTestBase::GetAccount() const {
+  return kAccountId;
+}
+
 void LoginPolicyTestBase::GetMandatoryPoliciesValue(
     base::DictionaryValue* policy) const {
 }
