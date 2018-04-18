@@ -43,7 +43,7 @@ KeywordHintView::KeywordHintView(views::ButtonListener* listener,
   constexpr int kPaddingInsideBorder = 5;
   // Even though the border is 1 px thick visibly, it takes 1 DIP logically for
   // the non-rounded style.
-  const int horizontal_padding = BackgroundWith1PxBorder::IsRounded()
+  const int horizontal_padding = LocationBarView::IsRounded()
                                      ? GetCornerRadius()
                                      : kPaddingInsideBorder + 1;
   chip_label_->SetBorder(
@@ -132,7 +132,7 @@ void KeywordHintView::SetKeyword(const base::string16& keyword) {
 }
 
 gfx::Insets KeywordHintView::GetInsets() const {
-  if (!BackgroundWith1PxBorder::IsRounded())
+  if (!LocationBarView::IsRounded())
     return gfx::Insets(0,
                        GetLayoutConstant(LOCATION_BAR_ICON_INTERIOR_PADDING));
 
@@ -175,7 +175,7 @@ void KeywordHintView::Layout() {
   gfx::Size leading_size(leading_label_->GetPreferredSize());
   leading_label_->SetBounds(GetInsets().left(), 0,
                             show_labels ? leading_size.width() : 0, height());
-  const int chip_height = BackgroundWith1PxBorder::IsRounded()
+  const int chip_height = LocationBarView::IsRounded()
                               ? GetLayoutConstant(LOCATION_BAR_ICON_SIZE) +
                                     chip_container_->GetInsets().height()
                               : height();
@@ -197,18 +197,19 @@ gfx::Size KeywordHintView::CalculatePreferredSize() const {
 }
 
 void KeywordHintView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
-  if (!BackgroundWith1PxBorder::IsRounded())
-    return;
-  const int chip_corner_radius = GetCornerRadius();
-  chip_label_->SetBorder(views::CreateEmptyBorder(
-      gfx::Insets(GetInsets().top(), chip_corner_radius, GetInsets().bottom(),
-                  chip_corner_radius)));
+  if (LocationBarView::IsRounded()) {
+    const int chip_corner_radius = GetCornerRadius();
+    chip_label_->SetBorder(views::CreateEmptyBorder(
+        gfx::Insets(GetInsets().top(), chip_corner_radius, GetInsets().bottom(),
+                    chip_corner_radius)));
+  }
+  views::Button::OnBoundsChanged(previous_bounds);
 }
 
 views::Label* KeywordHintView::CreateLabel(SkColor text_color,
                                            SkColor background_color) {
   views::Label* label =
-      new views::Label(base::string16(), BackgroundWith1PxBorder::IsRounded()
+      new views::Label(base::string16(), LocationBarView::IsRounded()
                                              ? CONTEXT_OMNIBOX_DECORATION
                                              : CONTEXT_OMNIBOX_PRIMARY);
   label->SetEnabledColor(text_color);
@@ -218,7 +219,7 @@ views::Label* KeywordHintView::CreateLabel(SkColor text_color,
 }
 
 int KeywordHintView::GetCornerRadius() const {
-  if (!BackgroundWith1PxBorder::IsRounded())
+  if (!LocationBarView::IsRounded())
     return GetLayoutConstant(LOCATION_BAR_BUBBLE_CORNER_RADIUS);
   return chip_container_->height() / 2;
 }
