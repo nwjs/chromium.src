@@ -93,6 +93,24 @@ bool CompareTouchAssociations(
   return true;
 }
 
+bool ComparePortAssociations(
+    const display::TouchDeviceManager::PortAssociationMap& map_1,
+    const display::TouchDeviceManager::PortAssociationMap& map_2) {
+  if (map_1.size() != map_2.size())
+    return false;
+  auto it_1 = map_1.begin();
+  auto it_2 = map_2.begin();
+  while (it_1 != map_1.end()) {
+    if (it_1->first != it_2->first)
+      return false;
+    if (it_1->second != it_2->second)
+      return false;
+    it_1++;
+    it_2++;
+  }
+  return true;
+}
+
 class DisplayPrefsTest : public ash::AshTestBase {
  protected:
   DisplayPrefsTest()
@@ -332,7 +350,8 @@ TEST_F(DisplayPrefsTest, BasicStores) {
 
   // Set touch calibration data for display |id2|.
   uint32_t id_1 = 1234;
-  const display::TouchDeviceIdentifier touch_device_identifier_1(id_1);
+  uint32_t port_1 = 5678;
+  const display::TouchDeviceIdentifier touch_device_identifier_1(id_1, port_1);
   display::TouchCalibrationData::CalibrationPointPairQuad point_pair_quad_1 = {
       {std::make_pair(gfx::Point(10, 10), gfx::Point(11, 12)),
        std::make_pair(gfx::Point(190, 10), gfx::Point(195, 8)),
@@ -341,7 +360,8 @@ TEST_F(DisplayPrefsTest, BasicStores) {
   gfx::Size touch_size_1(200, 150);
 
   uint32_t id_2 = 2345;
-  const display::TouchDeviceIdentifier touch_device_identifier_2(id_2);
+  uint32_t port_2 = 3456;
+  const display::TouchDeviceIdentifier touch_device_identifier_2(id_2, port_2);
   display::TouchCalibrationData::CalibrationPointPairQuad point_pair_quad_2 = {
       {std::make_pair(gfx::Point(10, 10), gfx::Point(11, 12)),
        std::make_pair(gfx::Point(190, 10), gfx::Point(195, 8)),
@@ -349,10 +369,17 @@ TEST_F(DisplayPrefsTest, BasicStores) {
        std::make_pair(gfx::Point(190, 90), gfx::Point(189, 88))}};
   gfx::Size touch_size_2(150, 150);
 
+  // Create a 3rd touch device which has the same primary ID as the 2nd touch
+  // device but is connected to a different port.
+  uint32_t port_3 = 1357;
+  const display::TouchDeviceIdentifier touch_device_identifier_3(id_2, port_3);
+
   display_manager()->SetTouchCalibrationData(
       id2, point_pair_quad_1, touch_size_1, touch_device_identifier_1);
   display_manager()->SetTouchCalibrationData(
       id2, point_pair_quad_2, touch_size_2, touch_device_identifier_2);
+  display_manager()->SetTouchCalibrationData(
+      id2, point_pair_quad_2, touch_size_1, touch_device_identifier_3);
 
   const base::DictionaryValue* displays =
       local_state()->GetDictionary(prefs::kSecondaryDisplays);
@@ -405,10 +432,14 @@ TEST_F(DisplayPrefsTest, BasicStores) {
   display::test::TouchDeviceManagerTestApi tdm_test_api(tdm);
   display::TouchDeviceManager::TouchAssociationMap
       expected_touch_associations_map = tdm->touch_associations();
+  display::TouchDeviceManager::PortAssociationMap
+      expected_port_associations_map = tdm->port_associations();
   tdm_test_api.ResetTouchDeviceManager();
 
   EXPECT_FALSE(CompareTouchAssociations(expected_touch_associations_map,
                                         tdm->touch_associations()));
+  EXPECT_FALSE(ComparePortAssociations(expected_port_associations_map,
+                                       tdm->port_associations()));
 
   display_prefs()->LoadTouchAssociationPreferenceForTest();
 
@@ -417,6 +448,8 @@ TEST_F(DisplayPrefsTest, BasicStores) {
 
   EXPECT_TRUE(CompareTouchAssociations(actual_touch_associations_map,
                                        expected_touch_associations_map));
+  EXPECT_TRUE(ComparePortAssociations(expected_port_associations_map,
+                                      tdm->port_associations()));
 
   std::string touch_str;
 

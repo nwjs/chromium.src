@@ -225,6 +225,7 @@ extern const char kChromeOSReleaseNotesVersion[];
 extern const char kDisplayPowerState[];
 extern const char kDisplayProperties[];
 extern const char kDisplayTouchAssociations[];
+extern const char kDisplayTouchPortAssociations[];
 extern const char kExternalDisplayMirrorInfo[];
 extern const char kDisplayMixedMirrorModeParams[];
 extern const char kSecondaryDisplays[];
