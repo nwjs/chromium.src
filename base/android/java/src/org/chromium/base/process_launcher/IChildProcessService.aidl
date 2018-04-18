@@ -20,4 +20,7 @@ interface IChildProcessService {
 
   // Asks the child service to crash so that we can test the termination logic.
   oneway void crashIntentionallyForTesting();
+
+  // Notifies about memory pressure. The argument is MemoryPressureLevel enum.
+  oneway void onMemoryPressure(int pressure);
 }
