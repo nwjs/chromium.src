@@ -519,7 +519,8 @@ int OmniboxPopupContentsView::CalculatePopupHeight() {
   // interior between each row of text.
   int height = popup_height;
   if (LocationBarView::IsRounded()) {
-    height += RoundedOmniboxResultsFrame::GetNonResultSectionHeight();
+    height += RoundedOmniboxResultsFrame::GetAlignmentInsets(location_bar_view_)
+                  .height();
   } else {
     height += kPopupVerticalPadding * 2 + g_top_shadow.Get().height() +
               g_bottom_shadow.Get().height();
