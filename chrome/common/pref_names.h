@@ -430,6 +430,7 @@ extern const char kHasSeenWelcomePage[];
 
 #if defined(OS_WIN)
 extern const char kHasSeenWin10PromoPage[];
+extern const char kResetHasSeenWin10PromoPage[];
 #endif
 
 // Deprecated preference for metric / crash reporting on Android. Use

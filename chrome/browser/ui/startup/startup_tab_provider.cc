@@ -23,9 +23,11 @@
 #include "net/base/url_util.h"
 
 #if defined(OS_WIN)
+#include "base/feature_list.h"
 #include "base/win/windows_version.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/shell_integration.h"
+#include "chrome/common/chrome_features.h"
 #endif
 
 namespace {
@@ -81,8 +83,17 @@ StartupTabs StartupTabProviderImpl::GetOnboardingTabs(Profile* profile) const {
 #if defined(OS_WIN)
   // Windows 10 has unique onboarding policies and content.
   if (base::win::GetVersion() >= base::win::VERSION_WIN10) {
-    Win10OnboardingTabsParams win10_params;
+    // Reset the Windows 10 first run promo when the accelerated default
+    // browser flow feature is first enabled.
     PrefService* local_state = g_browser_process->local_state();
+    if (base::FeatureList::IsEnabled(
+            features::kWin10AcceleratedDefaultBrowserFlow) &&
+        local_state->GetBoolean(prefs::kResetHasSeenWin10PromoPage)) {
+      local_state->SetBoolean(prefs::kResetHasSeenWin10PromoPage, false);
+      local_state->ClearPref(prefs::kHasSeenWin10PromoPage);
+    }
+
+    Win10OnboardingTabsParams win10_params;
     const shell_integration::DefaultWebClientState web_client_state =
         g_browser_process->CachedDefaultWebClientState();
     win10_params.has_seen_win10_promo =
