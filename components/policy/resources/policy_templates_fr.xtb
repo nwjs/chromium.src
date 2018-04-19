@@ -175,7 +175,7 @@ Pour consulter des exemples détaillés, rendez-vous sur :
       et d'utiliser IsolateOrigins avec une liste des sites que vous souhaitez isoler.
       Le paramètre SitePerProcess isole tous les sites.
       Si cette règle est activée, chaque site exécute son propre processus.
-      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de site prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer SitePerProcess manuellement.
+      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de sites prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer SitePerProcess manuellement.
       Si cette règle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
       </translation>
 <translation id="1561424797596341174">Remplacements de règle pour les versions de débogage de l'hôte distant</translation>
@@ -789,7 +789,7 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
       et d'utiliser IsolateOrigins avec une liste des sites que vous souhaitez isoler.
       Le paramètre SitePerProcess isole tous les sites.
       Si cette règle est activée, chaque site exécute son propre processus.
-      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de site prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer SitePerProcess manuellement.
+      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de sites prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer SitePerProcess manuellement.
       Si cette règle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
       Pour <ph name="PRODUCT_OS_NAME" />, nous vous recommandons de définir également la règle relative aux appareils <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> sur la même valeur. Si les valeurs spécifiées par les deux règles sont différentes, un retard peut être constaté lors de l'accès à une session utilisateur du fait de l'application de la valeur spécifiée par la règle relative aux utilisateurs.
       </translation>
@@ -886,7 +886,7 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
       processus. Elle isole également les origines par sous-domaines. 
       Par exemple, si vous indiquez "https://example.com/", https://foo.example.com/
       est également isolé en tant que partie du site https://example.com/.
-      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de site prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer IsolateOrigins manuellement.
+      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de sites prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer IsolateOrigins manuellement.
       Si cette règle n'est pas configurée, l'utilisateur peut modifier ce paramètre.
       Pour <ph name="PRODUCT_OS_NAME" />, nous vous recommandons de définir également la règle relative aux appareils <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> sur la même valeur. Si les valeurs spécifiées par les deux règles sont différentes, un retard peut être constaté lors de l'accès à une session utilisateur du fait de l'application de la valeur spécifiée par la règle relative aux utilisateurs.
       </translation>
@@ -1060,7 +1060,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
       processus. Elle isole également les origines par sous-domaines. 
       Par exemple, si vous indiquez "https://example.com/", https://foo.example.com/
       est également isolé en tant que partie du site https://example.com/.
-      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de site prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer IsolateOrigins manuellement.
+      Si cette règle est désactivée, la logique préliminaire de gestion du processus d'isolation de sites prend effet, et les tests en conditions réelles de IsolateOrigins et SitePerProcess seront désactivés. Les utilisateurs pourront toujours activer IsolateOrigins manuellement.
       Si cette règle n'est pas configurée, les paramètres d'isolation de site par défaut de la plate-forme sont utilisés pour l'écran de connexion.
       </translation>
 <translation id="4010738624545340900">Autoriser l'appel des boîtes de dialogue de sélection de fichiers</translation>

@@ -846,9 +846,9 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
       der er angivet af underdomæner. Hvis f.eks. https://eksempel.dk/ angives,
       isoleres https://foo.eksempel.dk/ også som en del af
       websitet https://eksempel.dk/.
-      Hvis politikken er deaktiveret, anvendes processtyringslogikken, som blev brugt før isolering af websites, og brugstest af IsolateOrigins og SitePerProcess deaktiveres. Brugere kan stadig aktivere SitePerProcess manuelt.
+      Hvis politikken er deaktiveret, anvendes processtyringslogikken, som blev brugt før isolering af websites, og brugstest af IsolateOrigins og SitePerProcess deaktiveres. Brugere kan stadig aktivere IsolateOrigins manuelt.
       Hvis politikken ikke konfigureres, kan brugerne ændre denne indstilling.
-      I <ph name="PRODUCT_OS_NAME" /> anbefales det, at der også angives den samme værdi for enhedspolitikken <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" />. Hvis politikkerne har forskellige værdier, kan der ske forsinkelser ved opstart af en brugersession, mens den værdi, der er angivet af brugerpolitikken, anvendes.
+      I <ph name="PRODUCT_OS_NAME" /> anbefales det, at der også angives den samme værdi for enhedspolitikken <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" />. Hvis de to politikker har forskellige værdier, kan der ske forsinkelser ved opstart af en brugersession, mens den værdi, der er angivet af brugerpolitikken, anvendes.
       </translation>
 <translation id="3528000905991875314">Aktiver alternative fejlsider</translation>
 <translation id="3547954654003013442">Proxyindstillinger</translation>
@@ -1014,7 +1014,7 @@ Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade b
       der er angivet af underdomæner. Hvis f.eks. https://eksempel.dk/ angives,
       isoleres https://foo.eksempel.dk/ også som en del af
       websitet https://eksempel.dk/.
-      Hvis politikken er deaktiveret, anvendes processtyringslogikken, som blev brugt før isolering af websites, og brugstest af IsolateOrigins og SitePerProcess deaktiveres. Brugere kan stadig aktivere SitePerProcess manuelt.
+      Hvis politikken er deaktiveret, anvendes processtyringslogikken, som blev brugt før isolering af websites, og brugstest af IsolateOrigins og SitePerProcess deaktiveres. Brugere kan stadig aktivere IsolateOrigins manuelt.
       Hvis politikken ikke konfigureres, anvendes platformens standardindstillinger for isolering af websites på loginskærmen.
       </translation>
 <translation id="4010738624545340900">Tillad aktivering af dialogbokse for filvalg</translation>

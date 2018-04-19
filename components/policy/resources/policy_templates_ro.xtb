@@ -173,7 +173,7 @@
       IsolateOrigins cu o listă a site-urilor pe care vrei să le izolezi. Această setare,
       SitePerProcess, izolează toate site-urile.
       Dacă politica este activată, fiecare site va rula propriul proces.
-      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului și testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
+      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului, iar testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
       Dacă politica nu este configurată, utilizatorul va putea modifica această setare.
       </translation>
 <translation id="1561424797596341174">Suprascrieri de politici pentru versiunile de depanare ale gazdei de acces la distanță</translation>
@@ -751,7 +751,7 @@
       beneficia la maximum de fiecare, de izolare și de impact limitat asupra utilizatorilor,
       dacă folosești IsolateOrigins cu o listă a site-urilor pe care vrei să le izolezi. Această setare, SitePerProcess, izolează toate site-urile. 
       Dacă politica este activată, fiecare site va rula propriul proces.
-      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului și testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
+      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului, iar testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
       Dacă politica nu este configurată, utilizatorul va putea modifica această setare.
       În <ph name="PRODUCT_OS_NAME" />, se recomandă setarea politicii privind dispozitivele <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> la aceeași valoare. Dacă valorile specificate în cele două politici nu corespund, poate apărea o întârziere la intrarea în sesiunea utilizatorului până ce se aplică valoarea specificată în politica privind utilizatorii.
       </translation>
@@ -848,7 +848,7 @@
       de asemenea, originile denumite după subdomenii; de exemplu, specificarea
       https://example.com/ va cauza și izolarea https://foo.example.com/ ca parte a site-ului
       https://example.com/.
-      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului și testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
+      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului, iar testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
       Dacă politica nu este configurată, utilizatorul va putea modifica această setare.
       În <ph name="PRODUCT_OS_NAME" />, se recomandă setarea politicii privind dispozitivele <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> la aceeași valoare. Dacă valorile specificate în cele două politici nu corespund, poate apărea o întârziere la intrarea în sesiunea utilizatorului până ce se aplică valoarea specificată în politica privind utilizatorii.
       </translation>
@@ -1020,7 +1020,7 @@
       de asemenea, originile denumite după subdomenii; de exemplu, specificarea
       https://example.com/ va cauza și izolarea https://foo.example.com/ ca parte a site-ului
       https://example.com/.
-      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului și testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
+      Dacă politica este dezactivată, va fi aplicată logica de gestionare a proceselor prealabilă Izolării site-ului, iar testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea în continuare să activeze manual SitePerProcess.
       Dacă politica nu este configurată, pentru ecranul de conectare vor fi folosite setările de izolare a site-ului prestabilite pentru platforma respectivă.
       </translation>
 <translation id="4010738624545340900">Permiteți invocarea casetelor de dialog pentru selectarea fișierelor</translation>

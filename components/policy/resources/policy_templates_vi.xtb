@@ -169,11 +169,11 @@
       doanh nghiệp sẽ không thể sử dụng ARC.</translation>
 <translation id="1561183922461862993">
       Chính sách này áp dụng cho màn hình đăng nhập. Vui lòng xem thêm chính sách <ph name="SITE_PER_PROCESS_POLICY_NAME" /> áp dụng cho phiên người dùng. Bạn nên đặt cùng một giá trị cho cả hai chính sách. Nếu các giá trị không khớp nhau thì có thể xảy ra hiện tượng chậm trễ khi vào một phiên người dùng trong khi áp dụng giá trị mà chính sách người dùng chỉ định.
-      Bạn có thể xem cài đặt chính sách IsolateOrigins để khai thác tối đa
-      cả hai khía cạnh, cách cô lập cũng như hạn chế tác động đến người dùng bằng cách sử dụng
-      IsolateOrigins cùng với danh sách các trang web mà bạn muốn cô lập. Cài đặt       SitePerProcess này sẽ cô lập mọi trang web.
+      Bạn nên xem thông tin cài đặt chính sách IsolateOrigins để khai thác tối đa
+      cả hai khía cạnh, cô lập và hạn chế tác động người dùng, bằng cách sử dụng
+      IsolateOrigins cùng với danh sách các trang web mà bạn muốn cô lập. Tùy chọn cài đặt       SitePerProcess này sẽ cô lập mọi trang web.
       Nếu bạn bật chính sách này, mỗi trang web sẽ chạy theo quy trình riêng.
-      Nếu bạn tắt chính sách này, logic quản lý quy trình cô lập trước khi khởi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng vẫn có thể bật SitePerProcess theo cách thủ công.
+      Nếu bạn tắt chính sách này, logic quản lý quy trình cô lập trước khi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng vẫn có thể bật SitePerProcess theo cách thủ công.
       Nếu bạn không định cấu hình chính sách này, người dùng sẽ có thể thay đổi cài đặt này.
       </translation>
 <translation id="1561424797596341174">Chính sách ghi đè dành cho bản dựng Gỡ lỗi của máy chủ truy cập từ xa</translation>
@@ -773,12 +773,12 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3219421230122020860">Chế độ ẩn danh khả dụng</translation>
 <translation id="3220624000494482595">Nếu ứng dụng kiosk là một ứng dụng Android thì ứng dụng này không có quyền kiểm soát đối với phiên bản <ph name="PRODUCT_OS_NAME" /> ngay cả khi chính sách này được đặt thành <ph name="TRUE" />.</translation>
 <translation id="3229833076897893450">
-      Bạn có thể xem cài đặt chính sách IsolateOrigins để khai thác tối đa
-      cả hai khía cạnh, cách cô lập cũng như hạn chế tác động đến người dùng bằng cách sử dụng
-      IsolateOrigins cùng với danh sách các trang web mà bạn muốn cô lập. Cài đặt SitePerProcess này sẽ cô lập mọi trang web.
+      Bạn nên xem thông tin cài đặt chính sách IsolateOrigins để khai thác tối đa
+      cả hai khía cạnh, cô lập và hạn chế tác động đến người dùng, bằng cách sử dụng
+      IsolateOrigins cùng với danh sách các trang web mà bạn muốn cô lập. Tùy chọn cài đặt SitePerProcess này sẽ cô lập mọi trang web.
       Nếu bạn bật chính sách này, mỗi trang web sẽ chạy theo quy trình riêng.
-      Nếu bạn tắt chính sách này, logic quản lý quy trình cô lập trước khi khởi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng sẽ vẫn có thể bật SitePerProcess theo cách thủ công.
-      Nếu bạn không định cấu hình chính sách này, người dùng sẽ có thể thay đổi cài đặt này.
+      Nếu bạn tắt chính sách này, logic quản lý quy trình cô lập trước khi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng sẽ vẫn có thể bật SitePerProcess theo cách thủ công.
+      Nếu bạn không định cấu hình chính sách này, người dùng sẽ có thể thay đổi tùy chọn cài đặt này.
       Trên <ph name="PRODUCT_OS_NAME" />, bạn cũng nên đặt chính sách thiết bị <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> về cùng một giá trị. Nếu các giá trị do hai chính sách chỉ định không khớp nhau thì có thể xảy ra hiện tượng chậm trễ khi vào một phiên người dùng trong khi áp dụng giá trị mà chính sách người dùng chỉ định.
       </translation>
 <translation id="3236046242843493070">Mẫu URL để cho phép cài đặt tiện ích, ứng dụng và tập lệnh người dùng từ</translation>
@@ -874,9 +874,9 @@ Khi chính sách này được đặt thành false hoặc không được địn
       các nguồn gốc được đặt tên theo miền phụ; chẳng hạn như việc chỉ định https://example.com/ cũng sẽ
       khiến https://foo.example.com/ bị cô lập vì là một phần của
       https://example.com/ site.
-      Nếu bạn tắt chính sách này, logic quản lý quy trình Cô lập trước khi khởi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng sẽ vẫn có thể bật IsolateOrigins theo cách thủ công.
-      Nếu bạn không định cấu hình chính sách này, người dùng sẽ có thể thay đổi cài đặt này.
-      Trên <ph name="PRODUCT_OS_NAME" />, bạn cũng nên đặt chính sách thiết bị <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> về cùng một giá trị. Nếu các giá trị do hai chính sách chỉ định không khớp nhau thì có thể xảy ra hiện tượng chậm trễ khi vào một phiên người dùng trong khi áp dụng giá trị mà chính sách người dùng chỉ định.
+      Nếu bạn tắt chính sách này, logic quản lý quy trình Cô lập trước khi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng sẽ vẫn có thể bật IsolateOrigins theo cách thủ công.
+      Nếu bạn không định cấu hình chính sách này, người dùng sẽ có thể thay đổi tùy chọn cài đặt này.
+      Trên <ph name="PRODUCT_OS_NAME" />, bạn cũng nên đặt chính sách thiết bị <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> về cùng giá trị. Nếu các giá trị do hai chính sách chỉ định không khớp nhau thì có thể xảy ra hiện tượng chậm trễ khi vào một phiên người dùng trong khi áp dụng giá trị mà chính sách người dùng chỉ định.
       </translation>
 <translation id="3528000905991875314">Bật các trang lỗi thay thế</translation>
 <translation id="3547954654003013442">Cài đặt proxy</translation>
@@ -1042,7 +1042,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
       các nguồn gốc được đặt tên theo miền phụ; chẳng hạn như việc chỉ định https://example.com/ cũng sẽ
       khiến https://foo.example.com/ bị cô lập vì là một phần của
       https://example.com/ site.
-      Nếu bạn tắt chính sách này thì logic quản lý quy trình Cô lập trước khi khởi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng sẽ vẫn có thể bật IsolateOrigins theo cách thủ công.
+      Nếu bạn tắt chính sách này thì logic quản lý quy trình Cô lập trước khi chạy trang web sẽ có hiệu lực và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng sẽ vẫn có thể bật IsolateOrigins theo cách thủ công.
       Nếu bạn không định cấu hình chính sách này, cài đặt cô lập trang web mặc định của nền tảng sẽ được sử dụng cho màn hình đăng nhập.
       </translation>
 <translation id="4010738624545340900">Cho phép kích hoạt các hộp thoại chọn tệp</translation>

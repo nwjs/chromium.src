@@ -175,7 +175,7 @@
       격리됩니다.
       이 정책이 사용 설정되어 있으면 각 사이트는 자체 프로세스로 작동합니다.
       이 정책이 사용 중지되어 있으면 사이트 격리 프로세스 실행 이전의 관리 로직이 적용되며 IsolateOrigins 및 SitePerProcess 평가판은 사용 중지됩니다. 사용자는 여전히 직접 SitePerProcess를 사용 설정할 수 있습니다.
-      이 정책을 설정하지 않으면 사용자가 이 설정을 변경할 수 있습니다.
+      이 정책을 설정되지 않으면 사용자가 이 설정을 변경할 수 있습니다.
       </translation>
 <translation id="1561424797596341174">정책은 원격 액세스 호스트의 디버그 빌드를 무시합니다.</translation>
 <translation id="1561967320164410511">개별 인증을 위한 U2F 및 확장 프로그램</translation>
@@ -780,7 +780,7 @@
       격리됩니다.
       이 정책이 사용 설정되어 있으면 각 사이트는 자체 프로세스로 작동합니다.
       이 정책이 사용 중지되어 있으면 사이트 격리 프로세스 실행 이전의 관리 로직이 적용되며 IsolateOrigins 및 SitePerProcess 평가판은 사용 중지됩니다. 사용자는 여전히 직접 SitePerProcess를 사용 설정할 수 있습니다.
-      이 정책을 설정하지 않으면 사용자가 이 설정을 변경할 수 있습니다.
+      이 정책이 설정되지 않으면 사용자가 이 설정을 변경할 수 있습니다.
       <ph name="PRODUCT_OS_NAME" />에서 <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> 기기 정책을 같은 값으로 설정하는 것이 좋습니다. 두 정책을 다른 값으로 설정하면 사용자 세션을 시작할 때 지연이 발생할 수 있으며 사용자 정책으로 지정된 값이 적용됩니다.
       </translation>
 <translation id="3236046242843493070">확장 프로그램, 앱, 사용자 스크립트 설치 등을 허용하는 URL 패턴</translation>
@@ -876,7 +876,7 @@
       출처도 격리됩니다. 예를 들어 https://example.com/을 지정하면 https://foo.example.com/도
       https://example.com/ 사이트의 일부로 격리됩니다.
       정책을 사용 중지하면 사이트 격리 프로세스 실행 이전의 관리 로직이 적용되며 IsolateOrigins 및 SitePerProcess 평가판은 사용 중지됩니다. 사용자는 여전히 직접 SitePerProcess를 사용 설정할 수 있습니다.
-      이 정책을 설정하지 않으면 사용자가 이 설정을 변경할 수 있습니다.
+      이 정책이 설정되지 않으면 사용자가 이 설정을 변경할 수 있습니다.
       <ph name="PRODUCT_OS_NAME" />에서 <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> 기기 정책을 같은 값으로 설정하는 것이 좋습니다. 두 정책을 다른 값으로 설정하면 사용자 세션을 시작할 때 지연이 발생할 수 있으며 사용자 정책으로 지정된 값이 적용됩니다.
       </translation>
 <translation id="3528000905991875314">대체 오류 페이지 사용</translation>
@@ -1044,7 +1044,7 @@
       https://example.com/을 지정하면 https://foo.example.com/
       또한 https://example.com 사이트의 일부로 여겨져 격리됩니다.
       정책을 사용 중지하면 사이트 격리 프로세스 실행 이전의 관리 로직이 적용되며 IsolateOrigins 및 SitePerProcess 평가판은 사용 중지됩니다. 사용자는 여전히 직접 SitePerProcess를 사용 설정할 수 있습니다.
-      정책을 설정하지 않으면 로그인 화면에 플랫폼의 기본 사이트 격리 설정이 사용됩니다.
+      정책이 설정되지 않으면 로그인 화면에 플랫폼의 기본 사이트 격리 설정이 사용됩니다.
       </translation>
 <translation id="4010738624545340900">파일 선택 대화상자의 호출 허용</translation>
 <translation id="4012737788880122133">True로 설정하면 자동 업데이트가 사용 중지됩니다.

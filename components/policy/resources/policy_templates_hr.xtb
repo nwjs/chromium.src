@@ -166,7 +166,7 @@
       Ako se ta postavka onemogući ili ne konfigurira, poslovni korisnici
       ne mogu upotrebljavati ARC.</translation>
 <translation id="1561183922461862993">
-      To se pravilo primjenjuje na zaslon za prijavu. Pogledajte i pravilo <ph name="SITE_PER_PROCESS_POLICY_NAME" /> koje se primjenjuje na korisničku sesiju. Preporučujemo da oba pravila postavite na istu vrijednost. Ako se vrijednosti ne podudaraju, može doći do čekanja prilikom otvaranja korisničke sesije dok se ne primijeni vrijednost koja je određena korisničkim pravilom.
+      To se pravilo primjenjuje na zaslon za prijavu. Pogledajte i pravilo <ph name="SITE_PER_PROCESS_POLICY_NAME" /> koje se primjenjuje na korisničku sesiju. Preporučujemo da oba pravila postavite na istu vrijednost. Ako se vrijednosti ne podudaraju, možda će prilikom otvaranja korisničke sesije biti potrebno pričekati dok se ne primijeni vrijednost koja je određena korisničkim pravilom.
       Možda biste trebali razmisliti o postavci pravila IsolateOrigins da biste iskoristili prednosti obje značajke, izolacije i ograničenog utjecaja za korisnike, koristeći IsolateOrigins s popisom web-lokacija koje želite izolirati. Ova postavka, SitePerProcess, izolira sve web-lokacije.
       Ako se to pravilo omogući, svaka će se web-lokacija izvoditi u svojem procesu.
       Ako se to pravilo onemogući, djelovat će logika upravljanja procesom izolacije po web-lokaciji i onemogućit će se radne verzije postavki IsolateOrigins i SitePerProcess. Korisnici će i dalje moći ručno omogućiti SitePerProcess.

@@ -168,7 +168,7 @@
       Kui see seade on keelatud või seadistamata, siis ei saa ettevõtte
       kasutajad ARC-d kasutada.</translation>
 <translation id="1561183922461862993">
-      See reegel kehtib sisselogimisekraanil. Vaadake ka reeglit <ph name="SITE_PER_PROCESS_POLICY_NAME" />, mis kehtib kasutajaseansi puhul. Soovitatav on mõlemale reeglile määrata sama väärtus. Kui väärtused ei ühti, võib kasutajareegliga määratud väärtuse rakendamisel esineda kasutajaseanssi sisenemisel viivitusi.
+      See reegel kehtib sisselogimiskuval. Vaadake ka reeglit <ph name="SITE_PER_PROCESS_POLICY_NAME" />, mis kehtib kasutajaseansi puhul. Soovitatav on mõlemale reeglile määrata sama väärtus. Kui väärtused ei ühti, võib kasutajareegliga määratud väärtuse rakendamisel esineda kasutajaseanssi sisenemisel viivitusi.
       Soovitame teil vaadata reegli IsolateOrigins seadet, et kasutada nii
       isoleerimist kui ka piirata mõju kasutajate jaoks, kasutades reeglit
       IsolateOrigins saitide puhul, mille soovite isoleerida. Seade
@@ -1035,14 +1035,14 @@
 
       Kui see reegel määratakse valeks, ei saa kasutajad pakkumisi lunastada.</translation>
 <translation id="4002183184444060875">
-      See reegel kehtib sisselogimisekraanil. Vaadake ka reeglit <ph name="ISOLATE_ORIGINS_POLICY_NAME" />, mis kehtib kasutajaseansi puhul. Soovitatav on mõlemale reeglile määrata sama väärtus. Kui väärtused ei ühti, võib kasutajaseanssi sisenemisel kasutaja reegliga määratud reegli rakendamisel esineda viivitusi.
+      See reegel kehtib sisselogimiskuval. Vaadake ka reeglit <ph name="ISOLATE_ORIGINS_POLICY_NAME" />, mis kehtib kasutajaseansi puhul. Soovitatav on mõlemale reeglile määrata sama väärtus. Kui väärtused ei ühti, võib kasutajaseanssi sisenemisel kasutaja reegliga määratud reegli rakendamisel esineda viivitusi.
       Kui reegel on lubatud, käitab iga komadega eraldatud loendis
       nimetatud lähtekoht oma protsesse. See isoleerib ka alamdomeenide
       nimetatud lähtekohad; nt aadressi https://example.com/ määramisel
       isoleeritakse saidi https://example.com/ osana ka aadress
       https://foo.example.com/.
       Kui reegel on keelatud, jõustub saidi isoleerimise eelse protsessihalduse loogika ja reeglite IsolateOrigins ning SitePerProcess testid keelatakse. Kasutajad saavad reegli IsolateOrigins siiski käsitsi lubada.
-      Kui reegel on seadistamata, kasutatakse sisselogimisekraanil platvormi saitide isoleerimise vaikeseadeid.
+      Kui reegel on seadistamata, kasutatakse sisselogimiskuval platvormi saitide isoleerimise vaikeseadeid.
       </translation>
 <translation id="4010738624545340900">Failivalimisdialoogide avamise lubamine</translation>
 <translation id="4012737788880122133">Kui seade on määratud väärtusele Tõene, on automaatsed värskendused keelatud.
