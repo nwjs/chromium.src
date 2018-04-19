@@ -880,6 +880,9 @@
       settable_from_internals: true,
     },
     {
+      name: "PartialRasterInvalidation",
+    },
+    {
       name: "PassiveDocumentEventListeners",
       status: "stable",
     },
