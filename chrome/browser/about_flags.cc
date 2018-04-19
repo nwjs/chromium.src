@@ -186,13 +186,13 @@ const unsigned kOsAura = kOsWin | kOsLinux | kOsCrOS;
 #endif  // USE_AURA
 
 const FeatureEntry::Choice kTouchEventFeatureDetectionChoices[] = {
-    {flags_ui::kGenericExperimentChoiceDisabled, "", ""},
+    {flags_ui::kGenericExperimentChoiceAutomatic, "", ""},
     {flags_ui::kGenericExperimentChoiceEnabled,
      switches::kTouchEventFeatureDetection,
      switches::kTouchEventFeatureDetectionEnabled},
-    {flags_ui::kGenericExperimentChoiceAutomatic,
+    {flags_ui::kGenericExperimentChoiceDisabled,
      switches::kTouchEventFeatureDetection,
-     switches::kTouchEventFeatureDetectionAuto}};
+     switches::kTouchEventFeatureDetectionDisabled}};
 
 #if defined(USE_AURA)
 const FeatureEntry::Choice kOverscrollHistoryNavigationChoices[] = {
