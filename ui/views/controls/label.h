@@ -268,12 +268,9 @@ class VIEWS_EXPORT Label : public View,
                               ui::MenuSourceType source_type) override;
 
   // WordLookupClient overrides:
-  bool GetWordLookupDataAtPoint(const gfx::Point& point,
-                                gfx::DecoratedText* decorated_word,
-                                gfx::Point* baseline_point) override;
-
-  bool GetWordLookupDataFromSelection(gfx::DecoratedText* decorated_text,
-                                      gfx::Point* baseline_point) override;
+  bool GetDecoratedWordAtPoint(const gfx::Point& point,
+                               gfx::DecoratedText* decorated_word,
+                               gfx::Point* baseline_point) override;
 
   // SelectionControllerDelegate overrides:
   gfx::RenderText* GetRenderTextForSelectionController() override;
