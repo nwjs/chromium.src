@@ -947,11 +947,6 @@ public class PersonalDataManager {
         sRequestTimeoutSeconds = timeout;
     }
 
-    @VisibleForTesting
-    public void setSyncServiceForTesting() {
-        nativeSetSyncServiceForTesting(mPersonalDataManagerAndroid);
-    }
-
     /**
      * @return The sub-key request timeout in milliseconds.
      */
@@ -1035,6 +1030,4 @@ public class PersonalDataManager {
     private static native void nativeSetPaymentsIntegrationEnabled(boolean enable);
     private static native String nativeToCountryCode(String countryName);
     private static native void nativeCancelPendingGetSubKeys(long nativePersonalDataManagerAndroid);
-    private static native void nativeSetSyncServiceForTesting(
-            long nativePersonalDataManagerAndroid);
 }

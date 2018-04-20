@@ -35,20 +35,20 @@ namespace {
 const NSTimeInterval kPDMMaxDelaySeconds = 10.0;
 }
 
-@interface PaymentRequestEGTestBase () {
-  // The PersonalDataManager instance for the current browser state.
-  autofill::PersonalDataManager* _personalDataManager;
+@interface PaymentRequestEGTestBase ()
 
-  // Profiles added to the PersonalDataManager.
-  std::vector<autofill::AutofillProfile> _profiles;
-
-  // Credit Cards added to the PersonalDataManager.
-  std::vector<autofill::CreditCard> _cards;
-}
+// Returns the PersonalDataManager instance for the current browser state.
+- (autofill::PersonalDataManager*)personalDataManager;
 
 @end
 
 @implementation PaymentRequestEGTestBase
+
+// Profiles added to the PersonalDataManager.
+std::vector<autofill::AutofillProfile> _profiles;
+
+// Credit Cards added to the PersonalDataManager.
+std::vector<autofill::CreditCard> _cards;
 
 #pragma mark - XCTestCase
 
@@ -60,14 +60,6 @@ const NSTimeInterval kPDMMaxDelaySeconds = 10.0;
     // order to run this test.
     DCHECK(false);
   }
-}
-
-- (void)setUp {
-  [super setUp];
-  _personalDataManager =
-      autofill::PersonalDataManagerFactory::GetForBrowserState(
-          chrome_test_util::GetOriginalBrowserState());
-  _personalDataManager->SetSyncingForTest(true);
 }
 
 - (void)tearDown {
@@ -131,7 +123,8 @@ const NSTimeInterval kPDMMaxDelaySeconds = 10.0;
 }
 
 - (autofill::PersonalDataManager*)personalDataManager {
-  return _personalDataManager;
+  return autofill::PersonalDataManagerFactory::GetForBrowserState(
+      chrome_test_util::GetOriginalBrowserState());
 }
 
 - (void)loadTestPage:(const std::string&)page {

@@ -34,7 +34,7 @@ PrefService* TestAutofillClient::GetPrefs() {
 }
 
 syncer::SyncService* TestAutofillClient::GetSyncService() {
-  return test_sync_service_;
+  return nullptr;
 }
 
 identity::IdentityManager* TestAutofillClient::GetIdentityManager() {

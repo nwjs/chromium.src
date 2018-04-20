@@ -333,10 +333,6 @@ class PersonalDataManagerAndroid : public PersonalDataManagerObserver {
       JNIEnv* env,
       const base::android::JavaParamRef<jobject>& unused_obj);
 
-  void SetSyncServiceForTesting(
-      JNIEnv* env,
-      const base::android::JavaParamRef<jobject>& unused_obj);
-
  private:
   ~PersonalDataManagerAndroid() override;
 
