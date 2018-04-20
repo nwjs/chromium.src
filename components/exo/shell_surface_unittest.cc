@@ -250,6 +250,9 @@ TEST_F(ShellSurfaceTest, SetApplicationId) {
   EXPECT_EQ("pre-widget-id", *ShellSurface::GetApplicationId(window));
   shell_surface->SetApplicationId("test");
   EXPECT_EQ("test", *ShellSurface::GetApplicationId(window));
+
+  shell_surface->SetApplicationId(nullptr);
+  EXPECT_EQ(nullptr, ShellSurface::GetApplicationId(window));
 }
 
 TEST_F(ShellSurfaceTest, SetStartupId) {
@@ -268,6 +271,9 @@ TEST_F(ShellSurfaceTest, SetStartupId) {
   EXPECT_EQ("pre-widget-id", *ShellSurface::GetStartupId(window));
   shell_surface->SetStartupId("test");
   EXPECT_EQ("test", *ShellSurface::GetStartupId(window));
+
+  shell_surface->SetStartupId(nullptr);
+  EXPECT_EQ(nullptr, ShellSurface::GetStartupId(window));
 }
 
 TEST_F(ShellSurfaceTest, Move) {
