@@ -24,7 +24,7 @@ class Compositor;
 
 namespace viz {
 
-class SoftwareOutputDeviceForceCPUMac : public viz::SoftwareOutputDevice {
+class VIZ_SERVICE_EXPORT SoftwareOutputDeviceForceCPUMac : public viz::SoftwareOutputDevice {
  public:
   explicit SoftwareOutputDeviceForceCPUMac(gfx::AcceleratedWidget widget);
   ~SoftwareOutputDeviceForceCPUMac() override;

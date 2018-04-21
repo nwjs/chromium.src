@@ -16,6 +16,8 @@
 #include "ui/display/screen.h"
 
 namespace content {
+  extern bool g_support_transparency;
+  extern bool g_force_cpu_draw;
 
 namespace {
 
@@ -36,6 +38,7 @@ class RenderWidgetHostViewNSViewBridgeLocal
   void SetBackgroundColor(SkColor color) override;
   void SetVisible(bool visible) override;
   void SetTooltipText(const base::string16& display_text) override;
+  CALayer* GetBackgroundLayer() override;
 
  private:
   // display::DisplayObserver implementation.
@@ -65,8 +68,15 @@ RenderWidgetHostViewNSViewBridgeLocal::RenderWidgetHostViewNSViewBridgeLocal(
       initWithClient:std::move(client)] autorelease];
 
   background_layer_.reset([[CALayer alloc] init]);
+
+  bool isOpaque = [cocoa_view_ isOpaque];
+  if (content::g_support_transparency) {
+    [background_layer_ setBackgroundColor: (isOpaque || !content::g_support_transparency) ?
+      CGColorGetConstantColor(kCGColorWhite) : CGColorGetConstantColor(kCGColorClear)];
+  }
+
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!g_force_cpu_draw];
 }
 
 RenderWidgetHostViewNSViewBridgeLocal::
@@ -134,6 +144,11 @@ void RenderWidgetHostViewNSViewBridgeLocal::OnDisplayMetricsChanged(
   // NSWindowDidChangeBackingPropertiesNotification (some of these calls
   // will be redundant).
   [cocoa_view_ updateScreenProperties];
+}
+
+CALayer* RenderWidgetHostViewNSViewBridgeLocal::GetBackgroundLayer() {
+  assert(content::g_force_cpu_draw);
+  return background_layer_;
 }
 
 }  // namespace
