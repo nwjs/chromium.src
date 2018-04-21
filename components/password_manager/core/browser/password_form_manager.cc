@@ -152,7 +152,7 @@ void SetFieldLabelsOnUpdate(const autofill::ServerFieldType password_type,
 // Sets the autofill type of the password field stored in |submitted_form| to
 // |password_type| in |field_types| map.
 void SetFieldLabelsOnSave(const autofill::ServerFieldType password_type,
-                          const autofill::PasswordForm& submitted_form,
+                          const autofill::PasswordForm& form,
                           FieldTypeMap* field_types) {
   DCHECK(password_type == autofill::PASSWORD ||
          password_type == autofill::PROBABLY_ACCOUNT_CREATION_PASSWORD ||
@@ -160,11 +160,11 @@ void SetFieldLabelsOnSave(const autofill::ServerFieldType password_type,
          password_type == autofill::NOT_ACCOUNT_CREATION_PASSWORD)
       << password_type;
 
-  if (!submitted_form.new_password_element.empty()) {
-    (*field_types)[submitted_form.new_password_element] = password_type;
+  if (!form.new_password_element.empty()) {
+    (*field_types)[form.new_password_element] = password_type;
   } else {
-    DCHECK(!submitted_form.password_element.empty());
-    (*field_types)[submitted_form.password_element] = password_type;
+    DCHECK(!form.password_element.empty());
+    (*field_types)[form.password_element] = password_type;
   }
 }
 
@@ -887,19 +887,21 @@ bool PasswordFormManager::UploadPasswordVote(
       autofill::AutofillUploadContents::Field::NO_INFORMATION;
   if (autofill_type != autofill::USERNAME) {
     if (has_autofill_vote) {
-      DCHECK(submitted_form_);
       bool is_update = autofill_type == autofill::NEW_PASSWORD ||
                        autofill_type == autofill::PROBABLY_NEW_PASSWORD ||
                        autofill_type == autofill::NOT_NEW_PASSWORD;
+
       if (is_update) {
-        if (submitted_form_->new_password_element.empty())
+        if (form_to_upload.new_password_element.empty())
           return false;
-        SetFieldLabelsOnUpdate(autofill_type, *submitted_form_, &field_types);
+        SetFieldLabelsOnUpdate(autofill_type, form_to_upload, &field_types);
       } else {  // Saving.
-        SetFieldLabelsOnSave(autofill_type, *submitted_form_, &field_types);
+        SetFieldLabelsOnSave(autofill_type, form_to_upload, &field_types);
       }
-      field_types[submitted_form_->confirmation_password_element] =
-          autofill::CONFIRMATION_PASSWORD;
+      if (autofill_type != autofill::ACCOUNT_CREATION_PASSWORD) {
+        field_types[submitted_form_->confirmation_password_element] =
+            autofill::CONFIRMATION_PASSWORD;
+      }
     }
     if (autofill_type != autofill::ACCOUNT_CREATION_PASSWORD) {
       if (generation_popup_was_shown_)

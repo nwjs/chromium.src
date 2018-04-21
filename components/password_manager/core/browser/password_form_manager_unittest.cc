@@ -470,6 +470,7 @@ class PasswordFormManagerTest : public testing::Test {
     PasswordForm form_to_save(form);
     form_to_save.preferred = true;
     form_to_save.username_element = ASCIIToUTF16("observed-username-field");
+    form_to_save.password_element = ASCIIToUTF16("observed-password-field");
     form_to_save.username_value = match.username_value;
     form_to_save.password_value = match.password_value;
 
@@ -544,7 +545,6 @@ class PasswordFormManagerTest : public testing::Test {
     observed_form()->form_data = saved_match()->form_data;
     // Turn |observed_form_| and  into change password form.
     observed_form()->new_password_element = ASCIIToUTF16("NewPasswd");
-    observed_form()->confirmation_password_element = ASCIIToUTF16("ConfPwd");
     autofill::FormFieldData field;
     field.label = ASCIIToUTF16("NewPasswd");
     field.name = ASCIIToUTF16("NewPasswd");
@@ -573,6 +573,8 @@ class PasswordFormManagerTest : public testing::Test {
     submitted_form.username_value = saved_match()->username_value;
     submitted_form.password_value = saved_match()->password_value;
     submitted_form.new_password_value = ASCIIToUTF16("test2");
+    if (has_confirmation_field)
+      submitted_form.confirmation_password_element = ASCIIToUTF16("ConfPwd");
     submitted_form.preferred = true;
     form_manager.ProvisionallySave(
         submitted_form, PasswordFormManager::IGNORE_OTHER_POSSIBLE_USERNAMES);
@@ -601,7 +603,7 @@ class PasswordFormManagerTest : public testing::Test {
     expected_available_field_types.insert(autofill::PASSWORD);
     expected_available_field_types.insert(field_type);
     if (has_confirmation_field) {
-      expected_types[observed_form_.confirmation_password_element] =
+      expected_types[submitted_form.confirmation_password_element] =
           autofill::CONFIRMATION_PASSWORD;
       expected_available_field_types.insert(autofill::CONFIRMATION_PASSWORD);
     }
@@ -2024,13 +2026,13 @@ TEST_F(PasswordFormManagerTest, UploadFormData_NewPassword_Blacklist) {
 TEST_F(PasswordFormManagerTest, UploadPasswordForm) {
   autofill::FormData observed_form_data;
   autofill::FormFieldData field;
-  field.label = ASCIIToUTF16("Email");
+  field.label = ASCIIToUTF16("Email:");
   field.name = ASCIIToUTF16("observed-username-field");
   field.form_control_type = "text";
   observed_form_data.fields.push_back(field);
 
-  field.label = ASCIIToUTF16("password");
-  field.name = ASCIIToUTF16("password");
+  field.label = ASCIIToUTF16("Password:");
+  field.name = ASCIIToUTF16("observed-password-field");
   field.form_control_type = "password";
   observed_form_data.fields.push_back(field);
 
@@ -2331,6 +2333,8 @@ TEST_F(PasswordFormManagerTest, TestUpdateNoUsernameTextfieldPresent) {
   EXPECT_EQ(credentials.new_password_value, new_credentials.password_value);
   EXPECT_EQ(saved_match()->username_element, new_credentials.username_element);
   EXPECT_EQ(saved_match()->password_element, new_credentials.password_element);
+  EXPECT_TRUE(new_credentials.new_password_value.empty());
+  EXPECT_TRUE(new_credentials.new_password_element.empty());
   EXPECT_EQ(saved_match()->submit_element, new_credentials.submit_element);
 }
 
