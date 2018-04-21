@@ -13,6 +13,8 @@
 #include "base/strings/string16.h"
 #include "third_party/skia/include/core/SkColor.h"
 
+@class CALayer;
+
 namespace content {
 
 class RenderWidgetHostNSViewClient;
@@ -48,6 +50,9 @@ class RenderWidgetHostNSViewBridge {
 
   // Call the -[NSView setToolTipAtMousePoint] method.
   virtual void SetTooltipText(const base::string16& display_text) = 0;
+
+  // Used by g_force_cpu_draw
+  virtual CALayer* GetBackgroundLayer() = 0;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(RenderWidgetHostNSViewBridge);

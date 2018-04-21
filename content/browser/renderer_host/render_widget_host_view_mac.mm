@@ -57,7 +57,6 @@ using blink::WebMouseEvent;
 using blink::WebGestureEvent;
 
 namespace content {
-  extern bool g_support_transparency;
   extern bool g_force_cpu_draw;
 }
 
@@ -309,6 +308,13 @@ RenderWidgetHostViewMac::~RenderWidgetHostViewMac() {
 RenderWidgetHostViewCocoa* RenderWidgetHostViewMac::cocoa_view() const {
   if (ns_view_bridge_)
     return ns_view_bridge_->GetRenderWidgetHostViewCocoa();
+  return nil;
+}
+
+CALayer* RenderWidgetHostViewMac::background_layer() const {
+  assert(content::g_force_cpu_draw);
+  if (ns_view_bridge_)
+    return ns_view_bridge_->GetBackgroundLayer();
   return nil;
 }
 

@@ -83,6 +83,9 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
 
   RenderWidgetHostViewCocoa* cocoa_view() const;
 
+  // Used by g_force_cpu_draw
+  CALayer* background_layer() const;
+
   // |delegate| is used to separate out the logic from the NSResponder delegate.
   // |delegate| is retained by this class.
   // |delegate| should be set at most once.

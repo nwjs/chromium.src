@@ -256,9 +256,9 @@ GpuProcessTransportFactory::CreateSoftwareOutputDevice(
 #elif defined(USE_X11)
   return std::make_unique<viz::SoftwareOutputDeviceX11>(widget);
 #elif defined(OS_MACOSX)
-  //if (g_force_cpu_draw)
-  //  return std::make_unique<viz::SoftwareOutputDeviceForceCPUMac>(widget);
-  //else
+  if (g_force_cpu_draw)
+    return std::make_unique<viz::SoftwareOutputDeviceForceCPUMac>(widget);
+  else
     return std::make_unique<viz::SoftwareOutputDeviceMac>(widget);
 #else
   NOTREACHED();
