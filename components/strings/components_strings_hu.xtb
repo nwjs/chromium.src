@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{Nincs}=1{1 webhely}other{# webhely}}</translation>
 <translation id="1927235823738766038">Elfogadott hitel- és bankkártyák</translation>
 <translation id="194030505837763158">Ugrás ide: <ph name="LINK" /></translation>
+<translation id="1945968466830820669">Elveszítheti a hozzáférést szervezete fiókjához, vagy visszaélhetnek személyes adataival. A Chromium azt javasolja, hogy azonnal módosítsa jelszavát.</translation>
 <translation id="1948773908305951926">Elfogadott feltöltőkártyák</translation>
 <translation id="1962204205936693436">A(z) <ph name="DOMAIN" /> könyvjelzői</translation>
 <translation id="1973335181906896915">Szerializálási hiba</translation>
@@ -589,6 +590,7 @@
 <translation id="5141240743006678641">A szinkronizált jelszavak titkosítása a Google hitelesítési adataival</translation>
 <translation id="5145883236150621069">Az irányelv válasza hibakódot tartalmaz</translation>
 <translation id="5159010409087891077">Oldal megnyitása új inkognitóablakban (⇧⌘N)</translation>
+<translation id="5169827969064885044">Elveszítheti a hozzáférést szervezete fiókjához, vagy visszaélhetnek személyes adataival. A Chrome azt javasolja, hogy azonnal módosítsa jelszavát.</translation>
 <translation id="5171045022955879922">Keressen vagy írjon be egy URL-t</translation>
 <translation id="5172758083709347301">Számítógép</translation>
 <translation id="5179510805599951267">Nem <ph name="ORIGINAL_LANGUAGE" /> nyelven van? Hiba bejelentése</translation>
@@ -849,12 +851,23 @@
 <translation id="7334320624316649418">&amp;Átrendezés újra</translation>
 <translation id="733923710415886693">A szerver tanúsítványát nem A tanúsítványok átláthatósága keretrendszeren keresztül hozták nyilvánosságra.</translation>
 <translation id="7353601530677266744">Parancssor</translation>
+<translation id="7365061714576910172">Exportálás Linux-formátumban</translation>
 <translation id="7372973238305370288">keresési találat</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">Nem</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Kártya igazolása</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7407424307057130981">&lt;p&gt;Ez a hibaüzenet akkor jelenik meg, ha Superfish szoftverrel rendelkezik Windows rendszerű számítógépen.&lt;/p&gt;
+      &lt;p&gt;Kövesse ezeket a lépéseket, ha szeretné átmenetileg letiltani a szoftvert, hogy hozzáférhessen az internethez. Ehhez rendszergazdai jogosultságokra lesz szüksége.&lt;/p&gt;
+      &lt;ol&gt;
+      &lt;li&gt;Kattintson a &lt;strong&gt;Start&lt;/strong&gt; menüre, majd keresse meg és válassza ki a &lt;strong&gt;„Helyi szolgáltatások megjelenítése”&lt;/strong&gt; lehetőséget.
+      &lt;li&gt;Válassza a következőt: &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
+      &lt;li&gt;Az &lt;strong&gt;Indítási típus&lt;/strong&gt; részben válassza a &lt;strong&gt;Letiltva&lt;/strong&gt; lehetőséget.
+      &lt;li&gt;A &lt;strong&gt;Szolgáltatás állapota&lt;/strong&gt; részben kattintson a &lt;strong&gt;Leállítás&lt;/strong&gt; gombra.
+      &lt;li&gt;Kattintson az &lt;strong&gt;Alkalmaz&lt;/strong&gt;, majd az &lt;strong&gt;OK&lt;/strong&gt; gombra.
+      &lt;li&gt;Keresse fel a &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome súgóját&lt;/a&gt;, ahol további információt talál a szoftver számítógépről történő végleges eltávolításáról.
+    &lt;/ol&gt;</translation>
 <translation id="7419106976560586862">Profil elérési útja</translation>
 <translation id="7437289804838430631">Kapcsolatfelvételi adatok hozzáadása</translation>
 <translation id="7441627299479586546">Az irányelv tárgya nem megfelelő</translation>

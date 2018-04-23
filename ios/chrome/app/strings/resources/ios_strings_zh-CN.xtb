@@ -137,6 +137,7 @@
 <translation id="3393920035788932672">允许显示弹出式窗口</translation>
 <translation id="3445288400492335833"><ph name="MINUTES" />分钟</translation>
 <translation id="3448016392200048164">分割视图</translation>
+<translation id="3469166899695866866">是否停止下载？</translation>
 <translation id="3474624961160222204">继续以<ph name="NAME" />的身份使用</translation>
 <translation id="3474649192738347024">表单已填好。</translation>
 <translation id="3478058380795961209">到期月份</translation>
@@ -380,6 +381,7 @@
 <translation id="8023878949384262191">展开此部分。</translation>
 <translation id="8059533439631660104">合拢此部分。</translation>
 <translation id="806745655614357130">单独保存我的数据</translation>
+<translation id="8073670137947914548">已下载完毕</translation>
 <translation id="8076014560081431679">已保存的网站设置将不会遭到删除，并且可能会反映您的浏览习惯。<ph name="BEGIN_LINK" />了解详情<ph name="END_LINK" /></translation>
 <translation id="8080028325999236607">关闭所有标签页</translation>
 <translation id="8205564605687841303">取消</translation>

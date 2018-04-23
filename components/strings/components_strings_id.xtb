@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{Tidak ada}=1{1 situs}other{# situs}}</translation>
 <translation id="1927235823738766038">Kartu Kredit dan Debit yang Diterima</translation>
 <translation id="194030505837763158">Buka <ph name="LINK" /></translation>
+<translation id="1945968466830820669">Anda dapat kehilangan akses ke akun organisasi atau mengalami pencurian identitas. Chromium menyarankan Anda untuk mengubah sandi sekarang.</translation>
 <translation id="1948773908305951926">Kartu prabayar yang diterima</translation>
 <translation id="1962204205936693436">Bookmark <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Kesalahan serialisasi</translation>
@@ -591,6 +592,7 @@
 <translation id="5141240743006678641">Enkripsikan sandi yang disinkronkan dengan kredensial Google Anda</translation>
 <translation id="5145883236150621069">Ada kode kesalahan dalam tanggapan kebijakan</translation>
 <translation id="5159010409087891077">Buka halaman dalam Jendela samaran baru (⇧⌘N)</translation>
+<translation id="5169827969064885044">Anda dapat kehilangan akses ke akun organisasi atau mengalami pencurian identitas. Chrome menyarankan Anda untuk mengubah sandi sekarang.</translation>
 <translation id="5171045022955879922">Telusuri atau ketik URL</translation>
 <translation id="5172758083709347301">Mesin</translation>
 <translation id="5179510805599951267">Bukan <ph name="ORIGINAL_LANGUAGE" />? Laporkan kesalahan deteksi ini</translation>
@@ -851,12 +853,23 @@
 <translation id="7334320624316649418">&amp;Ulangi pengaturan ulang</translation>
 <translation id="733923710415886693">Sertifikat server tidak diungkapkan melalui Transparansi Sertifikat.</translation>
 <translation id="7353601530677266744">Baris Perintah</translation>
+<translation id="7365061714576910172">Ekspor Linux</translation>
 <translation id="7372973238305370288">hasil penelusuran</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">Tidak</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Konfirmasi Kartu</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7407424307057130981">&lt;p&gt;Anda akan melihat error ini jika memiliki software Superfish di komputer Windows.&lt;/p&gt;
+      &lt;p&gt;Ikuti langkah-langkah ini untuk menonaktifkan software tersebut sementara waktu agar Anda dapat mengakses web. Anda memerlukan hak istimewa administrator.&lt;/p&gt;
+      &lt;ol&gt;
+      &lt;li&gt;Klik &lt;strong&gt;Mulai&lt;/strong&gt;, lalu telusuri dan pilih &lt;strong&gt;"Lihat layanan lokal"&lt;/strong&gt;
+      &lt;li&gt;Pilih &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+      &lt;li&gt;Pada bagian &lt;strong&gt;Jenis startup&lt;/strong&gt;, pilih &lt;strong&gt;Nonaktif&lt;/strong&gt;
+      &lt;li&gt;Pada bagian &lt;strong&gt;Status layanan&lt;/strong&gt;, klik &lt;strong&gt;Berhenti&lt;/strong&gt;
+      &lt;li&gt;Klik &lt;strong&gt;Terapkan&lt;/strong&gt;, lalu klik &lt;strong&gt;Oke&lt;/strong&gt;
+      &lt;li&gt;Buka &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Pusat bantuan Chrome&lt;/a&gt; untuk mempelajari cara menghapus software tersebut secara permanen dari komputer
+      &lt;/ol&gt;</translation>
 <translation id="7419106976560586862">Jalur Profil</translation>
 <translation id="7437289804838430631">Tambahkan Info Kontak</translation>
 <translation id="7441627299479586546">Subjek kebijakan salah</translation>

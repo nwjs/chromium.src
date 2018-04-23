@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{なし}=1{1 件のサイト}other{# 件のサイト}}</translation>
 <translation id="1927235823738766038">利用可能なクレジット カードとデビットカード</translation>
 <translation id="194030505837763158"><ph name="LINK" /> に移動します</translation>
+<translation id="1945968466830820669">組織のアカウントにアクセスできなくなったり、個人情報が盗まれたりする可能性があります。今すぐパスワードを変更することをおすすめします。</translation>
 <translation id="1948773908305951926">利用可能なプリペイド カード</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> のブックマーク</translation>
 <translation id="1973335181906896915">シリアル化エラーです</translation>
@@ -591,6 +592,7 @@
 <translation id="5141240743006678641">Google の認証情報で同期パスワードを暗号化する</translation>
 <translation id="5145883236150621069">ポリシー応答内にエラー コードがあります</translation>
 <translation id="5159010409087891077">ページを新しいシークレット ウィンドウで開く（⇧⌘N）</translation>
+<translation id="5169827969064885044">組織のアカウントにアクセスできなくなったり、個人情報が盗まれたりする可能性があります。今すぐパスワードを変更することをおすすめします。</translation>
 <translation id="5171045022955879922">検索または URL を入力</translation>
 <translation id="5172758083709347301">マシン</translation>
 <translation id="5179510805599951267"><ph name="ORIGINAL_LANGUAGE" />でない場合はこのエラーを報告する</translation>
@@ -851,12 +853,23 @@
 <translation id="7334320624316649418">順序変更のやり直し（&amp;R）</translation>
 <translation id="733923710415886693">サーバーの証明書は、証明書の透明性ポリシーを介して公開されていません。</translation>
 <translation id="7353601530677266744">コマンドライン</translation>
+<translation id="7365061714576910172">Linux 形式でエクスポート</translation>
 <translation id="7372973238305370288">検索結果</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">いいえ</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">カードの確認</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7407424307057130981">&lt;p&gt;このエラーは、Windows パソコンで Superfish ソフトウェアを使用している場合に表示されます。&lt;/p&gt;
+      &lt;p&gt;次の手順でソフトウェアを一時的に無効にすると、インターネットに接続できるようになります。なお、この操作には管理者権限が必要です。&lt;/p&gt;
+      &lt;ol&gt;
+      &lt;li&gt;[&lt;strong&gt;スタート&lt;/strong&gt;] をクリックし、[&lt;strong&gt;ローカル サービスの表示&lt;/strong&gt;] を検索して選択します。
+      &lt;li&gt;[&lt;strong&gt;VisualDiscovery&lt;/strong&gt;] を選択します。
+      &lt;li&gt;[&lt;strong&gt;スタートアップの種類&lt;/strong&gt;] で [&lt;strong&gt;無効&lt;/strong&gt;] を選択します。
+      &lt;li&gt;[&lt;strong&gt;サービスの状態&lt;/strong&gt;] で [&lt;strong&gt;停止&lt;/strong&gt;] をクリックします。
+      &lt;li&gt;[&lt;strong&gt;適用&lt;/strong&gt;] をクリックし、[&lt;strong&gt;OK&lt;/strong&gt;] をクリックします。
+      &lt;li&gt;このソフトウェアをパソコンから完全に削除する方法については、&lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome ヘルプセンター&lt;/a&gt;をご覧ください。
+      &lt;/ol&gt;</translation>
 <translation id="7419106976560586862">プロフィール パス</translation>
 <translation id="7437289804838430631">連絡先情報を追加</translation>
 <translation id="7441627299479586546">ポリシーの対象が間違っています</translation>

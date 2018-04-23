@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{Aucun}=1{1 site}one{# site}other{# sites}}</translation>
 <translation id="1927235823738766038">Cartes de crédit et de débit acceptées</translation>
 <translation id="194030505837763158">Accédez à <ph name="LINK" /></translation>
+<translation id="1945968466830820669">Vous risquez de perdre l'accès au compte de votre organisation ou d'être victime d'usurpation d'identité. L'équipe Chromium vous recommande de modifier votre mot de passe maintenant.</translation>
 <translation id="1948773908305951926">Cartes prépayées acceptées</translation>
 <translation id="1962204205936693436">Favoris du domaine <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Erreur de sérialisation.</translation>
@@ -591,6 +592,7 @@
 <translation id="5141240743006678641">Chiffrer les mots de passe synchronisés avec vos informations de connexion Google</translation>
 <translation id="5145883236150621069">Code d'erreur présent dans la réponse de la règle.</translation>
 <translation id="5159010409087891077">Ouvrir la page dans une nouvelle fenêtre de navigation privée (⇧⌘N)</translation>
+<translation id="5169827969064885044">Vous risquez de perdre l'accès au compte de votre organisation ou d'être victime d'usurpation d'identité. L'équipe Chrome vous recommande de modifier votre mot de passe maintenant.</translation>
 <translation id="5171045022955879922">Rechercher ou saisir une URL</translation>
 <translation id="5172758083709347301">Ordinateur</translation>
 <translation id="5179510805599951267">Cette page n'est pas rédigée en <ph name="ORIGINAL_LANGUAGE" /> ? Signaler l'erreur</translation>
@@ -851,12 +853,23 @@
 <translation id="7334320624316649418">&amp;Rétablir la réorganisation</translation>
 <translation id="733923710415886693">Le certificat du serveur n'a pas été communiqué tel que le prévoient les règles de transparence des certificats.</translation>
 <translation id="7353601530677266744">Ligne de commande</translation>
+<translation id="7365061714576910172">Exporter au format Linux</translation>
 <translation id="7372973238305370288">résultat de recherche</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">Non</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">Valider la carte</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7407424307057130981">&lt;p&gt;Ce message d'erreur s'affiche si le logiciel Superfish est installé sur votre ordinateur Windows.&lt;/p&gt;
+      &lt;p&gt;Suivez ces étapes pour désactiver temporairement le logiciel afin d'accéder au Web. Vous devez disposer des droits d'administrateur.&lt;/p&gt;
+      &lt;ol&gt;
+      &lt;li&gt;Cliquez sur &lt;strong&gt;Démarrer&lt;/strong&gt;, puis recherchez et sélectionnez l'option &lt;strong&gt;Afficher les services locaux&lt;/strong&gt;
+      &lt;li&gt;Sélectionnez &lt;strong&gt;VisualDiscovery&lt;/strong&gt;
+      &lt;li&gt;Sous &lt;strong&gt;Type de démarrage&lt;/strong&gt;, sélectionnez &lt;strong&gt;Désactivé&lt;/strong&gt;
+      &lt;li&gt;Sous &lt;strong&gt;État du service&lt;/strong&gt;, cliquez sur &lt;strong&gt;Arrêter&lt;/strong&gt;
+      &lt;li&gt;Cliquez sur &lt;strong&gt;Appliquer&lt;/strong&gt;, puis sur &lt;strong&gt;OK&lt;/strong&gt;
+      &lt;li&gt;Pour savoir comment supprimer définitivement le logiciel de votre ordinateur, consultez le &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Centre d'aide Chrome&lt;/a&gt;
+      &lt;/ol&gt;</translation>
 <translation id="7419106976560586862">Chemin d'accès au profil</translation>
 <translation id="7437289804838430631">Ajouter des coordonnées</translation>
 <translation id="7441627299479586546">Objet de la règle incorrect.</translation>

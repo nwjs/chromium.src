@@ -3,7 +3,6 @@
 <translationbundle lang="ru">
 <translation id="104962181688258143">Открыть приложение "Файлы"</translation>
 <translation id="1122869341872663659">Результатов поиска по запросу "<ph name="QUERY" />": <ph name="N" /></translation>
-<translation id="1134347825771908369">Отключить звук</translation>
 <translation id="1195667586424773550">Перетащить ссылку в адресную строку вкладки</translation>
 <translation id="1204450209689312104">Открыть новое окно в режиме инкогнито</translation>
 <translation id="1290373024480130896"><ph name="MODIFIER1" /> <ph name="SEPARATOR1" /> <ph name="MODIFIER2" /> <ph name="SEPARATOR2" /> <ph name="MODIFIER3" /> <ph name="SEPARATOR3" /> <ph name="KEY" /></translation>
@@ -32,6 +31,7 @@
 <translation id="2185166372312820725">Перейти на предыдущую вкладку</translation>
 <translation id="2194790690264064655">Нажать <ph name="CTRL" /> и перейти по ссылке</translation>
 <translation id="2382644247745281995">Не поддерживается в текущей раскладке клавиатуры</translation>
+<translation id="2397416548179033562">Отображение меню Chrome</translation>
 <translation id="2424073332829844142">Включить или отключить режим Caps Lock</translation>
 <translation id="2441202986792279177">Перейти в другое окно</translation>
 <translation id="2478303094958140141">Включить или отключить ChromeVox (озвучивание действий)</translation>
@@ -49,6 +49,7 @@
 <translation id="2872353916818027657">Переключить основной монитор</translation>
 <translation id="2914313326123580426">Показать или скрыть панель инструментов разработчика</translation>
 <translation id="292495055542441795">Включить или отключить полноэкранный режим</translation>
+<translation id="3020183492814296499">Ярлыки</translation>
 <translation id="3084301071537457911">Выделить следующий объект на панели запуска</translation>
 <translation id="309173601632226815">Выделить кнопку запуска на панели запуска</translation>
 <translation id="3105917916468784889">Скриншот</translation>
@@ -156,7 +157,6 @@
 <translation id="7952165122793773711">Перейти на вкладку 1–8.</translation>
 <translation id="8025696740288105292"><ph name="CTRL" /><ph name="SEPARATOR1" /><ph name="SHIFT" /><ph name="SEPARATOR2" /><ph name="PLUS" /> или <ph name="MINUS" /></translation>
 <translation id="8026334261755873520">Очистить историю</translation>
-<translation id="8104889575691864804">Открыть меню приложения</translation>
 <translation id="8130528849632411619">Перейти к началу документа</translation>
 <translation id="8147954207400281792"><ph name="CTRL" /><ph name="SEPARATOR" /><ph name="K" /> или <ph name="E" /></translation>
 <translation id="8232835244134740473">Переключаться между панелью состояния (расположенной рядом с изображением профиля), панелью запуска, адресной строкой, панелью закладок (если видна), открытой веб-страницей и панелью загрузок (если видна).</translation>

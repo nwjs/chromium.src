@@ -857,6 +857,16 @@
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">تأیید کارت</translation>
 <translation id="7400418766976504921">نشانی وب</translation>
+<translation id="7407424307057130981">‏&lt;p&gt;اگر در رایانه Windows نرم‌افزار Superfish داشته باشید، این خطا را می‌بینید.&lt;/p&gt;
+    &lt;p&gt;برای غیرفعال کردن موقت این نرم‌افزار و دسترسی به وب، این مراحل را دنبال کنید. لازم است امتیازهای سرپرست را داشته باشید.&lt;/p&gt;
+    &lt;ol&gt;
+    &lt;li&gt;روی &lt;strong&gt;شروع&lt;/strong&gt; کلیک کنید و سپس &lt;strong&gt;«مشاهده سرویس‌های محلی»&lt;/strong&gt; را جستجو و انتخاب کنید
+    &lt;li&gt;&lt;strong&gt;VisualDiscovery&lt;/strong&gt; را انتخاب کنید
+    &lt;li&gt;در بخش &lt;strong&gt;نوع راه‌اندازی&lt;/strong&gt; ،&lt;strong&gt;غیرفعال&lt;/strong&gt; را انتخاب کنید
+    &lt;li&gt;در بخش &lt;strong&gt;وضعیت سرویس&lt;/strong&gt;، روی&lt;strong&gt;توقف&lt;/strong&gt; کلیک کنید
+    &lt;li&gt;روی &lt;strong&gt;اعمال&lt;/strong&gt; و سپس &lt;strong&gt;تأیید&lt;/strong&gt; کلیک کنید
+    &lt;li&gt;برای آشنایی با نحوه برداشتن دائم نرم‌افزار از رایانه، از &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;مرکز راهنمای ‏Chrome‏&lt;/a&gt; بازدید کنید
+    &lt;/ol&gt;</translation>
 <translation id="7419106976560586862">مسیر نمایه</translation>
 <translation id="7437289804838430631">افرودن اطلاعات تماس</translation>
 <translation id="7441627299479586546">موضوع خط‌مشی اشتباه است</translation>

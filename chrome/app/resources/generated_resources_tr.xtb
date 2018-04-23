@@ -1425,7 +1425,7 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="3141318088920353606">Dinleniyor...</translation>
 <translation id="3141917231319778873">Belirtilen istek şu cihazda desteklenmiyor: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="3143515551205905069">Senkronizasyonu iptal et</translation>
-<translation id="3143695347784622594">Sistem verilerini gönderin. Teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak Google'a gönderin. Bu seçimi cihaz <ph name="BEGIN_LINK1" />ayarlarınızdan<ph name="END_LINK1" /> istediğiniz zaman değiştirebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK2" />Daha Fazla Bilgi<ph name="END_LINK2" /></translation>
+<translation id="3143695347784622594">Sistem verilerini gönderin. Teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak gönderin. Bu seçimi cihaz <ph name="BEGIN_LINK1" />ayarlarınızdan<ph name="END_LINK1" /> istediğiniz zaman değiştirebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK2" />Daha Fazla Bilgi<ph name="END_LINK2" /></translation>
 <translation id="3144126448740580210">BİTTİ</translation>
 <translation id="3144647712221361880">Bağlantıyı farklı aç</translation>
 <translation id="3149510190863420837">Chrome Uygulamaları</translation>
@@ -1965,7 +1965,7 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="394984172568887996">IE'den Aktarıldı</translation>
 <translation id="3950820424414687140">Oturum açın</translation>
 <translation id="3954354850384043518">Devam ediyor</translation>
-<translation id="3954469006674843813"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (<ph name="REFRESH_RATE" /> Hertz)</translation>
+<translation id="3954469006674843813"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (<ph name="REFRESH_RATE" /> Hz)</translation>
 <translation id="3955193568934677022">Sitelerin korumalı içeriği oynatmasına izin ver (önerilir)</translation>
 <translation id="3956702100721821638">Google Play'e ulaşılamadı</translation>
 <translation id="3958088479270651626">Yer işaretlerini ve ayarları içe aktar</translation>
@@ -2861,6 +2861,7 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="5425042808445046667">İndirmeye devam et</translation>
 <translation id="5425722269016440406">Smart Lock, telefonunuz ve diğer cihazlarınız ile senkronize olduğundan bu ayarı kapatmak için çevrimiçi olmanız gerekir. Lütfen önce bir ağa bağlanın.</translation>
 <translation id="5425863515030416387">Cihazlarda kolayca oturum açın</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> size bildirim göndermek istiyor</translation>
 <translation id="5427278936122846523">Her Zaman Çevir</translation>
 <translation id="5427459444770871191">Saat &amp;Yönünde Döndür</translation>
 <translation id="542872847390508405">Misafir olarak göz atıyorsunuz</translation>
@@ -2897,6 +2898,7 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="5464632865477611176">Bu seferlik çalıştır</translation>
 <translation id="5465662442746197494">Yardıma mı ihtiyacınız var?</translation>
 <translation id="5469954281417596308">Yer işareti yöneticisi</translation>
+<translation id="5471768120198416576">Merhaba! Ben sizin metin okuma sesinizim.</translation>
 <translation id="5473333559083690127">Yeni PIN'i tekrar girin</translation>
 <translation id="5480254151128201294">Bu cihaz, sahibi tarafından kilitlendi.</translation>
 <translation id="5481941284378890518">Yakınlardaki Yazıcıları Ekle</translation>
@@ -2910,7 +2912,7 @@ Daha fazla bilgi için <ph name="BEGIN_LINK" />Yardım Merkezimizi<ph name="END_
 <translation id="5487521232677179737">Verileri temizle</translation>
 <translation id="5488093641312826914">"<ph name="COPIED_ITEM_NAME" />" kopyalandı</translation>
 <translation id="5488468185303821006">Gizli modda izin ver</translation>
-<translation id="5491110079163012109">Sistem verilerini gönderin. Teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak gönderin. Bu ayar, sahip tarafından uygulanır. Sahip, bu cihaza ait teşhis ve kullanım verilerini Google'a göndermeyi seçebilir. Bu seçimi ayarlardan görüntüleyebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK1" />Daha Fazla Bilgi<ph name="END_LINK1" /></translation>
+<translation id="5491110079163012109">Sistem verilerini gönderin. Teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak gönderin. Bu ayar, cihaz sahibi tarafından uygulanır. Cihaz sahibi, bu cihaza ait teşhis ve kullanım verilerini Google'a göndermeyi seçebilir. Bu seçimi ayarlardan görüntüleyebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK1" />Daha Fazla Bilgi<ph name="END_LINK1" /></translation>
 <translation id="5493792505296048976">ekran açık</translation>
 <translation id="5494362494988149300">İşlem &amp;Tamamlandığında Aç</translation>
 <translation id="5494920125229734069">Tümünü seç</translation>
@@ -3583,7 +3585,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6528513914570774834">Bu cihazın diğer kullanıcılarının bu ağı kullanmalarına izin verin</translation>
 <translation id="652948702951888897">Chrome geçmişi</translation>
 <translation id="653019979737152879"><ph name="FILE_NAME" /> senkronize ediliyor...</translation>
-<translation id="6530681427077572136">Sistem verilerini gönderin. Bu cihaz şu anda teşhis, cihaz ve uygulama kullanım verilerini otomatik olarak Google'a göndermektedir. Bu seçimi cihaz ayarlarınızdan istediğiniz zaman değiştirebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK1" />Daha Fazla Bilgi<ph name="END_LINK1" /></translation>
+<translation id="6530681427077572136">Sistem verilerini gönderin. Bu cihaz şu anda teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak göndermektedir. Bu seçimi cihaz ayarlarınızdan istediğiniz zaman değiştirebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK1" />Daha Fazla Bilgi<ph name="END_LINK1" /></translation>
 <translation id="6531282281159901044">Tehlikeli dosyayı tut</translation>
 <translation id="6534583978616527129">Bağlantıyı ilk kullanıma hazırlayın</translation>
 <translation id="654039047105555694"><ph name="BEGIN_BOLD" />Not:<ph name="END_BOLD" /> Veri toplama işlemi performansı düşürebileceğinden sadece etkinleştirmenin sonuçlarını biliyorsanız veya etkinleştirmeniz istenmişse bunu yapın.</translation>
@@ -3903,6 +3905,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7030031465713069059">Şifreyi Kaydet</translation>
 <translation id="7031962166228839643">TPM hazırlanıyor, lütfen bekleyin (bu işlem birkaç dakika sürebilir)...</translation>
 <translation id="7035437538340499453">Smart Lock hazır</translation>
+<translation id="7037509989619051237">Önizlenecek metin</translation>
 <translation id="7039326228527141150"><ph name="VENDOR_NAME" /> tedarikçisinin USB cihazlarına erişme</translation>
 <translation id="7039912931802252762">Microsoft Akıllı Kart Oturumu Açma</translation>
 <translation id="7040138676081995583">Birlikte aç...</translation>
@@ -4428,7 +4431,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7851457902707056880">Oturum açma sadece sahip hesabı üzerinden yapılabilir. Lütfen yeniden başlatın ve sahip hesabı ile oturum açın. Makine 30 saniye içerisinde otomatik olarak yeniden başlayacaktır.</translation>
 <translation id="7851716364080026749">Kamera ve mikrofon erişimini her zaman engelle</translation>
 <translation id="7853747251428735">&amp;Diğer Araçlar</translation>
-<translation id="7856006446339184955">Sistem verilerini gönderin. Bu cihaz şu anda teşhis, cihaz ve uygulama kullanım verilerini otomatik olarak Google'a göndermektedir. Bu <ph name="BEGIN_LINK1" />ayar<ph name="END_LINK1" />, sahip tarafından uygulanır. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK2" />Daha Fazla Bilgi<ph name="END_LINK2" /></translation>
+<translation id="7856006446339184955">Sistem verilerini gönderin. Bu cihaz şu anda teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak göndermektedir. Bu <ph name="BEGIN_LINK1" />ayar<ph name="END_LINK1" />, cihaz sahibi tarafından uygulanır. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK2" />Daha Fazla Bilgi<ph name="END_LINK2" /></translation>
 <translation id="7857117644404132472">İstisna ekle</translation>
 <translation id="7857949311770343000">Bu, beklediğiniz yeni sekme sayfası mı?</translation>
 <translation id="786073089922909430">Hizmet: <ph name="ARC_PROCESS_NAME" /></translation>
@@ -4479,6 +4482,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7928710562641958568">Cihazı çıkar</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" />, ekranınızı ve sesinizi paylaşıyor.</translation>
 <translation id="7931318309563332511">Bilinmiyor</translation>
+<translation id="7934414805353235750"><ph name="URL" />, korumalı içeriği oynatmak istiyor. Cihazınızın kimliği Google tarafından doğrulanacak.</translation>
 <translation id="7938594894617528435">Şu anda çevrimdışı</translation>
 <translation id="7939062555109487992">Gelişmiş seçenekler</translation>
 <translation id="7939412583708276221">Korumaya devam et</translation>
@@ -4849,7 +4853,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="8534656636775144800">Tüh! Alan adına eklenirken bir şeyler ters gitti. Lütfen tekrar deneyin.</translation>
 <translation id="8535005006684281994">Netscape Sertifikası Yenileme URL'si</translation>
 <translation id="8539727552378197395">Hayır (HttpOnly)</translation>
-<translation id="8541166929715485291">Sistem verilerini gönderin. Teşhis, cihaz ve uygulama kullanım verilerini otomatik olarak Google'a gönderir. Bu ayar, sahip tarafından uygulanır. Sahip, bu cihaza ait teşhis ve kullanım verilerini Google'a göndermeyi seçebilir. Bu seçimi <ph name="BEGIN_LINK1" />ayarlardan<ph name="END_LINK1" /> görüntüleyebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK2" />Daha Fazla Bilgi<ph name="END_LINK2" /></translation>
+<translation id="8541166929715485291">Sistem verilerini gönderin. Teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak gönderir. Bu ayar, cihaz sahibi tarafından uygulanır. Cihaz sahibi, bu cihaza ait teşhis ve kullanım verilerini Google'a göndermeyi seçebilir. Bu seçimi <ph name="BEGIN_LINK1" />ayarlardan<ph name="END_LINK1" /> görüntüleyebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK2" />Daha Fazla Bilgi<ph name="END_LINK2" /></translation>
 <translation id="8545107379349809705">Bilgileri gizle...</translation>
 <translation id="8545575359873600875">Maalesef şifreniz doğrulanamadı. Bu denetlenen kullanıcının yöneticisi yakın zamanda şifreyi değiştirmiş olabilir. Bu durumda, yeni şifre bir dahaki sefere oturum açtığınızda geçerli olacaktır. Eski şifrenizi kullanmayı deneyin.</translation>
 <translation id="8546186510985480118">Cihazda boş yer az</translation>
@@ -5257,7 +5261,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="9157697743260533322">Otomatik güncellemeler tüm kullanıcılar için ayarlanamadı (yayın öncesi başlatma hatası: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="9158715103698450907">Hata! Kimlik doğrulama sırasında bir ağ iletişim sorunu oldu. Lütfen ağ bağlantınızı kontrol edin ve tekrar deneyin.</translation>
 <translation id="9161070040817969420"><ph name="PARENT_SITE" /> için alt çerçeveler</translation>
-<translation id="916501514001398070">Sistem verilerini gönderin. Bu cihaz şu anda teşhis, cihaz ve uygulama kullanım verilerini otomatik olarak Google'a göndermektedir. Bu ayar, sahip tarafından uygulanır. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK1" />Daha Fazla Bilgi<ph name="END_LINK1" /></translation>
+<translation id="916501514001398070">Sistem verilerini gönderin. Bu cihaz şu anda teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak göndermektedir. Bu ayar, cihaz sahibi tarafından uygulanır. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK1" />Daha Fazla Bilgi<ph name="END_LINK1" /></translation>
 <translation id="9169496697824289689">Klavye kısayollarını görüntüle</translation>
 <translation id="9169931577761441333"><ph name="APP_NAME" /> uygulamasını Ana ekrana ekle</translation>
 <translation id="9170397650136757332">Şimdi parmak izinizin tüm farklı noktalarını yakalamak için parmağınızı çok az hareket ettirin</translation>

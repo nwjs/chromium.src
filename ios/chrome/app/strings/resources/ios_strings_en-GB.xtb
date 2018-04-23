@@ -137,6 +137,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="3393920035788932672">Pop-ups Allowed</translation>
 <translation id="3445288400492335833"><ph name="MINUTES" /> min</translation>
 <translation id="3448016392200048164">Split View</translation>
+<translation id="3469166899695866866">Stop download?</translation>
 <translation id="3474624961160222204">Continue as <ph name="NAME" /></translation>
 <translation id="3474649192738347024">Forms filled.</translation>
 <translation id="3478058380795961209">Month of Expiry</translation>
@@ -380,6 +381,7 @@ Your data was encrypted with your sync passphrase on <ph name="TIME" />. Enter i
 <translation id="8023878949384262191">Expands the section.</translation>
 <translation id="8059533439631660104">Collapses the section.</translation>
 <translation id="806745655614357130">Keep my data separate</translation>
+<translation id="8073670137947914548">Download finished</translation>
 <translation id="8076014560081431679">Saved site settings will not be deleted and may reflect your browsing habits. <ph name="BEGIN_LINK" />Find out more<ph name="END_LINK" /></translation>
 <translation id="8080028325999236607">Close All Tabs</translation>
 <translation id="8205564605687841303">Cancel</translation>

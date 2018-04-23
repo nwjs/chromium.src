@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{없음}=1{사이트 1개}other{사이트 #개}}</translation>
 <translation id="1927235823738766038">사용 가능한 신용카드 및 직불카드</translation>
 <translation id="194030505837763158"><ph name="LINK" />(으)로 이동</translation>
+<translation id="1945968466830820669">조직의 계정에 액세스할 수 없게 되거나 신원 도용이 발생할 수도 있습니다. 지금 비밀번호를 변경하는 것이 좋습니다.</translation>
 <translation id="1948773908305951926">사용 가능한 선불카드</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> 북마크</translation>
 <translation id="1973335181906896915">일련화 오류</translation>
@@ -591,6 +592,7 @@
 <translation id="5141240743006678641">동기화 비밀번호를 Google 자격증명으로 암호화</translation>
 <translation id="5145883236150621069">정책 응답에 오류 코드가 포함되어 있음</translation>
 <translation id="5159010409087891077">새 시크릿 창에서 페이지 열기(⇧⌘N)</translation>
+<translation id="5169827969064885044">조직의 계정에 액세스할 수 없게 되거나 신원 도용이 발생할 수도 있습니다. 지금 비밀번호를 변경하는 것이 좋습니다.</translation>
 <translation id="5171045022955879922">검색 또는 URL 입력</translation>
 <translation id="5172758083709347301">컴퓨터</translation>
 <translation id="5179510805599951267"><ph name="ORIGINAL_LANGUAGE" />가 아닙니까? 오류 신고</translation>
@@ -851,12 +853,22 @@
 <translation id="7334320624316649418">재정렬 다시 실행(&amp;R)</translation>
 <translation id="733923710415886693">서버 인증서가 인증서 투명성 정책을 사용하여 공개되지 않았습니다.</translation>
 <translation id="7353601530677266744">명령줄</translation>
+<translation id="7365061714576910172">Linux 내보내기</translation>
 <translation id="7372973238305370288">검색결과</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">안함</translation>
 <translation id="7378810950367401542">/</translation>
 <translation id="7390545607259442187">카드 확인</translation>
 <translation id="7400418766976504921">URL</translation>
+<translation id="7407424307057130981">&lt;p&gt;Windows 컴퓨터에 Superfish 소프트웨어가 있으면 이 오류가 표시됩니다.&lt;/p&gt;
+      &lt;p&gt;소프트웨어를 일시적으로 사용 중지하여 웹에 접속하려면 다음 단계를 따르세요. 관리자 권한이 필요합니다.&lt;/p&gt;
+      &lt;ol&gt;
+      &lt;li&gt;&lt;strong&gt;시작&lt;/strong&gt;을 클릭한 다음 &lt;strong&gt;’로컬 서비스 보기’&lt;/strong&gt;를 검색하여 클릭합니다.
+      &lt;li&gt;&lt;strong&gt;VisualDiscovery&lt;/strong&gt;를 선택합니다.
+      &lt;li&gt;&lt;strong&gt;시작 유형&lt;/strong&gt;에서 &lt;strong&gt;사용 안 함&lt;/strong&gt;을 선택합니다.
+      &lt;li&gt;&lt;strong&gt;서비스 상태&lt;/strong&gt;에서 &lt;strong&gt;중지&lt;/strong&gt;를 클릭합니다.
+      &lt;li&gt;&lt;strong&gt;적용&lt;/strong&gt;을 클릭한 다음 &lt;strong&gt;확인&lt;/strong&gt;을 클릭합니다.
+      &lt;li&gt;&lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Chrome 고객센터&lt;/a&gt;를 방문하여 컴퓨터에서 소프트웨어를 영구적으로 삭제하는 방법을 알아보세요.      &lt;/ol&gt;</translation>
 <translation id="7419106976560586862">프로필 경로</translation>
 <translation id="7437289804838430631">연락처 정보 추가</translation>
 <translation id="7441627299479586546">잘못된 정책 주체</translation>

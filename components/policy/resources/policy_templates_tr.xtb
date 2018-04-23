@@ -166,6 +166,16 @@
       Bu ayar devre dışı bırakılır veya yapılandırılmazsa kurumsal kullanıcılar
 
       ARC'yi kullanamaz.</translation>
+<translation id="1561183922461862993">
+      Bu politika, oturum açma ekranı için geçerlidir. Lütfen kullanıcı oturumu için geçerli olan <ph name="SITE_PER_PROCESS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse, kullanıcı oturumuna giriş sırasında kullanıcı politikası tarafından belirtilen değer uygulanırken gecikme meydana gelebilir.
+      Hem izolasyondan hem de kullanıcılar için sınırlı etkiden en iyi şekilde
+      yararlanmak amacıyla IsolateOrigins politika ayarına bakmak isteyebilirsiniz.
+      Bunun için, izole etmek istediğiniz sitelerin listesiyle IsolateOrigins'i
+      kullanabilirsiniz. Bu ayar (SitePerProcess) tüm siteleri izole eder.
+      Bu politikanın etkinleştirilmesi halinde her site kendi işleminde çalışır.
+      Bu politikanın devre dışı bırakılması halinde Site İzolasyonu öncesi işlem yönetimi mantığı etkin olur ve IsolateOrigins ile SitePerProcess politikalarının saha denemeleri devre dışı bırakılır. Kullanıcılar SitePerProcess politikasını manuel olarak etkinleştirmeye devam edebilirler.
+      Bu politikanın yapılandırılmaması halinde kullanıcı bu ayarı değiştirebilir.
+      </translation>
 <translation id="1561424797596341174">Politika, uzaktan erişim ana makinesinin Hata Ayıklama yapılarını geçersiz kılar</translation>
 <translation id="1561967320164410511">Bağımsız doğrulama için U2F plus uzantıları</translation>
 <translation id="1583248206450240930">Varsayılan olarak <ph name="PRODUCT_FRAME_NAME" /> ürününü kullan</translation>
@@ -609,7 +619,7 @@
 <translation id="2801230735743888564">Cihaz çevrimdışıyken kullanıcıların dinozor paskalya yumurtası oyununu oynamasına izin ver.
 
       Bu politika Yanlış seçeneğine ayarlanırsa kullanıcılar, cihaz çevrimdışıyken dinozor paskalya yumurtası oyununu oynayamaz. Bu ayar Doğru seçeneğine ayarlanırsa kullanıcıların dinozor oyununu oynamalarına izin verilir. Bu politika ayarlanmazsa kullanıcıların dinozor paskalya yumurtası oyununu oynamalarına kayıtlı Chrome OS'de izin verilmez, ancak diğer durumlarda izin verilir.</translation>
-<translation id="2802085784857530815">Kullanıcıların şirkete ait olmayan yazıcılara erişip erişemeyeceklerini kontrol etmenize olanak tanır
+<translation id="2802085784857530815">Kullanıcıların kuruma ait olmayan yazıcılara erişip erişemeyeceklerini kontrol etmenize olanak tanır
 
       Bu politika Doğru değerine ayarlanırsa veya hiç ayarlanmazsa kullanıcılar kendi yerel yazıcılarını kullanarak ekleme, yapılandırma ve yazdırma işlemleri yapabilirler.
 
@@ -752,6 +762,16 @@
       Ayarlanmazsa, kullanıcıdan içe aktarma işlemini gerçekleştirmesi istenebilir veya içe aktarma otomatik olarak gerçekleşebilir.</translation>
 <translation id="3219421230122020860">Gizli mod kullanılabilir</translation>
 <translation id="3220624000494482595">Kiosk uygulaması bir Android uygulamasıysa bu politika <ph name="TRUE" /> seçeneğine ayarlansa dahi <ph name="PRODUCT_OS_NAME" /> sürümü üzerinde herhangi bir kontrolü olmaz.</translation>
+<translation id="3229833076897893450">
+      Hem izolasyondan hem de kullanıcılar için sınırlı etkiden en iyi şekilde
+      yararlanmak amacıyla IsolateOrigins politika ayarına bakmak isteyebilirsiniz.
+      Bunun için, izole etmek istediğiniz sitelerin listesiyle IsolateOrigins'i
+      kullanabilirsiniz. Bu ayar (SitePerProcess) tüm siteleri izole eder.
+      Bu politikanın etkinleştirilmesi halinde her site kendi işleminde çalışır.
+      Bu politikanın devre dışı bırakılması halinde Site İzolasyonu öncesi işlem yönetimi mantığı etkin olur ve IsolateOrigins ile SitePerProcess politikalarının saha denemeleri devre dışı bırakılır. Kullanıcılar SitePerProcess politikasını manuel olarak etkinleştirmeye devam edebilirler.
+      Bu politikanın yapılandırılmaması halinde kullanıcı bu ayarı değiştirebilir.
+      <ph name="PRODUCT_OS_NAME" /> ürününde <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> cihaz politikasının da aynı değere ayarlanması önerilir. İki politika tarafından belirtilen değerler eşleşmezse, kullanıcı oturumuna giriş sırasında kullanıcı politikası tarafından belirtilen değer uygulanırken gecikme meydana gelebilir.
+      </translation>
 <translation id="3236046242843493070">Uzantı, uygulama ve kullanıcı komut dosyası yüklemelerine izin veren URL kalıpları</translation>
 <translation id="3240609035816615922">Yazıcı yapılandırması erişim politikası.</translation>
 <translation id="3243309373265599239">AC güçle çalışırken, ekran karartılmadan önce kullanıcı girişi olmadan geçecek süreyi belirtir.
@@ -837,6 +857,16 @@ Bu ayar Kapalı değerine getirilirse veya herhangi bir değer belirlenmezse <ph
           Bu politika sadece "DefaultSearchProviderEnabled" politikası etkinleştirilmişse dikkate alınır.</translation>
 <translation id="350797926066071931">Google Çeviri'yi etkinleştir</translation>
 <translation id="3512226956150568738">Müşterinin cihaz modeli, ARC'yi çalıştırmak için ext4'e taşıma işlemi zorunlu olmadan önce ARC'yi destekliyorsa ve ArcEnabled politikası doğru değerine ayarlanmışsa, bu seçenek AskUser (3 değeri) gibi çalışır. Diğer tüm durumlarda (cihaz modeli daha önce ARC'yi desteklemiyorsa veya ArcEnabled politikası yanlış değerine ayarlanmışsa), bu değer DisallowArc'a (0 değeri) eşdeğer olur.</translation>
+<translation id="3519934027321156158">
+      Bu politikanın etkinleştirilmesi halinde, virgülle ayrılmış listede
+      ad verilmiş her kaynak kendi işleminde çalışır. Bu politika alt alan
+      adlarıyla adlandırılan kaynakları da izole eder; örneğin, https://example.com/
+      adresinin belirtilmesi, https://example.com/ sitesinin bir parçası olarak
+      https://foo.example.com/ sitesinin de izole edilmesine neden olur.
+      Bu politikanın devre dışı bırakılması halinde Site İzolasyonu öncesi işlem yönetimi mantığı etkin olur ve IsolateOrigins ile SitePerProcess politikalarının saha denemeleri devre dışı bırakılır. Kullanıcılar IsolateOrigins politikasını manuel olarak etkinleştirmeye devam edebilirler.
+      Bu politikanın yapılandırılmaması halinde kullanıcı bu ayarı değiştirebilir.
+      <ph name="PRODUCT_OS_NAME" /> ürününde <ph name="DEVICE_LOGIN_SCREEN_ISOLATE_ORIGINS_POLICY_NAME" /> cihaz politikasının da aynı değere ayarlanması önerilir. İki politika tarafından belirtilen değerler eşleşmezse, kullanıcı oturumuna giriş sırasında kullanıcı politikası tarafından belirtilen değer uygulanırken gecikme meydana gelebilir.
+      </translation>
 <translation id="3524204464536655762">Hiçbir sitenin WebUSB API'si aracılığıyla USB cihazlarına erişim izni istemesine izin verme</translation>
 <translation id="3528000905991875314">Alternatif hata sayfalarını etkinleştir</translation>
 <translation id="3547954654003013442">Proxy ayarları</translation>
@@ -989,6 +1019,16 @@ False (yanlış) olarak ayarlanırsa veya hiç ayarlanmazsa, hiçbir sertifika o
       Bu politika doğru seçeneğine ayarlanırsa veya ayarlanmadan bırakılırsa kullanıcılar Chrome OS Kaydı aracılığıyla tekliflerden yararlanabilirler.
 
       Bu politika yanlış seçeneğine ayarlanırsa kullanıcılar tekliflerden yararlanamazlar.</translation>
+<translation id="4002183184444060875">
+      Bu politika, oturum açma ekranı için geçerlidir. Lütfen kullanıcı oturumu için geçerli olan <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse, kullanıcı oturumuna giriş sırasında kullanıcı politikası tarafından belirtilen değer uygulanırken gecikme meydana gelebilir.
+      Bu politikanın etkinleştirilmesi halinde, virgülle ayrılmış listede ad verilmiş
+      her kaynak kendi işleminde çalışır. Bu politika alt alan adlarıyla
+      adlandırılan kaynakları da izole eder; örneğin https://example.com/ adresinin
+      belirtilmesi, https://example.com/ sitesinin bir parçası olarak
+      https://foo.example.com/ sitesinin de izole edilmesine neden olur.
+      Bu politikanın devre dışı bırakılması halinde Site İzolasyonu öncesi işlem yönetimi mantığı etkin olur ve IsolateOrigins ile SitePerProcess politikalarının saha denemeleri devre dışı bırakılır. Kullanıcılar IsolateOrigins politikasını manuel olarak etkinleştirmeye devam edebilirler.
+      Bu politikanın yapılandırılmaması halinde oturum açma ekranı için platformun varsayılan site izolasyonu ayarları kullanılır.
+      </translation>
 <translation id="4010738624545340900">Dosya seçimi iletişim kutularının çağrılmasına izin ver</translation>
 <translation id="4012737788880122133">Doğru (True) değerine ayarlandığında otomatik güncellemeleri devre dışı bırakır.
 
@@ -2629,7 +2669,7 @@ Windows'da politika yapılandırmak için önerilen yol GPO kullanmaktır. Ancak
           Politika tarafından kaydedilen protokol işleyicileri, kullanıcı tarafından kaydedilenlerle birleştirilir ve her ikisi de kullanılabilir. Kullanıcı, yeni bir varsayılan işleyici yükleyerek politika tarafından yüklenen politika işleyicilerini geçersiz kılabilir, ancak politika tarafından kaydedilen bir protokol işleyicisini kaldıramaz.</translation>
 <translation id="9123211093995421438">Herhangi bir zamanda sabit sürümden başlayarak minimum kaç <ph name="PRODUCT_OS_NAME" /> dönüm noktasında geri almaya izin verileceğini belirler.
 
-      Varsayılan sayı, tüketici için 0, şirkete kayıtlı cihazlar için 4'tür (yaklaşık yarım yıl).
+      Varsayılan sayı, tüketici için 0, kurusal olarak kayıdedilen cihazlar için 4'tür (yaklaşık yarım yıl).
 
       Bu politika ayarlanırsa, en azından bu sayıda dönüm noktasında geri alma korumasının uygulanması engellenir.
 
