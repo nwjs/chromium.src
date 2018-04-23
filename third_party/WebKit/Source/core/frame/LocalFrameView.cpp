@@ -5648,6 +5648,9 @@ void LocalFrameView::UpdateSubFrameScrollOnMainReason(
   if (frame_view.ShouldThrottleRendering())
     return;
 
+  if (!frame_view.LayoutViewportScrollableArea())
+    return;
+
   reasons |= frame_view.MainThreadScrollingReasonsPerFrame();
   if (GraphicsLayer* layer_for_scrolling = ToLocalFrame(frame)
                                                .View()
