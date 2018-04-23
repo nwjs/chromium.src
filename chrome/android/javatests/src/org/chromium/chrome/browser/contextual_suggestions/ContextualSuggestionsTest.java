@@ -35,6 +35,11 @@ import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.net.test.EmbeddedTestServer;
 import org.chromium.ui.test.util.UiRestriction;
 
+import org.chromium.chrome.test.util.browser.RecyclerViewTestUtils;
+import org.chromium.content.browser.test.util.TestWebContentsObserver;
+import org.chromium.net.test.EmbeddedTestServer;
+import org.chromium.ui.test.util.UiRestriction;
+
 /**
  * Tests related to displaying contextual suggestions in a bottom sheet.
  */
