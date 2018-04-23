@@ -2419,32 +2419,10 @@ void UiSceneCreator::CreateOmnibox() {
   // The shadow also controls omnibox Y offset.
   auto shadow = Create<Shadow>(kOmniboxShadow, kPhaseForeground);
   shadow->set_intensity(kOmniboxShadowIntensity);
-  shadow->set_y_anchoring(TOP);
   shadow->set_y_centering(BOTTOM);
   shadow->set_corner_radius(kOmniboxCornerRadiusDMM);
-  shadow->SetTransitionedProperties({TRANSFORM});
-  shadow->SetTransitionDuration(
-      base::TimeDelta::FromMilliseconds(kOmniboxTransitionMs));
-  shadow->AddBinding(std::make_unique<Binding<bool>>(
-      VR_BIND_LAMBDA([](Model* m) { return m->omnibox_editing_enabled(); },
-                     base::Unretained(model_)),
-      VR_BIND_LAMBDA(
-          [](UiElement* e, const bool& v) {
-            float y_offset = -0.5 * kOmniboxHeightDMM;
-            // TODO(crbug.com/830592): we should not have to alter the set of
-            // transitioned properties here, but there is a bug in the
-            // transitions code in that it doesn't take into account any
-            // currently running animations when starting a transition.
-            if (v) {
-              e->SetTransitionedProperties({TRANSFORM});
-              y_offset += kOmniboxVerticalOffsetDMM;
-            } else {
-              e->SetTransitionedProperties({});
-              y_offset += kUrlBarVerticalOffsetDMM;
-            }
-            e->SetTranslate(0, y_offset, -kOmniboxShadowOffset);
-          },
-          shadow.get())));
+  shadow->SetTranslate(0, kOmniboxVerticalOffsetDMM - 0.5 * kOmniboxHeightDMM,
+                       -kOmniboxShadowOffset);
 
   auto omnibox_outer_layout =
       Create<LinearLayout>(kOmniboxOuterLayout, kPhaseNone, LinearLayout::kUp);
