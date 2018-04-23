@@ -243,4 +243,4 @@ QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_unified_iw_options, false)
 
 // If true, check again that the writer isn\'t blocked before calling
 // QuicConnection::OnCanWrite from WriteAndBundleAcksIfNotBlocked
-QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_is_write_blocked, false)
+QUIC_FLAG(bool, FLAGS_quic_reloadable_flag_quic_is_write_blocked, true)
