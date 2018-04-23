@@ -357,7 +357,10 @@ void InfoBarView::OnWillChangeFocus(View* focused_before, View* focused_now) {
 }
 
 bool InfoBarView::ShouldDrawSeparator() const {
-  return parent()->GetIndexOf(this) != 0;
+  // There will be no parent when this infobar is not in a container, e.g. if
+  // it's in a background tab.  It's still possible to reach here in that case,
+  // e.g. if ElevationIconSetter triggers a Layout().
+  return parent() && parent()->GetIndexOf(this) != 0;
 }
 
 int InfoBarView::GetSeparatorHeightDip() const {
