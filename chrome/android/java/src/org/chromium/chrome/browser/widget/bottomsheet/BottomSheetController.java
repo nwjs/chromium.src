@@ -20,7 +20,11 @@ import org.chromium.chrome.browser.contextualsearch.ContextualSearchObserver;
 import org.chromium.chrome.browser.gsa.GSAContextDisplaySelection;
 import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.tab.Tab;
+import org.chromium.chrome.browser.tabmodel.EmptyTabModelObserver;
+import org.chromium.chrome.browser.tabmodel.TabModel;
+import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
+import org.chromium.chrome.browser.tabmodel.TabModelSelectorObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabObserver;
 import org.chromium.chrome.browser.widget.FadingBackgroundView;
 import org.chromium.chrome.browser.widget.FadingBackgroundView.FadingViewObserver;
@@ -97,17 +101,36 @@ public class BottomSheetController implements ApplicationStatus.ActivityStateLis
         // Watch for navigation and tab switching that close the sheet.
         new TabModelSelectorTabObserver(tabModelSelector) {
             @Override
-            public void onShown(Tab tab) {
-                if (tab != tabModelSelector.getCurrentTab()) return;
-                clearRequestsAndHide();
-            }
-
-            @Override
             public void onPageLoadStarted(Tab tab, String url) {
                 if (tab != tabModelSelector.getCurrentTab()) return;
                 clearRequestsAndHide();
             }
         };
+
+        final TabModelObserver tabSelectionObserver = new EmptyTabModelObserver() {
+            @Override
+            public void didSelectTab(Tab tab, TabModel.TabSelectionType type, int lastId) {
+                clearRequestsAndHide();
+            }
+        };
+
+        tabModelSelector.addObserver(new TabModelSelectorObserver() {
+            @Override
+            public void onChange() {}
+
+            @Override
+            public void onNewTabCreated(Tab tab) {}
+
+            @Override
+            public void onTabModelSelected(TabModel newModel, TabModel oldModel) {
+                if (oldModel != null) oldModel.removeObserver(tabSelectionObserver);
+                newModel.addObserver(tabSelectionObserver);
+                clearRequestsAndHide();
+            }
+
+            @Override
+            public void onTabStateInitialized() {}
+        });
 
         // If the layout changes (to tab switcher, toolbar swipe, etc.) hide the sheet.
         mLayoutManager.addSceneChangeObserver(new SceneChangeObserver() {
