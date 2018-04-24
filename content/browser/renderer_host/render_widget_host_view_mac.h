@@ -78,7 +78,6 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   // TODO(lazyboy): Remove |is_guest_view_hack| once BrowserPlugin has migrated
   // to use RWHVChildFrame (http://crbug.com/330264).
   RenderWidgetHostViewMac(RenderWidgetHost* widget, bool is_guest_view_hack);
-  ~RenderWidgetHostViewMac() override;
 
   RenderWidgetHostViewCocoa* cocoa_view() const;
 
@@ -279,7 +278,6 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   void PauseForPendingResizeOrRepaintsAndDraw();
 
   // RenderWidgetHostNSViewClient implementation.
-  RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() override;
   BrowserAccessibilityManager* GetRootBrowserAccessibilityManager() override;
   void OnNSViewSyncIsRenderViewHost(bool* is_render_view) override;
   void OnNSViewRequestShutdown() override;
@@ -403,6 +401,10 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   // not be the desired behavior.
   // https://crbug.com/831843
   RenderWidgetHostImpl* GetWidgetForKeyboardEvent();
+
+ protected:
+  // This class is to be deleted through the Destroy method.
+  ~RenderWidgetHostViewMac() override;
 
  private:
   friend class RenderWidgetHostViewMacTest;
