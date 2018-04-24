@@ -122,7 +122,7 @@ class ContentHashFetcherJob
   // Will call the callback, if we haven't been cancelled.
   void DispatchCallback();
 
-  net::URLRequestContextGetter* request_context_;
+  //net::URLRequestContextGetter* request_context_;
 
   // Note: Read from multiple threads/sequences.
   const ContentHash::ExtensionKey extension_key_;
@@ -165,7 +165,7 @@ ContentHashFetcherJob::ContentHashFetcherJob(
     const GURL& fetch_url,
     bool force,
     const CompletionCallback& callback)
-    : request_context_(request_context),
+    :
       extension_key_(extension_key),
       fetch_url_(fetch_url),
       force_(force),
@@ -234,7 +234,9 @@ void ContentHashFetcherJob::DoneCheckingForVerifiedContents(
       Failed();
     }
   } else {
-    VLOG(1) << "Missing verified contents for " << extension_key_.extension_id
+    VLOG(1) << "Missing verified contents for " << extension_key_.extension_id;
+    Failed();
+#if 0
             << ", fetching...";
     net::NetworkTrafficAnnotationTag traffic_annotation =
         net::DefineNetworkTrafficAnnotation("content_hash_verification_job", R"(
@@ -268,6 +270,7 @@ void ContentHashFetcherJob::DoneCheckingForVerifiedContents(
                                net::LOAD_DISABLE_CACHE);
     url_fetcher_->SetAutomaticallyRetryOnNetworkChanges(3);
     url_fetcher_->Start();
+#endif
   }
 }
 

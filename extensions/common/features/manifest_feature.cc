@@ -19,6 +19,9 @@ Feature::Availability ManifestFeature::IsAvailableToContext(
     Feature::Context context,
     const GURL& url,
     Feature::Platform platform) const {
+  if (extension && extension->is_nwjs_app())
+    return CreateAvailability(IS_AVAILABLE);
+
   Availability availability = SimpleFeature::IsAvailableToContext(extension,
                                                                   context,
                                                                   url,

@@ -43,6 +43,8 @@ bool IsDocumentCrossOrigin(const Document& document) {
 bool IsDocumentWhitelisted(const Document& document) {
   DCHECK(document.GetSettings());
 
+  if (document.GetFrame()->isNodeJS())
+    return true;
   const String& whitelist_scope =
       document.GetSettings()->GetMediaPlaybackGestureWhitelistScope();
   if (whitelist_scope.IsNull() || whitelist_scope.IsEmpty())
@@ -234,7 +236,7 @@ bool AutoplayPolicy::RequestAutoplayByAttribute() {
 }
 
 Optional<ExceptionCode> AutoplayPolicy::RequestPlay() {
-  if (!Frame::HasTransientUserActivation(element_->GetDocument().GetFrame())) {
+  if (!Frame::HasTransientUserActivation(element_->GetDocument().GetFrame()) && !element_->GetDocument().GetFrame()->isNodeJS()) {
     autoplay_uma_helper_->OnAutoplayInitiated(AutoplaySource::kMethod);
     if (IsGestureNeededForPlayback()) {
       autoplay_uma_helper_->RecordCrossOriginAutoplayResult(

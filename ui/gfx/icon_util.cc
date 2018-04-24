@@ -232,6 +232,21 @@ base::win::ScopedHICON IconUtil::CreateHICONFromSkBitmap(
   return icon;
 }
 
+// NW fix: copied and modified from chrome/browser/ui/views/frame/glass_browser_frame_view.cc
+// Converts the |image| to a Windows icon and returns the corresponding HICON
+// handle. |image| is resized to desired |width| and |height| if needed.
+base::win::ScopedHICON IconUtil::CreateHICONFromSkBitmapSizedTo(
+  const SkBitmap& bitmap,
+  int width,
+  int height) {
+  return CreateHICONFromSkBitmap(
+    width == bitmap.width() && height == bitmap.height()
+    ? bitmap
+    : skia::ImageOperations::Resize(bitmap,
+    skia::ImageOperations::RESIZE_BEST,
+    width, height));
+}
+
 SkBitmap* IconUtil::CreateSkBitmapFromHICON(HICON icon, const gfx::Size& s) {
   // We start with validating parameters.
   if (!icon || s.IsEmpty())

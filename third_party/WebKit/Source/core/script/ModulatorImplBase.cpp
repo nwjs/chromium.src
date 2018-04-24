@@ -45,6 +45,10 @@ const SecurityOrigin* ModulatorImplBase::GetSecurityOriginForFetch() {
   return GetExecutionContext()->GetSecurityOrigin();
 }
 
+void ModulatorImplBase::AddToMap(const KURL& url, ModuleScript* script) {
+  map_->AddToMap(url, script);
+}
+
 void ModulatorImplBase::FetchTree(const ModuleScriptFetchRequest& request,
                                   ModuleTreeClient* client) {
   // Step 1. Perform the internal module script graph fetching procedure given

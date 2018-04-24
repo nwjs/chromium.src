@@ -62,6 +62,7 @@ component("embedder") {
       "//base/allocator:buildflags",
       "//components/tracing:startup_tracing",
       "//ui/base",
+      "//content/nw:nw_base"
     ]
 
     public_deps += [

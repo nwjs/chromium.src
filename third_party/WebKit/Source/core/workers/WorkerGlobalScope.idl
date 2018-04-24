@@ -42,6 +42,7 @@
 
     // https://html.spec.whatwg.org/#apis-available-to-workers
     [RaisesException] void importScripts(DOMString... urls);
+    [CallWith=ScriptState] any importNWBin(ArrayBuffer buffer);
     readonly attribute WorkerNavigator navigator;
 
 

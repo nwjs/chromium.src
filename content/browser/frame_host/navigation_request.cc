@@ -63,6 +63,11 @@
 #include "third_party/WebKit/public/common/frame/sandbox_flags.h"
 #include "third_party/WebKit/public/platform/WebMixedContentContextType.h"
 
+namespace nw {
+  typedef bool(*RphGuestFilterURLHookFn)(content::RenderProcessHost* rph, const GURL* url);
+  extern RphGuestFilterURLHookFn gRphGuestFilterURLHook;
+}
+
 namespace content {
 
 namespace {
@@ -420,6 +425,15 @@ NavigationRequest::NavigationRequest(
         frame_tree_node_->navigator()->GetDelegate()->GetUserAgentOverride();
   }
 
+  FrameTreeNode* node = frame_tree_node;
+  while (node) {
+    const std::string& nwuseragent = node->frame_owner_properties().nwuseragent;
+    if (!nwuseragent.empty()) {
+      user_agent_override = nwuseragent;
+      break;
+    }
+    node = node->parent();
+  }
   std::unique_ptr<net::HttpRequestHeaders> embedder_additional_headers;
   int additional_load_flags = 0;
   GetContentClient()->browser()->NavigationRequestStarted(
@@ -1169,6 +1183,13 @@ void NavigationRequest::OnStartChecksComplete(
       navigation_handle_->GetStartingSiteInstance()->GetSiteURL().
           SchemeIs(kGuestScheme);
 
+  bool nw_trusted = false;
+  if (is_for_guests_only) {
+    GURL dummy;
+    RenderProcessHost* render_process_host = navigating_frame_host->GetProcess();
+    if (nw::gRphGuestFilterURLHook && nw::gRphGuestFilterURLHook(render_process_host, &dummy))
+      nw_trusted = true;
+  }
   // Give DevTools a chance to override begin params (headers, skip SW)
   // before actually loading resource.
   bool report_raw_headers = false;
@@ -1185,7 +1206,7 @@ void NavigationRequest::OnStartChecksComplete(
           frame_tree_node_->frame_tree_node_id(), is_for_guests_only,
           report_raw_headers,
           navigating_frame_host->GetVisibilityState() ==
-              blink::mojom::PageVisibilityState::kPrerender),
+          blink::mojom::PageVisibilityState::kPrerender, nw_trusted),
       std::move(navigation_ui_data),
       navigation_handle_->service_worker_handle(),
       navigation_handle_->appcache_handle(), this);
