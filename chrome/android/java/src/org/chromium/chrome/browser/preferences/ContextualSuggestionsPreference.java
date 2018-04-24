@@ -13,6 +13,7 @@ import android.support.annotation.Nullable;
 import android.text.SpannableString;
 import android.view.View;
 
+import org.chromium.base.metrics.RecordUserAction;
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.contextual_suggestions.ContextualSuggestionsBridge;
 import org.chromium.chrome.browser.contextual_suggestions.EnabledStateMonitor;
@@ -92,8 +93,16 @@ public class ContextualSuggestionsPreference
 
         updateSwitch();
         mSwitch.setOnPreferenceChangeListener((preference, newValue) -> {
+            boolean enabled = (boolean) newValue;
             PrefServiceBridge.getInstance().setBoolean(
-                    Pref.CONTEXTUAL_SUGGESTIONS_ENABLED, (boolean) newValue);
+                    Pref.CONTEXTUAL_SUGGESTIONS_ENABLED, enabled);
+
+            EnabledStateMonitor.recordPreferenceEnabled(enabled);
+            if (enabled) {
+                RecordUserAction.record("ContextualSuggestions.Preference.Enabled");
+            } else {
+                RecordUserAction.record("ContextualSuggestions.Preference.Disabled");
+            }
             return true;
         });
         mSwitch.setManagedPreferenceDelegate(new ManagedPreferenceDelegate() {

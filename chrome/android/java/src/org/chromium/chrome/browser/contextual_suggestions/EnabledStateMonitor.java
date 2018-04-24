@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.contextual_suggestions;
 
 import org.chromium.base.VisibleForTesting;
+import org.chromium.base.metrics.RecordHistogram;
 import org.chromium.chrome.browser.locale.LocaleManager;
 import org.chromium.chrome.browser.preferences.Pref;
 import org.chromium.chrome.browser.preferences.PrefChangeRegistrar;
@@ -68,6 +69,8 @@ public class EnabledStateMonitor implements SyncStateChangedListener, SignInStat
         SigninManager.get().addSignInStateObserver(this);
         TemplateUrlService.getInstance().addObserver(this);
         updateEnabledState();
+        recordPreferenceEnabled(
+                PrefServiceBridge.getInstance().getBoolean(Pref.CONTEXTUAL_SUGGESTIONS_ENABLED));
     }
 
     /** Destroys the EnabledStateMonitor. */
@@ -100,6 +103,14 @@ public class EnabledStateMonitor implements SyncStateChangedListener, SignInStat
     public static boolean getEnabledState() {
         return getSettingsEnabled()
                 && PrefServiceBridge.getInstance().getBoolean(Pref.CONTEXTUAL_SUGGESTIONS_ENABLED);
+    }
+
+    public static void recordEnabled(boolean enabled) {
+        RecordHistogram.recordBooleanHistogram("ContextualSuggestions.EnabledState", enabled);
+    }
+
+    public static void recordPreferenceEnabled(boolean enabled) {
+        RecordHistogram.recordBooleanHistogram("ContextualSuggestions.Preference.State", enabled);
     }
 
     /** Called when accessibility mode changes. */
@@ -147,7 +158,10 @@ public class EnabledStateMonitor implements SyncStateChangedListener, SignInStat
             mObserver.onSettingsStateChanged(mSettingsEnabled);
         }
 
-        if (mEnabled != previousState) mObserver.onEnabledStateChanged(mEnabled);
+        if (mEnabled != previousState) {
+            mObserver.onEnabledStateChanged(mEnabled);
+            recordEnabled(mEnabled);
+        }
     }
 
     private static boolean isDSEConditionMet() {
