@@ -17,6 +17,7 @@ import android.view.ViewGroup;
 import android.view.ViewStructure;
 import android.view.autofill.AutofillValue;
 
+import org.chromium.base.BuildInfo;
 import org.chromium.base.ThreadUtils;
 import org.chromium.components.autofill.AutofillProvider;
 import org.chromium.components.autofill.FormData;
