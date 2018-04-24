@@ -5016,7 +5016,6 @@ bubblePresenterForFeature:(const base::Feature&)feature
   };
 
   self.inNewTabAnimation = YES;
-  CGRect oldContentAreaFrame = _contentArea.frame;
   if (!background) {
     // Create the new page image, and load with the new tab snapshot except if
     // it is the NTP.
@@ -5027,9 +5026,8 @@ bubblePresenterForFeature:(const base::Feature&)feature
         !_isOffTheRecord && !IsIPadIdiom()) {
       offset = 0;
       // Temporary expand content area to take whole view space. Otherwise the
-      // animated NTP will be clipped by content area bound. Previous frame is
-      // stored in |oldContentAreaFrame| and will be reset back on animation
-      // completion.
+      // animated NTP will be clipped by content area bound. Previous frame will
+      // be reset back on the animation completion.
       _contentArea.frame = self.view.frame;
       newPage = tab.view;
       newPage.userInteractionEnabled = NO;
@@ -5074,7 +5072,13 @@ bubblePresenterForFeature:(const base::Feature&)feature
             self.foregroundTabWasAddedCompletionBlock();
             self.foregroundTabWasAddedCompletionBlock = nil;
           }
-          _contentArea.frame = oldContentAreaFrame;
+
+          // Restore content area frame, which was resized to fullscreen for
+          // NTP opening animation.
+          CGRect contentAreaFrame = self.view.bounds;
+          contentAreaFrame.origin.y += StatusBarHeight();
+          contentAreaFrame.size.height -= StatusBarHeight();
+          _contentArea.frame = contentAreaFrame;
         });
   } else {
     // SnapshotTabHelper::UpdateSnapshot will force a screen redraw, so take the
