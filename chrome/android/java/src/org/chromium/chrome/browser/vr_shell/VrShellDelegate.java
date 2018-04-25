@@ -467,7 +467,7 @@ public class VrShellDelegate
         // TODO(mthiesse, crbug.com/791090): Re-enable VR mode for devices that boot to VR once we
         // support those devices.
         VrClassesWrapper wrapper = getVrClassesWrapper();
-        if (wrapper == null || wrapper.bootsToVr() || !isVrCoreCompatible(tabToShowInfobarIn)) {
+        if (wrapper == null || !isVrCoreCompatible(tabToShowInfobarIn)) {
             return VrSupportLevel.VR_NOT_AVAILABLE;
         }
 
@@ -704,7 +704,7 @@ public class VrShellDelegate
      */
     public static void setVrModeEnabled(Activity activity, boolean enabled) {
         VrClassesWrapper wrapper = getVrClassesWrapper();
-        if (wrapper == null || wrapper.bootsToVr()) return;
+        if (wrapper == null) return;
         ensureLifecycleObserverInitialized();
         if (enabled) {
             if (sVrModeEnabledActivitys.contains(activity)) return;
@@ -880,7 +880,7 @@ public class VrShellDelegate
     }
 
     public static boolean deviceSupportsVrLaunches() {
-        return isDaydreamReadyDevice() && !getVrClassesWrapper().bootsToVr();
+        return isDaydreamReadyDevice();
     }
 
     // TODO(mthiesse): Should have package visibility only. We need to unify our vr and vr_shell
@@ -949,7 +949,7 @@ public class VrShellDelegate
      *  @return Whether or not VR is supported on this platform.
      */
     /* package */ static boolean isVrEnabled() {
-        return getVrClassesWrapper() != null && !getVrClassesWrapper().bootsToVr();
+        return getVrClassesWrapper() != null;
     }
 
     private static void addBlackOverlayViewForActivity(ChromeActivity activity) {
@@ -1230,6 +1230,13 @@ public class VrShellDelegate
         // UI which is gone.
         assert !mPaused;
         if (mInVr) return;
+        if (!mRequestedWebVr && !tentativeWebVrMode && !mAutopresentWebVr
+                && getVrClassesWrapper().bootsToVr()) {
+            // We don't support VR browsing on standalone devices, so if we try to enter browsing
+            // mode, just drop back to the 2D-in-VR path.
+            cancelPendingVrEntry();
+            return;
+        }
         if (mNativeVrShellDelegate == 0) {
             cancelPendingVrEntry();
             return;
@@ -1597,6 +1604,12 @@ public class VrShellDelegate
             getVrDaydreamApi().launchVrHomescreen();
             return;
         }
+
+        if (getVrClassesWrapper().bootsToVr()) {
+            shutdownVr(true /* disableVrMode */, true /* stayingInChrome */);
+            return;
+        }
+
         if (!isVrBrowsingEnabled()) {
             if (isDaydreamCurrentViewerInternal()) {
                 getVrDaydreamApi().launchVrHomescreen();
