@@ -2871,6 +2871,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5425042808445046667">Продолжить скачивание</translation>
 <translation id="5425722269016440406">Чтобы отключить Smart Lock, войдите в Интернет. Функция настроена на нескольких устройствах, поэтому необходима синхронизация.</translation>
 <translation id="5425863515030416387">Быстрый вход на всех устройствах</translation>
+<translation id="5426179911063097041">С сайта <ph name="SITE" /> поступил запрос на отправку уведомлений.</translation>
 <translation id="5427278936122846523">Всегда переводить</translation>
 <translation id="5427459444770871191">Повернуть &amp;по часовой стрелке</translation>
 <translation id="542872847390508405">Вы вошли в гостевом режиме</translation>
@@ -2907,6 +2908,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5464632865477611176">Запустить один раз</translation>
 <translation id="5465662442746197494">Справка</translation>
 <translation id="5469954281417596308">Диспетчер закладок</translation>
+<translation id="5471768120198416576">Здравствуйте! Я буду озвучивать для вас текст.</translation>
 <translation id="5473333559083690127">Повторно введите новый PIN-код</translation>
 <translation id="5480254151128201294">Устройство заблокировано владельцем.</translation>
 <translation id="5481941284378890518">Добавить ближайшие принтеры</translation>
@@ -3067,7 +3069,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="5700836101007545240">Администратор запретил добавлять подключения</translation>
 <translation id="5701381305118179107">Выровнять по центру</translation>
 <translation id="5702898740348134351">&amp;Изменить поисковые системы...</translation>
-<translation id="5704875434923668958">Синхронизация завершена</translation>
+<translation id="5704875434923668958">Синхронизация:</translation>
 <translation id="5707185214361380026">Не удалось загрузить расширение из:</translation>
 <translation id="5707604204219538797">К следующему слову</translation>
 <translation id="5708171344853220004">Имя участника Microsoft</translation>
@@ -3915,6 +3917,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7030031465713069059">Сохранить пароль</translation>
 <translation id="7031962166228839643">Выполняется подготовка доверенного платформенного модуля (может занять несколько минут)...</translation>
 <translation id="7035437538340499453">Функция Smart Lock настроена</translation>
+<translation id="7037509989619051237">Образец голоса</translation>
 <translation id="7039326228527141150">Доступ к USB-устройствам от <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">Вход по смарт-карте Microsoft</translation>
 <translation id="7040138676081995583">Открыть с помощью…</translation>
@@ -4491,6 +4494,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="7928710562641958568">Извлечь устройство</translation>
 <translation id="79312157130859720">Приложение "<ph name="APP_NAME" />" предоставило доступ к экрану и аудио.</translation>
 <translation id="7931318309563332511">Неизвестно</translation>
+<translation id="7934414805353235750">С сайта <ph name="URL" /> поступил запрос на воспроизведение защищенного контента. Для вашего устройства будет проведена проверка Google.</translation>
 <translation id="7938594894617528435">Сейчас не в Сети</translation>
 <translation id="7939062555109487992">Расширенные настройки</translation>
 <translation id="7939412583708276221">Все равно продолжить</translation>
@@ -5297,7 +5301,6 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="9214695392875603905">Кекс</translation>
 <translation id="9215293857209265904">Добавлено расширение или приложение: <ph name="EXTENSION_NAME" /></translation>
 <translation id="9215934040295798075">Выбрать обои</translation>
-<translation id="9218027443531385788">Чтобы скачивать и использовать приложения Android, необходимо установить это обновление. Во время установки пользоваться устройством <ph name="DEVICE_TYPE" /> нельзя. После обновления <ph name="DEVICE_TYPE" /> перезагрузится автоматически.</translation>
 <translation id="9218430445555521422">Сделать браузером по умолчанию</translation>
 <translation id="9219103736887031265">Картинки</translation>
 <translation id="9220525904950070496">Удалить аккаунт</translation>

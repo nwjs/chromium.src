@@ -180,7 +180,7 @@
 <translation id="1561967320164410511">U2F ditambah beberapa ekstensi untuk masing-masing pengesahan</translation>
 <translation id="1574554504290354326">Setelan ini tidak digunakan lagi, gunakan SafeBrowsingExtendedReportingEnabled. Mengaktifkan atau menonaktifkan SafeBrowsingExtendedReportingEnabled sama dengan menyetel SafeBrowsingExtendedReportingOptInAllowed ke False.
 
-      Menyetel kebijakan ini ke false akan mencegah agar pengguna tidak memilih untuk mengirimkan beberapa informasi sistem dan konten halaman ke server Google. Jika setelan ini adalah true atau tidak dikonfigurasi, pengguna akan diizinkan untuk mengirimkan beberapa informasi sistem dan konten halaman ke Safe Browsing guna membantu mendeteksi aplikasi dan situs yang berbahaya.
+      Menyetel kebijakan ini ke false akan mencegah pengguna agar tidak memilih untuk mengirimkan beberapa informasi sistem dan konten halaman ke server Google. Jika setelan ini adalah true atau tidak dikonfigurasi, pengguna akan diizinkan untuk mengirimkan beberapa informasi sistem dan konten halaman ke Safe Browsing guna membantu mendeteksi aplikasi dan situs yang berbahaya.
 
       Lihat https://developers.google.com/safe-browsing untuk mengetahui info selengkapnya tentang Safe Browsing.</translation>
 <translation id="1583248206450240930">Gunakan <ph name="PRODUCT_FRAME_NAME" /> jika tidak diubah</translation>
@@ -905,9 +905,9 @@
 
       Agar penerapan Transparansi Sertifikat dinonaktifkan saat kebijakan ini ditetapkan, hash harus berupa subjectPublicKeyInfo yang muncul di sertifikat CA yang dikenali sebagai Otoritas Sertifikat Lama (CA). CA Lama adalah CA yang telah dipercaya publik secara default oleh 1 atau beberapa sistem operasi yang didukung oleh <ph name="PRODUCT_NAME" />, namun tidak dipercaya oleh Proyek Open Source Android atau <ph name="PRODUCT_OS_NAME" />.
 
-      Hash subjectPublicKeyInfo ditentukan dengan menggabungkan nama algoritme hash, karakter "/", dan encoding Base64 dari algoritme hash tersebut diterapkan ke subjectPublicKeyInfo DER-encoded dari sertifikat yang ditentukan. Encoding Base64 memiliki format yang sama dengan Sidik jari SPKI, seperti yang ditetapkan dalam RFC 7469, Pasal 2.4. Algoritme hash yang tidak dikenali akan diabaikan. Satu-satunya algoritme hash saat ini adalah "sha256".
+      Hash subjectPublicKeyInfo ditentukan dengan menggabungkan nama algoritme hash, karakter "/", dan encoding Base64 dari algoritme hash tersebut diterapkan ke subjectPublicKeyInfo terenkode-DER dari sertifikat yang ditentukan. Encoding Base64 memiliki format yang sama dengan Sidik jari SPKI, seperti yang ditetapkan dalam RFC 7469, Pasal 2.4. Algoritme hash yang tidak dikenali akan diabaikan. Satu-satunya algoritme hash yang saat ini didukung adalah "sha256".
 
-      Jika kebijakan ini tidak disetel, sertifikat yang harus diungkapkan melalui Transaparansi Sertifikat akan dianggap tidak tepercaya jika tidak diungkapkan menurut kebijakan Transparansi Sertifikat.</translation>
+      Jika kebijakan ini tidak disetel, sertifikat yang harus diungkapkan melalui Transparansi Sertifikat akan dianggap tidak tepercaya jika tidak diungkapkan menurut kebijakan Transparansi Sertifikat.</translation>
 <translation id="3765260570442823273">Durasi pesan peringatan proses keluar nganggur</translation>
 <translation id="377044054160169374">Penerapan Pencegahan Pengalaman yang Menyinggung</translation>
 <translation id="3780152581321609624">Sertakan port non-standar di SPN Kerberos</translation>
@@ -2260,16 +2260,16 @@
       Jika setelan ini tidak dikonfigurasi, pengguna dapat mengaktifkan dan menonaktifkan Android Backup Service di aplikasi Setelan Android.</translation>
 <translation id="780603170519840350">Menonaktifkan penerapan persyaratan Transparansi Sertifikat untuk daftar hash subjectPublicKeyInfo.
 
-      Kebijakan ini memungkinkan untuk menonaktifkan persyaratan pengungkapan Transparansi Sertifikat untuk rantai sertifikat yang berisi sertifikat dengan salah satu hash subjectPublicKeyInfo yang ditentukan. Hal ini memungkinkan sertifikat tidak tepercaya terus digunakan untuk host Perusahaan.
+      Kebijakan ini memungkinkan untuk menonaktifkan persyaratan pengungkapan Transparansi Sertifikat untuk rantai sertifikat yang berisi sertifikat dengan salah satu hash subjectPublicKeyInfo yang ditentukan. Hal ini memungkinkan sertifikat yang dapat dianggap tidak tepercaya, karena tidak diungkapkan secara publik dengan sesuai, terus digunakan untuk host Perusahaan.
 
       Agar penerapan Transparansi Sertifikat dinonaktifkan saat kebijakan ini disetel, salah satu ketentuan berikut harus terpenuhi:
       1. Hash berasal dari subjectPublicKeyInfo sertifikat server.
       2. Hash berasal dari subjectPublicKeyInfo yang muncul di sertifikat CA dalam rantai sertifikat, sertifikat CA tersebut dibatasi melalui ekstensi X.509v3 nameConstraints, 1 atau beberapa directoryName nameConstraints ada di permittedSubtrees, dan directoryName berisi atribut organizationName.
-      3. Hash berasal dari subjectPublicKeyInfo yang muncul di sertifikat CA dalam rantai sertifikat, sertifikat CA memiliki 1 atau beberapa atribut organizationName dalam Subyek sertifikat, dan sertifikat server berisi jumlah atribut organizationName yang sama, dalam urutan yang sama, dan dengan nilai identik byte demi byte.
+      3. Hash berasal dari subjectPublicKeyInfo yang muncul di sertifikat CA dalam rantai sertifikat, sertifikat CA memiliki 1 atau beberapa atribut organizationName dalam Subjek sertifikat, dan sertifikat server berisi jumlah atribut organizationName yang sama, dalam urutan yang sama, dan dengan nilai identik byte demi byte.
 
-      Hash subjectPublicKeyInfo ditentukan dengan menggabungkan nama algoritme hash, karakter "/", dan encoding Base64 dari algoritme hash tersebut yang diterapkan ke subjectPublicKeyInfo DER-encoded dari sertifikat yang ditentukan. Encoding Base64 memiliki format yang sama seperti Sidik jari SPKI, seperti yang ditetapkan dalam RFC 7469, Pasal 2.4. Algoritme hash yang tidak dikenali akan diabaikan. Satu-satunya algoritme hash saat ini adalah "sha256".
+      Hash subjectPublicKeyInfo ditentukan dengan menggabungkan nama algoritme hash, karakter "/", dan encoding Base64 dari algoritme hash tersebut yang diterapkan ke subjectPublicKeyInfo terenkode-DER dari sertifikat yang ditentukan. Encoding Base64 memiliki format yang sama seperti Sidik jari SPKI, seperti yang ditetapkan dalam RFC 7469, Pasal 2.4. Algoritme hash yang tidak dikenali akan diabaikan. Satu-satunya algoritme hash yang saat ini didukung adalah "sha256".
 
-      Jika kebijakan ini tidak disetel, sertifikat yang harus diungkapkan melalui Transaparansi Sertifikat akan dianggap tidak tepercaya jika tidak diungkapkan menurut kebijakan Transparansi Sertifikat.</translation>
+      Jika kebijakan ini tidak disetel, sertifikat yang harus diungkapkan melalui Transparansi Sertifikat akan dianggap tidak tepercaya jika tidak diungkapkan menurut kebijakan Transparansi Sertifikat.</translation>
 <translation id="7818131573217430250">Menyetel status default mode kontras tinggi di layar masuk</translation>
 <translation id="7822837118545582721">Jika kebijakan ini disetel ke true, pengguna tidak akan dapat menuliskan apa pun pada perangkat penyimpanan eksternal.
 

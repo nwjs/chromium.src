@@ -303,6 +303,7 @@
 <translation id="3819178904835489326">已删除 <ph name="NUMBER_OF_DOWNLOADS" /> 项下载内容</translation>
 <translation id="3822502789641063741">要清除网站存储数据吗？</translation>
 <translation id="3859306556332390985">前进</translation>
+<translation id="3871936494901781193">当您向上滚动屏幕时，系统会显示指向相关页面的快速链接。</translation>
 <translation id="3894427358181296146">添加文件夹</translation>
 <translation id="3895926599014793903">强制启用缩放功能</translation>
 <translation id="3927692899758076493">Sans Serif</translation>
@@ -310,6 +311,7 @@
 <translation id="393697183122708255">无法启用语音搜索功能</translation>
 <translation id="3950820424414687140">登录</translation>
 <translation id="395206256282351086">搜索和网站建议已停用</translation>
+<translation id="3952533382939530115">此功能会进行<ph name="BEGIN_LINK" />同步<ph name="END_LINK" />处理。您所访问的网页的网址均会被发送到 Google。</translation>
 <translation id="3967822245660637423">下载完毕</translation>
 <translation id="397583555483684758">同步功能已停止工作</translation>
 <translation id="3976396876660209797">移除并重新创建此快捷方式</translation>
@@ -779,6 +781,7 @@
 <translation id="8087000398470557479">此内容来自 <ph name="DOMAIN_NAME" />（由 Google 提供）。</translation>
 <translation id="8100932616285851614">已关闭导航面板</translation>
 <translation id="8103578431304235997">隐身标签页</translation>
+<translation id="8105951947646329362">提供相关页面建议</translation>
 <translation id="8116925261070264013">已静音的网站</translation>
 <translation id="813082847718468539">查看网站信息</translation>
 <translation id="8137558756159375272">“触摸搜索”会将所选字词和当前页面（作为上下文）一起发送给 Google 搜索。您可以在<ph name="BEGIN_LINK" />设置<ph name="END_LINK" />中停用此功能。</translation>

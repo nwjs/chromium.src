@@ -7,7 +7,7 @@
 <translation id="1007408791287232274">تعذر تحميل الأجهزة.</translation>
 <translation id="1008186147501209563">تصدير الإشارات المرجعية</translation>
 <translation id="1010833424573920260">{NUM_PAGES,plural, =1{ صفحة واحدة غير مستجيبة}zero{ صفحات غير مستجيبة}two{صفحتان غير مستجيبتين}few{ صفحات غير مستجيبة}many{ صفحة غير مستجيبة}other{ من الصفحات غير مستجيبة}}</translation>
-<translation id="1012794136286421601">‏تجري مزامنة المستندات وجداول البيانات والعروض التقديمية والرسومات. افتح تطبيق Google Drive للدخول إليها على الإنترنت أو في وضع عدم الاتصال.</translation>
+<translation id="1012794136286421601">‏تجري مزامنة المستندات وجداول البيانات والعروض التقديمية والرسومات. افتح تطبيق Google Drive للدخول إليها على الإنترنت أو بلا إنترنت.</translation>
 <translation id="1013707859758800957">تم السماح بتشغيل مكون إضافي غير محمي على هذه الصفحة.</translation>
 <translation id="1015318665228971643">تعديل اسم المجلد</translation>
 <translation id="1016437870506746108">{COUNT,plural, =0{فتح الكل في &amp;نافذة جديدة}=1{فتح في &amp;نافذة جديدة}two{فتح كلا العنوانين (#) في &amp;نافذة جديدة}few{فتح كل الـ (#) عناوين في &amp;نافذة جديدة}many{فتح كل الـ (#) عنوانًا في &amp;نافذة جديدة}other{فتح كل الـ (#) عنوان في &amp;نافذة جديدة}}</translation>
@@ -573,7 +573,7 @@
 <translation id="1839704667838141620">تغيير كيفية مشاركة هذا الملف</translation>
 <translation id="1841545962859478868">قد يراقب مشرف الجهاز ما يلي:</translation>
 <translation id="1841705068325380214">تم إيقاف <ph name="EXTENSION_NAME" /></translation>
-<translation id="1844692022597038441">هذا الملف غير متاح في وضع عدم الاتصال.</translation>
+<translation id="1844692022597038441">هذا الملف غير متاح بلا إنترنت.</translation>
 <translation id="1846308012215045257">‏انقر بالماوس مع الضغط على مفتاح Ctrl لتشغيل <ph name="PLUGIN_NAME" /></translation>
 <translation id="1848219224579402567">تسجيل الخروج عند إغلاق الغطاء</translation>
 <translation id="184823282865851239">الحظر إذا كان الموقع يميل إلى عرض إعلانات متداخلة</translation>
@@ -1193,7 +1193,7 @@
       <ph name="LIST_ITEM" />إعادة كلمة مرور تسجيل الدخول لكل من جذر النظام والجهاز من خلال قيمة مخصصة حتى يُمكنك إضافة SSH يدويًا إلى الجهاز
     <ph name="END_LIST" />
     <ph name="BR" />
-    بعد حدوث التفعيل، ستبقى معظم ميزات التصحيح مفعّلة حتى بعد إجراء powerwash أو محو البيانات على جهاز مُدار من قبل المؤسسات.  لتعطيل ميزات التصحيح بالكامل، أكمل عملية استرداد تشغيل نظام Chrome (https://support.google.com/chromebook/answer/1080595).
+    بعد حدوث التفعيل، ستبقى معظم ميزات التصحيح مفعّلة حتى بعد إجراء powerwash أو محو البيانات على جهاز مُدار من قبل المؤسسات.  لإيقاف ميزات التصحيح بالكامل، أكمل عملية استرداد تشغيل نظام Chrome (https://support.google.com/chromebook/answer/1080595).
     <ph name="BR" />
     <ph name="BR" />
     لمزيد من المعلومات حول ميزات التصحيح، راجع:<ph name="BR" />
@@ -1239,7 +1239,7 @@
 <translation id="2861941300086904918">‏إدارة الأمان لـ Native Client</translation>
 <translation id="2864601841139725659">تعيين صورة الملف الشخصي</translation>
 <translation id="2867768963760577682">فتح كعلامة تبويب مثبتة</translation>
-<translation id="2868746137289129307">تعتبر هذه الإضافة قديمة ومعطّلة بواسطة سياسة المؤسسة. وقد تصبح مُمكّنة تلقائيًا عندما يتوفر إصدار أحدث.</translation>
+<translation id="2868746137289129307">تعتبر هذه الإضافة قديمة وغير مفعّلة بواسطة سياسة المؤسسة. وقد تصبح مفعّلة تلقائيًا عندما يتوفر إصدار أحدث.</translation>
 <translation id="2870560284913253234">الموقع</translation>
 <translation id="2870909136778269686">جارٍ التحديث...</translation>
 <translation id="2871813825302180988">يتم الآن استخدام هذا الحساب فعلاً على هذا الجهاز.</translation>
@@ -1442,7 +1442,7 @@
 <translation id="3153177132960373163">السماح لجميع مواقع الويب باستخدام مكونات إضافية للوصول إلى جهاز الكمبيوتر</translation>
 <translation id="3153862085237805241">حفظ البطاقة</translation>
 <translation id="3154351730702813399">قد يراقب مشرف الجهاز نشاط التصفح.</translation>
-<translation id="3154429428035006212">في وضع عدم الاتصال لمدة تتجاوز شهرًا</translation>
+<translation id="3154429428035006212">بلا إنترنت لمدة تتجاوز شهرًا</translation>
 <translation id="3156531245809797194">‏لاستخدام Chrome، يُرجى تسجيل الدخول</translation>
 <translation id="3157931365184549694">استعادة</translation>
 <translation id="3160842278951476457"><ph name="ISSUED_BY" /> [<ph name="ISSUED_TO" />] (مستندة إلى الأجهزة)</translation>
@@ -1865,7 +1865,7 @@
 <translation id="3798449238516105146">الإصدار</translation>
 <translation id="3799201711591988491">{COUNT,plural, =0{&amp;فتح الكل}=1{&amp;فتح الإشارة المرجعية}two{&amp;فتح الكل (#)}few{&amp;فتح الكل (#)}many{&amp;فتح الكل (#)}other{&amp;فتح الكل (#)}}</translation>
 <translation id="3800806661949714323">عرض الكل (مستحسن)</translation>
-<translation id="380408572480438692">‏يساعد تفعيل جمع بيانات مستوى الأداء Google في تحسين النظام بمرور الوقت. وتجدر الإشارة إلى أنه لا يتم إرسال أي بيانات حتى ترسل تقريرًا بتعليقاتك (Alt-Shift-I) مع تضمين بيانات مستوى الأداء. ويمكنك الرجوع إلى هذه الشاشة لتعطيل جمع البيانات متى شئت.</translation>
+<translation id="380408572480438692">‏يساعد تفعيل جمع بيانات مستوى الأداء Google في تحسين النظام بمرور الوقت. وتجدر الإشارة إلى أنه لا يتم إرسال أي بيانات حتى ترسل تقريرًا بتعليقاتك (Alt-Shift-I) مع تضمين بيانات مستوى الأداء. ويمكنك الرجوع إلى هذه الشاشة لإيقاف جمع البيانات متى شئت.</translation>
 <translation id="3806965327722135869">العثور على البرامج الضارة وإزالتها</translation>
 <translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (معرف الإضافة "<ph name="EXTENSION_ID" />") غير مسموح به على شاشة تسجيل الدخول.</translation>
 <translation id="3807747707162121253">إل&amp;غاء</translation>
@@ -1889,7 +1889,7 @@
 <translation id="3829932584934971895">نوع مقدم الخدمة:</translation>
 <translation id="3830674330436234648">لا تتوفر أي عملية تشغيل</translation>
 <translation id="3831486154586836914">تم الدخول إلى وضع النظرة العامة على النافذة</translation>
-<translation id="383161972796689579">عطل مالك هذا الجهاز إمكانية إضافة مستخدمين جدد.</translation>
+<translation id="383161972796689579">أوقف مالك هذا الجهاز إمكانية إضافة مستخدمين جدد.</translation>
 <translation id="3834775135533257713">تتعذر إضافة التطبيق "<ph name="TO_INSTALL_APP_NAME" />" نظرًا لأنه يتعارض مع "<ph name="INSTALLED_APP_NAME" />".</translation>
 <translation id="3835522725882634757">عذرًا! يرسل هذا الخادم بيانات لا يستطيع <ph name="PRODUCT_NAME" /> استيعابها. يُرجى <ph name="BEGIN_LINK" />الإبلاغ عن خطأ<ph name="END_LINK" />، وتضمين <ph name="BEGIN2_LINK" />رقم الصف<ph name="END2_LINK" />.</translation>
 <translation id="3838085852053358637">فشل تحميل الإضافة</translation>
@@ -1929,7 +1929,7 @@
 <translation id="3898493977366060150">‏تصفُح الويب من خلال ميزات Google الذكية</translation>
 <translation id="3898521660513055167">حالة الرمز المميز</translation>
 <translation id="389901847090970821">تحديد لوحة مفاتيح</translation>
-<translation id="3899879303189199559">في وضع عدم الاتصال لمدة تتجاوز عامًا</translation>
+<translation id="3899879303189199559">بلا إنترنت لمدة تتجاوز عامًا</translation>
 <translation id="3900966090527141178">تصدير كلمات المرور</translation>
 <translation id="3901991538546252627">جارٍ الاتصال بـ <ph name="NAME" /></translation>
 <translation id="3905761538810670789">إصلاح التطبيق</translation>
@@ -2747,7 +2747,7 @@
 <translation id="5255315797444241226">عبارة المرور التي أدخلتها غير صحيحة.</translation>
 <translation id="5260508466980570042">للأسف، تعذر التحقق من البريد الإلكتروني أو كلمة المرور. يُرجى المحاولة مرة أخرى.</translation>
 <translation id="5261683757250193089">فتح في السوق الإلكتروني</translation>
-<translation id="5262311848634918433">‏<ph name="MARKUP_1" />الدخول إلى الملفات من أي مكان، حتى في وضع عدم الاتصال.<ph name="MARKUP_2" />
+<translation id="5262311848634918433">‏<ph name="MARKUP_1" />الدخول إلى الملفات من أي مكان، حتى بلا إنترنت.<ph name="MARKUP_2" />
     تظل الملفات في Google Drive محدّثة ومتاحة من أي جهاز.<ph name="MARKUP_3" />
     <ph name="MARKUP_4" />الحفاظ على ملفاتك آمنة.<ph name="MARKUP_5" />
     بصرف النظر عمّا يحدث لجهازك، تظل الملفات مخزَّنة في أمان في Google Drive.<ph name="MARKUP_6" />
@@ -2755,7 +2755,7 @@
     في الملفات مع الآخرين في مكانٍ واحد.<ph name="MARKUP_9" /></translation>
 <translation id="5264148714798105376">قد يستغرق ذلك دقيقة أو نحو ذلك.</translation>
 <translation id="5264252276333215551">يُرجى الاتصال بالإنترنت لتشغيل التطبيق في وضع الكشك.</translation>
-<translation id="5265562206369321422">في وضع عدم الاتصال لمدة تتجاوز أسبوعًا</translation>
+<translation id="5265562206369321422">بلا إنترنت لمدة تتجاوز أسبوعًا</translation>
 <translation id="5266113311903163739">خطأ استيراد مرجع مصدق</translation>
 <translation id="5269977353971873915">تعذّرت الطباعة</translation>
 <translation id="5271549068863921519">حفظ كلمة المرور</translation>
@@ -2865,6 +2865,7 @@
 <translation id="5425042808445046667">متابعة التنزيل</translation>
 <translation id="5425722269016440406">‏يجب أن تكون متصلاً بالإنترنت لإيقاف تشغيل Smart Lock لأن هذا الإعداد متزامن مع هاتفك وأجهزة أخرى. يُرجى الاتصال بإحدى الشبكات أولاً.</translation>
 <translation id="5425863515030416387">تسجيل الدخول بسهولة على جميع الأجهزة</translation>
+<translation id="5426179911063097041">يريد <ph name="SITE" /> إرسال إشعارات إليك</translation>
 <translation id="5427278936122846523">الترجمة دومًا</translation>
 <translation id="5427459444770871191">تدوير &amp;في اتجاه عقارب الساعة</translation>
 <translation id="542872847390508405">أنت تتصفح كضيف</translation>
@@ -2879,7 +2880,7 @@
 <translation id="5436510242972373446">البحث في الموقع <ph name="SITE_NAME" />:</translation>
 <translation id="5436822233913560332">سيتم قريبًا إغلاق جميع نوافذ المتصفح تلقائيًا من دون تسجيل الدخول.</translation>
 <translation id="543754252619196907"><ph name="APP_NAME" /> بواسطة <ph name="SITE_ORIGIN" /></translation>
-<translation id="5438224778284622050">هل تريد حذف الملفات في وضع عدم الاتصال؟</translation>
+<translation id="5438224778284622050">هل تريد حذف الملفات بلا إنترنت؟</translation>
 <translation id="5438430601586617544">(تم فك الحزمة)</translation>
 <translation id="544083962418256601">إنشاء اختصارات...</translation>
 <translation id="5442550868130618860">تفعيل التحديث التلقائي</translation>
@@ -2901,6 +2902,7 @@
 <translation id="5464632865477611176">التشغيل في هذه المرة</translation>
 <translation id="5465662442746197494">هل تريد المساعدة؟</translation>
 <translation id="5469954281417596308">مدير الإشارات</translation>
+<translation id="5471768120198416576">مرحبًا! هذا صوت ميزة تحويل النص إلى كلام.</translation>
 <translation id="5473333559083690127">إعادة إدخال رقم التعريف الشخصي الجديد</translation>
 <translation id="5480254151128201294">تم قفل هذا الجهاز من قبل المالك.</translation>
 <translation id="5481941284378890518">إضافة طابعات مجاورة</translation>
@@ -3194,7 +3196,7 @@
 <translation id="5906732635754427568">ستتم إزالة البيانات المقترنة بهذا التطبيق من هذا الجهاز.</translation>
 <translation id="5908769186679515905">‏حظر المواقع من تشغيل Flash</translation>
 <translation id="5910363049092958439">حفظ ال&amp;صورة باسم...</translation>
-<translation id="5911737117543891828">‏سيتم حذف ملفات Google Drive المؤقتة في وضع عدم الاتصال. ولن يتم حذف الملفات التي قد عيّنتها كمتاحة في وضع عدم الاتصال من هذا الجهاز.</translation>
+<translation id="5911737117543891828">‏سيتم حذف ملفات Google Drive المؤقتة بلا إنترنت. ولن يتم حذف الملفات التي قد عيّنتها كمتاحة بلا إنترنت من هذا الجهاز.</translation>
 <translation id="5912378097832178659">تع&amp;ديل محرّكات البحث...</translation>
 <translation id="5914724413750400082">المعامل (<ph name="MODULUS_NUM_BITS" /> بت):
   <ph name="MODULUS_HEX_DUMP" />
@@ -3341,7 +3343,7 @@
 <translation id="6146563240635539929">مقاطع فيديو</translation>
 <translation id="6147020289383635445">تعذّرت معاينة الطباعة.</translation>
 <translation id="614940544461990577">جرّب:</translation>
-<translation id="6150853954427645995">لحفظ هذا الملف للاستخدام في وضع عدم الاتصال، عاود الاتصال بالإنترنت، وانقر بزر الماوس الأيمن على الملف، ثم حدد الخيار <ph name="OFFLINE_CHECKBOX_NAME" />.</translation>
+<translation id="6150853954427645995">لحفظ هذا الملف للاستخدام بلا إنترنت، عاود الاتصال بالإنترنت، وانقر بزر الماوس الأيمن على الملف، ثم حدد الخيار <ph name="OFFLINE_CHECKBOX_NAME" />.</translation>
 <translation id="6151323131516309312">اضغط على <ph name="SEARCH_KEY" /> للبحث في الموقع <ph name="SITE_NAME" /></translation>
 <translation id="6151771661215463137">الملف موجود فعلاً في مجلد التنزيل.</translation>
 <translation id="615436196126345398">البروتوكول</translation>
@@ -3579,7 +3581,7 @@
 <translation id="6510568984200103950">إعدادات أقل</translation>
 <translation id="6513247462497316522">‏سيستخدم Google Chrome بيانات الجوال إذا لم تكن متصلاً بشبكة أخرى.</translation>
 <translation id="6514010653036109809">الجهاز المتاح:</translation>
-<translation id="6514565641373682518">عطّلت هذه الصفحة مؤشر الماوس.</translation>
+<translation id="6514565641373682518">أوقفت هذه الصفحة مؤشر الماوس.</translation>
 <translation id="6518014396551869914">نس&amp;خ الصورة</translation>
 <translation id="651942933739530207">هل تريد أن يشارك <ph name="APP_NAME" /> شاشتك وإخراج الصوت؟</translation>
 <translation id="6519437681804756269">[<ph name="TIMESTAMP" />]
@@ -3770,7 +3772,7 @@
 <translation id="6805647936811177813">يُرجى تسجيل الدخول إلى <ph name="TOKEN_NAME" /> لاستيراد شهادة العميل من <ph name="HOST_NAME" />.</translation>
 <translation id="680572642341004180">‏تفعيل تتبع RLZ في <ph name="SHORT_PRODUCT_OS_NAME" />.</translation>
 <translation id="6807889908376551050">إظهار الكل...</translation>
-<translation id="6810613314571580006">لتسجيل الدخول تلقائيًا إلى مواقع الويب باستخدام بيانات الاعتماد المخزّنة. عندما تكون الميزة معطّلة، سيُطلب منك التأكيد في كل مرة قبل تسجيل الدخول إلى أحد مواقع الويب.</translation>
+<translation id="6810613314571580006">لتسجيل الدخول تلقائيًا إلى مواقع الويب باستخدام بيانات الاعتماد المخزّنة. عندما تكون الميزة غير مفعّلة، سيُطلب منك التأكيد في كل مرة قبل تسجيل الدخول إلى أحد مواقع الويب.</translation>
 <translation id="6812349420832218321">لا يمكن تشغيل <ph name="PRODUCT_NAME" /> كجذر.</translation>
 <translation id="6812841287760418429">الإبقاء على التغييرات</translation>
 <translation id="6817174620439930047">‏طلب الإذن عند محاولة أحد المواقع استخدام رسائل حصرية للنظام للوصول إلى أجهزة MIDI (موصى به)</translation>
@@ -3910,6 +3912,7 @@
 <translation id="7030031465713069059">حفظ كلمة المرور</translation>
 <translation id="7031962166228839643">‏يتم حاليًا تحضير TPM، يرجى الانتظار (قد يستغرق ذلك بضع دقائق)...</translation>
 <translation id="7035437538340499453">‏Smart Lock جاهز تمامًا</translation>
+<translation id="7037509989619051237">نص للمعاينة</translation>
 <translation id="7039326228527141150">‏الدخول إلى أجهزة USB من <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">‏تسجيل دخول البطاقة الذكية لـ Microsoft</translation>
 <translation id="7040138676081995583">فتح باستخدام...</translation>
@@ -3979,7 +3982,7 @@
 <translation id="7136694880210472378">تعيين كافتراضي</translation>
 <translation id="7136984461011502314">مرحبًا بك في <ph name="PRODUCT_NAME" /></translation>
 <translation id="7138678301420049075">أخرى</translation>
-<translation id="713888829801648570">عفوًا، لا يمكن التحقق من كلمة المرور لأنك في وضع عدم الاتصال.</translation>
+<translation id="713888829801648570">عفوًا، لا يمكن التحقق من كلمة المرور لأنك بلا إنترنت.</translation>
 <translation id="7140928199327930795">لا توجد أجهزة أخرى متاحة.</translation>
 <translation id="7141105143012495934">فشل تسجيل الدخول، نظرًا لعدم القدرة على استرداد تفاصيل حسابك، يُرجى الاتصال بالمسؤول أو إعادة المحاولة.</translation>
 <translation id="7143207342074048698">اتصال</translation>
@@ -4380,8 +4383,8 @@
 <translation id="7786889348652477777">&amp;إعادة تحميل التطبيق</translation>
 <translation id="7787129790495067395">‏أنت تستخدم حاليًا عبارة مرور.  إذا نسيت عبارة المرور، فيمكنك إعادة تعيين المزامنة لمحو البيانات من خوادم Google مستخدمًا لوحة تحكم Google.</translation>
 <translation id="7787308148023287649">عرض على شاشة أخرى</translation>
-<translation id="7788080748068240085">لحفظ "<ph name="FILE_NAME" />" في وضع عدم الاتصال، يجب توفير مساحة إضافية تبلغ <ph name="TOTAL_FILE_SIZE" />:<ph name="MARKUP_1" />
-    <ph name="MARKUP_2" />احرص على إزالة الملفات التي لم تعد بحاجة إلى الدخول إليها في وضع عدم الاتصال<ph name="MARKUP_3" />
+<translation id="7788080748068240085">لحفظ "<ph name="FILE_NAME" />" بلا إنترنت، يجب توفير مساحة إضافية تبلغ <ph name="TOTAL_FILE_SIZE" />:<ph name="MARKUP_1" />
+    <ph name="MARKUP_2" />احرص على إزالة الملفات التي لم تعد بحاجة إلى الدخول إليها بلا إنترنت<ph name="MARKUP_3" />
     <ph name="MARKUP_4" />احذف الملفات من مجلد التنزيلات<ph name="MARKUP_5" /></translation>
 <translation id="7788298548579301890">‏أضاف برنامج آخر بجهاز الكمبيوتر تطبيقًا قد يؤدي إلى تغيير طريقة عمل Chrome.
 
@@ -4487,7 +4490,8 @@
 <translation id="7928710562641958568">إخراج الجهاز</translation>
 <translation id="79312157130859720">يشارك <ph name="APP_NAME" /> الشاشة والصوت.</translation>
 <translation id="7931318309563332511">غير معروف</translation>
-<translation id="7938594894617528435">في وضع عدم الاتصال حاليًا</translation>
+<translation id="7934414805353235750">‏يريد <ph name="URL" /> تشغيل محتوى محمي. ستتحقَّق Google من هوية جهازك.</translation>
+<translation id="7938594894617528435">بلا إنترنت حاليًا</translation>
 <translation id="7939062555109487992">خيارات متقدمة</translation>
 <translation id="7939412583708276221">المتابعة على أيّ حال</translation>
 <translation id="7939997691108949385">سيتمكن المشرف من تهيئة القيود والإعدادات لهذا المستخدم الذي يخضع للإشراف على <ph name="MANAGEMENT_URL" />.</translation>
@@ -4837,7 +4841,7 @@
 <translation id="8483248364096924578">‏عنوان IP</translation>
 <translation id="8487678622945914333">تكبير</translation>
 <translation id="8487693399751278191">استيراد الإشارات المرجعية الآن...</translation>
-<translation id="8487700953926739672">التوفر في وضع عدم الاتصال</translation>
+<translation id="8487700953926739672">التوفر بلا إنترنت</translation>
 <translation id="8490896350101740396">‏تم تحديث تطبيقات kiosk التالية "<ph name="UPDATED_APPS" />". يُرجى إعادة تشغيل الجهاز لإكمال عملية التحديث.</translation>
 <translation id="8493236660459102203">الميكروفون:</translation>
 <translation id="8496717697661868878">تشغيل هذا المكون الإضافي</translation>
@@ -5264,7 +5268,7 @@
 <translation id="9153341767479566106">الملحقات الأخرى التي فشلت في التحميل:</translation>
 <translation id="9153934054460603056">حفظ الهوية وكلمة المرور</translation>
 <translation id="9154194610265714752">تم التحديث</translation>
-<translation id="9154418932169119429">هذه الصورة غير متاحة في وضع عدم الاتصال.</translation>
+<translation id="9154418932169119429">هذه الصورة غير متاحة بلا إنترنت.</translation>
 <translation id="91568222606626347">جارٍ إنشاء اختصار...</translation>
 <translation id="9157697743260533322">فشل في إعداد التحديثات التلقائية لجميع المستخدمين (خطأ إطلاق الاختبار المبدئي: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="9158715103698450907">عفوًا!  حدثت مشكلة في الاتصال بالشبكة أثناء المصادقة. يرجى التحقق من الاتصال بالشبكة وإعادة المحاولة.</translation>
@@ -5288,12 +5292,11 @@
 <translation id="9201220332032049474">خيارات قفل الشاشة</translation>
 <translation id="9203398526606335860">&amp;التوصيف مفعّل</translation>
 <translation id="9203478404496196495">إلغاء تجاهل علامة التبويب</translation>
-<translation id="9203962528777363226">عطل مشرف هذا الجهاز إمكانية إضافة مستخدمين جدد.</translation>
+<translation id="9203962528777363226">أوقف مشرف هذا الجهاز إمكانية إضافة مستخدمين جدد.</translation>
 <translation id="9214520840402538427">عفوًا!  لقد انتهت مهلة بدء تشغيل سمات وقت التثبيت. يُرجى الاتصال بممثل الدعم.</translation>
 <translation id="9214695392875603905">كب كيك</translation>
 <translation id="9215293857209265904">تمت إضافة "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="9215934040295798075">تعيين خلفية</translation>
-<translation id="9218027443531385788">‏لتنزيل تطبيقات Android واستخدامها، تحتاج أولاً إلى تثبيت هذا التحديث المطلوب. لا يمكنك استخدام جهازك <ph name="DEVICE_TYPE" /> أثناء تحديثه. وستتم إعادة تشغيل الجهاز <ph name="DEVICE_TYPE" /> بعد اكتمال التثبيت.</translation>
 <translation id="9218430445555521422">تعيين كافتراضي</translation>
 <translation id="9219103736887031265">صور</translation>
 <translation id="9220525904950070496">إزالة الحساب</translation>

@@ -239,7 +239,7 @@ Pour consulter des exemples détaillés, rendez-vous sur :
 <translation id="1797233582739332495">Afficher une invite récurrente indiquant qu'un redémarrage est nécessaire</translation>
 <translation id="1803646570632580723">Liste des applications épinglées à afficher dans le lanceur d'applications</translation>
 <translation id="1808715480127969042">Bloquer les cookies sur ces sites</translation>
-<translation id="1810261428246410396">Autoriser le partage de connexion instantané.</translation>
+<translation id="1810261428246410396">Autoriser le partage de connexion instantané</translation>
 <translation id="1827523283178827583">Utiliser des serveurs proxy déterminés</translation>
 <translation id="1843117931376765605">Fréquence d'actualisation des règles relatives aux utilisateurs</translation>
 <translation id="1844620919405873871">Permet de configurer les règles associées au déverrouillage rapide.</translation>
@@ -936,7 +936,7 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 
       Si ces règles ne sont pas configurées, les utilisateurs peuvent choisir eux-mêmes leurs paramètres de proxy.</translation>
 <translation id="3758249152301468420">Désactiver les outils de développement</translation>
-<translation id="3764248359515129699">Désactive l'application des règles de transparence des certificats pour une liste d'autorités de certification héritées.
+<translation id="3764248359515129699">Désactive l'application des règles de transparence des certificats pour une liste d'autorités de certification anciennes.
 
       Cette règle permet de désactiver les exigences de divulgation stipulées dans les règles de transparence des certificats concernant les chaînes de certificat qui contiennent des certificats avec un des hachages subjectPublicKeyInfo spécifiés. Ainsi, les certificats qui n'auraient pas été jugés fiables pour ne pas avoir été communiqués au public comme il se doit, peuvent continuer d'être utilisés pour les hôtes Enterprise.
 
@@ -944,7 +944,7 @@ Si elle n'est pas configurée, l'utilisateur peut être invité à effectuer l'i
 
       Un hachage subjectPublicKeyInfo est spécifié en concaténant le nom de l'algorithme de hachage, le caractère "/" et l'encodage Base64 de cet algorithme de hachage appliqué à l'élément subjectPublicKeyInfo encodé en DER du certificat spécifié. Cet encodage Base64 présente le même format qu'une empreinte SPKI, tel que défini dans la RFC 7469, section 2.4. Les algorithmes de hachage non reconnus sont ignorés. Le seul qui soit compatible pour l'instant est l'algorithme de hachage "sha256".
 
-      Si cette politique n'est pas configurée, tout certificat qui doit être communiqué tel que le prévoient les règles de transparence des certificats est considéré comme n'étant pas fiable s'il n'est pas communiqué comme il se doit.</translation>
+      Si cette règle n'est pas configurée, tout certificat qui doit être communiqué tel que le prévoient les règles de transparence des certificats est considéré comme n'étant pas fiable s'il n'est pas communiqué comme il se doit.</translation>
 <translation id="3765260570442823273">Durée du message d'avertissement avant la déconnexion pour cause d'inactivité</translation>
 <translation id="377044054160169374">Application de l'intervention en cas d'expérience abusive</translation>
 <translation id="3780152581321609624">Inclure un port non standard dans le SPN Kerberos</translation>
@@ -1194,7 +1194,7 @@ Cette option est habituellement désactivée dans le cadre de la protection cont
 <translation id="437791893267799639">Règle non définie, interdire la migration de données et ARC</translation>
 <translation id="4389091865841123886">Configurer l'attestation à distance avec le mécanisme TPM</translation>
 <translation id="4410236409016356088">Activer la limitation de la bande passante réseau</translation>
-<translation id="441217499641439905">Désactiver Google Drive en cas de connexion mobile dans l'application "Fichiers" de <ph name="PRODUCT_OS_NAME" /></translation>
+<translation id="441217499641439905">Désactiver Google Drive en cas de connexion au réseau mobile dans l'application "Fichiers" de <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4418726081189202489">Si cette règle est définie sur "False", <ph name="PRODUCT_NAME" /> cesse d'envoyer occasionnellement des requêtes à un serveur Google en vue d'obtenir un horodatage précis. En revanche, si elle est définie sur "True" ou si elle n'est pas définie, ces requêtes pourront être envoyées.</translation>
 <translation id="4423597592074154136">Spécifier manuellement les paramètres de proxy</translation>
 <translation id="4429220551923452215">Activer ou désactiver le raccourci des applications dans la barre de favoris.
@@ -2399,7 +2399,7 @@ Si cette règle n'est pas configurée, la règle "AllowImages" est utilisée, et
 
       Un hachage subjectPublicKeyInfo est spécifié en concaténant le nom de l'algorithme de hachage, le caractère "/" et l'encodage Base64 de cet algorithme de hachage appliqué à subjectPublicKeyInfo encodé en DER pour le certificat spécifié. Cet encodage Base64 est le même format qu'une empreinte SPKI, tel que défini dans la RFC 7469, section 2.4. Les algorithmes de hachage non reconnus sont ignorés. Le seul qui soit compatible pour l'instant est l'algorithme de hachage "sha256".
 
-      Si cette politique n'est pas configurée, tout certificat qui doit être communiqué tel que le prévoient les règles de transparence des certificats est considéré comme n'étant pas fiable s'il n'est pas communiqué comme il se doit.</translation>
+      Si cette règle n'est pas configurée, tout certificat qui doit être communiqué tel que le prévoient les règles de transparence des certificats est considéré comme n'étant pas fiable s'il n'est pas communiqué comme il se doit.</translation>
 <translation id="7818131573217430250">Définir l'état par défaut du mode Contraste élevé sur l'écran de connexion</translation>
 <translation id="7822837118545582721">Lorsque cette règle est définie sur "True", les utilisateurs ne peuvent rien écrire sur les périphériques de stockage externes.
 

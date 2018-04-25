@@ -2045,7 +2045,7 @@
 <ph name="EXTENSION_FILE" /></translation>
 <translation id="4087470595660267445">在 Chromebook 上安装从 Google Play 下载的应用和游戏。&lt;a target="_blank" href="<ph name="URL" />"&gt;了解详情&lt;/a&gt;</translation>
 <translation id="4088095054444612037">代表群组接受</translation>
-<translation id="4089235344645910861">已保存设置。已开始同步。</translation>
+<translation id="4089235344645910861">设置已保存。已开始同步。</translation>
 <translation id="4090103403438682346">允许已通过验证的访问凭证</translation>
 <translation id="4090535558450035482">（此扩展程序由政策控制，无法移除。）</translation>
 <translation id="4091434297613116013">张纸</translation>
@@ -2351,7 +2351,7 @@
 <translation id="4640525840053037973">使用您的 Google 帐号登录</translation>
 <translation id="4641539339823703554">Chrome无法设置系统时间。请检查下面的时间，并在必要时进行更正。</translation>
 <translation id="4643612240819915418">在新标签页中打开视频(&amp;O)</translation>
-<translation id="4644818355646995778">正在下载，还差百分之 <ph name="PERCENT_REMAINING" /></translation>
+<translation id="4644818355646995778">正在下载，<ph name="PERCENT_REMAINING" /></translation>
 <translation id="4645676300727003670">保留(&amp;K)</translation>
 <translation id="4647090755847581616">关闭标签页(&amp;C)</translation>
 <translation id="4647697156028544508">请输入“<ph name="DEVICE_NAME" />”的 PIN：</translation>
@@ -2857,6 +2857,7 @@
 <translation id="5425042808445046667">继续下载</translation>
 <translation id="5425722269016440406">您必须联网才能关闭 Smart Lock，因为此设置已同步到您的手机和其他设备。请先连接到网络。</translation>
 <translation id="5425863515030416387">在所有设备上轻松登录</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> 想向您发送通知</translation>
 <translation id="5427278936122846523">一律翻译</translation>
 <translation id="5427459444770871191">顺时针旋转(&amp;C)</translation>
 <translation id="542872847390508405">您正在以访客身份浏览</translation>
@@ -2893,6 +2894,7 @@
 <translation id="5464632865477611176">运行一次</translation>
 <translation id="5465662442746197494">需要帮助？</translation>
 <translation id="5469954281417596308">书签管理器</translation>
+<translation id="5471768120198416576">您好！这是文字转语音的语音。</translation>
 <translation id="5473333559083690127">请重新输入新的 PIN 码</translation>
 <translation id="5480254151128201294">此设备已被所有者锁定。</translation>
 <translation id="5481941284378890518">添加附近的打印机</translation>
@@ -3900,6 +3902,7 @@
 <translation id="7030031465713069059">保存密码</translation>
 <translation id="7031962166228839643">正在准备 TPM，请稍候（这可能需要几分钟时间）...</translation>
 <translation id="7035437538340499453">Smart Lock 已设置完毕</translation>
+<translation id="7037509989619051237">要试听的文字</translation>
 <translation id="7039326228527141150">访问来自<ph name="VENDOR_NAME" />的 USB 设备</translation>
 <translation id="7039912931802252762">Microsoft 智能卡登录</translation>
 <translation id="7040138676081995583">打开方式...</translation>
@@ -4435,7 +4438,7 @@
 <translation id="7886917304091689118">正在 Chrome 中运行</translation>
 <translation id="7887334752153342268">复制</translation>
 <translation id="7887864092952184874">蓝牙鼠标已配对</translation>
-<translation id="7889565820482017512">缩放比例</translation>
+<translation id="7889565820482017512">显示大小</translation>
 <translation id="7889966925761734854">进度</translation>
 <translation id="7892100671754994880">下一位用户</translation>
 <translation id="7893008570150657497">通过计算机访问照片、音乐和其他媒体</translation>
@@ -4467,6 +4470,7 @@
 <translation id="7928710562641958568">卸载设备</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> 正在共享您的屏幕和音频。</translation>
 <translation id="7931318309563332511">未知</translation>
+<translation id="7934414805353235750"><ph name="URL" /> 想播放受保护的内容。Google 将对您的设备进行身份验证。</translation>
 <translation id="7938594894617528435">当前处于离线状态</translation>
 <translation id="7939062555109487992">高级选项</translation>
 <translation id="7939412583708276221">仍然保留</translation>
@@ -5273,7 +5277,6 @@
 <translation id="9214695392875603905">纸杯蛋糕</translation>
 <translation id="9215293857209265904">已添加“<ph name="EXTENSION_NAME" />”</translation>
 <translation id="9215934040295798075">设置壁纸</translation>
-<translation id="9218027443531385788">要想下载并使用 Android 应用，请先安装这项必不可少的更新。在您的<ph name="DEVICE_TYPE" />进行更新期间，您将无法使用此设备。待安装完毕后，您的<ph name="DEVICE_TYPE" />将会重启。</translation>
 <translation id="9218430445555521422">设为默认浏览器</translation>
 <translation id="9219103736887031265">图片</translation>
 <translation id="9220525904950070496">移除帐号</translation>

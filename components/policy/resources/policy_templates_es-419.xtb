@@ -1854,11 +1854,11 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="6689792153960219308">Informar estado de hardware</translation>
 <translation id="6698071416141001300">La marca de la protección de la contraseña que indica que la cuenta está en riesgo se activa cuando se vuelve a usar la contraseña</translation>
 <translation id="6699880231565102694">Habilitar autenticación de dos factores para los hosts de acceso remoto.</translation>
-<translation id="6702257826895463228">Permitir la navegación y las ventanas emergentes en los sitios al mismo tiempo.
+<translation id="6702257826895463228">Permite la navegación y las ventanas emergentes en los sitios al mismo tiempo.
 
       Para obtener una explicación completa, consulta https://www.chromestatus.com/features/5675755719622656.
       Si se habilita esta política, se podrá navegar en los sitios y abrir ventanas o pestañas nuevas al mismo tiempo.
-      Si se inhabilita esta política o no se establece, no se podrá navegar en los sitios y abrir ventanas o pestañas nuevas al mismo tiempo.</translation>
+      Si se inhabilita esta política o no se establece, no se podrá navegar en los sitios ni abrir ventanas o pestañas nuevas al mismo tiempo.</translation>
 <translation id="6724842112053619797">Si habilitas esta configuración, los datos almacenados en los perfiles de <ph name="PRODUCT_NAME" />, como los favoritos, los datos de Autocompletar, las contraseñas, etc. también se guardarán en un archivo almacenado en la carpeta de perfil del usuario Roaming o una ubicación que el administrador especifique mediante la política <ph name="ROAMING_PROFILE_LOCATION_POLICY_NAME" />. Si habilitas esta política, se inhabilita la sincronización en la nube.
 
       Si esta política se inhabilita o no se establece, solo se usarán los perfiles locales comunes.
@@ -2168,7 +2168,7 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
 
       Cuando se elige la opción "Bloquear todas las descargas", se bloquean todas las descargas.
 
-      Cuando no se configura esta política (o cuando se elige la opción "Sin restricciones especiales"), se aplicarán las restricciones usuales de seguridad a las descargas, de acuerdo con los resultados del análisis de la Navegación segura.
+      Cuando no se configura esta política (o cuando se elige la opción "Sin restricciones especiales"), se aplicarán las restricciones usuales de seguridad a las descargas de acuerdo con los resultados del análisis de la Navegación segura.
 
       Ten en cuenta que estas restricciones se aplican a las descargas que se inician desde el contenido de páginas web, así como la opción "Vínculo de descarga" del menú contextual. Estas restricciones no se aplican a las acciones de guardar o descargar la página que se muestra actualmente, ni tampoco a la opción para guardar como PDF desde las opciones de impresión.
 

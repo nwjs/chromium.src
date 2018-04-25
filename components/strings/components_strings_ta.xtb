@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{ஏதுமில்லை}=1{1 தளம்}other{# தளங்கள்}}</translation>
 <translation id="1927235823738766038">ஏற்கப்படும் கிரெடிட் மற்றும் டெபிட் கார்டுகள்</translation>
 <translation id="194030505837763158"><ph name="LINK" /> க்குச் செல்க</translation>
+<translation id="1945968466830820669">உங்கள் நிறுவனத்தின் கணக்கிற்கான அணுகலை நீங்கள் இழக்கக்கூடும் அல்லது அடையாளத் திருட்டை எதிர்கொள்ளக்கூடும். இப்போதே உங்கள் கடவுச்சொல்லை மாற்றும்படி Chromium பரிந்துரைக்கிறது.</translation>
 <translation id="1948773908305951926">ஏற்கப்படும் ப்ரீபெய்டு கார்டுகள்</translation>
 <translation id="1962204205936693436"><ph name="DOMAIN" /> புத்தகக்குறிகள்</translation>
 <translation id="1973335181906896915">தொடராக்க பிழை</translation>
@@ -588,6 +589,7 @@
 <translation id="5141240743006678641">ஒத்திசைக்கப்பட்ட கடவுச்சொற்களை உங்கள் Google நற்சான்றுகள் மூலம் என்க்ரிப்ட் செய்யவும்</translation>
 <translation id="5145883236150621069">கொள்கைப் பதிலில் பிழைக் குறியீடு உள்ளது</translation>
 <translation id="5159010409087891077">புதிய மறைநிலைச் சாளரத்தில் பக்கத்தைத் திறக்கவும் (⇧⌘N)</translation>
+<translation id="5169827969064885044">உங்கள் நிறுவனத்தின் கணக்கிற்கான அணுகலை நீங்கள் இழக்கக்கூடும் அல்லது அடையாளத் திருட்டை எதிர்கொள்ளக்கூடும். இப்போதே உங்கள் கடவுச்சொல்லை மாற்றும்படி Chrome பரிந்துரைக்கிறது.</translation>
 <translation id="5171045022955879922">தேடுக அல்லது URL-ஐத் தட்டச்சு செய்க</translation>
 <translation id="5172758083709347301">இயந்திரம்</translation>
 <translation id="5179510805599951267"><ph name="ORIGINAL_LANGUAGE" /> இல் இல்லையா? இந்தப் பிழையை தெரிவிக்கவும்</translation>
@@ -847,6 +849,7 @@
 <translation id="7334320624316649418">&amp;மறுவரிசைப்படுத்தலை மீண்டும் செய்</translation>
 <translation id="733923710415886693">சான்றிதழ் வெளிப்படைத்தன்மை மூலம் சேவையகத்தின் சான்றிதழ் வெளியிடப்படவில்லை.</translation>
 <translation id="7353601530677266744">கட்டளை வரி</translation>
+<translation id="7365061714576910172">Linuxஐப் பதிவிறக்கு</translation>
 <translation id="7372973238305370288">தேடல் முடிவு</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">வேண்டாம்</translation>

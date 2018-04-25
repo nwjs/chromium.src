@@ -90,7 +90,7 @@
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">Измена претраживача</translation>
 <translation id="1134009406053225289">Отвори у прозору без архивирања</translation>
-<translation id="1136155683023653803">Лозинке, обележивачи, историја и друге ствари се синхронизују са налогомt</translation>
+<translation id="1136155683023653803">Лозинке, обележивачи, историја и друге ствари се синхронизују са налогом</translation>
 <translation id="1137673463384776352">Отвори линк у <ph name="APP" /></translation>
 <translation id="1140351953533677694">Приступ Bluetooth и серијским уређајима</translation>
 <translation id="1140610710803014750">Да би вам обележивачи били доступни на свим уређајима, пријавите се и укључите синхронизацију.</translation>
@@ -5291,7 +5291,6 @@
 <translation id="9214695392875603905">Мафин</translation>
 <translation id="9215293857209265904">Додат је „<ph name="EXTENSION_NAME" />“</translation>
 <translation id="9215934040295798075">Подеси позадину</translation>
-<translation id="9218027443531385788">Да бисте преузели и користили Android апликације, прво треба да инсталирате ажурирање. Не можете да користите <ph name="DEVICE_TYPE" /> уређај док се ажурира. <ph name="DEVICE_TYPE" /> ће се поново покренути кад се инсталација доврши.</translation>
 <translation id="9218430445555521422">Подеси као подразумеван</translation>
 <translation id="9219103736887031265">Слике</translation>
 <translation id="9220525904950070496">Уклањање налога</translation>

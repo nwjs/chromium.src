@@ -176,9 +176,9 @@
       </translation>
 <translation id="1561424797596341174">Zasada zastępuje kompilacje hosta dostępu zdalnego w trybie debugowania</translation>
 <translation id="1561967320164410511">U2F i rozszerzenia do indywidualnego poświadczania</translation>
-<translation id="1574554504290354326">To ustawienie zostało wycofane. Zamiast niego użyj ustawienia SafeBrowsingExtendedReportingEnabled. Włączenie lub wyłączenie ustawienia SafeBrowsingExtendedReportingEnabled działa tak samo jak wyłączenie ustawienia SafeBrowsingExtendedReportingOptInAllowed.
+<translation id="1574554504290354326">To ustawienie zostało wycofane. Zamiast niego użyj ustawienia SafeBrowsingExtendedReportingEnabled. Włączenie lub wyłączenie zasady SafeBrowsingExtendedReportingEnabled działa tak samo jak ustawienie wartości false w zasadzie SafeBrowsingExtendedReportingOptInAllowed.
 
-      Wyłączenie tego ustawienia uniemożliwi użytkownikom wysyłanie niektórych informacji o systemie i zawartości stron na serwery Google. Jeśli zasada będzie włączona lub nie zostanie skonfigurowana, użytkownicy będą mogli wysyłać niektóre informacje o systemie i zawartości stron do usługi Bezpieczne przeglądanie, która może wykryć niebezpieczne aplikacje i strony.
+      Ustawienie tej zasady na false uniemożliwi użytkownikom wysyłanie niektórych informacji o systemie i zawartości stron na serwery Google. Jeśli zasada ma wartość true lub nie zostanie skonfigurowana, użytkownicy będą mogli wysyłać niektóre informacje o systemie i zawartości stron do usługi Bezpieczne przeglądanie, która może wykryć niebezpieczne aplikacje i strony.
 
       Więcej informacji o Bezpiecznym przeglądaniu znajdziesz na https://developers.google.com/safe-browsing</translation>
 <translation id="1583248206450240930">Używaj domyślnie wtyczki <ph name="PRODUCT_FRAME_NAME" /></translation>
@@ -1458,13 +1458,13 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="5370279767682621504">Włącz obsługę HTTP/0.9 w portach innych niż domyślne</translation>
 <translation id="5378985487213287085">Umożliwia określenie, czy witryny mogą wyświetlać powiadomienia na pulpicie. Wyświetlanie powiadomień na pulpicie może być domyślnie dozwolone lub zabronione bądź użytkownikowi może być wyświetlany monit za każdym razem, gdy witryna chce wyświetlić takie powiadomienie. W przypadku nieskonfigurowania tej zasady będzie używana zasada „AskNotifications”, a użytkownik będzie mógł zmienić to ustawienie.</translation>
 <translation id="538108065117008131">Zezwalaj wtyczce <ph name="PRODUCT_FRAME_NAME" /> na obsługę następujących typów treści</translation>
-<translation id="5391363090783552279">Jeśli ta zasada zostanie włączona, <ph name="PRODUCT_NAME" /> będzie się łączyć z urządzeniami przesyłającymi pod wszystkimi adresami IP, a nie tylko pod adresami prywatnymi RFC1918/RFC4913.
+<translation id="5391363090783552279">Jeśli ta zasada ma wartość true, <ph name="PRODUCT_NAME" /> będzie się łączyć z urządzeniami przesyłającymi pod wszystkimi adresami IP, a nie tylko pod adresami prywatnymi RFC1918/RFC4913.
 
-          Jeśli ta zasada nie zostanie włączona, <ph name="PRODUCT_NAME" /> będzie się łączyć z urządzeniami przesyłającymi tylko pod adresami prywatnymi RFC1918/RFC4913.
+          Jeśli ta zasada nie ma wartość false, <ph name="PRODUCT_NAME" /> będzie się łączyć z urządzeniami przesyłającymi tylko pod adresami prywatnymi RFC1918/RFC4913.
 
           Jeśli ta zasada nie zostanie ustawiona, <ph name="PRODUCT_NAME" /> będzie się łączyć z urządzeniami przesyłającymi tylko pod prywatnymi adresami RFC1918/RFC4913, chyba że zostanie włączona funkcja CastAllowAllIPs.
 
-          Jeśli zasada „EnableMediaRouter” będzie wyłączona, wartość ustawiona dla tej zasady nie będzie miała znaczenia.</translation>
+          Jeśli zasada „EnableMediaRouter” będzie mieć wartość false, wartość ustawiona dla tej zasady nie będzie miała znaczenia.</translation>
 <translation id="5392172595902933844">Informacje o stanie Androida są wysyłane z powrotem na serwer.
 
       Jeśli zasada jest wyłączona lub nieskonfigurowana, nie są wysyłane żadne informacje o stanie.
@@ -1855,7 +1855,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="6699880231565102694">Włącz uwierzytelnianie dwuskładnikowe dla hostów zdalnego dostępu</translation>
 <translation id="6702257826895463228">Zezwala stronom na otwieranie wyskakujących okienek podczas nawigowania.
 
-      Pełne wyjaśnienie można znaleźć na https://www.chromestatus.com/features/5675755719622656.
+      Pełne wyjaśnienie można znaleźć na https://www.chromestatus.com/features/5675755719622656
       Jeśli ta zasada zostanie włączona, strony będą mogły otwierać nowe okna/karty podczas nawigowania.
       Jeśli ta zasada zostanie wyłączona lub nie zostanie ustawiona, strony nie będą mogły otwierać nowych okien/kart podczas nawigowania.</translation>
 <translation id="6724842112053619797">Jeśli włączysz to ustawienie, ustawienia zapisane w profilach <ph name="PRODUCT_NAME" />, takie jak zakładki, dane autouzupełniania, hasła itp., będą też zapisywane w folderze profilu przenośnego (Roaming) użytkownika lub w lokalizacji ustawionej przez administratora w zasadzie <ph name="ROAMING_PROFILE_LOCATION_POLICY_NAME" />. Włączenie tej zasady wyłącza synchronizację z chmurą.
@@ -2118,9 +2118,9 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
       Jeśli jest ustawiona wartość GAIA, logowanie będzie przebiegać zgodnie ze zwykłym procesem uwierzytelniania GAIA.
 
       Jeśli ustawiona wartość to SAML_INTERSTITIAL, podczas logowania wyświetli się pełnoekranowe okno z informacją, że użytkownik może przejść dalej, gdy dokona uwierzytelnienia przez dostawcę tożsamości SAML domeny rejestracji urządzenia lub może powrócić do normalnego procesu logowania GAIA.</translation>
-<translation id="755951849901630953">Gdy ta zasada jest włączona lub nieskonfigurowana, włączone są aktualizacje wszystkich komponentów w: <ph name="PRODUCT_NAME" />.
+<translation id="755951849901630953">Gdy ta zasada ma wartość true lub nie jest skonfigurowana, włączone są aktualizacje wszystkich komponentów w: <ph name="PRODUCT_NAME" />.
 
-      Jeśli zasada jest wyłączona, aktualizacje komponentów również są wyłączone. Nie obejmuje to jednak komponentów, które nie zawierają kodu wykonywalnego, nie mają znacznego wpływu na działanie przeglądarki lub mają kluczowe znaczenie dla bezpieczeństwa.
+      Jeśli zasada ma wartość false, aktualizacje komponentów również są wyłączone. Nie obejmuje to jednak komponentów, które nie zawierają kodu wykonywalnego, nie mają znacznego wpływu na działanie przeglądarki lub mają kluczowe znaczenie dla bezpieczeństwa.
       Przykładami takich komponentów są listy odwołanych certyfikatów i dane Bezpiecznego przeglądania.
       Więcej informacji o Bezpiecznym przeglądaniu znajdziesz na https://developers.google.com/safe-browsing</translation>
 <translation id="757395965347379751">Gdy to ustawienie jest włączone, <ph name="PRODUCT_NAME" /> akceptuje certyfikaty z podpisem SHA-1, o ile zostanie potwierdzona ich poprawność i zostaną łańcuchowo powiązane z zainstalowanymi lokalnie certyfikatami CA.
@@ -2500,13 +2500,13 @@ Jeśli bieżąca wersja stanie się przestarzała podczas sesji użytkownika, je
 <translation id="8731693562790917685">Ustawienia treści umożliwiają określenie sposobu obsługi treści danego typu (na przykład plików cookie, grafik czy kodu JavaScript).</translation>
 <translation id="8733448613597049197">Włącza rozszerzone raporty w usłudze Bezpieczne przeglądanie w: <ph name="PRODUCT_NAME" /> i uniemożliwia użytkownikom zmianę tego ustawienia.
 
-      Rozszerzone raportowanie wysyła na serwery Google pewne informacje o systemie i zawartości stron w celu wykrywania niebezpiecznych aplikacji i witryn.
+      Rozszerzone raportowanie wysyła na serwery Google niektóre informacje o systemie i zawartości stron w celu wykrywania niebezpiecznych aplikacji i witryn.
 
-      Jeśli ustawienie jest włączone, raporty są tworzone i wysyłane w razie potrzeby (na przykład jeśli wyświetlane jest pełnoekranowe ostrzeżenie o zagrożeniu).
+      Jeśli ustawienie ma wartość true, raporty są tworzone i wysyłane w razie potrzeby (na przykład jeśli wyświetlane jest pełnoekranowe ostrzeżenie o zagrożeniu).
 
-      Jeśli ustawienie jest wyłączone, raporty nie są nigdy wysyłane.
+      Jeśli ustawienie ma wartość false, raporty nie są nigdy wysyłane.
 
-      Jeśli zasada jest włączona lub wyłączona, użytkownik nie może zmienić ustawienia.
+      Jeśli zasada ma wartość true lub false, użytkownik nie może zmienić ustawienia.
 
       Jeśli zasada nie jest ustawiona, użytkownik może zmienić ustawienie i zdecydować, czy wysyłać raporty.
 

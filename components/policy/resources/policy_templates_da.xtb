@@ -900,7 +900,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 
       Politikken tillader, at kravene om offentliggørelse via Certifikatgennemsigtighed ikke håndhæves for certifikatkæder, der indeholder certifikater med en af de angivne hash-koder fra subjectPublicKeyInfo. Dermed kan certifikater, der ellers ikke ville være godkendt, fordi de ikke er blevet offentliggjort korrekt, fortsat anvendes til virksomhedshosts.
 
-      For at håndhævelse af Certifikatgennemsigtighed kan deaktiveres, når politikken er angivet, skal hash-koden være fra subjectPublicKeyInfo og angives i et CA-certifikat, der genkendes som en forældet certifikatautoritet. En forældet certifikatautoritet er en autoritet, der som standard er offentligt godkendt af ét eller flere operativsystemer, som understøttes af <ph name="PRODUCT_NAME" />, men som ikke er godkendt af Android Open Source Project eller <ph name="PRODUCT_OS_NAME" />.
+      For at håndhævelse af Certifikatgennemsigtighed kan deaktiveres, når politikken er angivet, skal hash-koden være fra subjectPublicKeyInfo og angivet i et CA-certifikat, der genkendes som en forældet certifikatautoritet. En forældet certifikatautoritet er en autoritet, der som standard er offentligt godkendt af ét eller flere operativsystemer, som understøttes af <ph name="PRODUCT_NAME" />, men som ikke er godkendt af Android Open Source Project eller <ph name="PRODUCT_OS_NAME" />.
 
       En hash-kode fra subjectPublicKeyInfo angives ved at sammenføje navnet på hash-algoritmen, tegnet "/" og Base64-kodningen for den pågældende hash-algoritme, der anvendes i subjectPublicKeyInfo med DER-kodning i det angivne certifikat. Denne Base64-kodning har samme format som et SPKI-fingeraftryk, som beskrevet i afsnit 2.4 i RFC 7469. Hash-algoritmer, der ikke genkendes, ignoreres. Det er i øjeblikket kun hash-algoritmen "sha256", som understøttes.
 
@@ -2178,7 +2178,7 @@ Kun hvis allowCorporateKeyUsage er angivet som "sand" for en udvidelse, kan den 
 
       Hvis politikken ikke angives, (eller muligheden "Ingen særlige begrænsninger" vælges), går downloads gennem de sædvanlige sikkerhedsbegrænsninger baseret på analyseresultater fra Beskyttet browsing.
 
-      Bemærk, at disse begrænsninger gælder for downloads, der aktiveres af websiteindhold, såvel som genvejsmenuvalget "download link...". Disse begrænsninger gælder ikke i forbindelse med muligheden for at gemme/downloade den aktuelle side. De gælder heller ikke, når der gemmes som PDF-fil fra udskrivningsmulighederne.
+      Bemærk, at disse begrænsninger gælder for downloads, der aktiveres af websiteindhold såvel som genvejsmenuvalget "download link...". Disse begrænsninger gælder ikke i forbindelse med muligheden for at gemme/downloade den aktuelle side. De gælder heller ikke, når der gemmes som PDF-fil fra udskrivningsmulighederne.
 
       Få flere oplysninger om Beskyttet browsing på https://developers.google.com/safe-browsing.</translation>
 <translation id="7643883929273267746">Begræns konti, der er synlige i <ph name="PRODUCT_NAME" /></translation>

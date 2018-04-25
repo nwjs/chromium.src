@@ -71,7 +71,7 @@
 
       L'opció predeterminada és RollbackDisabled.</translation>
 <translation id="1221359380862872747">Carrega URL especificats a l'inici de sessió de demostració</translation>
-<translation id="1223789468190631420">Activa Navegació segura per a fonts de confiança</translation>
+<translation id="1223789468190631420">Estat d'activació de Navegació segura per a fonts de confiança</translation>
 <translation id="123081309365616809">Activa l'emissió de contingut al dispositiu</translation>
 <translation id="1257550411839719984">Estableix el directori de baixada predeterminat</translation>
 <translation id="1265053460044691532">Limiteu el temps durant el qual un usuari autenticat mitjançant SAML pot iniciar la sessió fora de línia.</translation>
@@ -891,7 +891,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
           Si deixes aquesta política sense establir, els usuaris poden triar pel seu compte la configuració del servidor intermediari.</translation>
 <translation id="3758249152301468420">Desactiva les eines per a desenvolupadors</translation>
-<translation id="3764248359515129699">Desactiva l'aplicació dels requisits de Transparència de certificats a les entitats certificadores incloses en una llista.
+<translation id="3764248359515129699">Desactiva l'aplicació dels requisits de Transparència de certificats a les autoritats certificadores heretades incloses en una llista.
 
       Aquesta política permet desactivar els requisits de divulgació de Transparència de certificats en cadenes de certificats que contenen certificats amb un dels resums de subjectPublicKeyInfo especificats. Això permet continuar utilitzant en amfitrions empresarials els certificats que, d'una altra manera, no es considerarien de confiança per no haver-se divulgat correctament.
 
@@ -1065,7 +1065,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
       També es pot definir a un dels valors següents: "tls1.2" o "tls1.3". Quan s'hagi definit, <ph name="PRODUCT_NAME" /> no utilitzarà versions SSL/TLS posteriors a la versió especificada. Els valors que no es reconeguin s'ignoraran.</translation>
 <translation id="4121350739760194865">Impedeix que les promocions d'aplicacions apareguin a la pestanya nova</translation>
-<translation id="412697421478384751">Permet que els usuaris defineixin PIN pocs segurs per a la pantalla de bloqueig</translation>
+<translation id="412697421478384751">Permet que els usuaris defineixin PIN poc segurs per a la pantalla de bloqueig</translation>
 <translation id="4157003184375321727">Informació del SO i de la versió de microprogramari</translation>
 <translation id="4157594634940419685">Permet l'accés a impressores CUPS natives</translation>
 <translation id="4183229833636799228">Configuració predeterminada del connector <ph name="FLASH_PLUGIN_NAME" /></translation>
@@ -1135,7 +1135,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 <translation id="4377599627073874279">Permet que tots els llocs mostrin totes les imatges</translation>
 <translation id="437791893267799639">La política no està definida; no permetis la migració de dades i ARC</translation>
 <translation id="4389091865841123886">Configura el testimoni remot amb el mecanisme TPM.</translation>
-<translation id="4410236409016356088">Activa l'acceleració de l'amplada de banda de la xarxa</translation>
+<translation id="4410236409016356088">Activa la limitació de l'amplada de banda de la xarxa</translation>
 <translation id="441217499641439905">Desactiva Google Drive a l'aplicació Fitxers de <ph name="PRODUCT_OS_NAME" /> per a les connexions mòbils</translation>
 <translation id="4418726081189202489">Si aquesta política es defineix en "false", impedeix que <ph name="PRODUCT_NAME" /> enviï de tant en tant consultes a un servidor de Google per recuperar una marca de temps precisa. Aquestes consultes s'activaran si la política es defineix en "true" o si no es defineix.</translation>
 <translation id="4423597592074154136">Especifica manualment la configuració del servidor intermediari</translation>
@@ -1451,11 +1451,11 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 <translation id="5370279767682621504">Activa la compatibilitat amb HTTP/0.9 als ports no predeterminats</translation>
 <translation id="5378985487213287085">Us permet definir si els llocs web poden mostrar notificacions d'escriptori. La visualització de notificacions d'escriptori es pot autoritzar o denegar de manera predeterminada o bé es pot demanar cada vegada a l'usuari si vol que es mostrin notificacions d'escriptori. Si no es defineix aquesta política, s'utilitzarà el paràmetre "AskNotifications" i l'usuari podrà canviar-lo.</translation>
 <translation id="538108065117008131">Permet que <ph name="PRODUCT_FRAME_NAME" /> gestioni els tipus de contingut següents.</translation>
-<translation id="5391363090783552279">Si aquesta política s'estableix en "true", <ph name="PRODUCT_NAME" /> es connectarà a dispositius d'emissió en totes les adreces IP, no només en adreces privades de les normes RFC 1918 y RFC 4913.
+<translation id="5391363090783552279">Si aquesta política s'estableix en "true", <ph name="PRODUCT_NAME" /> es connectarà a dispositius d'emissió en totes les adreces IP, no només en adreces privades de les normes RFC 1918 i RFC 4913.
 
-          Si aquesta política s'estableix en "false", <ph name="PRODUCT_NAME" /> es connectarà a dispositius d'emissió només en adreces privades de les normes RFC 1918 y RFC 4913.
+          Si aquesta política s'estableix en "false", <ph name="PRODUCT_NAME" /> es connectarà a dispositius d'emissió només en adreces privades de les normes RFC 1918 i RFC 4913.
 
-          Si aquesta política no s'estableix, <ph name="PRODUCT_NAME" /> es connectarà a dispositius d'emissió només en adreces privades de les normes RFC 1918 y RFC 4913, tret que la funció CastAllowAllIPs estigui activada.
+          Si aquesta política no s'estableix, <ph name="PRODUCT_NAME" /> es connectarà a dispositius d'emissió només en adreces privades de les normes RFC 1918 i RFC 4913, tret que la funció CastAllowAllIPs estigui activada.
 
           Si la política EnableMediaRouter s'estableix en "false", el valor d'aquesta política no tindrà cap efecte.</translation>
 <translation id="5392172595902933844">Envia al servidor informació sobre l'estat d'Android.
@@ -1605,11 +1605,11 @@ Si la política no es defineix, els usuaris podran triar si el prestatge s'ha d'
 
           Si es desactiva o no es configura aquesta opció, les sol·licituds d'autenticació Gnubby s'enviaran per un servidor intermediari.</translation>
 <translation id="5898486742390981550">Quan diversos usuaris tenen la sessió iniciada, només el principal pot utilitzar les aplicacions per a Android.</translation>
-<translation id="5906199912611534122">Permet activar o desactivar l'acceleració de la xarxa.
-      S'aplica a tots els usuaris i a totes les interfícies del dispositiu. Un cop establerta, l'acceleració continua fins que la política es canvia per desactivar-la.
+<translation id="5906199912611534122">Permet activar o desactivar la limitació de l'amplada de banda de la xarxa.
+      S'aplica a tots els usuaris i a totes les interfícies del dispositiu. Un cop establerta, la limitació continua fins que la política es canvia per desactivar-la.
 
-      Si s'estableix en "false", no hi ha acceleració.
-      Si s'estableix en "true", el sistema s'accelera per aconseguir les velocitats de pujada i baixada proporcionades (en kb/s).</translation>
+      Si s'estableix en "false", no hi ha limitació.
+      Si s'estableix en "true", s'estableix una limitació al sistema per aconseguir les velocitats de pujada i baixada proporcionades (en kb/s).</translation>
 <translation id="5921713479449475707">Permet les baixades d'actualització automàtica mitjançant HTTP</translation>
 <translation id="5921888683953999946">Establiu l'estat predeterminat de la funció d'accessibilitat del cursor gran a la pantalla d'inici de sessió.
 
@@ -2233,10 +2233,10 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 
       Perquè es desactivi l'aplicació de Transparència de certificats quan s'estableix aquesta política, s'ha de complir una d'aquestes condicions:
       1. El resum pertany al subjectPublicKeyInfo del certificat del servidor.
-      2. El resum pertany a un subjectPublicKeyInfo que es mostra en un certificat de CA de la cadena de certificats; l'extensió X.nameConstraints 509v3 limita aquest certificat de CA; un o més dels límits nameConstraints de directoryName estan presents en permittedSubtrees, i directoryName conté un atribut organizationName.
-      3. El resum pertany a un subjectPublicKeyInfo que es mostra en un certificat de CA de la cadena de certificats; el certificat de CA té un o més atributs organizationName al camp Subject, i el certificat del servidor conté el mateix nombre d'atributs organizationName, en el mateix ordre i amb valor idèntics byte a byte.
+      2. El resum pertany a un subjectPublicKeyInfo que es mostra en un certificat de CA de la cadena de certificats; l'extensió X.509v3 nameConstraints limita aquest certificat de CA; un o més dels límits nameConstraints de directoryName estan presents en permittedSubtrees, i directoryName conté un atribut organizationName.
+      3. El resum pertany a un subjectPublicKeyInfo que es mostra en un certificat de CA de la cadena de certificats; el certificat de CA té un o més atributs organizationName al camp Subject, i el certificat del servidor conté el mateix nombre d'atributs organizationName, en el mateix ordre i amb valors idèntics byte a byte.
 
-      Per especificar un resum de subjectPublicKeyInfo, es concatenen el nom de l'algoritme del resum, el caràcter "/" i la codificació Base64 de l'algoritme del resum aplicat a la política subjectPublicKeyInfo codificada amb DER del certificat especificat. Aquesta codificació Base64 té el mateix format que una empremta digital SPKI, tal com es defineix a la norma RFC 7469, secció 2.4. Els algoritmes de resum no reconeguts s'ignoren. L'únic algoritme de resum admès en aquest moment és "sha256".
+      Per especificar un resum de subjectPublicKeyInfo, es concatenen el nom de l'algoritme del resum, el caràcter "/" i la codificació Base64 de l'algoritme del resum aplicat a subjectPublicKeyInfo codificat amb DER del certificat especificat. Aquesta codificació Base64 té el mateix format que una empremta digital SPKI, tal com es defineix a la norma RFC 7469, secció 2.4. Els algoritmes de resum no reconeguts s'ignoren. L'únic algoritme de resum admès en aquest moment és "sha256".
 
       Si no s'estableix aquesta política, qualsevol certificat que s'hagi de divulgar mitjançant Transparència de certificats es considerarà que no és de confiança si no es divulga d'acord amb la política Transparència de certificats.</translation>
 <translation id="7818131573217430250">Estableix l'estat predeterminat del mode d'alt contrast a la pantalla d'inici de sessió</translation>
@@ -2277,7 +2277,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 <translation id="7937766917976512374">Permet o bloqueja la captura de vídeo</translation>
 <translation id="7941975817681987555">No prediguis accions de xarxa en cap connexió de xarxa</translation>
 <translation id="7953256619080733119">Amfitrions d'excepcions manuals d'usuari gestionat</translation>
-<translation id="7961779417826583251">Desactiva l'aplicació de la Transparència de certificats a les entitats certificadores incloses en una llista</translation>
+<translation id="7961779417826583251">Desactiva l'aplicació de la Transparència de certificats a les autoritats certificadores heretades incloses en una llista</translation>
 <translation id="7974114691960514888">Aquesta política ja no és compatible. Activa l'ús de servidors STUN i de relé quan us connecteu a un client remot. Si s'activa aquest paràmetre, aquest equip pot descobrir i connectar-se a equips amfitrions remots, fins i tot si estan separats per un tallafoc. Si es desactiva aquest paràmetre i el tallafoc filtra les connexions UDP de sortida, aquest equip només es podrà connectar als equips amfitrions de la xarxa local.</translation>
 <translation id="7976157349247117979">Nom de la destinació per a <ph name="PRODUCT_NAME" /></translation>
 <translation id="7980227303582973781">Sense restriccions especials</translation>

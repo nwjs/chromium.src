@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{Нет}=1{1 сайт}one{# сайт}few{# сайта}many{# сайтов}other{# сайта}}</translation>
 <translation id="1927235823738766038">Дебетовые и кредитные карты, которые принимаются к оплате</translation>
 <translation id="194030505837763158">Перейдите по ссылке: <ph name="LINK" /></translation>
+<translation id="1945968466830820669">Возможно, кто-то пытается получить доступ к вашим личным данным или корпоративному аккаунту. Рекомендуем немедленно сменить пароль.</translation>
 <translation id="1948773908305951926">Карты предоплаты, которые принимаются к оплате</translation>
 <translation id="1962204205936693436">Закладки <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Не удалось выполнить сериализацию</translation>
@@ -590,6 +591,7 @@
 <translation id="5141240743006678641">Шифровать синхронизированные пароли с помощью учетных данных Google</translation>
 <translation id="5145883236150621069">При проверке политики возвращен код ошибки</translation>
 <translation id="5159010409087891077">Открыть страницу в новом окне в режиме инкогнито (⇧ + ⌘ + N)</translation>
+<translation id="5169827969064885044">Возможно, кто-то пытается получить доступ к вашим личным данным или корпоративному аккаунту. Рекомендуем немедленно сменить пароль.</translation>
 <translation id="5171045022955879922">Введите запрос или URL</translation>
 <translation id="5172758083709347301">Локальный компьютер</translation>
 <translation id="5179510805599951267">Это не <ph name="ORIGINAL_LANGUAGE" />? Сообщите об ошибке</translation>
@@ -850,6 +852,7 @@
 <translation id="7334320624316649418">&amp;Повторить изменение порядка</translation>
 <translation id="733923710415886693">Сертификат сервера не проходил проверку.</translation>
 <translation id="7353601530677266744">Командная строка</translation>
+<translation id="7365061714576910172">Экспортировать для Linux</translation>
 <translation id="7372973238305370288">результат поиска</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">Нет</translation>
@@ -863,7 +866,7 @@
     &lt;li&gt;Выберите &lt;strong&gt;VisualDiscovery&lt;/strong&gt;.
     &lt;li&gt;В поле &lt;strong&gt;Тип запуска&lt;/strong&gt; нажмите &lt;strong&gt;Отключена&lt;/strong&gt;.
     &lt;li&gt;В разделе &lt;strong&gt;Состояние&lt;/strong&gt; выберите &lt;strong&gt;Остановить&lt;/strong&gt;.
-    &lt;li&gt;Нажмите &lt;strong&gt;Применить&lt;/strong&gt;, а затем &lt;strong&gt;ОК&lt;/strong&gt;.
+    &lt;li&gt;Нажмите &lt;strong&gt;Применить&lt;/strong&gt;, а затем – &lt;strong&gt;ОК&lt;/strong&gt;.
     &lt;li&gt;О том, как удалить ПО с компьютера, читайте в &lt;a href="https://support.google.com/chrome/answer/6098869"&gt;Справочном центре Chrome&lt;/a&gt;.
     &lt;/ol&gt;</translation>
 <translation id="7419106976560586862">Путь к профилю</translation>

@@ -925,9 +925,9 @@ Si se inhabilita, se aplicará la lógica previa de administración de procesos 
 
       Esta política permite inhabilitar los requisitos de comunicación de transparencia en los certificados en cadenas que contienen certificados con uno de los hashes subjectPublicKeyInfo especificados. Esto permite que se sigan usando en hosts empresariales los certificados que, de otra forma, no serían de confianza por no haberse comunicado públicamente de forma correcta.
 
-      Para inhabilitar la aplicación de la transparencia en los certificados cuando está política está habilitada, el hash debe ser de subjectPublicKeyInfo y aparecer en un certificado de CA que se reconozca como autoridad de certificación (CA) antigua, es decir, que uno o más sistemas operativos compatibles con <ph name="PRODUCT_NAME" /> confíen en ella públicamente de forma predeterminada, pero que no sea de confianza para el Proyecto de Software Libre de Android o <ph name="PRODUCT_OS_NAME" />.
+      Para inhabilitar la aplicación de la transparencia en los certificados cuando esta política está habilitada, el hash debe ser de subjectPublicKeyInfo y aparecer en un certificado de CA que se reconozca como autoridad de certificación (CA) antigua, es decir, que uno o más sistemas operativos compatibles con <ph name="PRODUCT_NAME" /> confíen en ella públicamente de forma predeterminada, pero que no sea de confianza para el Proyecto de Software Libre de Android o <ph name="PRODUCT_OS_NAME" />.
 
-      Para especificar un hash subjectPublicKeyInfo, se concatenan el nombre del algoritmo del hash, el carácter "/" y el cifrado Base64 del algoritmo del hash aplicado al cifrado DER de subjectPublicKeyInfo del certificado especificado. El cifrado Base64 tiene el mismo cifrado que una huella digital SPKI, según lo especificado en RFC 7469 (sección 2.4). Los algoritmos de has no reconocidos se ignoran. El único algoritmo de has admitido en este momento es "sha256".
+      Para especificar un hash subjectPublicKeyInfo, se concatenan el nombre del algoritmo del hash, el carácter "/" y el cifrado Base64 del algoritmo del hash aplicado al cifrado DER de subjectPublicKeyInfo del certificado especificado. El cifrado Base64 tiene el mismo cifrado que una huella digital SPKI, según lo especificado en RFC 7469 (sección 2.4). Los algoritmos de hash no reconocidos se ignoran. El único algoritmo de hash admitido en este momento es "sha256".
 
       Si no se habilita esta política, los certificados que se deban comunicar a través de la transparencia en los certificados no se considerarán de confianza si no se comunican de acuerdo con la política de transparencia en los certificados.</translation>
 <translation id="3765260570442823273">Duración del mensaje que advierte al usuario de que se cerrará la sesión porque se encuentra inactivo</translation>
@@ -1108,7 +1108,7 @@ Si se habilita la política, cada uno de los orígenes especificados en una
 
       En caso contrario, se le asignará uno de estos valores: "tls1.2" o "tls1.3". Si se habilita, <ph name="PRODUCT_NAME" /> no usará las versiones de SSL/TLS superiores a la versión especificada y se ignorarán los valores no reconocidos.</translation>
 <translation id="4121350739760194865">Evitar que las promociones de aplicaciones aparezcan en la página Nueva pestaña</translation>
-<translation id="412697421478384751">Permitir que los usuarios definan PIN que se consideren no seguros para la pantalla de bloqueo</translation>
+<translation id="412697421478384751">Permitir que los usuarios utilicen un PIN poco seguro para la pantalla de bloqueo</translation>
 <translation id="4157003184375321727">Informar de la versión del firmware y del sistema operativo</translation>
 <translation id="4157594634940419685">Permitir el acceso a impresoras CUPS nativas</translation>
 <translation id="4183229833636799228">Configuración predeterminada de <ph name="FLASH_PLUGIN_NAME" /></translation>
@@ -1199,7 +1199,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
       </translation>
 <translation id="4442582539341804154">Habilitar el bloqueo cuando el dispositivo esté inactivo o suspendido</translation>
 <translation id="4449545651113180484">Girar la pantalla 270 grados hacia la derecha</translation>
-<translation id="4454820008017317557">Mostrar  el icono de la barra de herramientas de <ph name="PRODUCT_NAME" /></translation>
+<translation id="4454820008017317557">Mostrar el icono de la barra de herramientas de <ph name="PRODUCT_NAME" /></translation>
 <translation id="4467952432486360968">Bloquear cookies de terceros</translation>
 <translation id="4474167089968829729">Habilitar el almacenamiento de contraseñas en el administrador de contraseñas</translation>
 <translation id="4476769083125004742">Si se asigna el valor <ph name="BLOCK_GEOLOCATION_SETTING" /> a esta política, las aplicaciones para Android no tendrán acceso a la información sobre la ubicación. Si se le asigna cualquier otro valor o no se configura, el usuario tendrá que dar su consentimiento cuando una aplicación para Android quiera acceder a los datos de ubicación.</translation>
@@ -2245,7 +2245,7 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
       Si se le asigna el valor GAIA, el inicio de sesión se hace a través del flujo de autenticación normal de GAIA.
 
       Si se le asigna el valor SAML_INTERSTITIAL, el inicio de sesión muestra una pantalla intersticial que permite al usuario continuar con la autenticación a través del proveedor de identidad SAML del dominio de registro del dispositivo o volver al flujo de inicio de sesión normal de GAIA.</translation>
-<translation id="755951849901630953">Habilita las actualizaciones de todos los componentes de <ph name="PRODUCT_NAME" /> si no se establece la política o si se le asigna el valor True.
+<translation id="755951849901630953">Habilita las actualizaciones de todos los componentes de <ph name="PRODUCT_NAME" /> si no se establece la política o si se le asigna el valor "True".
 
       Si se le asigna el valor "False", se inhabilitan las actualizaciones de los componentes. Sin embargo, algunos componentes quedan exentos de esta política: no se inhabilitarán las actualizaciones de cualquier componente que no contenga ningún código ejecutable, que no influya en el funcionamiento del navegador de forma significativa o que sea esencial para su seguridad.
       Entre los ejemplos de estos componentes se incluyen las listas de revocación de certificados y los datos de navegación segura.
@@ -2373,10 +2373,10 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
 
       Para inhabilitar los requisitos de transparencia en los certificados cuando se habilita esta política, se debe cumplir una de las siguientes condiciones:
       1. El hash pertenece al subjectPublicKeyInfo del certificado del servidor.
-      2. El hash pertenece a un subjectPublicKeyInfo que aparece en un certificado de CA de la cadena de certificados, ese certificado está limitado por la a través de la extensión X.509v3 nameConstraints, aparecen uno o más directoryName nameConstraints en permittedSubtrees y directoryName contiene un atributo organizationName.
+      2. El hash pertenece a un subjectPublicKeyInfo que aparece en un certificado de CA de la cadena de certificados, ese certificado está limitado por la extensión X.509v3 nameConstraints, aparecen uno o más directoryName nameConstraints en permittedSubtrees y directoryName contiene un atributo organizationName.
       3. El hash es de un subjectPublicKeyInfo que aparece en un certificado de CA de la cadena de certificados, el certificado de CA tiene uno o más atributos organizationName en el Subject del certificado y el certificado del servidor contiene el mismo número de atributos organizationName, en el mismo orden y con los mismos valores byte por byte.
 
-      Para especificar un hash subjectPublicKeyInfo, se concatenan el nombre del algoritmo del hash, el carácter "/" y el cifrado Base64 del algoritmo del hash aplicado al cifrado DER de subjectPublicKeyInfo del certificado especificado. El cifrado Base64 tiene el mismo cifrado que una huella digital SPKI, según lo especificado en RFC 7469 (sección 2.4). Los algoritmos de has no reconocidos se ignoran. El único algoritmo de has admitido en este momento es "sha256".
+      Para especificar un hash subjectPublicKeyInfo, se concatenan el nombre del algoritmo del hash, el carácter "/" y el cifrado Base64 del algoritmo del hash aplicado al cifrado DER de subjectPublicKeyInfo del certificado especificado. El cifrado Base64 tiene el mismo cifrado que una huella digital SPKI, según lo especificado en RFC 7469 (sección 2.4). Los algoritmos de hash no reconocidos se ignoran. El único algoritmo de hash admitido en este momento es "sha256".
 
       Si no se habilita esta política, los certificados que se deban comunicar a través de la transparencia en los certificados no se considerarán de confianza si no se comunican de acuerdo con la política de transparencia en los certificados.</translation>
 <translation id="7818131573217430250">Establecer el estado predeterminado del modo de contraste alto en la pantalla de inicio de sesión</translation>

@@ -181,7 +181,7 @@
 <translation id="1561967320164410511">U2F と個人認証用拡張機能</translation>
 <translation id="1574554504290354326">この設定はサポートが終了しています。代わりに SafeBrowsingExtendedReportingEnabled を使用してください。SafeBrowsingExtendedReportingEnabled を有効または無効にすると、SafeBrowsingExtendedReportingOptInAllowed を false に設定したときと同じ動作になります。
 
-      このポリシーを false に設定した場合、ユーザーは Google サーバーに一部のシステム情報やページのコンテンツを送信するよう指定できなくなります。このポリシーを true に設定するか未設定のままにした場合、ユーザーは危険なアプリやサイトの検出に役立てるために一部のシステム情報やページのコンテンツをセーフ ブラウジングに送信できます。
+      このポリシーを false に設定した場合、ユーザーは Google サーバーにシステム情報の一部やページのコンテンツを送信するよう指定できなくなります。このポリシーを true に設定するか未設定のままにした場合、ユーザーは危険なアプリやサイトの検出に役立てる目的でシステム情報の一部やページのコンテンツをセーフ ブラウジングに送信できます。
 
       セーフ ブラウジングについて詳しくは、https://developers.google.com/safe-browsing をご覧ください。</translation>
 <translation id="1583248206450240930">デフォルトで <ph name="PRODUCT_FRAME_NAME" /> を使用する</translation>
