@@ -113,8 +113,8 @@ _PNG_WEBP_BLACKLIST_PATTERN = re.compile('|'.join([
     r'.*star_gray\.png',
     # Android requires pngs for 9-patch images.
     r'.*\.9\.png',
-    # Daydream requires pngs for icon files.
-    r'daydream_icon_.*\.png']))
+    # Daydream (*.dd) requires pngs for icon files.
+    r'.*\.dd\.png']))
 
 
 class _ResourceWhitelist(object):
