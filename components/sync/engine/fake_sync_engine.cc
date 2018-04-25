@@ -24,8 +24,6 @@ void FakeSyncEngine::TriggerRefresh(const ModelTypeSet& types) {}
 
 void FakeSyncEngine::UpdateCredentials(const SyncCredentials& credentials) {}
 
-void FakeSyncEngine::InvalidateCredentials() {}
-
 void FakeSyncEngine::StartConfiguration() {}
 
 void FakeSyncEngine::StartSyncingWithServer() {}

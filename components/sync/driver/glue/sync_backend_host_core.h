@@ -90,10 +90,6 @@ class SyncBackendHostCore
   // SyncEngine::UpdateCredentials.
   void DoUpdateCredentials(const SyncCredentials& credentials);
 
-  // Called to invalidate the credentials on behalf of
-  // SyncEngine::InvalidateCredentials.
-  void DoInvalidateCredentials();
-
   // Switches sync engine into configuration mode. In this mode only initial
   // data for newly enabled types is downloaded from server. No local changes
   // are committed to server.

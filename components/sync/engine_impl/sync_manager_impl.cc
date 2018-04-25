@@ -484,11 +484,6 @@ void SyncManagerImpl::UpdateCredentials(const SyncCredentials& credentials) {
   // TODO(zea): pass the credential age to the debug info event listener.
 }
 
-void SyncManagerImpl::InvalidateCredentials() {
-  DCHECK(thread_checker_.CalledOnValidThread());
-  connection_manager_->SetAuthToken(std::string());
-}
-
 void SyncManagerImpl::AddObserver(SyncManager::Observer* observer) {
   DCHECK(thread_checker_.CalledOnValidThread());
   observers_.AddObserver(observer);

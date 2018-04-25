@@ -133,10 +133,6 @@ void FakeSyncManager::UpdateCredentials(const SyncCredentials& credentials) {
   NOTIMPLEMENTED();
 }
 
-void FakeSyncManager::InvalidateCredentials() {
-  NOTIMPLEMENTED();
-}
-
 void FakeSyncManager::StartSyncingNormally(base::Time last_poll_time) {
   // Do nothing.
 }
