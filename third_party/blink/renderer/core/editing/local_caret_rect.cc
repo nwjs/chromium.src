@@ -82,13 +82,17 @@ InlineBoxPosition NextLinePositionOf(
   if (!last)
     return InlineBoxPosition();
   const RootInlineBox& root = last->Root();
-  const RootInlineBox* const next_root = root.NextRootBox();
-  if (!next_root)
-    return InlineBoxPosition();
-  InlineBox* const inline_box = next_root->FirstLeafChild();
-  return AdjustInlineBoxPositionForTextDirection(
-      inline_box, inline_box->CaretMinOffset(),
-      layout_text.Style()->GetUnicodeBidi());
+  for (const RootInlineBox* runner = root.NextRootBox(); runner;
+       runner = runner->NextRootBox()) {
+    InlineBox* const inline_box = runner->FirstLeafChild();
+    if (!inline_box)
+      continue;
+
+    return AdjustInlineBoxPositionForTextDirection(
+        inline_box, inline_box->CaretMinOffset(),
+        layout_text.Style()->GetUnicodeBidi());
+  }
+  return InlineBoxPosition();
 }
 
 template <typename Strategy>
