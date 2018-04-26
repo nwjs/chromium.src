@@ -95,7 +95,7 @@
 #include "ui/base/ui_features.h"
 #include "ui/compositor/compositor_vsync_manager.h"
 #include "ui/display/display_switches.h"
-#include "ui/display/manager/display_util.h"
+#include "ui/display/manager/chromeos/display_util.h"
 #include "ui/display/manager/managed_display_info.h"
 #include "ui/display/screen.h"
 #include "ui/events/keycodes/dom/keycode_converter.h"
@@ -2872,10 +2872,9 @@ class AuraOutput : public WaylandDisplayObserver::ScaleObserver {
         bool rv = display_manager->GetActiveModeForDisplayId(display.id(),
                                                              &active_mode);
         DCHECK(rv);
-        for (uint32_t zoom_factor :
-             display::GetDisplayZoomFactors(active_mode)) {
+        for (double zoom_factor : display::GetDisplayZoomFactors(active_mode)) {
           uint32_t flags = 0;
-          if (zoom_factor == 1.f)
+          if (zoom_factor == 1.0)
             flags |= ZAURA_OUTPUT_SCALE_PROPERTY_PREFERRED;
           if (display_info.zoom_factor() == zoom_factor)
             flags |= ZAURA_OUTPUT_SCALE_PROPERTY_CURRENT;
