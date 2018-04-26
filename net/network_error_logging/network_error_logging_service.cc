@@ -32,7 +32,7 @@ const int kMaxJsonDepth = 4;
 
 const char kReportToKey[] = "report-to";
 const char kMaxAgeKey[] = "max-age";
-const char kIncludeSubdomainsKey[] = "includeSubdomains";
+const char kIncludeSubdomainsKey[] = "include-subdomains";
 const char kSuccessFractionKey[] = "success-fraction";
 const char kFailureFractionKey[] = "failure-fraction";
 
@@ -311,7 +311,8 @@ class NetworkErrorLoggingServiceImpl : public NetworkErrorLoggingService {
   // Would be unordered_map, but url::Origin has no hash.
   using PolicyMap = std::map<url::Origin, OriginPolicy>;
 
-  // Wildcard policies are policies for which the includeSubdomains flag is set.
+  // Wildcard policies are policies for which the include-subdomains flag is
+  // set.
   //
   // Wildcard policies are accessed by domain name, not full origin, so there
   // can be multiple wildcard policies per domain name.
@@ -363,7 +364,7 @@ class NetworkErrorLoggingServiceImpl : public NetworkErrorLoggingService {
     }
 
     bool include_subdomains = false;
-    // includeSubdomains is optional and defaults to false, so it's okay if
+    // include-subdomains is optional and defaults to false, so it's okay if
     // GetBoolean fails.
     dict->GetBoolean(kIncludeSubdomainsKey, &include_subdomains);
 
@@ -420,7 +421,7 @@ class NetworkErrorLoggingServiceImpl : public NetworkErrorLoggingService {
     // TODO(juliatuttle): Come up with a deterministic way to resolve these.
     if (it->second.size() > 1) {
       LOG(WARNING) << "Domain " << domain
-                   << " matches multiple origins with includeSubdomains; "
+                   << " matches multiple origins with include-subdomains; "
                    << "choosing one arbitrarily.";
     }
 
