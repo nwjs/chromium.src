@@ -355,7 +355,7 @@ bool GraphicsLayer::Paint(const IntRect* interest_rect,
     IntRect layer_bounds(layer_state_->offset, ExpandedIntSize(Size()));
     EnsureRasterInvalidator().Generate(
         layer_bounds, GetPaintController().GetPaintArtifact().PaintChunks(),
-        layer_state_->state, this);
+        layer_state_->state, VisualRectSubpixelOffset());
   }
 
   if (RuntimeEnabledFeatures::PaintUnderInvalidationCheckingEnabled() &&
@@ -1424,6 +1424,7 @@ void GraphicsLayer::PaintContents(WebDisplayItemList* web_display_item_list,
         GetPaintController().GetPaintArtifact().PaintChunks(),
         layer_state_->state,
         gfx::Vector2dF(layer_state_->offset.X(), layer_state_->offset.Y()),
+        VisualRectSubpixelOffset(),
         paint_controller.GetPaintArtifact().GetDisplayItemList(),
         *web_display_item_list->GetCcDisplayItemList());
   } else {
@@ -1442,6 +1443,15 @@ size_t GraphicsLayer::ApproximateUnsharedMemoryUsage() const {
   if (raster_invalidator_)
     result += raster_invalidator_->ApproximateUnsharedMemoryUsage();
   return result;
+}
+
+// Subpixel offset for visual rects which excluded composited layer's subpixel
+// accumulation during paint invalidation.
+// See PaintInvalidator::ExcludeCompositedLayerSubpixelAccumulation().
+FloatSize GraphicsLayer::VisualRectSubpixelOffset() const {
+  if (GetCompositingReasons() & CompositingReason::kComboAllDirectReasons)
+    return FloatSize(client_.SubpixelAccumulation());
+  return FloatSize();
 }
 
 bool ScopedSetNeedsDisplayInRectForTrackingOnly::s_enabled_ = false;

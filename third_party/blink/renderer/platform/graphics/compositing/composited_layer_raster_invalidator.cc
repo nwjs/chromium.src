@@ -105,8 +105,10 @@ CompositedLayerRasterInvalidator::ChunkPropertiesChanged(
 void CompositedLayerRasterInvalidator::GenerateRasterInvalidations(
     const PaintChunkSubset& new_chunks,
     const PropertyTreeState& layer_state,
+    const FloatSize& visual_rect_subpixel_offset,
     Vector<PaintChunkInfo>& new_chunks_info) {
-  ChunkToLayerMapper mapper(layer_state, layer_bounds_.OffsetFromOrigin());
+  ChunkToLayerMapper mapper(layer_state, layer_bounds_.OffsetFromOrigin(),
+                            visual_rect_subpixel_offset);
   Vector<bool> old_chunks_matched;
   old_chunks_matched.resize(paint_chunks_info_.size());
   size_t old_index = 0;
@@ -261,7 +263,7 @@ void CompositedLayerRasterInvalidator::Generate(
     const gfx::Rect& layer_bounds,
     const PaintChunkSubset& paint_chunks,
     const PropertyTreeState& layer_state,
-    const DisplayItemClient* layer_display_item_client) {
+    const FloatSize& visual_rect_subpixel_offset) {
   if (RuntimeEnabledFeatures::DisableRasterInvalidationEnabled())
     return;
 
@@ -285,13 +287,15 @@ void CompositedLayerRasterInvalidator::Generate(
     // No raster invalidation is needed if either the old bounds or the new
     // bounds is empty, but we still need to update new_chunks_info for the
     // next cycle.
-    ChunkToLayerMapper mapper(layer_state, layer_bounds.OffsetFromOrigin());
+    ChunkToLayerMapper mapper(layer_state, layer_bounds.OffsetFromOrigin(),
+                              visual_rect_subpixel_offset);
     for (const auto& chunk : paint_chunks) {
       mapper.SwitchToChunk(chunk);
       new_chunks_info.emplace_back(*this, mapper, chunk);
     }
   } else {
-    GenerateRasterInvalidations(paint_chunks, layer_state, new_chunks_info);
+    GenerateRasterInvalidations(paint_chunks, layer_state,
+                                visual_rect_subpixel_offset, new_chunks_info);
   }
 
   paint_chunks_info_ = std::move(new_chunks_info);

@@ -634,7 +634,7 @@ TEST_F(PaintChunksToCcLayerTest, VisualRect) {
       cc::DisplayItemList::kTopLevelDisplayItemList);
   PaintChunksToCcLayer::ConvertInto(
       chunks.chunks, PropertyTreeState(layer_transform.get(), c0(), e0()),
-      gfx::Vector2dF(100, 200), chunks.items, *cc_list);
+      gfx::Vector2dF(100, 200), FloatSize(), chunks.items, *cc_list);
   EXPECT_EQ(gfx::Rect(-50, -100, 100, 100), cc_list->VisualRectForTesting(4));
 
   EXPECT_THAT(
@@ -659,9 +659,9 @@ TEST_F(PaintChunksToCcLayerTest, NoncompositedClipPath) {
 
   auto cc_list = base::MakeRefCounted<cc::DisplayItemList>(
       cc::DisplayItemList::kTopLevelDisplayItemList);
-  PaintChunksToCcLayer::ConvertInto(chunks.chunks,
-                                    PropertyTreeState(t0(), c0(), e0()),
-                                    gfx::Vector2dF(), chunks.items, *cc_list);
+  PaintChunksToCcLayer::ConvertInto(
+      chunks.chunks, PropertyTreeState(t0(), c0(), e0()), gfx::Vector2dF(),
+      FloatSize(), chunks.items, *cc_list);
 
   EXPECT_THAT(
       *cc_list->ReleaseAsRecord(),
