@@ -2904,7 +2904,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="5464632865477611176">Ejecutar esta vez</translation>
 <translation id="5465662442746197494">¿Necesitas ayuda?</translation>
 <translation id="5469954281417596308">Administrador de favoritos</translation>
-<translation id="5471768120198416576">Hola, soy la previsualización del texto a voz.</translation>
+<translation id="5471768120198416576">Hola, soy la voz que leerá tus textos.</translation>
 <translation id="5473333559083690127">Vuelve a ingresar el PIN nuevo</translation>
 <translation id="5480254151128201294">Este dispositivo fue bloqueado por el propietario.</translation>
 <translation id="5481941284378890518">Agregar impresoras cercanas</translation>
@@ -3913,7 +3913,7 @@ Para obtener más información, visita nuestro <ph name="BEGIN_LINK" />Centro de
 <translation id="7030031465713069059">Guardar contraseña</translation>
 <translation id="7031962166228839643">TPM se está preparando, espera (esto llevará algunos minutos)</translation>
 <translation id="7035437538340499453">Smart Lock ya está configurado</translation>
-<translation id="7037509989619051237">Texto para previsualizar</translation>
+<translation id="7037509989619051237">Texto de prueba</translation>
 <translation id="7039326228527141150">Acceder a dispositivos USB de <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">Inicio de sesión de tarjeta inteligente de Microsoft</translation>
 <translation id="7040138676081995583">Abrir con...</translation>

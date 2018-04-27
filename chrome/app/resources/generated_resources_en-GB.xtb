@@ -2770,6 +2770,7 @@ For more information, visit our <ph name="BEGIN_LINK" />Help Centre<ph name="END
 <translation id="527605719918376753">Mute tab</translation>
 <translation id="527605982717517565">Always allow JavaScript on <ph name="HOST" /></translation>
 <translation id="5280426389926346830">Create Shortcut?</translation>
+<translation id="528208740344463258">To download and use Android apps, first you need to install this required update. While your <ph name="DEVICE_TYPE" /> is updating, you can’t use it. After installation is complete, your <ph name="DEVICE_TYPE" /> will restart.</translation>
 <translation id="5282733140964383898">Enabling 'Do Not Track' means that a request will be included with your browsing traffic. Any effect depends on whether a website responds to the request, and how the request is interpreted. For example, some websites may respond to this request by showing you ads that aren't based on other websites you've visited. Many websites will still collect and use your browsing data – for example, to improve security, to provide content, services, ads and recommendations on their websites, and to generate reporting statistics. <ph name="BEGIN_LINK" />Find out more<ph name="END_LINK" /></translation>
 <translation id="5283677936944177147">Oops!  The system failed to determine device model or serial number.</translation>
 <translation id="5284445933715251131">Continue Downloading</translation>

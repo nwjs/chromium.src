@@ -311,7 +311,7 @@ Para ajustar el término de búsqueda, mantén presionado el texto y seleccióna
 <translation id="393697183122708255">La búsqueda por voz no está habilitada</translation>
 <translation id="3950820424414687140">Acceder</translation>
 <translation id="395206256282351086">Se inhabilitaron las sugerencias de sitios y búsqueda</translation>
-<translation id="3952533382939530115">Esta función usa la <ph name="BEGIN_LINK" />sincronización<ph name="END_LINK" />. Las URL de las páginas que visites se envían a Google.</translation>
+<translation id="3952533382939530115">Esta función usa la <ph name="BEGIN_LINK" />sincronización<ph name="END_LINK" />. Se enviarán a Google las URL de las páginas que visites.</translation>
 <translation id="3967822245660637423">Descarga completa</translation>
 <translation id="397583555483684758">La sincronización dejó de funcionar</translation>
 <translation id="3976396876660209797">Quita y vuelve a crear este acceso directo</translation>

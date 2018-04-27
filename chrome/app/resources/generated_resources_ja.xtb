@@ -2871,7 +2871,7 @@
 <translation id="5425042808445046667">ダウンロードを続行</translation>
 <translation id="5425722269016440406">Smart Lock 設定はスマートフォンおよび他のデバイスと同期しているため、オフにするにはインターネットに接続する必要があります。まずネットワークに接続してください。</translation>
 <translation id="5425863515030416387">すべてのデバイスで簡単ログイン</translation>
-<translation id="5426179911063097041"><ph name="SITE" /> から通知の送信許可を求められています</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> が通知を送信しようとしています。</translation>
 <translation id="5427278936122846523">常に翻訳する</translation>
 <translation id="5427459444770871191">時計回りに回転(&amp;C)</translation>
 <translation id="542872847390508405">ゲスト モードでブラウジング中</translation>

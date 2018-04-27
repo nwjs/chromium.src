@@ -229,7 +229,7 @@
 <translation id="1338776410427958681">Ciutkan <ph name="FOLDER_NAME" /></translation>
 <translation id="1338950911836659113">Menghapus...</translation>
 <translation id="1340527397989195812">Cadangkan media dari perangkat menggunakan aplikasi File.</translation>
-<translation id="1341988552785875222">Wallpaper saat ini disetel oleh '<ph name="APP_NAME" />'. Anda mungkin perlu mencopot pemasangan '<ph name="APP_NAME" />' sebelum memilih wallpaper lainnya.</translation>
+<translation id="1341988552785875222">Wallpaper saat ini disetel oleh '<ph name="APP_NAME" />'. Anda mungkin perlu meng-uninstal '<ph name="APP_NAME" />' sebelum memilih wallpaper lainnya.</translation>
 <translation id="1346748346194534595">Kanan</translation>
 <translation id="1347975661240122359">Update akan dimulai jika baterai mencapai <ph name="BATTERY_LEVEL" />%.</translation>
 <translation id="1351692861129622852">Mengimpor <ph name="FILE_COUNT" /> file...</translation>
@@ -1959,7 +1959,7 @@ Untuk informasi selengkapnya, kunjungi <ph name="BEGIN_LINK" />Pusat Bantuan<ph 
 <translation id="3937734102568271121">Selalu Terjemahkan <ph name="LANGUAGE" /></translation>
 <translation id="3940233957883229251">Aktifkan pengulangan otomatis</translation>
 <translation id="3941357410013254652">ID Saluran</translation>
-<translation id="3941565636838060942">Untuk menyembunyikan akses ke program ini, Anda perlu mencopot pemasangan dengan menggunakan
+<translation id="3941565636838060942">Untuk menyembunyikan akses ke program ini, Anda perlu meng-uninstal dengan menggunakan
   <ph name="CONTROL_PANEL_APPLET_NAME" /> di Panel Kontrol.
 
   Apakah Anda ingin memulai <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>

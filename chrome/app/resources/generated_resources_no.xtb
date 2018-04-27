@@ -2862,6 +2862,7 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="5425042808445046667">Fortsett nedlastingen</translation>
 <translation id="5425722269016440406">Du må være koblet til nettet for å slå av Smart Lock, fordi denne innstillingen er synkronisert til telefonen og andre enheter. Koble til et nettverk først.</translation>
 <translation id="5425863515030416387">Logg på enkelt på ulike enheter</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> vil sende deg varsler</translation>
 <translation id="5427278936122846523">Oversett alltid</translation>
 <translation id="5427459444770871191">Rotér &amp;med klokken</translation>
 <translation id="542872847390508405">Du surfer som gjest</translation>
@@ -2898,6 +2899,7 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="5464632865477611176">Kjør denne gangen</translation>
 <translation id="5465662442746197494">Trenger du hjelp?</translation>
 <translation id="5469954281417596308">Bokmerkebehandling</translation>
+<translation id="5471768120198416576">Heisann! Jeg er din tekst til tale-stemme.</translation>
 <translation id="5473333559083690127">Skriv inn den nye PIN-koden på nytt</translation>
 <translation id="5480254151128201294">Denne enheten ble låst av eieren.</translation>
 <translation id="5481941284378890518">Legg til skrivere i nærheten</translation>
@@ -3905,6 +3907,7 @@ Du finner mer informasjon i <ph name="BEGIN_LINK" />brukerstøtten<ph name="END_
 <translation id="7030031465713069059">Lagre passordet</translation>
 <translation id="7031962166228839643">TMP blir klargjort. Vent litt (dette kan ta noen minutter).</translation>
 <translation id="7035437538340499453">Smart Lock er konfigurert</translation>
+<translation id="7037509989619051237">Tekst til forhåndsvisning</translation>
 <translation id="7039326228527141150">Les USB-enheter fra <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">Pålogging med Microsoft-smartkort</translation>
 <translation id="7040138676081995583">Åpne med</translation>
@@ -4473,6 +4476,7 @@ Når du installerer <ph name="APP_NAME" />, blir det lastet ned <ph name="DOWNLO
 <translation id="7928710562641958568">Utløserenhet</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> deler lyden og skjermen din.</translation>
 <translation id="7931318309563332511">Ukjent</translation>
+<translation id="7934414805353235750"><ph name="URL" /> vil spille av beskyttet innhold. Identiteten til enheten din blir bekreftet av Google.</translation>
 <translation id="7938594894617528435">Frakoblet for øyeblikket</translation>
 <translation id="7939062555109487992">Avanserte alternativer</translation>
 <translation id="7939412583708276221">Behold uansett</translation>

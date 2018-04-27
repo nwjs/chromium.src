@@ -2870,6 +2870,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="5425042808445046667">Continuă descărcarea</translation>
 <translation id="5425722269016440406">Trebuie să fii online pentru a dezactiva Smart Lock, deoarece această setare este sincronizată cu telefonul și cu alte dispozitive ale tale. Conectează-te la o rețea mai întâi.</translation>
 <translation id="5425863515030416387">Conectează-te cu ușurință pe toate dispozitivele</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> dorește să îți trimită notificări</translation>
 <translation id="5427278936122846523">Tradu întotdeauna</translation>
 <translation id="5427459444770871191">Rotiți în sensul acelor de &amp;ceasornic</translation>
 <translation id="542872847390508405">Navigați ca invitat</translation>
@@ -2906,6 +2907,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="5464632865477611176">Rula de această dată</translation>
 <translation id="5465662442746197494">Ai nevoie de ajutor?</translation>
 <translation id="5469954281417596308">Managerul de marcaje</translation>
+<translation id="5471768120198416576">Bună! Eu sunt vocea pentru redarea vocală a textului.</translation>
 <translation id="5473333559083690127">Reintrodu noul cod PIN</translation>
 <translation id="5480254151128201294">Acest dispozitiv a fost blocat de proprietar.</translation>
 <translation id="5481941284378890518">Adaugă imprimantele din apropiere</translation>
@@ -3914,6 +3916,7 @@ Pentru mai multe informații, accesează <ph name="BEGIN_LINK" />Centrul de ajut
 <translation id="7030031465713069059">Salvează parola</translation>
 <translation id="7031962166228839643">Se pregătește TPM. Așteaptă (poate dura câteva minute)...</translation>
 <translation id="7035437538340499453">Funcția Smart Lock este configurată</translation>
+<translation id="7037509989619051237">Textul pentru previzualizare</translation>
 <translation id="7039326228527141150">Accesează dispozitivele USB de la <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">Conectare Microsoft cu card inteligent</translation>
 <translation id="7040138676081995583">Deschideți cu...</translation>
@@ -4490,6 +4493,7 @@ Dacă instalezi <ph name="APP_NAME" />, se vor descărca <ph name="DOWNLOAD_SIZE
 <translation id="7928710562641958568">Scoateți dispozitivul</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> trimite conținutul de pe ecran și conținutul audio.</translation>
 <translation id="7931318309563332511">Necunoscută</translation>
+<translation id="7934414805353235750"><ph name="URL" /> vrea să redea conținut protejat. Google va verifica identitatea dispozitivului tău.</translation>
 <translation id="7938594894617528435">Offline în prezent</translation>
 <translation id="7939062555109487992">Opțiuni avansate</translation>
 <translation id="7939412583708276221">Păstrați oricum</translation>

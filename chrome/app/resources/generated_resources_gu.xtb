@@ -83,12 +83,14 @@
 <translation id="1122198203221319518">&amp;સાધનો</translation>
 <translation id="1122242684574577509">પ્રમાણીકરણ નિષ્ફળ થયું. તમે ઉપયોગ કરી રહ્યાં છો તે Wi-Fi નેટવર્ક (<ph name="NETWORK_ID" />) માટેના લોગિન પૃષ્ઠની મુલાકાત લેવા માટે ક્લિક કરો.</translation>
 <translation id="1122960773616686544">બુકમાર્ક નામ</translation>
+<translation id="1123187597739372905">સિંક સેટિંગ બતાવો</translation>
 <translation id="1123316951456119629"><ph name="PRODUCT_NAME" />થી તમારા Google એકાઉન્ટને ડિસ્કનેક્ટ કરીને, તમારો ડેટા આ કમ્પ્યુટર પર રહેશે પરંતુ ફેરફારો તમારા Google એકાઉન્ટ સાથે સમન્વયિત થશે નહીં. તમારા Google એકાઉન્ટમાં પહેલાથી સ્ટોર થયેલો ડેટા ત્યાંજ રહેશે જ્યાં સુધી તમે <ph name="BEGIN_LINK" />Google ડેશબૉર્ડ<ph name="END_LINK" />નો ઉપયોગ કરીને તેને દૂર કરશો નહીં.</translation>
 <translation id="1124772482545689468">વપરાશકર્તા</translation>
 <translation id="1128109161498068552">MIDI ઉપકરણોને ઍક્સેસ કરવા માટે સિસ્ટમના એકમાત્ર સંદેશાઓનો ઉપયોગ કરવાની કોઇપણ સાઇટ્સને  મંજૂરી આપશો નહીં</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">શોધ એંજિન સંપાદિત કરો</translation>
 <translation id="1134009406053225289">છુપી વિંડોમાં ખોલો</translation>
+<translation id="1136155683023653803">પાસવર્ડ, બુકમાર્ક, ઇતિહાસ અને ઘણું બધું તમારા એકાઉન્ટ સાથે સિંક થાય છે</translation>
 <translation id="1137673463384776352"><ph name="APP" />માં લિંક ખોલો</translation>
 <translation id="1140351953533677694">તમારા Bluetooth અને સીરિયલ ઉપકરણોને ઍક્સેસ કરો</translation>
 <translation id="1140610710803014750">તમારા બધા ઉપકરણો પર તમારા બુકમાર્ક મેળવવા માટે, સાઇન ઇન કરો અને સિંક કરવાનું ચાલુ કરો.</translation>
@@ -215,6 +217,7 @@
 <translation id="1314565355471455267">Android VPN</translation>
 <translation id="131461803491198646">હોમ નેટવર્ક, રોમિંગ નહીં</translation>
 <translation id="1316136264406804862">શોધી રહ્યું છે ...</translation>
+<translation id="1316495628809031177">સિંક થોભાવ્યું છે</translation>
 <translation id="1319979322914001937">એક ઍપ્લિકેશન કે જે Chrome વેબ દુકાનથી ફિલ્ટર કરેલ એક્સ્ટેન્શન્સની સૂચિ દર્શાવે છે. સૂચિમાંના એક્સ્ટેન્શન્સ સીધા જ ઍપ્લિકેશનથી ઇન્સ્ટોલ કરી શકાય છે.</translation>
 <translation id="132090119144658135">વિષય મેળ:</translation>
 <translation id="1326317727527857210">તમારા અન્ય ઉપકરણો પરથી તમારા ટૅબ્સ મેળવવા માટે, Chrome માં સાઇન ઇન કરો.</translation>
@@ -237,6 +240,7 @@
 <translation id="1358735829858566124">ફાઇલ કે ડાયરેક્ટરી ઉપયોગ યોગ્ય નથી.</translation>
 <translation id="1358741672408003399">જોડણી અને વ્યાકરણ</translation>
 <translation id="1361164813881551742">મેન્યુઅલી ઉમેરો</translation>
+<translation id="1361428313543554004">Google ટેક્સ્ટ ટૂ સ્પીચ મેનેજ કરો</translation>
 <translation id="1361655923249334273">બિનવપરાયેલ</translation>
 <translation id="1363028406613469049">ટ્રૅક</translation>
 <translation id="1367951781824006909">એક ફાઇલ પસંદ કરો</translation>
@@ -1335,6 +1339,7 @@
 <translation id="3016641847947582299">ઘટક અપડેટ કર્યો</translation>
 <translation id="3016780570757425217">તમારું સ્થાન જાણો</translation>
 <translation id="302014277942214887">ઍપ્લિકેશન id અથવા વેબસ્ટોર URL દાખલ કરો.</translation>
+<translation id="3020183492814296499">શૉર્ટકટ</translation>
 <translation id="3020990233660977256">સીરિયલ નંબર: <ph name="SERIAL_NUMBER" /></translation>
 <translation id="3021678814754966447">ફ્રેમ સ્રોત &amp;જુઓ</translation>
 <translation id="3022978424994383087">તે મળ્યો નથી.</translation>
@@ -1908,6 +1913,7 @@
 <translation id="3866249974567520381">વર્ણન</translation>
 <translation id="3867944738977021751">પ્રમાણપત્ર ફીલ્ડ્સ</translation>
 <translation id="3869917919960562512">ખોટી અનુક્રમણિકા</translation>
+<translation id="3872220884670338524">વધુ ક્રિયાઓ, <ph name="DOMAIN" /> પર <ph name="USERNAME" /> માટે સાચવેલ એકાઉન્ટ</translation>
 <translation id="3872991219937722530">ડિસ્ક સ્થાન ખાલી કરો અથવા ઉપકરણ પ્રતિભાવવિહીન બની જશે.</translation>
 <translation id="3878840326289104869">નિરીક્ષણ કરેલ વપરાશકર્તા બનાવે છે</translation>
 <translation id="3879748587602334249">ડાઉનલોડ મેનેજર</translation>
@@ -1955,6 +1961,7 @@
  શું તમે <ph name="CONTROL_PANEL_APPLET_NAME" /> ને પ્રારંભ કરવા માંગો છો?</translation>
 <translation id="3943582379552582368">&amp;પાછળ</translation>
 <translation id="3943857333388298514">પેસ્ટ કરો</translation>
+<translation id="3945692323027177270">વૉઇસ ચાલુ કરો</translation>
 <translation id="3948116654032448504">છબી માટે <ph name="SEARCH_ENGINE" /> પર &amp;શોધો</translation>
 <translation id="3949371968208420848">Hangouts Meet પર સ્વાગત છે!</translation>
 <translation id="3949790930165450333"><ph name="DEVICE_NAME" /> (<ph name="DEVICE_ID" />)</translation>
@@ -2445,6 +2452,7 @@
 <translation id="4804331037112292643">ફાઇલ ખોલો/બંધ કરો સંવાદ</translation>
 <translation id="4804818685124855865">ડિસ્કનેક્ટ કરો</translation>
 <translation id="4807098396393229769">કાર્ડ પરનું નામ</translation>
+<translation id="4807650012029404839">Google ટેક્સ્ટ ટૂ સ્પીચ વૉઇસ</translation>
 <translation id="480990236307250886">હોમ પેજ ખોલો</translation>
 <translation id="4812632551187706935">કનેક્શન શરૂ કરી શકાયું નથી</translation>
 <translation id="4813512666221746211">નેટવર્ક ભૂલ</translation>
@@ -2801,6 +2809,7 @@
 <translation id="5334142896108694079">સ્ક્રિપ્ટ કેશ</translation>
 <translation id="5334844597069022743">સ્રોત જુઓ</translation>
 <translation id="5335458522276292100"><ph name="BEGIN_LINK" />Google ડ્રાઇવ<ph name="END_LINK" />માં <ph name="FILE_COUNT" />નો બૅકઅપ લઈ રહ્યાં છીએ</translation>
+<translation id="5336126339807372270">કોઈ પણ સાઇટને USB ઉપકરણો ઍક્સેસ કરવાની મંજૂરી આપશો નહીં</translation>
 <translation id="5337771866151525739">તૃતીય-પક્ષ દ્વારા ઇન્સ્ટોલ કરેલું.</translation>
 <translation id="5338503421962489998">સ્થાનિક સ્ટોરેજ</translation>
 <translation id="5340217413897845242">શેલ્ફ આઇટમ 6</translation>
@@ -2935,6 +2944,7 @@
 <translation id="5525677322972469346">એક નવો નિરીક્ષિત વપરાશકર્તા બનાવો</translation>
 <translation id="5525695896049981561">હા, મને તે દેખાય છે</translation>
 <translation id="5526701598901867718">બધા (અસુરક્ષિત)</translation>
+<translation id="5526745900034778153">સિંકને ફરી શરૂ કરવા માટે ફરીથી સાઇન ઇન કરો</translation>
 <translation id="5527463195266282916">એક્સ્ટેંશનને ડાઉનગ્રેડ કરવાનો પ્રયાસ કર્યો.</translation>
 <translation id="5527474464531963247">તમે બીજું નેટવર્ક પણ પસંદ કરી શકો છો. </translation>
 <translation id="5528368756083817449">બુકમાર્ક વ્યવસ્થાપક</translation>
@@ -3054,6 +3064,7 @@
 <translation id="5700836101007545240">કનેક્શન ઉમેરો, તમારા વ્યવસ્થાપક દ્વારા અક્ષમ કરવામાં આવ્યું છે</translation>
 <translation id="5701381305118179107">મધ્યમાં</translation>
 <translation id="5702898740348134351">&amp;શોધ એન્જિન્સ સંપાદિત કરો...</translation>
+<translation id="5704875434923668958">આની સાથે સિંક કરી રહ્યાં છીએ</translation>
 <translation id="5707185214361380026">અહીંથી એક્સ્ટેન્શનને લોડ કરવામાં નિષ્ફળ:</translation>
 <translation id="5707604204219538797">આગલો શબ્દ</translation>
 <translation id="5708171344853220004">Microsoft Principal Name</translation>
@@ -3426,6 +3437,7 @@
 <translation id="6286708577777130801">સાચવેલ પાસવર્ડની વિગતો</translation>
 <translation id="6287852322318138013">આ ફાઇલ ખોલવા માટે એક ઍપ્લિકેશન પસંદ કરો</translation>
 <translation id="6290556621549272952">તમે Chromium માંથી તમારા TV પર અથવા અન્ય ઉપકરણ પર સામગ્રી પ્રદર્શિત કરવા માટે આ સુવિધાનો ઉપયોગ કરી શકો છો.</translation>
+<translation id="6291949900244949761">જ્યારે કોઈ સાઇટ USB ઉપકરણોને ઍક્સેસ કરવા માગે ત્યારે પૂછો (ભલામણ કરેલ)</translation>
 <translation id="6291953229176937411">ફાઇન્ડર માં &amp;બતાવો</translation>
 <translation id="6295158916970320988">બધી સાઇટ્સ</translation>
 <translation id="6295855836753816081">સાચવી રહ્યું છે...</translation>
@@ -4594,6 +4606,7 @@
 <translation id="8104696615244072556">તમારા <ph name="IDS_SHORT_PRODUCT_NAME" /> ઉપકરણને Powerwash કરો અને પાછલા સંસ્કરણ પર પરત ફરો.</translation>
 <translation id="8105368624971345109">બંધ કરો</translation>
 <translation id="8106045200081704138">મારી સાથે શેર કરેલા</translation>
+<translation id="8106291346560740864">Google ટેક્સ્ટ-ટૂ-સ્પીચ સેટિંગ</translation>
 <translation id="8107015733319732394">તમારા <ph name="DEVICE_TYPE" /> પર Google Play સ્ટોર ઇન્સ્ટૉલ કરી રહ્યાં છીએ. આમાં થોડી મિનિટ લાગી શકે છે.</translation>
 <translation id="8109930990200908494">વપરાશકર્તા પ્રમાણપત્ર માટે સાઇન-ઇન આવશ્યક.</translation>
 <translation id="8111155949205007504">તમાર iPhone સાથે આ પાસવર્ડ શેર કરો</translation>
@@ -4727,6 +4740,7 @@
 <translation id="8336153091935557858">ગઈ કાલે <ph name="YESTERDAY_DAYTIME" /></translation>
 <translation id="8338952601723052325">વિકાસકર્તા વેબસાઇટ</translation>
 <translation id="8339059274628563283"><ph name="SITE" /> એ સ્થાનિક રીતે સ્ટોર કરેલો ડેટા</translation>
+<translation id="833986336429795709">આ લિંક ખોલવા માટે, એક ઍપ પસંદ કરો</translation>
 <translation id="8342318071240498787">સમાન નામની ફાઇલ અથવા ડાયરેક્ટરી પહેલાથી જ અસ્તિત્વમાં છે.</translation>
 <translation id="8343956361364550006">શ્રેષ્ઠ વીડિઓ અથવા એનિમેશન માટે ઉચ્ચ બૅન્ડવિડ્થનો ઉપયોગ કરો. ધીમા કનેક્શન ધરાવતાં અન્ય લોકોને કદાચ તમારું કન્ટેન્ટ ન દેખાય.</translation>
 <translation id="8349826889576450703">લૉન્ચર</translation>
@@ -4924,6 +4938,7 @@
 <translation id="8663099077749055505"><ph name="HOST" /> પર બહુવિધ આપમેળે ડાઉનલોડ્સને હંમેશા અવરોધિત કરો.</translation>
 <translation id="8664389313780386848">પૃષ્ઠ સ્રોત &amp;જુઓ</translation>
 <translation id="866611985033792019">ઇમેઇલ વપરાશકર્તાઓને ઓળખવા માટે આ પ્રમાણપત્ર પર વિશ્વાસ કરો</translation>
+<translation id="8666584013686199826">જ્યારે કોઈ સાઇટ USB ઉપકરણોને ઍક્સેસ કરવા માગે ત્યારે પૂછો</translation>
 <translation id="8667328578593601900"><ph name="FULLSCREEN_ORIGIN" /> હવે પૂર્ણ સ્ક્રીનમાં છે અને તમારું માઉસ કર્સર અક્ષમ કરવામાં આવ્યું છે.</translation>
 <translation id="8669284339312441707">વૉર્મર</translation>
 <translation id="8669949407341943408">ખસેડી રહ્યું છે...</translation>
@@ -5038,6 +5053,7 @@
 <translation id="882204272221080310">વધારાની સુરક્ષા માટે ફર્મવેયર અપડેટ કરો.</translation>
 <translation id="8823514049557262177">લિંક ટે&amp;ક્સ્ટને કૉપિ કરો</translation>
 <translation id="8824701697284169214">પૃ&amp;ષ્ઠ ઉમેરો...</translation>
+<translation id="8827752199525959199">વધુ ક્રિયાઓ, <ph name="DOMAIN" /> પર <ph name="USERNAME" /> માટે પાસવર્ડ</translation>
 <translation id="8828933418460119530">DNS નામ</translation>
 <translation id="8830796635868321089">વર્તમાન પ્રોક્સી સેટિંગ્સનો ઉપયોગ કરીને અપડેટ ચકાસણી નિષ્ફળ થયું. કૃપા કરીને તમારી <ph name="PROXY_SETTINGS_LINK_START" />પ્રોક્સી સેટિંગ્સ<ph name="PROXY_SETTINGS_LINK_END" /> સમાયોજિત કરો.</translation>
 <translation id="8834039744648160717">નેટવર્ક ગોઠવણી, <ph name="USER_EMAIL" /> દ્વારા નિયંત્રિત થાય છે.</translation>

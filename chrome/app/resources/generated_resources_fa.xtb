@@ -2866,6 +2866,7 @@
 <translation id="5425042808445046667">ادامه بارگیری</translation>
 <translation id="5425722269016440406">‏برای خاموش کردن Smart Lock باید آنلاین باشید زیرا این تنظیم با تلفن و سایر دستگاه‌های شما همگام‌سازی می‌شود. لطفاً اول به شبکه متصل شوید.</translation>
 <translation id="5425863515030416387">ورود به سیستم آسان در همه دستگاه‌ها</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> می‌خواهد برایتان اعلان  ارسال کند</translation>
 <translation id="5427278936122846523">همیشه ترجمه شود</translation>
 <translation id="5427459444770871191">چرخاندن در جهت &amp;عقربه‌های ساعت</translation>
 <translation id="542872847390508405">به عنوان مهمان مرور می‌کنید</translation>
@@ -2902,6 +2903,7 @@
 <translation id="5464632865477611176">این بار اجرا شود</translation>
 <translation id="5465662442746197494">به راهنمایی نیاز دارید؟</translation>
 <translation id="5469954281417596308">مدیر نشانک</translation>
+<translation id="5471768120198416576">سلام! من صدای نوشتار به گفتار شما هستم.</translation>
 <translation id="5473333559083690127">پین جدید را دوباره وارد کنید</translation>
 <translation id="5480254151128201294">مالک این دستگاه را قفل کرده است.</translation>
 <translation id="5481941284378890518">افزودن چاپگرهای اطراف</translation>
@@ -3910,6 +3912,7 @@
 <translation id="7030031465713069059">ذخیره گذرواژه</translation>
 <translation id="7031962166228839643">‏TPM در حال آماده شدن است، لطفاً منتظر بمانید (این مرحله ممکن است چند دقیقه طول بکشد)...</translation>
 <translation id="7035437538340499453">‏Smart Lock کاملاً آماده است</translation>
+<translation id="7037509989619051237">نوشتار برای پیش‌نمایش</translation>
 <translation id="7039326228527141150">‏دسترسی به دستگاه‌های USB از <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">Microsoft Smart Card Logon</translation>
 <translation id="7040138676081995583">باز کردن با...</translation>
@@ -4487,6 +4490,7 @@
 <translation id="7928710562641958568">خارج کردن دستگاه</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> درحال اشتراک‌گذاری صفحه و صوت شماست.</translation>
 <translation id="7931318309563332511">ناشناس</translation>
+<translation id="7934414805353235750">‏<ph name="URL" /> می‌خواهد محتوای محافظت‌شده را پخش کند. Google هویت دستگاهتان را به تأیید می‌رساند.</translation>
 <translation id="7938594894617528435">در حال حاضر آفلاین</translation>
 <translation id="7939062555109487992">گزینه‌های پیشرفته</translation>
 <translation id="7939412583708276221">درهر حال حفظ شود</translation>

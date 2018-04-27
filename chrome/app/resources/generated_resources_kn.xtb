@@ -2869,6 +2869,7 @@
 <translation id="5425042808445046667">ಡೌನ್‌ಲೋಡ್ ಮಾಡುವುದನ್ನು ಮುಂದುವರಿಸಿ</translation>
 <translation id="5425722269016440406">Smart Lock ಆಫ್‌ ಮಾಡಲು ನೀವು ಆನ್‌ಲೈನ್‌ನಲ್ಲಿರಬೇಕು. ಏಕೆಂದರೆ ಈ ಸೆಟ್ಟಿಂಗ್‌ ಅನ್ನು ನಿಮ್ಮ ಫೋನ್‌ ಮತ್ತು ಇತರ ಸಾಧನಗಳಿಗೆ ಸಿಂಕ್‌ ಮಾಡಲಾಗಿದೆ. ದಯವಿಟ್ಟು ಮೊದಲು ನೆಟ್‌ವರ್ಕ್‌ಗೆ ಸಂಪರ್ಕಿಸಿ.</translation>
 <translation id="5425863515030416387">ಸಾಧನಗಳಾದ್ಯಂತ ಸುಲಭವಾಗಿ ಸೈನ್ ಇನ್ ಮಾಡಿ</translation>
+<translation id="5426179911063097041">ನಿಮಗೆ ಅಧಿಸೂಚನೆಗಳನ್ನು ಕಳುಹಿಸಲು <ph name="SITE" /> ಬಯಸುತ್ತದೆ</translation>
 <translation id="5427278936122846523">ಯಾವಾಗಲೂ ಅನುವಾದಿಸು</translation>
 <translation id="5427459444770871191">&amp;ಪ್ರದಕ್ಷಿಣೆಯಂತೆ ತಿರುಗಿಸಿ</translation>
 <translation id="542872847390508405">ನೀವು ಒಬ್ಬ ಅತಿಥಿಯಂತೆ ಬ್ರೌಸ್ ಮಾಡುತ್ತಿರುವಿರಿ</translation>
@@ -2905,6 +2906,7 @@
 <translation id="5464632865477611176">ಈ ಸಮಯದಲ್ಲಿ ಚಾಲನೆ ನೀಡಿ</translation>
 <translation id="5465662442746197494">ಸಹಾಯ ಬೇಕೇ?</translation>
 <translation id="5469954281417596308">ಬುಕ್‌ಮಾರ್ಕ್‌ ವ್ಯವಸ್ಥಾಪಕ</translation>
+<translation id="5471768120198416576">ನಮಸ್ಕಾರ! ನಾನು ನಿಮ್ಮ ಪಠ್ಯದಿಂದ ಧ್ವನಿಯ ಧ್ವನಿ.</translation>
 <translation id="5473333559083690127">ಹೊಸ ಪಿನ್ ಮರು-ನಮೂದಿಸಿ</translation>
 <translation id="5480254151128201294">ಈ ಸಾಧನವನ್ನು ಮಾಲೀಕರು ಲಾಕ್ ಮಾಡಿದ್ದಾರೆ.</translation>
 <translation id="5481941284378890518">ಸಮೀಪದ ಪ್ರಿಂಟರ್‌ಗಳನ್ನು ಸೇರಿಸು</translation>
@@ -3911,6 +3913,7 @@
 <translation id="7030031465713069059">ಪಾಸ್‌ವರ್ಡ್ ಉಳಿಸು</translation>
 <translation id="7031962166228839643">TPM ಅನ್ನು ಸಿದ್ಧಪಡಿಸಲಾಗುತ್ತಿದೆ, ಕೊಂಚ ಕಾಯಿರಿ (ಇದಕ್ಕೆ ಕೆಲವು ನಿಮಿಷಗಳ ಕಾಲಾವಕಾಶ ಬೇಕಾಗಬಹುದು)…</translation>
 <translation id="7035437538340499453">Smart Lock ಎಲ್ಲ ರೀತಿಯಲ್ಲಿಯೂ ಸಿದ್ಧವಾಗಿದೆ</translation>
+<translation id="7037509989619051237">ಪೂರ್ವವೀಕ್ಷಣೆಗಾಗಿ ಪಠ್ಯಕ್ಕೆ ಹೋಗಿ</translation>
 <translation id="7039326228527141150"><ph name="VENDOR_NAME" /> ರಿಂದ USB ಸಾಧನಗಳನ್ನು ಪ್ರವೇಶಿಸಿ</translation>
 <translation id="7039912931802252762">Microsoft Smart Card Logon</translation>
 <translation id="7040138676081995583">ಇದರೊಂದಿಗೆ ತೆರೆಯಿರಿ...</translation>
@@ -4480,6 +4483,7 @@
 <translation id="7928710562641958568">ಸಾಧನ ತೆಗೆದುಹಾಕು</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> ನಿಮ್ಮ ಪರದೆ ಮತ್ತು ಆಡಿಯೋವನ್ನು ಹಂಚಿಕೊಳ್ಳುತ್ತಿದೆ.</translation>
 <translation id="7931318309563332511">ಅಪರಿಚಿತ</translation>
+<translation id="7934414805353235750">ಸಂರಕ್ಷಿಸಲಾದ ವಿಷಯವನ್ನು ಪ್ಲೇ ಮಾಡಲು <ph name="URL" /> ಬಯಸುತ್ತದೆ. ನಿಮ್ಮ ಸಾಧನದ ಗುರುತನ್ನು Google ಪರಿಶೀಲಿಸುವುದು.</translation>
 <translation id="7938594894617528435">ಪ್ರಸ್ತುತ ಆಫ್‌ಲೈನ್</translation>
 <translation id="7939062555109487992">ಸುಧಾರಿತ ಆಯ್ಕೆಗಳು</translation>
 <translation id="7939412583708276221">ಹೇಗಾದರೂ ಇರಿಸಿ</translation>

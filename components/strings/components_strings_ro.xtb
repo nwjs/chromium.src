@@ -149,6 +149,7 @@
 <translation id="192020519938775529">{COUNT,plural, =0{Niciunul}=1{1 site}few{# site-uri}other{# de site-uri}}</translation>
 <translation id="1927235823738766038">Carduri de credit și de debit acceptate</translation>
 <translation id="194030505837763158">Accesați <ph name="LINK" /></translation>
+<translation id="1945968466830820669">Este posibil să pierzi accesul la contul organizației sau să fii victima unui furt de identitate. Chromium îți recomandă să îți schimbi acum parola.</translation>
 <translation id="1948773908305951926">Carduri preplătite acceptate</translation>
 <translation id="1962204205936693436">Marcaje <ph name="DOMAIN" /></translation>
 <translation id="1973335181906896915">Eroare de serializare</translation>
@@ -591,6 +592,7 @@
 <translation id="5141240743006678641">Criptează parolele sincronizate cu datele de conectare Google</translation>
 <translation id="5145883236150621069">Răspunsul pentru politică include un cod de eroare</translation>
 <translation id="5159010409087891077">Deschide pagina într-o fereastră incognito nouă (⇧⌘N)</translation>
+<translation id="5169827969064885044">Este posibil să pierzi accesul la contul organizației sau să fii victima unui furt de identitate. Chrome îți recomandă să îți schimbi acum parola.</translation>
 <translation id="5171045022955879922">Caută sau introdu adresa URL</translation>
 <translation id="5172758083709347301">Computer</translation>
 <translation id="5179510805599951267">Nu este în <ph name="ORIGINAL_LANGUAGE" />? Semnalează această eroare.</translation>
@@ -851,6 +853,7 @@
 <translation id="7334320624316649418">&amp;Repetați reordonarea</translation>
 <translation id="733923710415886693">Certificatul serverului nu a fost dezvăluit folosind Transparența certificatului.</translation>
 <translation id="7353601530677266744">Linie de comandă</translation>
+<translation id="7365061714576910172">Exportă în format Linux</translation>
 <translation id="7372973238305370288">rezultat al căutării</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">Nu</translation>

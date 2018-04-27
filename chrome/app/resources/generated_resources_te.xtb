@@ -2870,6 +2870,7 @@
 <translation id="5425042808445046667">డౌన్‌లోడ్‌ చేయడాన్ని కొనసాగించు</translation>
 <translation id="5425722269016440406">ఈ సెట్టింగ్ మీ ఫోన్ మరియు ఇతర పరికరాలకు సమకాలీకరించబడినందున Smart Lockను ఆఫ్ చేయడానికి మీరు తప్పనిసరిగా ఆన్‌లైన్‌లో ఉండాలి. దయచేసి ముందుగా నెట్‌వర్క్‌కు కనెక్ట్ చేయండి.</translation>
 <translation id="5425863515030416387">పరికరాల్లో సులభంగా సైన్ ఇన్ చేయండి</translation>
+<translation id="5426179911063097041"><ph name="SITE" /> మీకు నోటిఫికేషన్‌లను పంపాలనుకుంటోంది</translation>
 <translation id="5427278936122846523">ఎల్లప్పుడూ అనువదించు</translation>
 <translation id="5427459444770871191">&amp;సవ్యదిశలో తిప్పు</translation>
 <translation id="542872847390508405">మీరు అతిథిగా బ్రౌజ్ చేస్తున్నారు</translation>
@@ -2906,6 +2907,7 @@
 <translation id="5464632865477611176">ఈ సమయాన్ని అమలు చెయ్యి</translation>
 <translation id="5465662442746197494">సహాయం కావాలా?</translation>
 <translation id="5469954281417596308">బుక్‌మార్క్ నిర్వాహికి</translation>
+<translation id="5471768120198416576">హలో! నేను మీ వచనం నుండి ప్రసంగం వాయిస్‌ని.</translation>
 <translation id="5473333559083690127">కొత్త PINని మళ్లీ నమోదు చేయండి</translation>
 <translation id="5480254151128201294">ఈ పరికరాన్ని యజమాని లాక్ చేసారు.</translation>
 <translation id="5481941284378890518">సమీప ప్రింటర్‌లను జోడించు</translation>
@@ -3914,6 +3916,7 @@
 <translation id="7030031465713069059">పాస్‌వర్డ్ సేవ్ చేయండి</translation>
 <translation id="7031962166228839643">TPM అనేది సిద్ధం అవుతోంది, దయచేసి వేచి ఉంచండి (దీనికి కొన్ని నిమిషాల సమయం పట్టవచ్చు)...</translation>
 <translation id="7035437538340499453">Smart Lock పూర్తిగా సెట్ అయింది</translation>
+<translation id="7037509989619051237">వచనం యొక్క ప్రివ్యూ</translation>
 <translation id="7039326228527141150"><ph name="VENDOR_NAME" /> అందించిన USB పరికరాలకు ప్రాప్యత</translation>
 <translation id="7039912931802252762">Microsoft Smart Card Logon</translation>
 <translation id="7040138676081995583">దీనితో తెరువు...</translation>
@@ -4489,6 +4492,7 @@
 <translation id="7928710562641958568">పరికరాన్ని తీసివేయండి</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> మీ స్క్రీన్ మరియు ఆడియోను భాగస్వామ్యం చేస్తోంది.</translation>
 <translation id="7931318309563332511">తెలియదు</translation>
+<translation id="7934414805353235750"><ph name="URL" /> రక్షిత కంటెంట్‌ని ప్లే చేయాలనుకుంటోంది. మీ పరికర గుర్తింపుని Google ధృవీకరించాలనుకుంటోంది.</translation>
 <translation id="7938594894617528435">ప్రస్తుతం ఆఫ్‌లైన్‌లో ఉంది</translation>
 <translation id="7939062555109487992">అధునాతన ఎంపికలు</translation>
 <translation id="7939412583708276221">ఏదేమైనా ఉంచు</translation>

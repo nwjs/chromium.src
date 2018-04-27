@@ -2908,7 +2908,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="5464632865477611176">Chạy lần này</translation>
 <translation id="5465662442746197494">Bạn cần trợ giúp?</translation>
 <translation id="5469954281417596308">Trình quản lý dấu trang</translation>
-<translation id="5471768120198416576">Chào bạn! Đây chính là giọng nói trong tính năng chuyển văn bản sang lời nói của bạn.</translation>
+<translation id="5471768120198416576">Chào bạn! Đây là giọng nói của tính năng chuyển văn bản sang lời nói.</translation>
 <translation id="5473333559083690127">Nhập lại mã PIN mới</translation>
 <translation id="5480254151128201294">Thiết bị này đã bị chủ sở hữu khóa.</translation>
 <translation id="5481941284378890518">Thêm máy in lân cận</translation>
@@ -3917,7 +3917,7 @@ Tạo người dùng được giám sát sẽ không tạo Tài khoản Google, 
 <translation id="7030031465713069059">Lưu mật khẩu</translation>
 <translation id="7031962166228839643">TPM đang được chuẩn bị, vui lòng đợi (việc này có thể mất vài phút)...</translation>
 <translation id="7035437538340499453">Đã thiết lập xong Smart Lock</translation>
-<translation id="7037509989619051237">Văn bản cần xem trước</translation>
+<translation id="7037509989619051237">Văn bản để xem trước</translation>
 <translation id="7039326228527141150">Truy cập thiết bị USB từ <ph name="VENDOR_NAME" /></translation>
 <translation id="7039912931802252762">Đăng nhập Thẻ Thông minh của Microsoft</translation>
 <translation id="7040138676081995583">Mở bằng...</translation>
@@ -4494,7 +4494,7 @@ Việc cài đặt <ph name="APP_NAME" /> sẽ tải xuống <ph name="DOWNLOAD_
 <translation id="7928710562641958568">Tháo thiết bị</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> đang chia sẻ màn hình và âm thanh của bạn.</translation>
 <translation id="7931318309563332511">Không xác định</translation>
-<translation id="7934414805353235750"><ph name="URL" /> muốn phát nội dung được bảo vệ. Danh tính thiết bị của bạn sẽ được Google xác minh.</translation>
+<translation id="7934414805353235750"><ph name="URL" /> muốn phát nội dung được bảo vệ. Thông tin định danh thiết bị của bạn sẽ được Google xác minh.</translation>
 <translation id="7938594894617528435">Hiện đang ngoại tuyến</translation>
 <translation id="7939062555109487992">Tùy chọn nâng cao</translation>
 <translation id="7939412583708276221">Vẫn tiếp tục</translation>
