@@ -1187,15 +1187,15 @@
 <translation id="4474167089968829729">Aktivera lösenordshanteraren för sparade lösenord</translation>
 <translation id="4476769083125004742">Om den här principen är inställd på <ph name="BLOCK_GEOLOCATION_SETTING" /> får Android-appar inte tillgång till platsinformation. Om principen är inställd på något annat eller lämnas utan inställning blir användaren tillfrågad om han eller hon vill ge Android-appen tillgång till platsinformationen när det blir aktuellt.</translation>
 <translation id="4480694116501920047">Tvinga fram användning av SafeSearch</translation>
-<translation id="4482640907922304445">Policyn visar knappen Startsida i verktygsfältet i <ph name="PRODUCT_NAME" />.
+<translation id="4482640907922304445">Policyn visar hemknappen i verktygsfältet i <ph name="PRODUCT_NAME" />.
 
-      Om du aktiverar inställningen visas alltid knappen Startsida.
+      Om du aktiverar inställningen visas alltid hemknappen.
 
-      Om du inaktiverar inställningen visas aldrig knappen Startsida.
+      Om du inaktiverar inställningen visas aldrig hemknappen.
 
       Om du aktiverar eller inaktiverar inställningen kan den inte ändras eller åsidosättas av användare i <ph name="PRODUCT_NAME" />.
 
-      Om du inte anger policyn kan användaren välja om knappen Startsida ska visas.</translation>
+      Om du inte anger policyn kan användaren välja om hemknappen ska visas.</translation>
 <translation id="4485425108474077672">Konfigurera webbadressen för sidan Ny flik</translation>
 <translation id="4492287494009043413">Inaktivera tagning av skärmdumpar</translation>
 <translation id="450537894712826981">Konfigurerar storleken på cacheminnet där <ph name="PRODUCT_NAME" /> sparar cachade mediafiler på skivan.
@@ -1489,7 +1489,7 @@
 
           Om principen är inställd på falskt kan användarna inte casta till enheten. Om principen är inställd på sant får användarna casta innehåll. Om principen lämnas utan inställning får användarna inte casta till registrerade Chrome OS-enheter, men däremot till enheter som inte är registrerade.</translation>
 <translation id="5330684698007383292">Tillåt att <ph name="PRODUCT_FRAME_NAME" /> hanterar följande innehållstyper</translation>
-<translation id="5365946944967967336">Visa knappen Startsida i verktygsfältet</translation>
+<translation id="5365946944967967336">Visa hemknappen i verktygsfältet</translation>
 <translation id="5366745336748853475">Låter dig ange en lista med webbadressmönster som anger webbplatser för vilka ett klientcertifikat väljs automatiskt på inloggningsskärmen i den ram som står värd för SAML-flödet, om webbplatsen kräver ett certifikat. Ett möjligt användningsområde är att konfigurera ett certifikat för hela enheten som ska uppvisas för SAML-identitetsleverantören.
 
       Värdet måste vara en vektor med JSON-ordlistor som konverterats till strängar. Varje ordlista måste ha formatet { "pattern": "$URL_PATTERN", "filter": $FILTER } där $URL_PATTERN är ett inställningsmönster. $FILTER begränsar urvalet klientcertifikat som webbläsaren automatiskt ska välja bland. Oavsett filter väljs endast sådana certifikat som matchar serverns certifikatbegäran. Om $FILTER har formatet { "ISSUER": { "CN": "$ISSUER_CN" } } väljs dessutom enbart sådana klientcertifikat som har utfärdats med ett certifikat som har $ISSUER_CN som CommonName. Om $FILTER är den tomma ordlistan {} begränsas inte valet av klientcertifikat ytterligare.

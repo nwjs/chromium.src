@@ -1372,7 +1372,7 @@ Para obtener más información, accede a nuestro <ph name="BEGIN_LINK" />Centro 
 <translation id="304826556400666995">Activar sonido de pestañas</translation>
 <translation id="3053013834507634016">Uso de claves de certificado</translation>
 <translation id="3057861065630527966">Realiza copias de seguridad de tus fotos y vídeos</translation>
-<translation id="3060379269883947824">Habilitar Escuchar Selección</translation>
+<translation id="3060379269883947824">Habilitar Enunciar Selección</translation>
 <translation id="3061707000357573562">Aplicar parche a servicio</translation>
 <translation id="3064410671692449875">Datos insuficientes</translation>
 <translation id="3065041951436100775">Comentarios sobre una pestaña que se ha cerrado.</translation>
@@ -2420,7 +2420,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4772404146526168240">Ambas pantallas</translation>
 <translation id="4776917500594043016">Contraseña de <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4777825441726637019">Play Store</translation>
-<translation id="4779083564647765204">Acercar/alejar</translation>
+<translation id="4779083564647765204">Zoom</translation>
 <translation id="477945296921629067">{NUM_POPUPS,plural, =1{Ventana emergente bloqueada}other{# ventanas emergentes bloqueadas}}</translation>
 <translation id="4780321648949301421">Guardar página como...</translation>
 <translation id="4781787911582943401">Ampliar pantalla</translation>
@@ -2950,7 +2950,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="555746285996217175">Bloqueo/encendido</translation>
 <translation id="5557579359142031072">Ver información de identificación sobre tu llave de seguridad</translation>
 <translation id="5557991081552967863">Usar Wi-Fi en suspensión</translation>
-<translation id="5558129378926964177">Ampliar &amp;zoom</translation>
+<translation id="5558129378926964177">&amp;Ampliar</translation>
 <translation id="55601339223879446">Ajusta los extremos de tu escritorio en la pantalla</translation>
 <translation id="5562781907504170924">Esta pestaña está conectada a un dispositivo Bluetooth.</translation>
 <translation id="5565871407246142825">Tarjetas de crédito</translation>
@@ -5038,7 +5038,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8898786835233784856">Seleccionar siguiente pestaña</translation>
 <translation id="8898840733695078011">Intensidad de la señal</translation>
 <translation id="8899851313684471736">Abrir enlace en una &amp;ventana nueva</translation>
-<translation id="8902667442496790482">Abrir los ajustes de Escuchar Selección</translation>
+<translation id="8902667442496790482">Abrir los ajustes de Enunciar Selección</translation>
 <translation id="8903921497873541725">Acercar</translation>
 <translation id="8904976895050290827">Sincronización de Chrome</translation>
 <translation id="8908902564709148335">Advertencia: Has habilitado la opción --scripts-require-action en este ordenador, lo que limita las posibilidades de esta extensión. Sin embargo, es posible que en otros dispositivos esta opción no se admita o esté habilitada. En esos dispositivos, la extensión también puede:</translation>

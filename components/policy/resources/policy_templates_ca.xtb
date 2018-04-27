@@ -1579,11 +1579,11 @@ Si la política no es defineix, els usuaris podran triar si el prestatge s'ha d'
 
           Si es desactiva o no es configura aquesta opció, les sol·licituds d'autenticació Gnubby s'enviaran per un servidor intermediari.</translation>
 <translation id="5898486742390981550">Quan diversos usuaris tenen la sessió iniciada, només el principal pot utilitzar les aplicacions per a Android.</translation>
-<translation id="5906199912611534122">Permet activar o desactivar l'acceleració de la xarxa.
-      S'aplica a tots els usuaris i a totes les interfícies del dispositiu. Un cop establerta, l'acceleració continua fins que la política es canvia per desactivar-la.
+<translation id="5906199912611534122">Permet activar o desactivar la limitació de l'amplada de banda de la xarxa.
+      S'aplica a tots els usuaris i a totes les interfícies del dispositiu. Un cop establerta, la limitació continua fins que la política es canvia per desactivar-la.
 
-      Si s'estableix en "false", no hi ha acceleració.
-      Si s'estableix en "true", el sistema s'accelera per aconseguir les velocitats de pujada i baixada proporcionades (en kb/s).</translation>
+      Si s'estableix en "false", no hi ha limitació.
+      Si s'estableix en "true", s'estableix una limitació al sistema per aconseguir les velocitats de pujada i baixada proporcionades (en kb/s).</translation>
 <translation id="5921713479449475707">Permet les baixades d'actualització automàtica mitjançant HTTP</translation>
 <translation id="5921888683953999946">Establiu l'estat predeterminat de la funció d'accessibilitat del cursor gran a la pantalla d'inici de sessió.
 
@@ -1931,7 +1931,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 <translation id="7063895219334505671">Permet les finestres emergents en aquests llocs</translation>
 <translation id="706669471845501145">Permet que els llocs mostrin les notificacions d'escriptori</translation>
 <translation id="7072208053150563108">Freqüència de canvi de la contrasenya de l'ordinador</translation>
-<translation id="7072406291414141328">Activa l'acceleració de l'amplada de banda de la xarxa</translation>
+<translation id="7072406291414141328">Activa la limitació de l'amplada de banda de la xarxa</translation>
 <translation id="7074513465313721551">Configura la llista de dominis en què Navegació segura confiarà. És a dir:
       Navegació segura no cercarà recursos perillosos (per exemple, programari de pesca, maliciós o no desitjat) si els URL coincideixen amb aquests dominis.
       El servei de protecció a l'hora de baixar contingut de Navegació segura no revisarà les baixades allotjades en aquests dominis.
