@@ -19,7 +19,7 @@
     { "name": "layers" },
     { "name": "layer_viewer" },
     { "name": "network" },
-    { "name": "product_registry_impl", "type": "remote" },
+    { "name": "product_registry_impl" },
     { "name": "resources" },
     { "name": "security" },
     { "name": "timeline" },

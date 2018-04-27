@@ -245,8 +245,8 @@ void LocationBarView::Init() {
     bubble_icons_.push_back(
         save_credit_card_icon_view_ =
             new autofill::SaveCardIconView(command_updater(), browser_));
-  bubble_icons_.push_back(translate_icon_view_ =
-                              new TranslateIconView(command_updater()));
+  //bubble_icons_.push_back(translate_icon_view_ =
+  //                            new TranslateIconView(command_updater()));
 #if defined(OS_CHROMEOS)
   if (browser_)
     bubble_icons_.push_back(intent_picker_view_ =
@@ -440,7 +440,7 @@ gfx::Size LocationBarView::CalculatePreferredSize() const {
   int trailing_width = edge_thickness;
   if (star_view_)
     trailing_width += IncrementalMinimumWidth(star_view_);
-  trailing_width += IncrementalMinimumWidth(translate_icon_view_);
+  //trailing_width += IncrementalMinimumWidth(translate_icon_view_);
   if (save_credit_card_icon_view_)
     trailing_width += IncrementalMinimumWidth(save_credit_card_icon_view_);
   trailing_width += IncrementalMinimumWidth(manage_passwords_icon_view_) +
@@ -532,7 +532,7 @@ void LocationBarView::Layout() {
   if (star_view_)
     add_trailing_decoration(star_view_);
   add_trailing_decoration(find_bar_icon_);
-  add_trailing_decoration(translate_icon_view_);
+  //add_trailing_decoration(translate_icon_view_);
   if (save_credit_card_icon_view_)
     add_trailing_decoration(save_credit_card_icon_view_);
   add_trailing_decoration(manage_passwords_icon_view_);
@@ -822,6 +822,7 @@ bool LocationBarView::RefreshFindBarIcon() {
 }
 
 void LocationBarView::RefreshTranslateIcon() {
+#if 0
   WebContents* web_contents = GetWebContents();
   if (!web_contents)
     return;
@@ -835,6 +836,7 @@ void LocationBarView::RefreshTranslateIcon() {
   translate_icon_view_->SetVisible(enabled);
   if (!enabled)
     TranslateBubbleView::CloseCurrentBubble();
+#endif
 }
 
 bool LocationBarView::RefreshManagePasswordsIconView() {

@@ -1,0 +1,17 @@
+{
+  //id: aafddpmiffkameplnjkglahmbnbgidce
+  "key":"MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCgmO8NbDyu8AB/Cudz33l3kkgPbIeYaitcYgn4RBJdNRPjJ2sRy0icbVMyZjXhNV81vuH60ZO5PiBmVIp6v49Aq2RSkFVbwPw0y1Yo6UgATlaaEKEJV2VGrlQJaN12bGM/Dz8KGuHVGTbtqHS+B0QyQJMAbXLJ8HkmvJPlUQZf3QIDAQAB",
+  "name": "NWJS Default",
+  "version": "0.1",
+  "manifest_version": 2,
+  "description": "NWJS default app",
+  "app": {
+    "background": {
+      "scripts": [ "main.js" ]
+    }
+  },
+  "permissions": [
+    "node", "proxy", "<all_urls>"
+  ],
+  "display_in_launcher": false
+}

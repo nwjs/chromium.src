@@ -11,12 +11,18 @@
 namespace media_router {
 
 MediaRouterUIService::MediaRouterUIService(Profile* profile)
+#if defined(NWJS_SDK)
     : action_controller_(new MediaRouterActionController(profile)) {}
+#else
+  {}
+#endif
 
 MediaRouterUIService::~MediaRouterUIService() {}
 
 void MediaRouterUIService::Shutdown() {
+#if defined(NWJS_SDK)
   action_controller_.reset();
+#endif
 }
 
 // static
@@ -25,7 +31,11 @@ MediaRouterUIService* MediaRouterUIService::Get(Profile* profile) {
 }
 
 MediaRouterActionController* MediaRouterUIService::action_controller() {
+#if defined(NWJS_SDK)
   return action_controller_.get();
+#else
+  return nullptr;
+#endif
 }
 
 }  // namespace media_router

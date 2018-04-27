@@ -4,6 +4,8 @@
 
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 
+#include "content/browser/renderer_host/render_process_host_impl.h"
+
 #include <stddef.h>
 
 #include <memory>
@@ -127,6 +129,7 @@ enum ShouldAllowOpenURLFailureScheme {
   SCHEME_LAST,
 };
 
+#if 0
 RenderProcessHostPrivilege GetPrivilegeRequiredByUrl(
     const GURL& url,
     ExtensionRegistry* registry) {
@@ -171,6 +174,7 @@ RenderProcessHostPrivilege GetProcessPrivilege(
 
   return PRIV_EXTENSION;
 }
+#endif
 
 // Determines whether the extension |origin| is legal to use in an Origin header
 // from the process identified by |child_id|.  Returns CONTINUE if so, FAIL if
@@ -355,6 +359,10 @@ bool ChromeContentBrowserClientExtensionsPart::DoesSiteRequireDedicatedProcess(
   if (!extension)
     return false;
 
+  if (extension->manifest()->HasKey("devtools_page"))
+    return true;
+  return false;
+#if 0
   // Always isolate Chrome Web Store.
   if (extension->id() == kWebStoreAppId)
     return true;
@@ -366,6 +374,7 @@ bool ChromeContentBrowserClientExtensionsPart::DoesSiteRequireDedicatedProcess(
 
   // Isolate all extensions.
   return true;
+#endif
 }
 
 // static
@@ -433,6 +442,8 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
     Profile* profile,
     content::RenderProcessHost* process_host,
     const GURL& site_url) {
+  return true;
+#if 0
   DCHECK(profile);
 
   ExtensionRegistry* registry = ExtensionRegistry::Get(profile);
@@ -449,6 +460,7 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
       GetPrivilegeRequiredByUrl(site_url, registry);
   return GetProcessPrivilege(process_host, process_map, registry) ==
          privilege_required;
+#endif
 }
 
 // static
@@ -827,6 +839,9 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcess(
       site_instance->GetSiteURL().host());
   if (!extension)
     return;
+
+  if (extension->is_nwjs_app() && !content::RenderProcessHostImpl::main_host())
+    ((content::RenderProcessHostImpl*)site_instance->GetProcess())->set_main_host();
 
   ProcessMap::Get(context)->Insert(extension->id(),
                                    site_instance->GetProcess()->GetID(),

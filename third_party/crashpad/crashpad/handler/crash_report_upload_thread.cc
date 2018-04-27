@@ -14,6 +14,7 @@
 
 #include "handler/crash_report_upload_thread.h"
 
+#include "base/strings/stringprintf.h"
 #include <errno.h>
 #include <time.h>
 
@@ -178,7 +179,7 @@ void CrashReportUploadThread::ProcessPendingReport(
   Settings* const settings = database_->GetSettings();
 
   bool uploads_enabled;
-  if (url_.empty() ||
+  if (//url_.empty() ||
       (!report.upload_explicitly_requested &&
        (!settings->GetUploadsEnabled(&uploads_enabled) || !uploads_enabled))) {
     // Don’t attempt an upload if there’s no URL to upload to. Allow upload if
@@ -207,7 +208,7 @@ void CrashReportUploadThread::ProcessPendingReport(
         // If the most recent upload attempt occurred within the past hour,
         // don’t attempt to upload the new report. If it happened longer ago,
         // attempt to upload the report.
-        constexpr int kUploadAttemptIntervalSeconds = 60 * 60;  // 1 hour
+        constexpr int kUploadAttemptIntervalSeconds = 0; //60 * 60;  // 1 hour
         if (now - last_upload_attempt_time < kUploadAttemptIntervalSeconds) {
           database_->SkipReportUpload(
               report.uuid, Metrics::CrashSkippedReason::kUploadThrottled);
@@ -308,6 +309,9 @@ CrashReportUploadThread::UploadResult CrashReportUploadThread::UploadReport(
     return UploadResult::kPermanentFailure;
   }
 
+  std::string upload_url;
+  if (parameters.find("url-nwjs") != parameters.end())
+    upload_url = parameters["url-nwjs"];
   HTTPMultipartBuilder http_multipart_builder;
   http_multipart_builder.SetGzipEnabled(options_.upload_gzip);
 
@@ -342,7 +346,8 @@ CrashReportUploadThread::UploadResult CrashReportUploadThread::UploadReport(
   // TODO(mark): The timeout should be configurable by the client.
   http_transport->SetTimeout(60.0);  // 1 minute.
 
-  std::string url = url_;
+#if 0
+  std::string url = upload_url;
   if (options_.identify_client_via_url) {
     // Add parameters to the URL which identify the client to the server.
     static constexpr struct {
@@ -365,7 +370,10 @@ CrashReportUploadThread::UploadResult CrashReportUploadThread::UploadReport(
       }
     }
   }
-  http_transport->SetURL(url);
+  if (!url.empty())
+    upload_url = url;
+#endif
+  http_transport->SetURL(upload_url);
 
   if (!http_transport->ExecuteSynchronously(response_body)) {
     return UploadResult::kRetry;
