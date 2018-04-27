@@ -8,6 +8,7 @@
 #include "base/optional.h"
 #include "base/strings/string_piece.h"
 #include "base/test/scoped_task_environment.h"
+#include "content/browser/loader/resource_dispatcher_host_impl.h"
 #include "content/browser/web_package/signed_exchange_utils.h"
 #include "content/public/common/resource_type.h"
 #include "content/public/common/url_loader_throttle.h"
@@ -141,7 +142,10 @@ class SignedExchangeCertFetcherTest : public testing::Test {
   SignedExchangeCertFetcherTest()
       : url_(GURL("https://www.example.com/cert")),
         request_initiator_(
-            url::Origin::Create(GURL("https://htxg.example.com/test.htxg"))) {}
+            url::Origin::Create(GURL("https://htxg.example.com/test.htxg"))),
+        resource_dispatcher_host_(CreateDownloadHandlerIntercept(),
+                                  base::ThreadTaskRunnerHandle::Get(),
+                                  true /* enable_resource_scheduler */) {}
   ~SignedExchangeCertFetcherTest() override {}
 
  protected:
@@ -237,6 +241,7 @@ class SignedExchangeCertFetcherTest : public testing::Test {
   std::vector<std::unique_ptr<URLLoaderThrottle>> throttles_;
 
   base::test::ScopedTaskEnvironment scoped_task_environment_;
+  ResourceDispatcherHostImpl resource_dispatcher_host_;
 
  private:
   DISALLOW_COPY_AND_ASSIGN(SignedExchangeCertFetcherTest);
