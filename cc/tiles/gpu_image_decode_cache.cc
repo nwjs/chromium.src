@@ -877,20 +877,6 @@ size_t GpuImageDecodeCache::GetMaximumMemoryLimitBytes() const {
   return max_working_set_bytes_;
 }
 
-void GpuImageDecodeCache::NotifyImageUnused(
-    const PaintImage::FrameKey& frame_key) {
-  auto it = persistent_cache_.Peek(frame_key);
-  if (it != persistent_cache_.end()) {
-    if (it->second->decode.ref_count != 0 ||
-        it->second->upload.ref_count != 0) {
-      it->second->is_orphaned = true;
-    } else if (it->second->HasUploadedData()) {
-      DeleteImage(it->second.get());
-    }
-    persistent_cache_.Erase(it);
-  }
-}
-
 bool GpuImageDecodeCache::OnMemoryDump(
     const base::trace_event::MemoryDumpArgs& args,
     base::trace_event::ProcessMemoryDump* pmd) {
