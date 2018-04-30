@@ -29,8 +29,9 @@ void OnReplaceTrackCompleted(blink::WebRTCVoidRequest request, bool result) {
 }  // namespace
 
 class RTCRtpSender::RTCRtpSenderInternal
-    : public base::RefCountedThreadSafe<RTCRtpSender::RTCRtpSenderInternal,
-                                        RTCRtpSender::RTCRtpSenderInternal> {
+    : public base::RefCountedThreadSafe<
+          RTCRtpSender::RTCRtpSenderInternal,
+          RTCRtpSender::RTCRtpSenderInternalTraits> {
  public:
   RTCRtpSenderInternal(
       scoped_refptr<webrtc::PeerConnectionInterface> native_peer_connection,
@@ -155,21 +156,7 @@ class RTCRtpSender::RTCRtpSenderInternal
   }
 
  private:
-  friend class base::RefCountedThreadSafe<RTCRtpSender::RTCRtpSenderInternal,
-                                          RTCRtpSender::RTCRtpSenderInternal>;
-
-  static void Destruct(const RTCRtpSenderInternal* sender) {
-    // RTCRtpSenderInternal owns AdapterRefs which have to be destroyed on the
-    // main thread, this ensures delete always happens there.
-    if (!sender->main_thread_->BelongsToCurrentThread()) {
-      sender->main_thread_->PostTask(
-          FROM_HERE,
-          base::BindOnce(&RTCRtpSender::RTCRtpSenderInternal::Destruct,
-                         base::Unretained(sender)));
-      return;
-    }
-    delete sender;
-  }
+  friend struct RTCRtpSender::RTCRtpSenderInternalTraits;
 
   ~RTCRtpSenderInternal() {
     // Ensured by destructor traits.
@@ -221,6 +208,25 @@ class RTCRtpSender::RTCRtpSenderInternal
   // sender's associated set of streams.
   std::vector<std::unique_ptr<WebRtcMediaStreamAdapterMap::AdapterRef>>
       stream_refs_;
+};
+
+struct RTCRtpSender::RTCRtpSenderInternalTraits {
+ private:
+  friend class base::RefCountedThreadSafe<RTCRtpSenderInternal,
+                                          RTCRtpSenderInternalTraits>;
+
+  static void Destruct(const RTCRtpSenderInternal* sender) {
+    // RTCRtpSenderInternal owns AdapterRefs which have to be destroyed on the
+    // main thread, this ensures delete always happens there.
+    if (!sender->main_thread_->BelongsToCurrentThread()) {
+      sender->main_thread_->PostTask(
+          FROM_HERE,
+          base::BindOnce(&RTCRtpSender::RTCRtpSenderInternalTraits::Destruct,
+                         base::Unretained(sender)));
+      return;
+    }
+    delete sender;
+  }
 };
 
 uintptr_t RTCRtpSender::getId(const webrtc::RtpSenderInterface* webrtc_sender) {
