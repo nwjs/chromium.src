@@ -991,7 +991,6 @@ class CONTENT_EXPORT RenderWidget
 
   scoped_refptr<base::SingleThreadTaskRunner> task_runner_;
 
-  gfx::Rect viewport_intersection_;
   gfx::Rect compositor_visible_rect_;
 
   // Cache whether or not we have touch handlers, to reduce IPCs sent.
