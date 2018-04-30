@@ -187,6 +187,10 @@ base::Optional<std::vector<uint8_t>> VirtualFidoDevice::DoRegister(
     return ErrorStatus(apdu::ApduResponse::Status::SW_WRONG_LENGTH);
   }
 
+  if (mutable_state()->simulate_press_callback) {
+    mutable_state()->simulate_press_callback.Run();
+  }
+
   const bool individual_attestation_requested = p1 & kP1IndividualAttestation;
   // The spec says that the other bits of P1 should be zero. However, Chrome
   // sends Test User Presence (0x03) so we ignore those bits.
@@ -278,6 +282,10 @@ base::Optional<std::vector<uint8_t>> VirtualFidoDevice::DoSign(
         p1 == kP1IndividualAttestation) ||
       p2 != 0) {
     return ErrorStatus(apdu::ApduResponse::Status::SW_WRONG_DATA);
+  }
+
+  if (mutable_state()->simulate_press_callback) {
+    mutable_state()->simulate_press_callback.Run();
   }
 
   auto challenge_param = data.first(32);
