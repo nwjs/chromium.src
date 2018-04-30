@@ -6,6 +6,7 @@
 
 #include <string>
 
+#include "base/base_paths.h"
 #include "base/json/json_writer.h"
 #include "base/path_service.h"
 #include "base/strings/utf_string_conversions.h"
@@ -13,7 +14,6 @@
 #include "chrome/browser/policy/policy_conversions.h"
 #include "chrome/browser/profiles/profile.h"
 #include "chrome/common/channel_info.h"
-#include "chrome/common/chrome_paths.h"
 #include "components/policy/core/common/cloud/cloud_policy_util.h"
 #include "components/policy/proto/device_management_backend.pb.h"
 #include "components/version_info/channel.h"
@@ -48,7 +48,7 @@ enum Type {
 
 std::string GetChromePath() {
   base::FilePath path;
-  base::PathService::Get(chrome::DIR_APP, &path);
+  base::PathService::Get(base::DIR_EXE, &path);
   return path.AsUTF8Unsafe();
 }
 
