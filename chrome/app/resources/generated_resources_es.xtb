@@ -2768,6 +2768,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="527605719918376753">Silenciar pestaña</translation>
 <translation id="527605982717517565">Permitir siempre JavaScript en <ph name="HOST" /></translation>
 <translation id="5280426389926346830">¿Quieres crear un acceso directo?</translation>
+<translation id="528208740344463258">Para descargar y utilizar aplicaciones de Android, primero debes instalar esta actualización. Mientras se actualiza tu <ph name="DEVICE_TYPE" />, no podrás usarlo. Tu <ph name="DEVICE_TYPE" /> se reiniciará cuando se complete la instalación.</translation>
 <translation id="5282733140964383898">Al habilitar la opción No realizar seguimiento, se incluirá una solicitud con tu tráfico de navegación. El efecto dependerá de si un sitio web responde a la solicitud y de cómo se interprete. Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anuncios que no están basados en otros sitios web que has visitado. Muchos sitios web seguirán recogiendo y utilizando tus datos de navegación para, por ejemplo, mejorar la seguridad, proporcionar contenido, servicios, anuncios y recomendaciones sobre sus sitios web, y generar estadísticas de informes. <ph name="BEGIN_LINK" />Más información<ph name="END_LINK" /></translation>
 <translation id="5283677936944177147">¡Vaya! El sistema no ha podido determinar el número de serie o el modelo del dispositivo.</translation>
 <translation id="5284445933715251131">Seguir descargando</translation>

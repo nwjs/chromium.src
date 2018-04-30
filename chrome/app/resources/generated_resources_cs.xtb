@@ -1762,7 +1762,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="3646789916214779970">Obnovit výchozí motiv</translation>
 <translation id="3648348069317717750">Bylo rozpoznáno zařízení <ph name="USB_DEVICE_NAME" /></translation>
 <translation id="3649138363871392317">Fotografie byla pořízena</translation>
-<translation id="3650952250015018111">Povolte aplikaci <ph name="APP_NAME" /> tyto přístupy:</translation>
+<translation id="3650952250015018111">Povolte aplikaci "<ph name="APP_NAME" />" tyto přístupy:</translation>
 <translation id="3651488188562686558">Bude odpojen od sítě Wi-Fi</translation>
 <translation id="3652817283076144888">Probíhá inicializace</translation>
 <translation id="3653999333232393305">Povolit webu <ph name="HOST" /> přístup k mikrofonu i nadále</translation>
@@ -2767,6 +2767,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="527605719918376753">Vypnout zvuk karty</translation>
 <translation id="527605982717517565">Vždy povolovat JavaScript z webu <ph name="HOST" /></translation>
 <translation id="5280426389926346830">Vytvořit zástupce?</translation>
+<translation id="528208740344463258">Abyste mohli stahovat a používat aplikace pro Android, nejdříve musíte nainstalovat tuto povinnou aktualizaci. <ph name="DEVICE_TYPE" /> během aktualizace nelze používat. Po dokončení instalace se <ph name="DEVICE_TYPE" /> restartuje.</translation>
 <translation id="5282733140964383898">Nastavení „Do Not Track“ (Nesledovat) znamená, že k vašemu provozu při prohlížení bude přidán speciální požadavek. Efekt tohoto požadavku však závisí na tom, zda na něj web reaguje a jak jej interpretuje. Některé weby na tento požadavek mohou reagovat například tím, že při zobrazování reklam nebudou používat informace o tom, které jiné weby jste navštívili. Mnohé weby budou nadále sbírat a používat vaše údaje o prohlížení – např. za účelem zlepšení zabezpečení, poskytování obsahu, služeb, reklam a doporučení na svých webových stránkách a generování přehledových statistik. <ph name="BEGIN_LINK" />Další informace<ph name="END_LINK" /></translation>
 <translation id="5283677936944177147">Jejda, systému se nepodařilo určit model nebo sériové číslo zařízení.</translation>
 <translation id="5284445933715251131">Pokračovat ve stahování</translation>

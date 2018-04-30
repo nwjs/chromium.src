@@ -2251,7 +2251,7 @@
           <ph name="PROXY_HELP_URL" />.</translation>
 <translation id="7781069478569868053">Halaman Tab Baru</translation>
 <translation id="7788511847830146438">Per Profil</translation>
-<translation id="7801886189430766248">Jika kebijakan ini disetel ke true, data aplikasi Android akan diupload ke server Pencadangan Android dan dipulihkan saat pemasangan ulang aplikasi untuk aplikasi yang kompatibel.
+<translation id="7801886189430766248">Jika kebijakan ini disetel ke true, data aplikasi Android akan diupload ke server Backup Android dan dipulihkan saat pemasangan ulang aplikasi untuk aplikasi yang kompatibel.
 
       Jika kebijakan ini disetel ke false, Android Backup Service akan dinonaktifkan.
 
@@ -2291,7 +2291,7 @@
 <translation id="7882585827992171421">Kebijakan ini hanya aktif dalam mode ritel.
 
       Menentukan id ekstensi untuk digunakan sebagai tirai layar pada layar masuk. Ekstensi haruslah bagian dari AppPack yang dikonfigurasi untuk domain ini melalui kebijakan DeviceAppPack.</translation>
-<translation id="7882857838942884046">Menonaktifkan Google Sync akan menyebabkan Pencadangan dan Pemulihan Android tidak berfungsi dengan benar.</translation>
+<translation id="7882857838942884046">Menonaktifkan Google Sync akan menyebabkan Backup dan Pemulihan Android tidak berfungsi dengan benar.</translation>
 <translation id="7882890448959833986">Sembunyikan peringatan OS tidak didukung</translation>
 <translation id="7912255076272890813">Konfigurasikan jenis aplikasi/ekstensi yang diizinkan</translation>
 <translation id="7915236031252389808">Anda dapat menetapkan URL ke file .pac proxy di sini.

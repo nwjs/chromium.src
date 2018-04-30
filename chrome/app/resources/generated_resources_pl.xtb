@@ -2770,6 +2770,7 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="527605719918376753">Wycisz kartę</translation>
 <translation id="527605982717517565">Zawsze zezwalaj na wykonywanie kodu JavaScript w witrynie <ph name="HOST" /></translation>
 <translation id="5280426389926346830">Utworzyć skrót?</translation>
+<translation id="528208740344463258">Aby pobrać aplikacje na Androida i ich używać, najpierw musisz zainstalować tę wymaganą aktualizację. Podczas gdy <ph name="DEVICE_TYPE" /> się aktualizuje, nie możesz korzystać z tego urządzenia. Po zakończeniu instalacji <ph name="DEVICE_TYPE" /> uruchomi się ponownie.</translation>
 <translation id="5282733140964383898">Włączenie opcji „Bez śledzenia” oznacza, że żądanie zostanie uwzględnione w ruchu związanym z używaniem przeglądarki. Efekt zawsze zależy od tego, czy witryna odpowiada na żądanie i jak je interpretuje. Na przykład niektóre witryny mogą odpowiadać na nie, wyświetlając reklamy bez uwzględniania innych odwiedzonych przez Ciebie stron. Wiele witryn będzie nadal gromadzić Twoje dane przeglądania i używać ich np. do zwiększania bezpieczeństwa, dostarczania treści i usług, wyświetlania reklam i rekomendacji oraz do generowania statystyk i raportów. <ph name="BEGIN_LINK" />Więcej informacji<ph name="END_LINK" /></translation>
 <translation id="5283677936944177147">Ups! System nie mógł określić modelu lub numeru seryjnego urządzenia.</translation>
 <translation id="5284445933715251131">Pobieraj dalej</translation>
