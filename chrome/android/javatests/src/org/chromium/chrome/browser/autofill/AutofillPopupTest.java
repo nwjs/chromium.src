@@ -24,7 +24,6 @@ import org.chromium.chrome.browser.ChromeSwitches;
 import org.chromium.chrome.browser.autofill.PersonalDataManager.AutofillProfile;
 import org.chromium.chrome.test.ChromeActivityTestRule;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.components.autofill.AutofillPopup;
 import org.chromium.content.browser.input.ChromiumBaseInputConnection;
 import org.chromium.content.browser.test.util.Criteria;
 import org.chromium.content.browser.test.util.CriteriaHelper;
@@ -34,6 +33,7 @@ import org.chromium.content.browser.test.util.TouchCommon;
 import org.chromium.content_public.browser.ContentViewCore;
 import org.chromium.content_public.browser.ImeAdapter;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.DropdownPopupWindowInterface;
 import org.chromium.ui.R;
 
 import java.util.ArrayList;
@@ -183,8 +183,9 @@ public class AutofillPopupTest {
         waitForAnchorViewAdd(view);
         View anchorView = view.findViewById(R.id.dropdown_popup_window);
 
-        Assert.assertTrue(anchorView.getTag() instanceof AutofillPopup);
-        final AutofillPopup popup = (AutofillPopup) anchorView.getTag();
+        Assert.assertTrue(anchorView.getTag() instanceof DropdownPopupWindowInterface);
+        final DropdownPopupWindowInterface popup =
+                (DropdownPopupWindowInterface) anchorView.getTag();
 
         waitForAutofillPopopShow(popup);
 
@@ -319,7 +320,7 @@ public class AutofillPopupTest {
         });
     }
 
-    private void waitForAutofillPopopShow(final AutofillPopup popup) {
+    private void waitForAutofillPopopShow(final DropdownPopupWindowInterface popup) {
         CriteriaHelper.pollUiThread(
                 new Criteria("Autofill Popup anchor view was never added.") {
                     @Override
