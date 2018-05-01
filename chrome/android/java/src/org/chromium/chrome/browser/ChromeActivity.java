@@ -67,6 +67,7 @@ import org.chromium.chrome.browser.compositor.layouts.SceneChangeObserver;
 import org.chromium.chrome.browser.compositor.layouts.content.ContentOffsetProvider;
 import org.chromium.chrome.browser.compositor.layouts.content.TabContentManager;
 import org.chromium.chrome.browser.contextual_suggestions.ContextualSuggestionsCoordinator;
+import org.chromium.chrome.browser.contextual_suggestions.PageViewTimer;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchFieldTrial;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager.ContextualSearchTabPromotionDelegate;
@@ -285,6 +286,9 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     /** Whether or not a PolicyChangeListener was added. */
     private boolean mDidAddPolicyChangeListener;
 
+    /** Adds TabObserver and TabModelObserver to measure page view times. */
+    private PageViewTimer mPageViewTimer;
+
     /**
      * @param factory The {@link AppMenuHandlerFactory} for creating {@link #mAppMenuHandler}
      */
@@ -386,6 +390,7 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
         ((BottomContainer) findViewById(R.id.bottom_container)).initialize(mFullscreenManager);
 
         mModalDialogManager = createModalDialogManager();
+        mPageViewTimer = new PageViewTimer(mTabModelSelector);
     }
 
     @Override
@@ -1125,6 +1130,11 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     @SuppressLint("NewApi")
     @Override
     protected final void onDestroy() {
+        if (mPageViewTimer != null) {
+            mPageViewTimer.destroy();
+            mPageViewTimer = null;
+        }
+
         if (mReaderModeManager != null) {
             mReaderModeManager.destroy();
             mReaderModeManager = null;
