@@ -740,6 +740,7 @@
 <translation id="6263376278284652872"><ph name="DOMAIN" /> బుక్‌మార్క్‌లు</translation>
 <translation id="6264485186158353794">భద్రతకు తిరిగి వెళ్ళు</translation>
 <translation id="6276112860590028508">మీ పఠన జాబితాలో ఉన్న పేజీలు ఇక్కడ కనిపిస్తాయి</translation>
+<translation id="627746635834430766">తర్వాతిసారి మరింత వేగంగా చెల్లించడానికి, మీ కార్డ్ మరియు బిల్లింగ్ చిరునామాను మీ Google ఖాతాకు సేవ్ చేయండి.</translation>
 <translation id="6280223929691119688">ఈ చిరునామాకు బట్వాడా చేయడం సాధ్యం కాదు. వేరే చిరునామాని ఎంచుకోండి.</translation>
 <translation id="6282194474023008486">పోస్టల్ కోడ్</translation>
 <translation id="6290238015253830360">మీకు సూచించిన కథనాలు ఇక్కడ కనిపిస్తాయి</translation>
@@ -754,6 +755,7 @@
 <translation id="6355080345576803305">పబ్లిక్ సెషన్ భర్తీ</translation>
 <translation id="6358450015545214790">దీని అర్ధం ఏమిటి?</translation>
 <translation id="6386120369904791316">{COUNT,plural, =1{1 ఇతర సూచన}other{# ఇతర సూచనలు}}</translation>
+<translation id="6387754724289022810">తర్వాతిసారి మరింత వేగంగా చెల్లించడానికి, మీ కార్డ్ మరియు బిల్లింగ్ చిరునామాను మీ Google ఖాతాకు మరియు ఈ పరికరానికి సేవ్ చేయండి.</translation>
 <translation id="6397451950548600259">మీ కంప్యూటర్‌లోని సాఫ్ట్‌వేర్ Chrome సురక్షితంగా వెబ్‌కు కనెక్ట్ కాకుండా ఆపుతోంది</translation>
 <translation id="6404511346730675251">బుక్‌మార్క్‌ను సవరించు</translation>
 <translation id="6410264514553301377"><ph name="CREDIT_CARD" /> గడువు ముగింపు తేదీ మరియు CVCని నమోదు చేయండి</translation>
@@ -853,7 +855,7 @@
 <translation id="7334320624316649418">&amp;మళ్లీ క్రమం చేయడాన్ని పునరావృతం చేయి</translation>
 <translation id="733923710415886693">సర్వర్ ప్రమాణపత్రాన్ని ప్రమాణపత్రం పారదర్శకత ద్వారా బహిరంగపరచలేదు.</translation>
 <translation id="7353601530677266744">ఆదేశ పంక్తి</translation>
-<translation id="7365061714576910172">Linuxని ఎగుమతి చేయి</translation>
+<translation id="7365061714576910172">Linux ఫార్మాట్‌లో ఎగుమతి చేయి</translation>
 <translation id="7372973238305370288">శోధన ఫలితం</translation>
 <translation id="7377249249140280793"><ph name="RELATIVE_DATE" /> - <ph name="FULL_DATE" /></translation>
 <translation id="7378627244592794276">వద్దు</translation>

@@ -740,6 +740,7 @@
 <translation id="6263376278284652872"><ph name="DOMAIN" />-bokmerker</translation>
 <translation id="6264485186158353794">Tilbake til trygg grunn</translation>
 <translation id="6276112860590028508">Sider fra leselisten din vises her</translation>
+<translation id="627746635834430766">For å betale raskere neste gang, lagre kortet ditt og faktureringsadressen i Google-kontoen din.</translation>
 <translation id="6280223929691119688">Kan ikke levere til denne adressen. Velg en annen adresse.</translation>
 <translation id="6282194474023008486">Postnummer</translation>
 <translation id="6290238015253830360">De foreslåtte artiklene dine vises her</translation>
@@ -754,6 +755,7 @@
 <translation id="6355080345576803305">Offentlig økt-overstyring</translation>
 <translation id="6358450015545214790">Hva innebærer dette?</translation>
 <translation id="6386120369904791316">{COUNT,plural, =1{1 annet forslag}other{# andre forslag}}</translation>
+<translation id="6387754724289022810">For å betale raskere neste gang, lagre kortet ditt og faktureringsadressen i Google-kontoen din og på denne enheten.</translation>
 <translation id="6397451950548600259">Det er programvare på datamaskinen din som hindrer Chrome i å koble trygt til Internett</translation>
 <translation id="6404511346730675251">Rediger bokmerket</translation>
 <translation id="6410264514553301377">Skriv inn utløpsdatoen og verifiseringskoden for <ph name="CREDIT_CARD" /></translation>

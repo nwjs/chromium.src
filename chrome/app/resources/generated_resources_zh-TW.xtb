@@ -2768,6 +2768,7 @@
 <translation id="527605719918376753">關閉分頁音訊</translation>
 <translation id="527605982717517565">永遠允許在 <ph name="HOST" /> 執行 JavaScript</translation>
 <translation id="5280426389926346830">要建立捷徑嗎？</translation>
+<translation id="528208740344463258">如要下載並使用 Android 應用程式，請先安裝這項必要更新。在 <ph name="DEVICE_TYPE" /> 更新期間，你無法使用裝置。安裝完成後，<ph name="DEVICE_TYPE" /> 將會重新啟動。</translation>
 <translation id="5282733140964383898">啟用「不追蹤」即表示要求將會包含在你的瀏覽流量中，所造成的影響取決於網站是否回應要求以及如何解讀要求。舉例來說，部分網站回應這類要求的方式，可能會是不根據你造訪其他網站的記錄來顯示廣告。不過，許多網站仍會收集並使用你的瀏覽資料，藉此提升安全性、提供網站上的內容、服務、廣告和推薦項目，以及產生報告統計資料等。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="5283677936944177147">糟糕！系統無法判別裝置型號或序號。</translation>
 <translation id="5284445933715251131">繼續下載</translation>
