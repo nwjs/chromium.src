@@ -530,6 +530,19 @@ void IOThread::Init() {
   globals_->network_quality_observer = content::CreateNetworkQualityObserver(
       globals_->network_quality_estimator.get());
 
+#if defined(OS_CHROMEOS)
+  // Set a task runner for the get network id call for NetworkQualityEstimator
+  // to workaround https://crbug.com/821607 where AddressTrackerLinux stucks
+  // with a recv() call and blocks IO thread. Using SingleThreadTaskRunner so
+  // that task scheduler does not create too many worker threads when the
+  // problem happens.
+  // TODO(https://crbug.com/821607): Remove after the bug is resolved.
+  globals_->network_quality_estimator->set_get_network_id_task_runner(
+      base::CreateSingleThreadTaskRunnerWithTraits(
+          {base::MayBlock(), base::TaskPriority::BACKGROUND,
+           base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN}));
+#endif
+
   globals_->dns_probe_service =
       std::make_unique<chrome_browser_net::DnsProbeService>();
 
