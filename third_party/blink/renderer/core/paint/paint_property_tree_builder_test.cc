@@ -5435,4 +5435,49 @@ TEST_P(PaintPropertyTreeBuilderTest, OmitOverflowClip) {
   EXPECT_TRUE(OverflowClip(*PaintPropertiesForElement("button")));
 }
 
+TEST_P(PaintPropertyTreeBuilderTest, ClipHitTestChangeDoesNotCauseFullRepaint) {
+  SetBodyInnerHTML(R"HTML(
+    <html>
+      <body>
+        <style>
+          .noscrollbars::-webkit-scrollbar { display: none; }
+        </style>
+        <div id="child" style="width: 10px; height: 10px; position: absolute;">
+        </div>
+        <div id="forcescroll" style="height: 1000px;"></div>
+      </body>
+    </html>
+  )HTML");
+  CHECK(GetDocument().GetPage()->GetScrollbarTheme().UsesOverlayScrollbars());
+  GetDocument().View()->UpdateAllLifecyclePhases();
+
+  auto* child_layer = ToLayoutBox(GetLayoutObjectByElementId("child"))->Layer();
+  EXPECT_FALSE(child_layer->NeedsRepaint());
+
+  GetDocument().body()->setAttribute(HTMLNames::classAttr, "noscrollbars");
+  GetDocument().View()->UpdateAllLifecyclePhasesExceptPaint();
+  EXPECT_FALSE(child_layer->NeedsRepaint());
+}
+
+TEST_P(PaintPropertyTreeBuilderTest, ClipPathInheritanceWithoutMutation) {
+  // This test verifies we properly included the path-based clip-path in
+  // context when the clipping element didn't need paint property update.
+  SetBodyInnerHTML(R"HTML(
+    <div style="clip-path:circle();">
+      <div id="child" style="position:relative; width:100px; height:100px; background:green;"></div>
+    </div>
+  )HTML");
+
+  auto* child = ToLayoutBox(GetLayoutObjectByElementId("child"));
+  const auto* old_clip_state =
+      child->FirstFragment().LocalBorderBoxProperties().Clip();
+
+  child->SetNeedsPaintPropertyUpdate();
+  GetDocument().View()->UpdateAllLifecyclePhases();
+
+  const auto* new_clip_state =
+      child->FirstFragment().LocalBorderBoxProperties().Clip();
+  EXPECT_EQ(old_clip_state, new_clip_state);
+}
+
 }  // namespace blink

@@ -992,9 +992,6 @@ void FragmentPaintPropertyTreeBuilder::UpdateCssClip() {
 
 void FragmentPaintPropertyTreeBuilder::UpdateClipPathClip(
     bool spv1_compositing_specific_pass) {
-  if (!NeedsPaintPropertyUpdate())
-    return;
-
   // In SPv1*, composited path-based clip-path applies to a mask paint chunk
   // instead of actual contents. We have to delay until mask clip node has been
   // created first so we can parent under it.
@@ -1004,13 +1001,15 @@ void FragmentPaintPropertyTreeBuilder::UpdateClipPathClip(
   if (is_spv1_composited != spv1_compositing_specific_pass)
     return;
 
-  if (!NeedsClipPathClip(object_)) {
-    OnClearClip(properties_->ClearClipPathClip());
-  } else {
-    OnUpdateClip(properties_->UpdateClipPathClip(
-        context_.current.clip, context_.current.transform,
-        FloatRoundedRect(FloatRect(*fragment_data_.ClipPathBoundingBox())),
-        nullptr, fragment_data_.ClipPathPath()));
+  if (NeedsPaintPropertyUpdate()) {
+    if (!NeedsClipPathClip(object_)) {
+      OnClearClip(properties_->ClearClipPathClip());
+    } else {
+      OnUpdateClip(properties_->UpdateClipPathClip(
+          context_.current.clip, context_.current.transform,
+          FloatRoundedRect(FloatRect(*fragment_data_.ClipPathBoundingBox())),
+          nullptr, fragment_data_.ClipPathPath()));
+    }
   }
 
   if (properties_->ClipPathClip() && !spv1_compositing_specific_pass) {
