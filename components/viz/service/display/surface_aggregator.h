@@ -39,7 +39,8 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
                     bool aggregate_only_damaged);
   ~SurfaceAggregator();
 
-  CompositorFrame Aggregate(const SurfaceId& surface_id);
+  CompositorFrame Aggregate(const SurfaceId& surface_id,
+                            base::TimeTicks expected_display_time);
   void ReleaseResources(const SurfaceId& surface_id);
   SurfaceIndexMap& previous_contained_surfaces() {
     return previous_contained_surfaces_;
@@ -237,6 +238,9 @@ class VIZ_SERVICE_EXPORT SurfaceAggregator {
 
   // This is the pass list for the aggregated frame.
   RenderPassList* dest_pass_list_;
+
+  // The target display time for the aggregated frame.
+  base::TimeTicks expected_display_time_;
 
   // This is the set of aggregated pass ids that are affected by filters that
   // move pixels.
