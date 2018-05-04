@@ -47,8 +47,8 @@ IN_PROC_BROWSER_TEST_F(ExtensionsDisabledBrowserTest,
   ASSERT_TRUE(unpacked_extension);
   EXPECT_EQ(Manifest::UNPACKED, unpacked_extension->location());
 
-  const Extension* internal_extension =
-      LoadExtension(test_data_dir_.AppendASCII("good.crx"));
+  const Extension* internal_extension = LoadExtensionWithFlags(
+      test_data_dir_.AppendASCII("good.crx"), kFlagIgnoreManifestWarnings);
   ASSERT_TRUE(internal_extension);
   EXPECT_EQ(Manifest::INTERNAL, internal_extension->location());
 
