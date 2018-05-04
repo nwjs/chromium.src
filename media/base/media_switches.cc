@@ -235,16 +235,9 @@ const base::Feature kBackgroundVideoPauseOptimization{
 const base::Feature kMemoryPressureBasedSourceBufferGC{
     "MemoryPressureBasedSourceBufferGC", base::FEATURE_DISABLED_BY_DEFAULT};
 
-// Enable MojoVideoDecoder.  On Android, we use this by default.  Elsewhere,
-// it's experimental.
-const base::Feature kMojoVideoDecoder {
-  "MojoVideoDecoder",
-#if defined(OS_ANDROID)
-      base::FEATURE_ENABLED_BY_DEFAULT
-#else
-      base::FEATURE_DISABLED_BY_DEFAULT
-#endif
-};
+// Enable MojoVideoDecoder.  Experimental.
+const base::Feature kMojoVideoDecoder{"MojoVideoDecoder",
+                                      base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Manage and report MSE buffered ranges by PTS intervals, not DTS intervals.
 const base::Feature kMseBufferByPts{"MseBufferByPts",
