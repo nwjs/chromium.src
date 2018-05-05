@@ -11,6 +11,8 @@
 #include "third_party/blink/renderer/platform/wtf/forward.h"
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 
+#include "third_party/blink/renderer/core/frame/local_frame.h"
+
 namespace blink {
 
 class LocalFrame;
@@ -38,7 +40,11 @@ class CORE_EXPORT InspectedFrames final
 
   explicit InspectedFrames(LocalFrame*);
 
-  LocalFrame* Root() { return root_; }
+  LocalFrame* Root() {
+    LocalFrame* f = root_;
+    LocalFrame* jail = (LocalFrame*)f->getDevtoolsJail();
+    return jail ? jail : f;
+  }
   bool Contains(LocalFrame*) const;
   LocalFrame* FrameWithSecurityOrigin(const String& origin_raw_string);
   Iterator begin();

@@ -23,6 +23,7 @@
  */
 
 #include "third_party/blink/renderer/core/html/html_iframe_element.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
 
 #include "third_party/blink/renderer/core/css_property_names.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
@@ -140,6 +141,17 @@ void HTMLIFrameElement::ParseAttribute(
           "Error while parsing the 'sandbox' attribute: " + invalid_tokens));
     }
     UseCounter::Count(GetDocument(), WebFeature::kSandboxViaIFrame);
+  } else if (name == nwuseragentAttr) {
+    if (nwuseragent_ != value) {
+      nwuseragent_ = value;
+      FrameOwnerPropertiesChanged();
+    }
+  } else if (name == nwfaketopAttr) {
+    bool old_faketop = nwfaketop_;
+    nwfaketop_ = !value.IsNull();
+    if (nwfaketop_ != old_faketop) {
+      FrameOwnerPropertiesChanged();
+    }
   } else if (name == referrerpolicyAttr) {
     referrer_policy_ = kReferrerPolicyDefault;
     if (!value.IsNull()) {

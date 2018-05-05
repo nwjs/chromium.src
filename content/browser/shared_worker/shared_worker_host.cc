@@ -83,7 +83,7 @@ void SharedWorkerHost::Start(
     network::mojom::URLLoaderFactoryAssociatedPtrInfo script_loader_factory) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
-  mojom::SharedWorkerInfoPtr info(mojom::SharedWorkerInfo::New(
+  mojom::SharedWorkerInfoPtr info(mojom::SharedWorkerInfo::New(instance_->nodejs(), instance_->root_path(),
       instance_->url(), instance_->name(), instance_->content_security_policy(),
       instance_->content_security_policy_type(),
       instance_->creation_address_space()));

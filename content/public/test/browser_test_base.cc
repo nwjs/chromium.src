@@ -179,6 +179,7 @@ void BrowserTestBase::SetUp() {
   if (AllowFileAccessFromFiles())
     command_line->AppendSwitch(switches::kAllowFileAccessFromFiles);
 
+  command_line->AppendSwitch("nwjs-test-mode");
   command_line->AppendSwitch(switches::kDomAutomationController);
 
   // It is sometimes useful when looking at browser test failures to know which

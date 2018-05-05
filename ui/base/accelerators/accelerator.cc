@@ -6,6 +6,7 @@
 
 #include <stdint.h>
 #include <tuple>
+#include "base/strings/stringprintf.h"
 
 #include "base/i18n/rtl.h"
 #include "base/logging.h"
@@ -145,7 +146,9 @@ base::string16 Accelerator::GetShortcutText() const {
   shortcut = KeyCodeToName(key_code_);
 #endif
 
-  if (shortcut.empty()) {
+  if (shortcut.empty() && key_code_ >= VKEY_F1 && key_code_ <= VKEY_F12)
+    shortcut = base::UTF8ToUTF16(base::StringPrintf("F%d", key_code_ - VKEY_F1 + 1));
+  else if (shortcut.empty()) {
 #if defined(OS_WIN)
     // Our fallback is to try translate the key code to a regular character
     // unless it is one of digits (VK_0 to VK_9). Some keyboard
@@ -229,7 +232,8 @@ base::string16 Accelerator::ApplyLongFormModifiers(
   // more information.
   if (IsCtrlDown())
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_CONTROL_MODIFIER, shortcut);
-  else if (IsAltDown())
+  
+  if (IsAltDown())
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_ALT_MODIFIER, shortcut);
 
   if (IsCmdDown()) {
@@ -237,6 +241,10 @@ base::string16 Accelerator::ApplyLongFormModifiers(
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_COMMAND_MODIFIER, shortcut);
 #elif defined(OS_CHROMEOS)
     shortcut = l10n_util::GetStringFUTF16(IDS_APP_SEARCH_MODIFIER, shortcut);
+#elif defined(OS_WIN)
+    shortcut = l10n_util::GetStringFUTF16(IDS_APP_WINDOWS_MODIFIER, shortcut);
+#elif defined(OS_LINUX)
+    shortcut = l10n_util::GetStringFUTF16(IDS_APP_SUPER_MODIFIER, shortcut);
 #else
     NOTREACHED();
 #endif

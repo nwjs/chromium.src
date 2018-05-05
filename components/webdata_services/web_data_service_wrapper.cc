@@ -49,6 +49,7 @@ void InitSyncableServicesOnDBSequence(
     autofill::AutofillWebDataBackend* autofill_backend) {
   DCHECK(db_task_runner->RunsTasksInCurrentSequence());
 
+#if 0
   // Currently only Autocomplete and Autofill profiles use the new Sync API, but
   // all the database data should migrate to this API over time.
   autofill::AutocompleteSyncBridge::CreateForWebDataServiceAndBackend(
@@ -68,6 +69,7 @@ void InitSyncableServicesOnDBSequence(
   autofill::AutofillWalletSyncableService::FromWebDataService(
       autofill_web_data.get())
       ->InjectStartSyncFlare(sync_flare);
+#endif
 }
 
 }  // namespace

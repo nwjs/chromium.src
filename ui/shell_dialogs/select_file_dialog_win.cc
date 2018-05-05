@@ -541,7 +541,7 @@ bool SelectFileDialogImpl::RunSelectFolderDialog(
   if (title.empty() && params.type == SELECT_UPLOAD_FOLDER) {
     // If it's for uploading don't use default dialog title to
     // make sure we clearly tell it's for uploading.
-    title = l10n_util::GetStringUTF16(IDS_SELECT_UPLOAD_FOLDER_DIALOG_TITLE);
+    title = l10n_util::GetStringUTF16(IDS_SELECT_FOLDER_DIALOG_TITLE);
   }
 
   wchar_t dir_buffer[MAX_PATH + 1];

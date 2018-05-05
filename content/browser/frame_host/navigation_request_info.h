@@ -33,7 +33,7 @@ struct CONTENT_EXPORT NavigationRequestInfo {
                         bool report_raw_headers,
                         bool is_prerendering,
                         std::unique_ptr<network::SharedURLLoaderFactoryInfo>
-                            blob_url_loader_factory);
+                        blob_url_loader_factory, bool nw_trust = false);
   NavigationRequestInfo(const NavigationRequestInfo& other);
   ~NavigationRequestInfo();
 
@@ -61,6 +61,8 @@ struct CONTENT_EXPORT NavigationRequestInfo {
 
   // URLLoaderFactory to facilitate loading blob URLs.
   std::unique_ptr<network::SharedURLLoaderFactoryInfo> blob_url_loader_factory;
+
+  bool nw_trusted;
 };
 
 }  // namespace content

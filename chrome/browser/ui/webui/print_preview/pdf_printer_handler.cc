@@ -40,6 +40,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/gfx/geometry/size.h"
 
+#include "chrome/browser/ui/webui/print_preview/print_preview_handler.h"
+
 namespace {
 
 constexpr base::FilePath::CharType kPdfExtension[] = FILE_PATH_LITERAL("pdf");
@@ -187,6 +189,10 @@ void PdfPrinterHandler::StartPrint(
     const scoped_refptr<base::RefCountedMemory>& print_data,
     PrintCallback callback) {
   print_data_ = print_data;
+  if (!chrome::NWPrintGetPDFPath().empty() && chrome::NWPrintGetCustomPrinting()) {
+    print_to_pdf_path_ = chrome::NWPrintGetPDFPath();
+    print_callback_ = std::move(callback);
+  }
   if (!print_to_pdf_path_.empty()) {
     // User has already selected a path, no need to show the dialog again.
     PostPrintToPdfTask();

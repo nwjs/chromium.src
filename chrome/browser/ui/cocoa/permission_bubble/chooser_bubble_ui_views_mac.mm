@@ -20,13 +20,15 @@
 
 void ChooserBubbleUi::CreateAndShowCocoa(
     views::BubbleDialogDelegateView* delegate) {
-  gfx::NativeWindow parent_window = browser_->window()->GetNativeWindow();
-  gfx::NativeView parent = platform_util::GetViewForWindow(parent_window);
-  DCHECK(parent);
   // Set |parent_window_| because some valid anchors can become hidden.
+  gfx::NativeView parent = nullptr;
+  if (browser_)
+      parent = platform_util::GetViewForWindow(browser_->window()->GetNativeWindow());
+  //DCHECK(parent);
   delegate->set_parent_window(parent);
   views::BubbleDialogDelegateView::CreateBubble(delegate)->Show();
-  KeepBubbleAnchored(delegate, GetPageInfoDecoration(parent_window));
+  if (browser_)
+  KeepBubbleAnchored(delegate, GetPageInfoDecoration(browser_->window()->GetNativeWindow()));
 }
 
 #if !BUILDFLAG(MAC_VIEWS_BROWSER)

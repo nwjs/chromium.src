@@ -500,6 +500,7 @@ PlatformNotificationServiceImpl::CreateNotificationFromData(
     notification.set_type(message_center::NOTIFICATION_TYPE_IMAGE);
     notification.set_image(
         gfx::Image::CreateFrom1xBitmap(notification_resources.image));
+#if 0
     // n.b. this should only be posted once per notification.
     if (g_browser_process->safe_browsing_service() &&
         g_browser_process->safe_browsing_service()->enabled_by_prefs()) {
@@ -510,6 +511,7 @@ PlatformNotificationServiceImpl::CreateNotificationFromData(
               g_browser_process->safe_browsing_service()->database_manager(),
               origin, notification_resources.image);
     }
+#endif
   }
 
   // Badges are only supported on Android, primarily because it's the only

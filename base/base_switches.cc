@@ -143,4 +143,5 @@ const char kForceNativePrefetch[] = "force-native-prefetch";
 const char kNativePrefetchOrderedOnly[] = "native-prefetch-ordered-only";
 #endif
 
+const char kNWJS[] = "nwjs";
 }  // namespace switches

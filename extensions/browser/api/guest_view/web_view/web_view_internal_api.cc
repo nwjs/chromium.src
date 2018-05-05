@@ -800,6 +800,40 @@ WebViewInternalLoadDataWithBaseUrlFunction::Run() {
   return RespondNow(Error(error));
 }
 
+WebViewInternalShowDevToolsFunction::WebViewInternalShowDevToolsFunction() {
+}
+
+WebViewInternalShowDevToolsFunction::~WebViewInternalShowDevToolsFunction() {
+}
+
+ExtensionFunction::ResponseAction
+WebViewInternalShowDevToolsFunction::Run() {
+  std::unique_ptr<web_view_internal::ShowDevTools::Params> params(
+      web_view_internal::ShowDevTools::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params.get());
+
+  int proc_id = params->proc_id ? *params->proc_id : -1;
+  int guest_id = params->guest_id ? *params->guest_id : -1;
+  guest_->ShowDevTools(params->show, proc_id, guest_id);
+  return RespondNow(NoArguments());
+}
+
+WebViewInternalInspectElementAtFunction::WebViewInternalInspectElementAtFunction() {
+}
+
+WebViewInternalInspectElementAtFunction::~WebViewInternalInspectElementAtFunction() {
+}
+
+ExtensionFunction::ResponseAction
+WebViewInternalInspectElementAtFunction::Run() {
+  std::unique_ptr<web_view_internal::InspectElementAt::Params> params(
+      web_view_internal::InspectElementAt::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params.get());
+
+  guest_->InspectElement(params->x, params->y);
+  return RespondNow(NoArguments());
+}
+
 WebViewInternalGoFunction::WebViewInternalGoFunction() {
 }
 
