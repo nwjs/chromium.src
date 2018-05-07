@@ -5502,8 +5502,8 @@ TEST_P(PaintPropertyTreeBuilderTest, CompositedLayerSkipsFragmentClip) {
   const auto* composited_with_clip_properties =
       PaintPropertiesForElement("composited-with-clip");
   EXPECT_EQ(FrameContentClip(),
-            composited_with_clip_properties->OverflowClip()->Parent());
-  EXPECT_EQ(composited_with_clip_properties->OverflowClip(),
+            OverflowClip(*composited_with_clip_properties)->Parent());
+  EXPECT_EQ(OverflowClip(*composited_with_clip_properties),
             GetLayoutObjectByElementId("child-clipped")
                 ->FirstFragment()
                 .LocalBorderBoxProperties()

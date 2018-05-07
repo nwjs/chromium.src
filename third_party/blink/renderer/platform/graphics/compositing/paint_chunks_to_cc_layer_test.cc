@@ -847,9 +847,12 @@ TEST_F(PaintChunksToCcLayerTest, ChunksSamePropertyTreeState) {
 }
 
 TEST_F(PaintChunksToCcLayerTest, NoOpForIdentityTransforms) {
-  auto t1 = CreateTransform(t0(), TransformationMatrix());
-  auto t2 = CreateTransform(t1.get(), TransformationMatrix());
-  auto t3 = CreateTransform(t2.get(), TransformationMatrix());
+  auto t1 = TransformPaintPropertyNode::Create(t0(), TransformationMatrix(),
+                                               FloatPoint3D());
+  auto t2 = TransformPaintPropertyNode::Create(t1.get(), TransformationMatrix(),
+                                               FloatPoint3D());
+  auto t3 = TransformPaintPropertyNode::Create(t2.get(), TransformationMatrix(),
+                                               FloatPoint3D());
   auto c1 =
       ClipPaintPropertyNode::Create(c0(), t2, FloatRoundedRect(0, 0, 100, 100));
   auto c2 =
