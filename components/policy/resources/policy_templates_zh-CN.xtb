@@ -1130,7 +1130,7 @@
 <translation id="4485425108474077672">配置“打开新的标签页”页面网址</translation>
 <translation id="4492287494009043413">停用截取屏幕截图功能</translation>
 <translation id="4497968613298501984">配置企业登录网址（仅限 HTTP 和 HTTPS 方案）列表。系统会在这些网址上捕获密码指纹，并使用指纹进行密码重用检测。
-      此设置应仅供使用 SSO/SMAL 系统的 GSuite 用户使用。
+      此设置应仅供使用 SSO/SMAL 系统的 G Suite 用户使用。
       为了使 <ph name="PRODUCT_NAME" /> 能够正确捕获密码指纹，请务必确保您的登录页面遵循了 https://www.chromium.org/developers/design-documents/create-amazing-password-forms 上所述的指南。
 
       如果启用了此设置，密码保护服务就会在这些网址上捕获密码指纹，以用于密码重用检测。
@@ -1253,7 +1253,7 @@
       如果此政策未设置或为空，那么所有用户都可以登录 <ph name="PRODUCT_NAME" />。</translation>
 <translation id="4858735034935305895">允许全屏模式</translation>
 <translation id="4868249328547841081">配置用于更改密码的网址（仅限 HTTP 和 HTTPS 方案）。密码保护服务会在用户遭遇网上诱骗时将用户转到此网址，以便其更改密码。
-      此设置应仅供使用 SSO/SMAL 系统的 GSuite 用户使用。
+      此设置应仅供使用 SSO/SMAL 系统的 G Suite 用户使用。
       为了使 <ph name="PRODUCT_NAME" /> 能够正确捕获这一用于更改密码的页面中的新密码指纹，请务必确保该页面遵循了 https://www.chromium.org/developers/design-documents/create-amazing-password-forms 上所述的指南。
 
       如果启用了此设置，密码保护服务就会在用户遭遇网上诱骗时将用户转到此网址，以便其更改密码。
