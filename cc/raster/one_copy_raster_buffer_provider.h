@@ -81,7 +81,6 @@ class CC_EXPORT OneCopyRasterBufferProvider : public RasterBufferProvider {
                      LayerTreeResourceProvider* resource_provider,
                      const ResourcePool::InUsePoolResource& in_use_resource,
                      OneCopyGpuBacking* backing,
-                     const gpu::SyncToken& before_raster_sync_token,
                      uint64_t previous_content_id);
     ~RasterBufferImpl() override;
 
