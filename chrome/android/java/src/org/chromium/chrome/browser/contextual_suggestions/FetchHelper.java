@@ -10,6 +10,7 @@ import android.webkit.URLUtil;
 
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.VisibleForTesting;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tab.TabObserver;
@@ -18,7 +19,10 @@ import org.chromium.chrome.browser.tabmodel.TabModel.TabSelectionType;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
 import org.chromium.chrome.browser.util.UrlUtilities;
+import org.chromium.content_public.browser.NavigationController;
+import org.chromium.content_public.browser.NavigationEntry;
 import org.chromium.content_public.browser.WebContents;
+import org.chromium.ui.base.PageTransition;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -111,12 +115,18 @@ class FetchHelper {
     }
 
     private final static long MINIMUM_FETCH_DELAY_MILLIS = 10 * 1000; // 10 seconds.
+    private final static String REQUIRE_CURRENT_PAGE_FROM_SRP = "require_current_page_from_SRP";
+    private final static String REQUIRE_NAV_CHAIN_FROM_SRP = "require_nav_chain_from_SRP";
+
     private final Delegate mDelegate;
     private TabModelSelector mTabModelSelector;
     private TabModelSelectorTabModelObserver mTabModelObserver;
     private TabObserver mTabObserver;
     private final Map<Integer, TabFetchReadinessState> mObservedTabs = new HashMap<>();
     private boolean mFetchRequestedForCurrentTab = false;
+
+    private boolean mRequireCurrentPageFromSRP;
+    private boolean mRequireNavChainFromSRP;
 
     @Nullable
     private Tab mCurrentTab;
@@ -214,6 +224,9 @@ class FetchHelper {
             }
         };
 
+        mRequireCurrentPageFromSRP = requireCurrentPageFromSRP();
+        mRequireNavChainFromSRP = requireNavChainFromSRP();
+
         Tab currentTab = mTabModelSelector.getCurrentTab();
         if (currentTab == null) return;
 
@@ -264,6 +277,16 @@ class FetchHelper {
 
         // Delay checks and calculations only make sense if the timer is running.
         if (!tabFetchReadinessState.isFetchTimeBaselineSet()) return;
+
+        // Return early if the current page is required to have originated from a Google search
+        // but did not.
+        if (isFromGoogleSearchRequired() && (tab.getWebContents() == null
+                || tab.getWebContents().getNavigationController() == null
+                || !isFromGoogleSearch(
+                        tab.getWebContents().getNavigationController(),
+                        mRequireCurrentPageFromSRP))) {
+            return;
+        }
 
         String url = tabFetchReadinessState.getUrl();
         long remainingFetchDelayMillis =
@@ -340,5 +363,67 @@ class FetchHelper {
     private TabFetchReadinessState getTabFetchReadinessState(Tab tab) {
         if (tab == null) return null;
         return mObservedTabs.get(tab.getId());
+    }
+
+    private boolean isFromGoogleSearchRequired() {
+        return mRequireCurrentPageFromSRP || mRequireNavChainFromSRP;
+    }
+
+    @VisibleForTesting
+    boolean requireCurrentPageFromSRP() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.CONTEXTUAL_SUGGESTIONS_BOTTOM_SHEET,
+                REQUIRE_CURRENT_PAGE_FROM_SRP, false);
+    }
+
+    @VisibleForTesting
+    boolean requireNavChainFromSRP() {
+        return ChromeFeatureList.getFieldTrialParamByFeatureAsBoolean(
+                ChromeFeatureList.CONTEXTUAL_SUGGESTIONS_BOTTOM_SHEET, REQUIRE_NAV_CHAIN_FROM_SRP,
+                false);
+    }
+
+    @VisibleForTesting
+    boolean isGoogleSearchUrl(String url) {
+        return UrlUtilities.nativeIsGoogleSearchUrl(url);
+    }
+
+    @VisibleForTesting
+    boolean isFromGoogleSearch(
+            NavigationController navController, boolean onlyConsiderPreviousPage) {
+        int currentIndex = navController.getLastCommittedEntryIndex();
+
+        // If the current entry is the root of the navigation history, we cannot determine whether
+        // it originated from a Google search.
+        if (currentIndex <= 0) return false;
+
+        int endIndex = onlyConsiderPreviousPage ? currentIndex - 1 : 0;
+
+        NavigationEntry previousEntry = null;
+        NavigationEntry currentEntry;
+        for (int i = currentIndex; i > endIndex; i--) {
+            if (previousEntry != null) {
+                currentEntry = previousEntry;
+            } else {
+                currentEntry = navController.getEntryAtIndex(i);
+            }
+
+            int unmaskedTransition = currentEntry.getTransition() & ~PageTransition.QUALIFIER_MASK;
+
+            // If the current navigation entry was not from one of the accepted transition types
+            // return false.
+            if (unmaskedTransition != PageTransition.LINK
+                    && unmaskedTransition != PageTransition.MANUAL_SUBFRAME
+                    && unmaskedTransition != PageTransition.FORM_SUBMIT) {
+                return false;
+            }
+
+            previousEntry = navController.getEntryAtIndex(i - 1);
+            if (isGoogleSearchUrl(previousEntry.getUrl())) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
