@@ -180,7 +180,7 @@ bool ContainerFloatingBehavior::IsDragHandle(
   return draggable_area_.Contains(offset.x(), offset.y());
 }
 
-void ContainerFloatingBehavior::HandlePointerEvent(
+bool ContainerFloatingBehavior::HandlePointerEvent(
     const ui::LocatedEvent& event,
     const display::Display& current_display) {
   // Cannot call UI-backed operations without a KeyboardController
@@ -193,7 +193,7 @@ void ContainerFloatingBehavior::HandlePointerEvent(
 
   // Don't handle events if this runs in a partially initialized state.
   if (keyboard_bounds.height() <= 0)
-    return;
+    return false;
 
   ui::PointerId pointer_id = -1;
   if (event.IsTouchEvent()) {
@@ -255,6 +255,7 @@ void ContainerFloatingBehavior::HandlePointerEvent(
 
         if (current_display.id() == new_display.id()) {
           controller_->MoveKeyboard(new_bounds);
+          return true;
         } else {
           new_bounds =
               ContainKeyboardToScreenBounds(new_bounds, new_display.bounds());
@@ -265,6 +266,7 @@ void ContainerFloatingBehavior::HandlePointerEvent(
           // Enqueue a transition to the adjacent display.
           // TODO(blakeo): pass new_bounds to display transition.
           controller_->MoveToDisplayWithTransition(new_display);
+          return true;
         }
         SavePosition(container->bounds(), new_display.size());
       }
@@ -274,6 +276,7 @@ void ContainerFloatingBehavior::HandlePointerEvent(
       drag_descriptor_ = nullptr;
       break;
   }
+  return false;
 }
 
 void ContainerFloatingBehavior::SetCanonicalBounds(
