@@ -52,6 +52,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
+#include "content/nw/src/api/generated_schemas.h"
+
 namespace extensions {
 
 namespace {
@@ -175,6 +177,7 @@ ChromeExtensionsClient::CreateAPIFeatureSource() const {
       new JSONFeatureProviderSource("api"));
   source->LoadJSON(IDR_EXTENSION_API_FEATURES);
   source->LoadJSON(IDR_CHROME_EXTENSION_API_FEATURES);
+  source->LoadJSON(IDR_NW_EXTENSION_API_FEATURES);
   return source;
 }
 
@@ -253,6 +256,7 @@ bool ChromeExtensionsClient::IsAPISchemaGenerated(
     const std::string& name) const {
   // Test from most common to least common.
   return api::ChromeGeneratedSchemas::IsGenerated(name) ||
+         nwapi::nwjsGeneratedSchemas::IsGenerated(name) ||
          api::GeneratedSchemas::IsGenerated(name);
 }
 
@@ -262,6 +266,9 @@ base::StringPiece ChromeExtensionsClient::GetAPISchema(
   base::StringPiece chrome_schema = api::ChromeGeneratedSchemas::Get(name);
   if (!chrome_schema.empty())
     return chrome_schema;
+  base::StringPiece nwjs_schema = nwapi::nwjsGeneratedSchemas::Get(name);
+  if (!nwjs_schema.empty())
+    return nwjs_schema;
 
   return api::GeneratedSchemas::Get(name);
 }

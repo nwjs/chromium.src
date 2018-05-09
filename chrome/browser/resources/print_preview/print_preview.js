@@ -280,6 +280,7 @@ cr.define('print_preview', function() {
      * @private
      */
     this.isInAppKioskMode_ = false;
+    this.isInNWPrintMode_ = false;
 
     /**
      * Whether Print with System Dialog link should be hidden. Overrides the
@@ -723,6 +724,7 @@ cr.define('print_preview', function() {
 
       this.isInKioskAutoPrintMode_ = settings.isInKioskAutoPrintMode;
       this.isInAppKioskMode_ = settings.isInAppKioskMode;
+      this.isInNWPrintMode_ = settings.nwPrintMode;
 
       // The following components must be initialized in this order.
       this.appState_.init(settings.serializedAppStateStr);
@@ -735,7 +737,7 @@ cr.define('print_preview', function() {
       this.destinationStore_.init(
           settings.isInAppKioskMode, settings.printerName,
           settings.serializedDefaultDestinationSelectionRulesStr,
-          this.appState_.recentDestinations || []);
+          this.appState_.recentDestinations || [], settings.nwPrintMode);
       this.appState_.setInitialized();
 
       // This is only visible in the task manager.

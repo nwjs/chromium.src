@@ -62,6 +62,9 @@ struct CONTENT_EXPORT FileChooserParams {
   // initiated by a document. Note that this value should be considered
   // untrustworthy since it is specified by the sandbox and not validated.
   GURL requestor;
+
+  base::FilePath initial_path;
+  bool extract_directory;
 };
 
 }  // namespace content

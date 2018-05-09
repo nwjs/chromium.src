@@ -22,6 +22,9 @@
 #include "content/public/browser/download_item_utils.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+#include "extensions/browser/app_window/native_app_window.h"
 
 #if defined(OS_ANDROID)
 #include "chrome/browser/android/download/download_controller_base.h"
@@ -179,6 +182,20 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
   content::WebContents* web_contents =
       content::DownloadItemUtils::GetWebContents(item);
   if (web_contents) {
+    Profile* profile = Profile::FromBrowserContext(web_contents->GetBrowserContext());
+    extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+    if (!registry)
+      return;
+    extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(web_contents);
+    if (!app_window)
+      return;
+    if (web_contents->GetController().IsInitialNavigation() &&
+        app_window->NWCanClose() &&
+        !item->IsSavePackageDownload()) {
+      app_window->GetBaseWindow()->Close();
+    }
+
+#if 0
     Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
     // If the download occurs in a new tab, and it's not a save page
     // download (started before initial navigation completed) close it.
@@ -192,6 +209,7 @@ void DownloadUIController::OnDownloadUpdated(content::DownloadManager* manager,
         !item->IsSavePackageDownload()) {
       web_contents->Close();
     }
+#endif
   }
 #endif
 
