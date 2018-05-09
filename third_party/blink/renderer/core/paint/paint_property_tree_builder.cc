@@ -1971,7 +1971,7 @@ void ObjectPaintPropertyTreeBuilder::UpdateCompositedLayerPaginationOffset() {
 }
 
 void ObjectPaintPropertyTreeBuilder::UpdateRepeatingPaintOffsetAdjustment() {
-  if (!context_.is_repeating_in_fragments)
+  if (!context_.is_repeating_in_flow_thread)
     return;
 
   if (object_.IsTableSection()) {
@@ -2094,10 +2094,6 @@ void ObjectPaintPropertyTreeBuilder::
     fragment_height =
         flow_thread.PageLogicalHeightForOffset(fragment_offset_in_flow_thread);
   }
-}
-
-bool ObjectPaintPropertyTreeBuilder::NeedsFragmentation() const {
-  return context_.painting_layer->ShouldFragmentCompositedBounds();
 }
 
 static LayoutUnit FragmentLogicalTopInParentFlowThread(
@@ -2252,7 +2248,7 @@ ObjectPaintPropertyTreeBuilder::ContextForFragment(
   return context;
 }
 
-void ObjectPaintPropertyTreeBuilder::CreateFragmentContexts(
+void ObjectPaintPropertyTreeBuilder::CreateFragmentContextsInFlowThread(
     bool needs_paint_properties) {
   // We need at least the fragments for all fragmented objects, which store
   // their local border box properties and paint invalidation data (such
@@ -2264,7 +2260,7 @@ void ObjectPaintPropertyTreeBuilder::CreateFragmentContexts(
   const auto& flow_thread =
       ToLayoutFlowThread(enclosing_pagination_layer->GetLayoutObject());
   LayoutRect object_bounding_box_in_flow_thread;
-  if (context_.is_repeating_in_fragments) {
+  if (context_.is_repeating_in_flow_thread) {
     // The object is a descendant of a repeating object. It should use the
     // repeating bounding box to repeat in the same fragments as its
     // repeating ancestor.
@@ -2275,7 +2271,7 @@ void ObjectPaintPropertyTreeBuilder::CreateFragmentContexts(
     object_bounding_box_in_flow_thread = BoundingBoxInPaginationContainer(
         object_, *enclosing_pagination_layer, should_repeat_in_fragments);
     if (should_repeat_in_fragments) {
-      context_.is_repeating_in_fragments = true;
+      context_.is_repeating_in_flow_thread = true;
       context_.repeating_bounding_box_in_flow_thread =
           object_bounding_box_in_flow_thread;
     }
@@ -2353,6 +2349,42 @@ void ObjectPaintPropertyTreeBuilder::CreateFragmentContexts(
     object_.GetMutableForPainting().SetSubtreeNeedsPaintPropertyUpdate();
 }
 
+void ObjectPaintPropertyTreeBuilder::
+    CreateFragmentContextsForRepeatingFixedPosition() {
+  DCHECK(object_.IsFixedPositionObjectInPagedMedia());
+
+  LayoutView* view = object_.View();
+  auto page_height = view->PageLogicalHeight();
+  int page_count = ceilf(view->DocumentRect().Height() / page_height);
+  context_.fragments.resize(page_count);
+
+  context_.fragments[0].fixed_position.paint_offset.Move(LayoutUnit(),
+                                                         -view->ScrollTop());
+  for (int page = 1; page < page_count; page++) {
+    context_.fragments[page] = context_.fragments[page - 1];
+    context_.fragments[page].fixed_position.paint_offset.Move(LayoutUnit(),
+                                                              page_height);
+    context_.fragments[page].logical_top_in_flow_thread += page_height;
+  }
+}
+
+void ObjectPaintPropertyTreeBuilder::
+    CreateFragmentDataForRepeatingFixedPosition(bool needs_paint_properties) {
+  DCHECK(context_.is_repeating_fixed_position);
+
+  FragmentData* fragment_data = nullptr;
+  for (auto& fragment_context : context_.fragments) {
+    fragment_data = fragment_data
+                        ? &fragment_data->EnsureNextFragment()
+                        : &object_.GetMutableForPainting().FirstFragment();
+    InitFragmentPaintProperties(*fragment_data, needs_paint_properties,
+                                LayoutPoint(),
+                                fragment_context.logical_top_in_flow_thread);
+  }
+  DCHECK(fragment_data);
+  fragment_data->ClearNextFragment();
+}
+
 bool ObjectPaintPropertyTreeBuilder::UpdateFragments() {
   bool had_paint_properties = object_.FirstFragment().PaintProperties();
   // Note: It is important to short-circuit on object_.StyleRef().ClipPath()
@@ -2369,12 +2401,20 @@ bool ObjectPaintPropertyTreeBuilder::UpdateFragments() {
       NeedsScrollOrScrollTranslation(object_);
   // Need of fragmentation clip will be determined in CreateFragmentContexts().
 
-  if (!NeedsFragmentation()) {
+  if (object_.IsFixedPositionObjectInPagedMedia()) {
+    // This flag applies to the fixed-position object itself and descendants.
+    context_.is_repeating_fixed_position = true;
+    CreateFragmentContextsForRepeatingFixedPosition();
+  }
+
+  if (context_.is_repeating_fixed_position) {
+    CreateFragmentDataForRepeatingFixedPosition(needs_paint_properties);
+  } else if (context_.painting_layer->ShouldFragmentCompositedBounds()) {
+    CreateFragmentContextsInFlowThread(needs_paint_properties);
+  } else {
     InitSingleFragmentFromParent(needs_paint_properties);
     UpdateCompositedLayerPaginationOffset();
-    context_.is_repeating_in_fragments = false;
-  } else {
-    CreateFragmentContexts(needs_paint_properties);
+    context_.is_repeating_in_flow_thread = false;
   }
 
   if (object_.IsSVGHiddenContainer()) {
@@ -2407,7 +2447,8 @@ bool ObjectPaintPropertyTreeBuilder::UpdateFragments() {
 bool ObjectPaintPropertyTreeBuilder::ObjectTypeMightNeedPaintProperties()
     const {
   return object_.IsBoxModelObject() || object_.IsSVG() ||
-         context_.painting_layer->EnclosingPaginationLayer();
+         context_.painting_layer->EnclosingPaginationLayer() ||
+         context_.is_repeating_fixed_position;
 }
 
 void ObjectPaintPropertyTreeBuilder::UpdatePaintingLayer() {
