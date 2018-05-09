@@ -44,6 +44,10 @@ namespace {
 // of the popup 2px below the bottom of the Omnibox.
 const CGFloat kBrowserActionBubbleYOffset = 3.0;
 
+// The amount of horizontal padding the browser action container should have on
+// each side.
+const CGFloat kBrowserActionHorizontalPadding = 2.0;
+
 }  // namespace
 
 @interface BrowserActionsController(Private)
@@ -410,7 +414,8 @@ void ToolbarActionsBarBridge::ShowToolbarActionBubble(
 }
 
 - (void)updateMaxWidth {
-  const CGFloat ownMaxWidth = toolbarActionsBar_->GetMaximumWidth();
+  const CGFloat ownMaxWidth = toolbarActionsBar_->GetMaximumWidth() +
+                              kBrowserActionHorizontalPadding * 2;
   containerView_.maxWidth =
       (maxWidth_ ? std::min(maxWidth_, ownMaxWidth) : ownMaxWidth);
 }
@@ -538,7 +543,7 @@ void ToolbarActionsBarBridge::ShowToolbarActionBubble(
   BOOL animate = !toolbarActionsBar_->suppress_animation() &&
       ![containerView_ isAnimating] && [[containerView_ window] isVisible];
   [self updateContainerVisibility];
-  [containerView_ resizeToWidth:width
+  [containerView_ resizeToWidth:width + kBrowserActionHorizontalPadding * 2
                         animate:animate];
   [containerView_ setNeedsDisplay:YES];
 
@@ -742,11 +747,15 @@ void ToolbarActionsBarBridge::ShowToolbarActionBubble(
   NSRect frame = frameRect.IsEmpty()
                      ? NSMakeRect(-iconWidth - 1, 0, iconWidth, size.height())
                      : NSRectFromCGRect(frameRect.ToCGRect());
+
   // We need to flip the y coordinate for Cocoa's view system.
   frame.origin.y = NSHeight([containerView_ frame]) - NSMaxY(frame);
-  if (cocoa_l10n_util::ShouldDoExperimentalRTLLayout())
-    frame.origin.x =
-        NSWidth([containerView_ frame]) - NSWidth(frame) - NSMinX(frame);
+  if (cocoa_l10n_util::ShouldDoExperimentalRTLLayout()) {
+    frame.origin.x = NSWidth([containerView_ frame]) - NSWidth(frame) -
+                     NSMinX(frame) - kBrowserActionHorizontalPadding;
+  } else {
+    frame.origin.x += kBrowserActionHorizontalPadding;
+  }
   return frame;
 }
 
