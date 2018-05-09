@@ -53,12 +53,6 @@
       如果這項政策設為 False，則不會回報開發人員模式切換設定的狀態。</translation>
 <translation id="1160479894929412407">允許 QUIC 通訊協定</translation>
 <translation id="1160939557934457296">停用略過安全瀏覽警告網頁繼續進行</translation>
-<translation id="1166377463685560145">指定哪些印表機是禁止使用的。
-
-      只有在為 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_BLACKLIST" /> 的情況下，這項政策才有作用。
-
-      一旦設定了這項政策，除了本政策中列出的 ID 外，其他所有印表機皆可供使用者使用。
-      </translation>
 <translation id="1198465924256827162">裝置狀態上傳的傳送頻率 (以毫秒數為單位)。
 
       如未設定這項政策，預設頻率為 3 小時一次。可用頻率下限
@@ -97,7 +91,7 @@
       如果將這項政策設為 False，<ph name="PRODUCT_NAME" /> 將會禁止啟動訪客設定檔。</translation>
 <translation id="1363275621236827384">允許在 Quirks Server 中查詢硬體設定檔</translation>
 <translation id="1384459581748403878">參考頁面：<ph name="REFERENCE_URL" /></translation>
-<translation id="1387596372902085462">決定是否要信任 Symantec 公司的舊版 PKI 基礎架構</translation>
+<translation id="1387596372902085462">是否信任 Symantec 公司的舊版 PKI 基礎架構</translation>
 <translation id="1393485621820363363">已啟用企業裝置印表機</translation>
 <translation id="1397855852561539316">預設搜尋引擎建議網址</translation>
 <translation id="1426410128494586442">是</translation>
@@ -183,19 +177,6 @@
 
       如要進一步瞭解安全瀏覽功能，請前往 https://developers.google.com/safe-browsing。</translation>
 <translation id="1583248206450240930">根據預設使用 <ph name="PRODUCT_FRAME_NAME" /></translation>
-<translation id="1603058613431276040">為繫結至裝置的企業印表機進行設定。
-
-      你可以透過這項政策為 <ph name="PRODUCT_OS_NAME" /> 裝置進行印表機設定。這個檔案的大小不得超過 5MB，且必須使用 JSON 編碼，格式則須和 NativePrinters 字典相同。根據估計，一份 5MB 的編碼檔案中可包含約 21,000 部印表機。系統會使用加密編譯雜湊驗證下載完整性。
-
-      系統會為這份檔案執行下載和快取作業。如果網址或雜湊有所變更，系統就會重新下載檔案。
-
-      設定這項政策後，<ph name="PRODUCT_OS_NAME" /> 會下載這份檔案以進行印表機設定，並根據 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />、<ph name="DEVICE_PRINTERS_WHITELIST" /> 和 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 開放使用印表機。
-
-      這項政策不會影響到使用者在個別裝置上設定印表機的權限，其目的是為了使個別使用者指定的印表機設定更為完善。
-
-      這項政策是 <ph name="BULK_PRINTERS_POLICY" /> 的額外政策。
-
-      如果沒有設定這項政策，就沒有裝置印表機可供使用，且系統會忽略其他 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 政策。</translation>
 <translation id="1608755754295374538">系統會直接授權存取音訊擷取裝置而不需提示的網址</translation>
 <translation id="1617235075406854669">啟用刪除瀏覽器和下載記錄</translation>
 <translation id="163200210584085447">系統會比對這份清單中的模式與要求網址的
@@ -274,6 +255,22 @@
       如果設為 false，指標和診斷資料回報功能就會停用。
 
       如果未設定，指標和診斷資料回報功能會在未受管理的裝置上停用，並且在受管理的裝置上啟用。</translation>
+<translation id="1929709556673267855">為繫結至裝置的企業印表機進行設定。
+
+      你可以透過這項政策為 <ph name="PRODUCT_OS_NAME" />裝置進行印表機設定。格式必須符合 NativePrinters 字典，且每部印表機的「id」或「guid」欄位都必須填妥，以供加入許可清單或黑名單。
+
+      檔案大小不得超過 5MB，且必須使用 JSON 編碼。根據估計，一個 5MB 的編碼檔案中可包含約 21,000 部印表機。系統會使用加密編譯雜湊驗證下載完整性。
+
+      系統會針對這個檔案執行下載和快取作業。如果網址或雜湊有所變更，系統就會重新下載檔案。
+
+      設定這項政策後，<ph name="PRODUCT_OS_NAME" />會下載這個檔案以設定印表機，並根據 <ph name="DEVICE_PRINTERS_ACCESS_MODE" />、<ph name="DEVICE_PRINTERS_WHITELIST" /> 和 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 開放使用印表機。
+
+      這項政策旨在補足個別使用者的印表機設定，對使用者能否在個別裝置上設定印表機沒有影響。
+
+      這項政策是 <ph name="BULK_PRINTERS_POLICY" /> 的額外政策。
+
+      如果沒有設定這項政策，就沒有裝置印表機可供使用，且系統會忽略其他 <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> 政策。
+      </translation>
 <translation id="193259052151668190">卸離式 USB 裝置許可清單</translation>
 <translation id="1933378685401357864">桌布圖片</translation>
 <translation id="1956493342242507974">設置 <ph name="PRODUCT_OS_NAME" /> 登入畫面的電源管理設定。
@@ -306,6 +303,21 @@
 
       請注意，如果平台支援政策通知，由於政策通知通常會在政策變更時自動強制更新 (不需更高的更新頻率)，所以更新延遲時間會設為 24 小時 (忽略所有預設值和這項政策的值)。</translation>
 <translation id="2024476116966025075">設定遠端存取用戶端的網域名稱 (必要)</translation>
+<translation id="202757291638965203">設定印表機清單。
+
+      這項政策可讓管理員為每位使用者提供
+      印表機設定。
+
+      「<ph name="PRINTER_DISPLAY_NAME" />」和「<ph name="PRINTER_DESCRIPTION" />」是形式不拘的字串，可加以自訂方便選擇印表機。「<ph name="PRINTER_MANUFACTURER" />」和「<ph name="PRINTER_MODEL" />」則可讓使用者輕鬆識別印表機，兩者分別代表印表機的製造商和型號。「<ph name="PRINTER_URI" />」必須是可透過用戶端電腦連上的位址 (包括「<ph name="URI_SCHEME" />」、「<ph name="URI_PORT" />」和「<ph name="URI_QUEUE" />」)。「<ph name="PRINTER_UUID" />」可選用。如有提供，則會用於協助複製「<ph name="ZEROCONF_DISCOVERY" />」。
+
+      「<ph name="PRINTER_EFFECTIVE_MODEL" />」必須是其中一個代表 <ph name="PRODUCT_NAME" /> 支援印表機的字串。系統會利用這個字串找出印表機適用的 PPD 並加以安裝。詳情請參閱 https://support.google.com/chrome?p=noncloudprint。
+
+      首次使用印表機時，會完成印表機設定程序。PPD 則會在使用該印表機時才下載，之後系統會快取常用的 PPD。
+
+      這項政策旨在補足個別使用者的印表機設定， 對使用者能否在個別裝置上設定印表機沒有影響。
+
+      如果是受管理的 Active Directory 裝置，這項政策支援將「<ph name="MACHINE_NAME_VARIABLE" />」擴充為 Active Directory 電腦名稱或其子字串。舉例來說，如果電腦名稱為「<ph name="MACHINE_NAME_EXAMPLE" />」，「<ph name="MACHINE_NAME_VARIABLE_EXAMPLE" />」將會被第 6 個位置後的 4 個字元取代 (亦即「<ph name="MACHINE_NAME_PART_EXAMPLE" />」)。請注意，位置序數從 0 開始計算。
+      </translation>
 <translation id="2030905906517501646">預設搜尋引擎關鍵字</translation>
 <translation id="203096360153626918">這項政策對 Android 應用程式沒有影響。即使將這項政策設為 <ph name="FALSE" />，Android 應用程式仍可進入全螢幕模式。</translation>
 <translation id="2043770014371753404">停用的企業印表機</translation>
@@ -561,6 +573,20 @@
           如果未設定這項政策，則預設值為 true 且系統將啟用 NTLMv2。</translation>
 <translation id="2623014935069176671">等待初始使用者活動</translation>
 <translation id="262740370354162807">啟用「<ph name="CLOUD_PRINT_NAME" />」文件提交功能</translation>
+<translation id="2627554163382448569">為企業印表機進行設定。
+
+      你可以透過這項政策為 <ph name="PRODUCT_OS_NAME" />裝置進行印表機設定。格式必須符合 NativePrinters 字典，且每部印表機的「id」或「guid」欄位都必須填妥，以供加入許可清單或黑名單。
+
+      檔案大小不得超過 5MB，且必須使用 JSON 編碼。根據估計，一個 5MB 的編碼檔案中可包含約 21,000 部印表機。系統會使用加密編譯雜湊驗證下載完整性。
+
+      系統會針對這個檔案執行下載和快取作業。如果網址或雜湊有所變更，系統就會重新下載檔案。
+
+      設定這項政策後，<ph name="PRODUCT_OS_NAME" />會下載這個檔案以設定印表機，並根據 <ph name="BULK_PRINTERS_ACCESS_MODE" />、<ph name="BULK_PRINTERS_WHITELIST" /> 和 <ph name="BULK_PRINTERS_BLACKLIST" /> 開放使用印表機。
+
+      如果設定這項政策，使用者將無法予以變更或覆寫。
+
+      這項政策旨在補足個別使用者的印表機設定， 對使用者能否在個別裝置上設定印表機沒有影響。
+      </translation>
 <translation id="2633084400146331575">啟用互動朗讀</translation>
 <translation id="2646290749315461919">允許你設定是否要讓網站追蹤使用者的實際位置。你可以直接預設為允許或不允許追蹤使用者的實際位置，或讓網站每次要求實際位置時都詢問使用者一次。如果未設定這項政策，系統會使用「AskGeolocation」，不過使用者可以變更設定。</translation>
 <translation id="2647069081229792812">允許或禁止編輯書籤</translation>
@@ -595,12 +621,6 @@
 <translation id="2762164719979766599">指定要顯示在登入畫面的裝置本機帳戶清單。
 
       每個清單項目都會指定一個識別碼，用來在系統內部區別不同的裝置本機帳戶。</translation>
-<translation id="2766302473082018239">指定哪些印表機是可以使用的。
-
-      只有在為 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_WHITELIST" /> 的情況下，這項政策才有作用。
-
-      一旦設定了這項政策，使用者就只能使用 ID 符合本政策值的印表機，且 ID 必須和 <ph name="BULK_PRINTERS_POLICY" /> 中指定的檔案項目相符。
-      </translation>
 <translation id="2769952903507981510">設定遠端存取主機所需的網域名稱</translation>
 <translation id="2787173078141616821">回報 Android 狀態的相關資訊</translation>
 <translation id="2793923553868251161">要視為安全內容的來源。</translation>
@@ -625,6 +645,12 @@
 <translation id="2823870601012066791"><ph name="PRODUCT_OS_NAME" />用戶端的 Windows 登錄檔位置：</translation>
 <translation id="2824715612115726353">啟用無痕模式</translation>
 <translation id="2838830882081735096">不允許資料遷移和 ARC</translation>
+<translation id="2840269525054388612">指定哪些印表機是可以使用的。
+
+      只有在為 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_WHITELIST" /> 的情況下，這項政策才有作用。
+
+      一旦設定了這項政策，使用者就只能使用 ID 符合本政策值的印表機，且 ID 必須和 <ph name="DEVICE_PRINTERS_POLICY" /> 指定檔案中的「id」或「guid」欄位相符。
+      </translation>
 <translation id="2844404652289407061">在 <ph name="PRODUCT_NAME" /> 的內容畫面中啟用「輕觸搜尋」功能。
 
       如果您啟用這項設定，使用者即可使用「輕觸搜尋」功能，並可自行選擇開啟或關閉這項功能。
@@ -791,12 +817,6 @@
 
           如果這項政策設為非空白字串，該字串就會成為「<ph name="PRODUCT_NAME" />」目的地的名稱，否則目的地名稱將會是裝置名稱。如果未設定這項政策，則目的地名稱會是裝置名稱，且裝置擁有者 (或裝置管理網域中的使用者) 可進行變更。名稱長度上限為 24 個字元。</translation>
 <translation id="3381968327636295719">根據預設使用主機瀏覽器</translation>
-<translation id="3395348522300156660">指定哪些印表機是可以使用的。
-
-      只有在為 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_WHITELIST" /> 的情況下，這項政策才有作用
-
-      一旦設定了這項政策，使用者就只能使用 ID 符合本政策值的印表機，且 ID 必須和 <ph name="DEVICE_PRINTERS_POLICY" /> 中指定的檔案項目相符。
-      </translation>
 <translation id="3414260318408232239">如果未設定這項政策，<ph name="PRODUCT_NAME" /> 會使用預設最低版本 TLS 1.0。
 
       這項政策可使用的設定值包括：「tls1」、「tls1.1」或「tls1.2」。設定後，<ph name="PRODUCT_NAME" /> 就不會使用低於指定版本的 SSL/TLS 版本。系統會忽略無法辨識的值。</translation>
@@ -1096,6 +1116,12 @@
 <translation id="4239720644496144453">這個快取不會供 Android 應用程式使用。如有多位使用者安裝同一個 Android 應用程式，則會針對每位使用者重新下載快取。</translation>
 <translation id="4250680216510889253">否</translation>
 <translation id="4261820385751181068">裝置登入畫面語言代碼</translation>
+<translation id="427220754384423013">指定哪些印表機是可以使用的。
+
+      只有在為 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_WHITELIST" /> 的情況下，這項政策才有作用。
+
+      一旦設定了這項政策，使用者就只能使用 ID 符合本政策值的印表機，且 ID 必須和 <ph name="BULK_PRINTERS_POLICY" /> 指定檔案中的「id」或「guid」欄位相符。
+      </translation>
 <translation id="427632463972968153">指定使用 POST 執行圖片搜尋時所用的參數，其包含以逗號分隔的名稱/數值配對。如果數值為範本參數 (例如上例中的 {imageThumbnail})，系統將會以實際圖片的縮圖資料替代這個數值。
 
           這項政策是選擇性的，如果未設定，系統將使用 GET 方法圖片搜尋要求。
@@ -2119,6 +2145,12 @@
 <translation id="749556411189861380">回報註冊裝置的作業系統和韌體版本。
 
       如果這項政策未設定或設為 True，註冊的裝置會定期回報作業系統和韌體版本。如果設為 False，則不會回報版本資訊。</translation>
+<translation id="7498946151094347510">指定哪些印表機是禁止使用的。
+
+      只有在為 <ph name="DEVICE_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_BLACKLIST" /> 的情況下，這項政策才有作用。
+
+      一旦設定了這項政策，除了本政策中列出的 ID 外，其他所有印表機皆可供使用者使用。ID 必須和 <ph name="DEVICE_PRINTERS_POLICY" /> 指定檔案中的「id」或「guid」欄位相符。
+      </translation>
 <translation id="7511361072385293666">如果這項政策設為 True 或未設定，可在 <ph name="PRODUCT_NAME" /> 中使用 QUIC 通訊協定。
       如果這項政策設為 False，則不可使用 QUIC 通訊協定。</translation>
 <translation id="7519251620064708155">允許在這些網站上使用金鑰產生功能</translation>
@@ -2456,12 +2488,6 @@
 
       警告：我們不建議設定版本限制，因為這可能導致使用者無法接收軟體更新，且無法修正重大的安全性問題。限制僅能更新至指定前置碼版本，可能讓使用者面臨風險。</translation>
 <translation id="8519264904050090490">管理化環境下使用者手動建立的例外網址</translation>
-<translation id="8527932539502116028">指定哪些印表機是禁止使用的。
-
-      只有在為 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_BLACKLIST" /> 的情況下，這項政策才有作用。
-
-      一旦設定了這項政策，除了本政策中列出的 ID 外，其他所有印表機皆可供使用者使用。
-      </translation>
 <translation id="8538235451413605457">設定最低 <ph name="PRODUCT_NAME" /> 版本限制。低於指定值的版本即為過舊版本，必須更新作業系統，使用者才能登入裝置。
       如果目前的版本在使用者工作階段期間成為過舊版本，使用者會遭到強制登出。
 
@@ -2471,6 +2497,12 @@
 <translation id="8544375438507658205">預設 <ph name="PRODUCT_FRAME_NAME" /> 的 HTML 轉譯器</translation>
 <translation id="8549772397068118889">瀏覽內容套件以外的網站時顯示警告</translation>
 <translation id="8566842294717252664">在新分頁和應用程式啟動畫面中隱藏線上應用程式商店</translation>
+<translation id="8586528890725660268">指定哪些印表機是禁止使用的。
+
+      只有在為 <ph name="BULK_PRINTERS_ACCESS_MODE" /> 選擇 <ph name="PRINTERS_BLACKLIST" /> 的情況下，這項政策才有作用。
+
+      一旦設定了這項政策，除了本政策中列出的 ID 外，其他所有印表機皆可供使用者使用。ID 必須和 <ph name="BULK_PRINTERS_POLICY" /> 指定檔案中的「id」或「guid」欄位相符。
+      </translation>
 <translation id="8587229956764455752">允許建立新的使用者帳戶</translation>
 <translation id="8598350264853261122">如果將這項政策設為 false，無關聯使用者將無法使用 ARC。
 
@@ -2582,18 +2614,6 @@
 
           指定政策值時需以毫秒為單位。該值需小於閒置延遲時間。</translation>
 <translation id="891435090623616439">以 JSON 字串格式編碼，詳情請參閱 <ph name="COMPLEX_POLICIES_URL" /></translation>
-<translation id="8927384992072706174">為企業印表機進行設定。
-
-      你可以透過這項政策為 <ph name="PRODUCT_OS_NAME" /> 裝置進行印表機設定。這個檔案的大小不得超過 5MB，且必須使用 JSON 編碼，格式則須和 NativePrinters 字典相同。根據估計，一個 5MB 的編碼檔案中可包含約 21,000 部印表機。系統會使用加密編譯雜湊驗證下載完整性。
-
-      系統會為這個檔案執行下載和快取作業。如果網址或雜湊有所變更，系統就會重新下載檔案。
-
-      設定這項政策後，<ph name="PRODUCT_OS_NAME" /> 會下載這個檔案以進行印表機設定，並根據 <ph name="BULK_PRINTERS_ACCESS_MODE" />、<ph name="BULK_PRINTERS_WHITELIST" /> 和 <ph name="BULK_PRINTERS_BLACKLIST" /> 開放使用印表機。
-
-      設定這項政策後，使用者無法予以變更或覆寫。
-
-      這項政策不會影響到使用者在個別裝置上設定印表機的權限，其目的是為了讓個別使用者指定的印表機設定更為完善。
-      </translation>
 <translation id="8934944553121392674">根據 <ph name="DEVICE_PRINTERS_POLICY" /> 設定哪些印表機是可供使用的。
 
       指派用於大量印表機設定的存取權政策。如果選取 <ph name="PRINTERS_ALLOW_ALL" />，系統會顯示所有印表機。如果選取 <ph name="PRINTERS_BLACKLIST" />，系統會使用 <ph name="DEVICE_PRINTERS_BLACKLIST" /> 限制對特定印表機的存取權。如果選取 <ph name="PRINTERS_WHITELIST" />，<ph name="DEVICE_PRINTERS_WHITELIST" /> 只會指派可選取的印表機。

@@ -53,12 +53,6 @@
       Jika dasar tidak ditetapkan atau ditetapkan kepada tidak benar, keadaan suis pembangun tidak akan dilaporkan.</translation>
 <translation id="1160479894929412407">Benarkan protokol QUIC</translation>
 <translation id="1160939557934457296">Lumpuhkan tindakan dari halaman amaran Penyemakan Imbas Selamat</translation>
-<translation id="1166377463685560145">Menentukan pencetak yang tidak boleh digunakan oleh pengguna.
-
-      Dasar ini hanya digunakan jika <ph name="PRINTERS_BLACKLIST" /> dipilih untuk <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
-
-      Jika dasar ini digunakan, semua pencetak akan disediakan kepada pengguna kecuali ID yang disenaraikan dalam dasar ini.
-      </translation>
 <translation id="1198465924256827162">Kekerapan muat naik status peranti dihantar, dalam milisaat.
 
       Jika dasar ini tidak ditetapkan, kekerapan lalai ialah 3 jam. Kekerapan
@@ -186,19 +180,6 @@
 
       Lihat https://developers.google.com/safe-browsing untuk mendapatkan maklumat lanjut tentang Penyemakan Imbas Selamat.</translation>
 <translation id="1583248206450240930">Gunakan <ph name="PRODUCT_FRAME_NAME" /> secara lalai</translation>
-<translation id="1603058613431276040">Menyediakan konfigurasi untuk pencetak perusahaan yang dihubungkan pada peranti.
-
-      Dasar ini membenarkan anda menyediakan konfigurasi pencetak kepada peranti <ph name="PRODUCT_OS_NAME" />. Saiz fail tidak boleh melebihi 5MB dan mesti dikodkan dalam JSON. Format adalah sama dengan format kamus NativePrinters.  Fail yang mengandungi kira-kira 21,000 pencetak dianggar akan mengekod sebagai fail 5MB.  Cincangan kriptograf digunakan untuk mengesahkan integriti muat turun.
-
-      Fail dimuat turun dan dicache. Fail tersebut akan dimuat turun semula setiap kali URL atau cincangan berubah.
-
-      Jika dasar ini ditetapkan, <ph name="PRODUCT_OS_NAME" /> akan memuat turun fail untuk konfigurasi pencetak dan menjadikan pencetak tersedia menurut <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> dan <ph name="DEVICE_PRINTERS_BLACKLIST" />.
-
-      Dasar ini tidak mempengaruhi sama ada pengguna boleh mengkonfigurasi pencetak pada peranti individu.  Tujuan dasar adalah sebagai tambahan kepada konfigurasi pencetak oleh pengguna individu.
-
-      Dasar ini ialah tambahan kepada <ph name="BULK_PRINTERS_POLICY" />.
-
-      Jika dasar ini tidak ditetapkan, maka tiada pencetak peranti dan dasar <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> yang lain akan diabaikan.</translation>
 <translation id="1608755754295374538">URL yang akan diberikan akses kepada peranti tangkapan audio tanpa gesaan</translation>
 <translation id="1617235075406854669">Dayakan pemadaman sejarah penyemak imbas dan muat turun</translation>
 <translation id="163200210584085447">Corak dalam senarai ini akan dipadankan dengan keselamatan
@@ -283,6 +264,22 @@
       Jika ditetapkan kepada palsu, pelaporan metrik dan data diagnostik akan dilumpuhkan.
 
       Jika tidak dikonfigurasikan, pelaporan metrik dan data diagnostik akan dilumpuhkan pada peranti tidak diurus dan didayakan pada peranti yang diurus.</translation>
+<translation id="1929709556673267855">Menyediakan konfigurasi untuk pencetak perusahaan yang dihubungkan pada peranti.
+
+       Dasar ini membenarkan anda menyediakan konfigurasi pencetak kepada peranti <ph name="PRODUCT_OS_NAME" />. Format adalah sama dengan format kamus NativePrinters, dengan medan tambahan "id" atau "guid" yang diperlukan bagi setiap pencetak untuk penyenaraian putih atau hitam.
+
+       Saiz fail tidak boleh melebihi 5MB dan mesti dikodkan dalam JSON. Fail yang mengandungi kira-kira 21,000 pencetak dianggar akan mengekod sebagai fail 5MB. Cincangan kriptograf digunakan untuk mengesahkan integriti muat turun.
+
+      Fail dimuat turun dan dicache. Fail tersebut akan dimuat turun semula setiap kali URL atau cincangan berubah.
+
+      Jika dasar ini ditetapkan, <ph name="PRODUCT_OS_NAME" /> akan memuat turun fail untuk konfigurasi pencetak dan menjadikan pencetak tersedia menurut <ph name="DEVICE_PRINTERS_ACCESS_MODE" />, <ph name="DEVICE_PRINTERS_WHITELIST" /> dan <ph name="DEVICE_PRINTERS_BLACKLIST" />.
+
+      Dasar ini tidak mempengaruhi sama ada pengguna boleh mengkonfigurasi pencetak pada peranti individu. Tujuan dasar adalah sebagai tambahan kepada konfigurasi pencetak oleh pengguna individu.
+
+      Dasar ini ialah tambahan kepada <ph name="BULK_PRINTERS_POLICY" />.
+
+      Jika dasar ini tidak ditetapkan, maka tiada pencetak peranti dan dasar <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> yang lain akan diabaikan.
+      </translation>
 <translation id="193259052151668190">Senarai putih peranti boleh tanggal USB</translation>
 <translation id="1933378685401357864">Imej hias latar</translation>
 <translation id="1956493342242507974">Konfigurasikan pengurusan kuasa pada skrin log masuk dalam <ph name="PRODUCT_OS_NAME" />.
@@ -315,6 +312,21 @@
 
       Ambil perhatian bahawa jika platform menyokong pemberitahuan dasar, lengahan muat semula akan ditetapkan kepada 24 jam (mengabaikan semua nilai lalai dan nilai dasar ini) kerana pemberitahuan dasar dijangka akan memaksa muat semula secara automatik apabila dasar berubah, melakukan muat semula yang tidak diperlukan dengan lebih kerap.</translation>
 <translation id="2024476116966025075">Konfigurasikan nama domain yang diperlukan untuk pelanggan akses jauh</translation>
+<translation id="202757291638965203">Mengkonfigurasi senarai pencetak.
+
+      Dasar ini membolehkan pentadbir menyediakan konfigurasi pencetak untuk pengguna mereka.
+.
+
+      <ph name="PRINTER_DISPLAY_NAME" /> dan <ph name="PRINTER_DESCRIPTION" /> ialah rentetan bentuk bebas yang boleh disesuaikan untuk memudahkan pemilihan pencetak. <ph name="PRINTER_MANUFACTURER" /> dan <ph name="PRINTER_MODEL" /> bertujuan untuk memudahkan pengenalan pencetak oleh pengguna akhir. Dua butiran ini mewakili pengilang dan model pencetak. <ph name="PRINTER_URI" /> haruslah alamat yang boleh dicapai daripada komputer pelanggan termasuk <ph name="URI_SCHEME" />, <ph name="URI_PORT" /> dan <ph name="URI_QUEUE" />. <ph name="PRINTER_UUID" /> adalah pilihan. Jika disediakan, pencetak ini digunakan untuk membantu menyahpenduaan pencetak <ph name="ZEROCONF_DISCOVERY" />.
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> mesti sepadan dengan satu daripada rentetan yang mewakili pencetak yang menyokong <ph name="PRODUCT_NAME" />. Rentetan itu akan digunakan untuk mengenal pasti dan memasang PPD yang sesuai untuk pencetak. Maklumat lanjut boleh ditemui di https://support.google.com/chrome?p=noncloudprint.
+
+      Persediaan pencetak selesai pada penggunaan pertama pencetak. PPD tidak boleh dimuat turun sehinggalah pencetak digunakan. Selepas waktu itu, PPD yang kerap digunakan akan dicache.
+
+      Dasar ini tidak mempengaruhi sama ada pengguna boleh mengkonfigurasi pencetak pada peranti individu atau tidak. Dasar ini bertujuan menjadi pelengkap kepada pengkonfigurasian pencetak oleh pengguna individu.
+
+      Untuk peranti diurus Active Directory, dasar ini menyokong pengembangan <ph name="MACHINE_NAME_VARIABLE" /> kepada nama mesin Active Directory atau subrentetannya. Sebagai contoh, jika nama mesin ialah <ph name="MACHINE_NAME_EXAMPLE" />, maka <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> akan digantikan oleh 4 aksara yang bermula selepas kedudukan ke-6, iaitu <ph name="MACHINE_NAME_PART_EXAMPLE" />. Sila ambil perhatian bahawa kedudukan adalah berasaskan sifar.
+      </translation>
 <translation id="2030905906517501646">Kata kunci pembekal carian lalai</translation>
 <translation id="203096360153626918">Dasar ini tidak berkesan terhadap apl Android. Apl ini dapat memasuki mod skrin penuh walaupun jika dasar ini ditetapkan kepada <ph name="FALSE" />.</translation>
 <translation id="2043770014371753404">Pencetak perusahaan dilumpuhkan</translation>
@@ -582,6 +594,20 @@
           Jika dasar ini tidak ditetapkan, nilai lalainya ialah benar dan NTLMv2 didayakan.</translation>
 <translation id="2623014935069176671">Tunggu aktiviti pengguna awal</translation>
 <translation id="262740370354162807">Dayakan penyerahan dokumen pada <ph name="CLOUD_PRINT_NAME" /></translation>
+<translation id="2627554163382448569">Menyediakan konfigurasi untuk pencetak perusahaan.
+
+      Dasar ini membenarkan anda menyediakan konfigurasi pencetak kepada peranti <ph name="PRODUCT_OS_NAME" />. Format adalah sama dengan format kamus NativePrinters, dengan medan tambahan "id" atau "guid" yang diperlukan bagi setiap pencetak untuk penyenaraian putih atau hitam.
+
+      Saiz fail tidak boleh melebihi 5MB dan mesti dikodkan dalam JSON. Fail yang mengandungi kira-kira 21,000 pencetak dianggar akan mengekod sebagai fail 5MB. Cincangan kriptograf digunakan untuk mengesahkan integriti muat turun.
+
+      Fail dimuat turun dan dicache. Fail tersebut akan dimuat turun semula setiap kali URL atau cincangan berubah.
+
+      Jika dasar ini ditetapkan, <ph name="PRODUCT_OS_NAME" /> akan memuat turun fail untuk konfigurasi pencetak dan menjadikan pencetak tersedia menurut <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> dan <ph name="BULK_PRINTERS_BLACKLIST" />.
+
+      Jika anda menetapkan dasar ini, pengguna tidak boleh mengubah atau membatalkannya.
+
+      Dasar ini tidak mempengaruhi sama ada pengguna boleh mengkonfigurasi pencetak pada peranti individu. Tujuan dasar adalah sebagai tambahan kepada konfigurasi pencetak oleh pengguna individu.
+      </translation>
 <translation id="2633084400146331575">Dayakan maklum balas yang dituturkan</translation>
 <translation id="2646290749315461919">Membenarkan anda menetapkan sama ada tapak web dibenarkan untuk mengesan lokasi fizikal pengguna. Penjejakan lokasi fizikal pengguna boleh dibenarkan secara lalai, dinafikan secara lalai atau pengguna boleh ditanya setiap kali tapak web meminta lokasi fizikal. Jika dasar ini tidak ditetapkan, 'AskGeolocation' akan digunakan dan pengguna akan dapat mengubah.</translation>
 <translation id="2647069081229792812">Dayakan atau lumpuhkan pengeditan penanda halaman</translation>
@@ -620,12 +646,6 @@
 <translation id="2762164719979766599">Menetapkan senarai akaun setempat peranti yang akan dipaparkan pada skrin log masuk.
 
       Setiap masukan senarai menetapkan pengecam, yang digunakan secara dalaman untuk membezakan akaun setempat peranti.</translation>
-<translation id="2766302473082018239">Menentukan pencetak yang boleh digunakan oleh pengguna.
-
-      Dasar ini hanya digunakan jika <ph name="PRINTERS_WHITELIST" /> dipilih untuk <ph name="BULK_PRINTERS_ACCESS_MODE" />.
-
-      Jika dasar ini digunakan, hanya pencetak dengan ID yang sepadan dengan nilai dalam dasar ini akan tersedia kepada pengguna. ID mesti sepadan dengan masukan dalam fail yang dinyatakan dalam <ph name="BULK_PRINTERS_POLICY" />.
-      </translation>
 <translation id="2769952903507981510">Konfigurasi nama domain yang diperlukan untuk hos akses jauh</translation>
 <translation id="2787173078141616821">Laporkan maklumat tentang status Android</translation>
 <translation id="2793923553868251161">Asalan akan dianggap sebagai konteks selamat.</translation>
@@ -650,6 +670,12 @@
 <translation id="2823870601012066791">Lokasi pendaftaran Windows untuk pelanggan <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Dayakan mod Inkognito</translation>
 <translation id="2838830882081735096">Tidak membenarkan penghijrahan data dan ARC</translation>
+<translation id="2840269525054388612">Menentukan pencetak yang boleh digunakan oleh pengguna.
+
+      Dasar ini hanya digunakan jika <ph name="PRINTERS_WHITELIST" /> dipilih untuk <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
+
+      Jika dasar ini digunakan, hanya pencetak dengan ID yang sepadan dengan nilai dalam dasar ini akan tersedia kepada pengguna. ID mesti sepadan dengan medan "id" atau "guid" dalam fail yang dinyatakan dalam <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="2844404652289407061">Mendayakan ketersediaan Sentuh untuk Cari dalam paparan kandungan <ph name="PRODUCT_NAME" />.
 
       Jika anda mendayakan tetapan ini, Sentuh untuk Cari akan tersedia kepada pengguna dan mereka boleh memilih untuk menghidupkan atau mematikan ciri tersebut.
@@ -824,12 +850,6 @@
 
           Jika dasar ini ditetapkan kepada rentetan tidak kosong, rentetan itu akan digunakan sebagai nama bagi destinasi <ph name="PRODUCT_NAME" />. Jika tidak, nama peranti akan dijadikan nama destinasi. Jika dasar ini tidak ditetapkan, nama peranti akan dijadikan nama destinasi dan pemilik peranti (atau pengguna daripada domain yang mengurus peranti tersebut) akan dibenarkan untuk menukar nama itu. Nama dihadkan kepada 24 aksara.</translation>
 <translation id="3381968327636295719">Gunakan penyemak imbas hos secara lalai</translation>
-<translation id="3395348522300156660">Menentukan pencetak yang boleh digunakan oleh pengguna.
-
-      Dasar ini hanya digunakan jika <ph name="PRINTERS_WHITELIST" /> dipilih untuk <ph name="DEVICE_PRINTERS_ACCESS_MODE" />
-
-      Jika dasar ini digunakan, hanya pencetak dengan ID yang sepadan dengan nilai dalam dasar ini akan tersedia kepada pengguna. ID mesti sepadan dengan masukan dalam fail yang dinyatakan dalam <ph name="DEVICE_PRINTERS_POLICY" />.
-      </translation>
 <translation id="3414260318408232239">Jika dasar ini tidak dikonfigurasikan, maka <ph name="PRODUCT_NAME" /> menggunakan versi minimum lalai iaitu TLS 1.0.
 
       Jika tidak, dasar ini mungkin ditetapkan kepada satu daripada nilai berikut: "tls1", "tls1.1" atau "tls1.2". Apabila ditetapkan, <ph name="PRODUCT_NAME" /> tidak akan menggunakan versi SSL/TLS yang lebih rendah daripada versi yang dinyatakan. Nilai yang tidak dicam akan diabaikan.</translation>
@@ -1144,6 +1164,12 @@
 <translation id="4239720644496144453">Cache tidak digunakan untuk apl Android. Jika beberapa orang pengguna memasang apl Android yang sama, apl yang baharu akan dimuat turun untuk setiap pengguna.</translation>
 <translation id="4250680216510889253">Tidak</translation>
 <translation id="4261820385751181068">Tempat peristiwa skrin log masuk peranti</translation>
+<translation id="427220754384423013">Menentukan pencetak yang boleh digunakan oleh pengguna.
+
+      Dasar ini hanya digunakan jika <ph name="PRINTERS_WHITELIST" /> dipilih untuk <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Jika dasar ini digunakan, hanya pencetak dengan ID yang sepadan dengan nilai dalam dasar ini akan tersedia kepada pengguna. ID mesti sepadan dengan medan "id" atau "guid" dalam fail yang dinyatakan dalam <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="427632463972968153">Menentukan parameter yang digunakan apabila melakukan carian imej dengan POST. Parameter ini mengandungi pasangan nama/nilai yang dipisahkan koma. Jika nilai merupakan parameter templat, seperti {imageThumbnail} dalam contoh di atas, nilai ini akan digantikan dengan data lakaran kecil imej yang sebenar.
 
           Dasar ini tidak wajib. Jika tidak ditetapkan, permintaan carian imej akan dihantar menggunakan kaedah GET.
@@ -2235,6 +2261,12 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
 <translation id="749556411189861380">Laporkan versi OS dan perisian tegar peranti tersenarai.
 
       Jika tetapan ini ditetapkan kepada tidak benar atau ditetapkan ke Benar, peranti tersenarai akan melaporkan versi OS dan perisian tegar secara berkala. Jika tetapan ini ditetapkan ke Tidak Benar, maklimat versi tidak akan dilaporkan.</translation>
+<translation id="7498946151094347510">Menentukan pencetak yang tidak boleh digunakan oleh pengguna.
+
+      Dasar ini hanya digunakan jika <ph name="PRINTERS_BLACKLIST" /> dipilih untuk <ph name="DEVICE_PRINTERS_ACCESS_MODE" />.
+
+      Jika dasar ini digunakan, semua pencetak disediakan kepada pengguna kecuali pencetak dengan ID yang disenaraikan dalam dasar ini. ID mesti sepadan dengan medan "id" atau "guid" dalam fail yang dinyatakan dalam <ph name="DEVICE_PRINTERS_POLICY" />.
+      </translation>
 <translation id="7511361072385293666">Jika dasar ini ditetapkan kepada benar atau tidak ditetapkan, penggunaan protokol QUIC dalam <ph name="PRODUCT_NAME" /> dibenarkan.
       Jika dasar ini ditetapkan kepada palsu, penggunaan protokol QUIC tidak dibenarkan.</translation>
 <translation id="7519251620064708155">Benarkan penghasilan kunci pada tapak ini</translation>
@@ -2594,12 +2626,6 @@ Cara yang disyorkan untuk mengkonfigurasikan dasar pada Windows adalah melalui G
 
       Amaran: Anda tidak disyorkan untuk mengkonfigurasi had versi kerana tindakan ini boleh menghalang pengguna daripada menerima kemas kini perisian dan pembetulan keselamatan kritikal. Tindakan mengehadkan kemas kini kepada awalan versi tertentu boleh menyebabkan pengguna terdedah kepada risiko.</translation>
 <translation id="8519264904050090490">URL pengecualian manual pengguna terurus</translation>
-<translation id="8527932539502116028">Menentukan pencetak yang tidak boleh digunakan oleh pengguna.
-
-      Dasar ini hanya digunakan jika <ph name="PRINTERS_BLACKLIST" /> dipilih untuk <ph name="BULK_PRINTERS_ACCESS_MODE" />.
-
-      Jika dasar ini digunakan, semua pencetak akan disediakan kepada pengguna kecuali ID yang disenaraikan dalam dasar ini.
-      </translation>
 <translation id="8538235451413605457">Mengkonfigurasi keperluan versi minimum <ph name="PRODUCT_NAME" /> yang dibenarkan. Versi di bawah versi yang dinyatakan akan dikendalikan sebagai sudah lapuk dan peranti tidak akan membenarkan log masuk pengguna sebelum OS dikemas kini.
       Jika versi semasa menjadi lapuk semasa sesi pengguna, pengguna akan dipaksa untuk log keluar.
 
@@ -2609,6 +2635,12 @@ Cara yang disyorkan untuk mengkonfigurasikan dasar pada Windows adalah melalui G
 <translation id="8544375438507658205">Pemapar HTML lalai untuk <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="8549772397068118889">Beri amaran apabila melawat tapak web di luar pek kandungan</translation>
 <translation id="8566842294717252664">Sembunyikan gedung web daripada Halaman Tab Baharu dan pelancar apl</translation>
+<translation id="8586528890725660268">Menentukan pencetak yang tidak boleh digunakan oleh pengguna.
+
+      Dasar ini hanya digunakan jika <ph name="PRINTERS_BLACKLIST" /> dipilih untuk <ph name="BULK_PRINTERS_ACCESS_MODE" />.
+
+      Jika dasar ini digunakan, semua pencetak disediakan kepada pengguna kecuali pencetak dengan ID yang disenaraikan dalam dasar ini. ID mesti sepadan dengan medan "id" atau "guid" dalam fail yang dinyatakan dalam <ph name="BULK_PRINTERS_POLICY" />.
+      </translation>
 <translation id="8587229956764455752">Benarkan ciptaan akaun pengguna baharu</translation>
 <translation id="8598350264853261122">Jika dasar ditetapkan kepada palsu, pengguna bukan anggota gabungan tidak akan dibenarkan menggunakan ARC.
 
@@ -2731,18 +2763,6 @@ Cara yang disyorkan untuk mengkonfigurasikan dasar pada Windows adalah melalui G
 
           Nilai dasar harus dinyatakan dalam milisaat. Nilai diapit supaya kurang daripada kelewatan melahu.</translation>
 <translation id="891435090623616439">dikodkan sebagai rentetan JSON, untuk mendapatkan butiran lanjut, lihat <ph name="COMPLEX_POLICIES_URL" /></translation>
-<translation id="8927384992072706174">Menyediakan konfigurasi untuk pencetak perusahaan.
-
-      Dasar ini membenarkan anda menyediakan konfigurasi pencetak kepada peranti <ph name="PRODUCT_OS_NAME" />. Saiz fail tidak boleh melebihi 5MB dan mesti dikodkan dalam JSON. Format adalah sama dengan format kamus NativePrinters. Fail yang mengandungi kira-kira 21,000 pencetak dianggar akan mengekod sebagai fail 5MB. Cincangan kriptografi digunakan untuk mengesahkan integriti muat turun.
-
-      Fail dimuat turun dan dicache. Fail tersebut akan dimuat turun semula apabila URL atau cincangan berubah.
-
-      Jika dasar ini ditetapkan, <ph name="PRODUCT_OS_NAME" /> akan memuat turun fail untuk konfigurasi pencetak dan menjadikan pencetak tersedia menurut <ph name="BULK_PRINTERS_ACCESS_MODE" />, <ph name="BULK_PRINTERS_WHITELIST" /> dan <ph name="BULK_PRINTERS_BLACKLIST" />.
-
-      Jika anda menetapkan dasar ini, pengguna tidak boleh menukar atau membatalkannya.
-
-      Dasar ini tidak mempengaruhi sama ada pengguna boleh mengkonfigurasi pencetak pada peranti individu. Tujuan dasar ini adalah sebagai tambahan kepada konfigurasi pencetak oleh pengguna individu.
-      </translation>
 <translation id="8934944553121392674">Mengawal pencetak daripada <ph name="DEVICE_PRINTERS_POLICY" /> yang tersedia kepada pengguna.
 
       Menetapkan dasar akses yang digunakan untuk konfigurasi pencetak pukal. Jika <ph name="PRINTERS_ALLOW_ALL" /> dipilih, semua pencetak akan dipaparkan. Jika <ph name="PRINTERS_BLACKLIST" /> dipilih, <ph name="DEVICE_PRINTERS_BLACKLIST" /> akan digunakan untuk mengehadkan akses kepada pencetak yang ditetapkan. Jika <ph name="PRINTERS_WHITELIST" /> dipilih, <ph name="DEVICE_PRINTERS_WHITELIST" /> akan menetapkan pencetak yang boleh dipilih sahaja.

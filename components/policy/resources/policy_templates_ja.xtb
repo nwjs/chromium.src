@@ -53,12 +53,6 @@
       このポリシーが False に設定されている場合、Dev スイッチの状態は報告されません。</translation>
 <translation id="1160479894929412407">QUIC プロトコルを許可する</translation>
 <translation id="1160939557934457296">セーフ ブラウジングの警告ページからの続行を無効にする</translation>
-<translation id="1166377463685560145">ユーザーに使用を許可しないプリンタを指定します。
-
-      このポリシーは、<ph name="DEVICE_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_BLACKLIST" /> が選択されている場合にのみ使用されます。
-
-      このポリシーが使用される場合、ユーザーはこのポリシーに指定されている ID 以外のすべてのプリンタを使用できます。
-      </translation>
 <translation id="1198465924256827162">デバイス ステータスのアップロードを送信する頻度をミリ秒単位で指定します。
 
 このポリシーが未設定の場合は、3 時間に 1 回の頻度となります。最短で 60 秒に 1 回の頻度を指定できます。</translation>
@@ -185,19 +179,6 @@
 
       セーフ ブラウジングについて詳しくは、https://developers.google.com/safe-browsing をご覧ください。</translation>
 <translation id="1583248206450240930">デフォルトで <ph name="PRODUCT_FRAME_NAME" /> を使用する</translation>
-<translation id="1603058613431276040">デバイスに関連付けられる企業プリンタの設定を指定します。
-
-      このポリシーにより、<ph name="PRODUCT_OS_NAME" /> デバイスのプリンタ設定を指定できます。このファイルは、5 MB 以下のサイズで、JSON エンコードで作成されている必要があります。フォーマットは NativePrinters 辞書と同じです。5 MB は 約 2,1000 台のプリンタを指定してエンコードしたファイルに相当します。ダウンロードの整合性の確認には暗号化ハッシュが使用されます。
-
-      このファイルはダウンロードされてキャッシュされ、URL またはハッシュが変わったときには再度ダウンロードされます。
-
-      このポリシーが設定されている場合は、<ph name="PRODUCT_OS_NAME" /> によってプリンタ設定ファイルがダウンロードされ、<ph name="DEVICE_PRINTERS_ACCESS_MODE" />、<ph name="DEVICE_PRINTERS_WHITELIST" />、<ph name="DEVICE_PRINTERS_BLACKLIST" /> に沿ってプリンタが利用可能になります。
-
-      このポリシーは、ユーザーが個々のデバイスでプリンタを設定できるかどうかに影響するものではなく、個々のユーザーがプリンタを設定するときの補助として使用されることを想定したものです。
-
-      これは <ph name="BULK_PRINTERS_POLICY" /> の追加ポリシーとして使用されます。
-
-      このポリシーが未設定の場合、デバイス プリンタは存在しないことになり、<ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> ポリシーは無視されます。</translation>
 <translation id="1608755754295374538">ユーザー確認なしで音声キャプチャ デバイスへのアクセスが許可される URL</translation>
 <translation id="1617235075406854669">閲覧とダウンロードの履歴を削除可能にする</translation>
 <translation id="163200210584085447">このリストに指定されているパターンと、リクエスト元 URL の
@@ -276,6 +257,22 @@
       このポリシーが false に設定されている場合、統計情報と診断データは送信されません。
 
       このポリシーが未設定の場合、管理対象ではない端末では統計情報と診断データは送信されません。管理対象の端末では統計情報と診断データが送信されます。</translation>
+<translation id="1929709556673267855">デバイスに接続された企業プリンタの設定を指定します。
+
+      このポリシーを使用すると、<ph name="PRODUCT_OS_NAME" /> デバイスのプリンタ設定を指定できます。フォーマットは NativePrinters ディクショナリと同じですが、ホワイトリストまたはブラックリストに登録するプリンタごとに「id」または「guid」フィールドを追加で指定する必要があります。
+
+      このファイルは、5 MB 以下のサイズで、JSON 形式で作成されている必要があります。5 MB は 約 2,1000 台のプリンタを指定してエンコードしたファイルに相当します。ダウンロードの整合性の確認には暗号化ハッシュが使用されます。
+
+      このファイルはダウンロード後キャッシュされ、URL またはハッシュが変わったときには再度ダウンロードされます。
+
+      このポリシーが設定されている場合は、<ph name="PRODUCT_OS_NAME" /> によってプリンタ設定ファイルがダウンロードされ、<ph name="DEVICE_PRINTERS_ACCESS_MODE" />、<ph name="DEVICE_PRINTERS_WHITELIST" />、<ph name="DEVICE_PRINTERS_BLACKLIST" /> に沿ってプリンタが利用可能になります。
+
+      このポリシーは、ユーザーが個々のデバイスでプリンタを設定できるかどうかに影響するものではなく、個々のユーザーがプリンタを設定するときの補助として使用されることを想定したものです。
+
+      これは <ph name="BULK_PRINTERS_POLICY" /> の追加ポリシーです。
+
+      このポリシーが未設定の場合、デバイス プリンタは存在しないことになり、他の <ph name="DEVICE_PRINTERS_POLICY_PATTERN" /> ポリシーは無視されます。
+      </translation>
 <translation id="193259052151668190">USB 分離可能デバイスのホワイトリスト</translation>
 <translation id="1933378685401357864">壁紙の画像</translation>
 <translation id="1956493342242507974"><ph name="PRODUCT_OS_NAME" /> のログイン画面での電源管理方法を設定します。
@@ -308,6 +305,21 @@
 
       プラットフォームがポリシーの通知に対応している場合は、ポリシーが変更されるたびにポリシーの通知により更新は自動的に適用されることになるため、更新の遅延は 24 時間に設定され、頻繁な更新は不要になります（すべてのデフォルト値とこのポリシーの値は無視されます）。</translation>
 <translation id="2024476116966025075">リモート アクセスのクライアントに要求する必須のドメイン名を設定する</translation>
+<translation id="202757291638965203">プリンタのリストを設定します。
+
+      管理者はこのポリシーを使ってユーザーのプリンタ設定を
+      指定できます。
+
+      <ph name="PRINTER_DISPLAY_NAME" /> と <ph name="PRINTER_DESCRIPTION" /> は自由形式の文字列で、プリンタを選択しやすいようにカスタマイズできます。<ph name="PRINTER_MANUFACTURER" /> と <ph name="PRINTER_MODEL" /> は、エンドユーザーがプリンタを識別しやすいようにするための情報で、それぞれプリンタの製造元と機種を表します。<ph name="PRINTER_URI" /> は、クライアントのパソコンからアクセス可能な、<ph name="URI_SCHEME" />、<ph name="URI_PORT" />、<ph name="URI_QUEUE" /> を含むアドレスである必要があります。<ph name="PRINTER_UUID" /> の指定は任意で、指定した場合は <ph name="ZEROCONF_DISCOVERY" /> プリンタの重複除外に使用されます。
+
+      <ph name="PRINTER_EFFECTIVE_MODEL" /> は、<ph name="PRODUCT_NAME" /> 対応のプリンタを示す文字列のいずれかと一致する必要があります。この文字列は、プリンタに適した PPD を特定してインストールする目的で使用されます。詳細については、https://support.google.com/chrome?p=noncloudprint をご覧ください。
+
+      プリンタの設定は初回使用時に行われ、プリンタが使用されるときに初めて PPD がダウンロードされます。以降、使用頻度の高い PPD はキャッシュされます。
+
+      このポリシーは、ユーザーが個々のデバイスでプリンタを設定できるかどうかに影響するものではなく、個々のユーザーがプリンタを設定するときの補助として使用されることを想定したものです。
+
+      Active Directory の管理下にあるデバイスの場合、このポリシーでは、<ph name="MACHINE_NAME_VARIABLE" /> から Active Directory のマシン名またはその部分文字列への展開がサポートされます。たとえばマシン名が <ph name="MACHINE_NAME_EXAMPLE" /> の場合、<ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> は 6 文字目以降の 4 文字、つまり <ph name="MACHINE_NAME_PART_EXAMPLE" /> に置き換えられます（先頭をゼロ文字目として数えます）。
+      </translation>
 <translation id="2030905906517501646">デフォルトの検索プロバイダのキーワード</translation>
 <translation id="203096360153626918">このポリシーは Android アプリには適用されません。このポリシーを <ph name="FALSE" /> に設定した場合でも、Android アプリの全画面表示は可能です。</translation>
 <translation id="2043770014371753404">無効な企業プリンタ</translation>
@@ -557,6 +569,20 @@
           このポリシーが未設定の場合、デフォルトは true で、NTLMv2 は有効になります。</translation>
 <translation id="2623014935069176671">最初のユーザー操作を待機する</translation>
 <translation id="262740370354162807"><ph name="CLOUD_PRINT_NAME" /> へのドキュメントの送信を有効にします。</translation>
+<translation id="2627554163382448569">企業プリンタの設定を指定します。
+
+      このポリシーを使用すると、<ph name="PRODUCT_OS_NAME" /> デバイスのプリンタ設定を指定できます。フォーマットは NativePrinters ディクショナリと同じですが、ホワイトリストまたはブラックリストに登録するプリンタごとに「id」または「guid」フィールドを追加で指定する必要があります。
+
+      このファイルは、5 MB 以下のサイズで、JSON 形式で作成されている必要があります。5 MB は 約 2,1000 台のプリンタを指定してエンコードしたファイルに相当します。ダウンロードの整合性の確認には暗号化ハッシュが使用されます。
+
+      このファイルはダウンロード後キャッシュされ、URL またはハッシュが変わったときには再度ダウンロードされます。
+
+      このポリシーが設定されている場合は、<ph name="PRODUCT_OS_NAME" /> によってプリンタ設定ファイルがダウンロードされ、<ph name="BULK_PRINTERS_ACCESS_MODE" />、<ph name="BULK_PRINTERS_WHITELIST" />、<ph name="BULK_PRINTERS_BLACKLIST" /> に沿ってプリンタが利用可能になります。
+
+      このポリシーを設定した場合、ユーザーが設定を変更またはオーバーライドすることはできません。
+
+      このポリシーは、ユーザーが個々のデバイスでプリンタを設定できるかどうかに影響するものではなく、個々のユーザーがプリンタを設定するときの補助として使用されることを想定したものです。
+      </translation>
 <translation id="2633084400146331575">音声フィードバックを有効にする</translation>
 <translation id="2646290749315461919">ウェブサイトに対してユーザーの物理的な現在地の追跡を許可するかどうかを設定できます。ユーザーの物理的な現在地の追跡は、デフォルトで許可または禁止することができます。また、ウェブサイトが物理的な現在地を要求するときに毎回ユーザーに確認することもできます。このポリシーが未設定の場合、「AskGeolocation」が使用され、ユーザーはこの設定を変更できます。</translation>
 <translation id="2647069081229792812">ブックマークの編集を有効または無効にする</translation>
@@ -591,12 +617,6 @@
 <translation id="2762164719979766599">ログイン画面でデバイスのローカル アカウントのリストを表示するよう指定します。
 
       リストの各エントリは識別子を示します。これらの識別子は、デバイスのローカル アカウントを区別するために内部で使用されます。</translation>
-<translation id="2766302473082018239">ユーザーに使用を許可するプリンタを指定します。
-
-      このポリシーは、<ph name="BULK_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_WHITELIST" /> が選択されている場合にのみ使用されます。
-
-      このポリシーが使用される場合、ユーザーはこのポリシーに指定されている値に一致する ID のプリンタのみを使用できます。この ID は、<ph name="BULK_PRINTERS_POLICY" /> で指定されたファイル内のエントリに対応している必要があります。
-      </translation>
 <translation id="2769952903507981510">リモート アクセス ホストの必須のドメイン名を設定する</translation>
 <translation id="2787173078141616821">Android のステータスに関する情報を報告する</translation>
 <translation id="2793923553868251161">安全なコンテキストとして扱われる発行元です。</translation>
@@ -621,6 +641,12 @@
 <translation id="2823870601012066791">Windows レジストリでの <ph name="PRODUCT_OS_NAME" /> クライアントの場所:</translation>
 <translation id="2824715612115726353">シークレット モードを有効にする</translation>
 <translation id="2838830882081735096">データ移行と ARC を許可しない</translation>
+<translation id="2840269525054388612">ユーザーに使用を許可するプリンタを指定します。
+
+      このポリシーは、<ph name="DEVICE_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_WHITELIST" /> が選択されている場合にのみ使用されます。
+
+      このポリシーが使用される場合、ユーザーはこのポリシーに指定されている値に ID が一致するプリンタのみを使用できます。この ID は、<ph name="DEVICE_PRINTERS_POLICY" /> で指定されたファイル内の「id」または「guid」フィールドに対応している必要があります。
+      </translation>
 <translation id="2844404652289407061"><ph name="PRODUCT_NAME" /> のコンテンツ ビューで [タップして検索] を使用できるかどうかを制御します。
 
 この設定を有効にした場合、ユーザーは [タップして検索] を使用でき、この機能のオンとオフを切り替えることができます。
@@ -788,12 +814,6 @@
 
           このポリシーが空でない文字列に設定されている場合は、その文字列が <ph name="PRODUCT_NAME" /> のレシーバー名として使用されます。それ以外の場合、レシーバー名にはデバイス名が設定されます。このポリシーが未設定の場合、レシーバー名にはデバイス名が設定され、デバイスの所有者（またはデバイスを管理するドメインのユーザー）はその名前を変更できます。なお、名前は 24 文字以内で指定する必要があります。</translation>
 <translation id="3381968327636295719">ホスト ブラウザをデフォルトで使用する</translation>
-<translation id="3395348522300156660">ユーザーに使用を許可するプリンタを指定します。
-
-      このポリシーは、<ph name="DEVICE_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_WHITELIST" /> が選択されている場合にのみ使用されます。
-
-      このポリシーが使用される場合、ユーザーはこのポリシーに指定されている値に一致する ID のプリンタのみを使用できます。この ID は、<ph name="DEVICE_PRINTERS_POLICY" /> で指定されたファイル内のエントリに対応している必要があります。
-      </translation>
 <translation id="3414260318408232239">このポリシーが未設定の場合、<ph name="PRODUCT_NAME" /> ではデフォルトの最小バージョン（TLS 1.0）が使用されます。
 
       このポリシーを設定する場合、「tls1」、「tls1.1」、「tls1.2」のいずれかの値を指定できます。<ph name="PRODUCT_NAME" /> では、指定されたバージョンより小さい SSL / TLS バージョンは使用されません。認識されない値は無視されます。</translation>
@@ -1097,6 +1117,12 @@
 <translation id="4239720644496144453">キャッシュは Android アプリには使用されません。複数のユーザーが同じ Android アプリをインストールする場合、アプリはユーザーごとに新しくダウンロードされます。</translation>
 <translation id="4250680216510889253">いいえ</translation>
 <translation id="4261820385751181068">端末のログイン画面の言語 / 地域</translation>
+<translation id="427220754384423013">ユーザーに使用を許可するプリンタを指定します。
+
+      このポリシーは、<ph name="BULK_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_WHITELIST" /> が選択されている場合にのみ使用されます。
+
+      このポリシーが使用される場合、ユーザーはこのポリシーに指定されている値に ID が一致するプリンタのみを使用できます。この ID は、<ph name="BULK_PRINTERS_POLICY" /> で指定されたファイル内の「id」または「guid」フィールドに対応している必要があります。
+      </translation>
 <translation id="427632463972968153">POST を使って画像検索を行うときに使用するパラメータを指定します。名前と値のペアをカンマで区切って指定します。値がテンプレート パラメータ（上記の例の {imageThumbnail} など）の場合は、実際の画像サムネイルのデータに置き換えられます。
 
           このポリシーは省略可能です。未設定の場合、画像検索リクエストは GET メソッドを使用して送信されます。
@@ -2122,6 +2148,12 @@
 <translation id="749556411189861380">登録デバイスの OS とファームウェアのバージョンを報告します。
 
       この設定が未設定か、True に設定されている場合、登録デバイスでは定期的に OS とファームウェアのバージョンが報告されます。この設定が False に設定されている場合、バージョン情報は報告されません。</translation>
+<translation id="7498946151094347510">ユーザーに使用を許可しないプリンタを指定します。
+
+      このポリシーは、<ph name="DEVICE_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_BLACKLIST" /> が選択されている場合にのみ使用されます。
+
+      このポリシーが使用される場合、ユーザーはこのポリシーで指定されている ID 以外のすべてのプリンタを使用できます。この ID は、<ph name="DEVICE_PRINTERS_POLICY" /> で指定されたファイル内の「id」または「guid」フィールドに対応している必要があります。
+      </translation>
 <translation id="7511361072385293666">このポリシーを true に設定した場合や未設定の場合、<ph name="PRODUCT_NAME" /> での QUIC プロトコルの使用が許可されます。
       このポリシーを false に設定した場合、QUIC プロトコルの使用は許可されません。</translation>
 <translation id="7519251620064708155">指定サイトでのキー生成を許可する</translation>
@@ -2468,12 +2500,6 @@
 
       警告: バージョンの制限を設定することはおすすめしません。設定した場合、ユーザーがソフトウェアのアップデートや重要なセキュリティ修正を取得できなくなる可能性があります。つまり、更新対象を特定のバージョンのプレフィックスに制限すると、ユーザーが危険にさらされる恐れがあります。</translation>
 <translation id="8519264904050090490">管理対象ユーザーの手動による例外 URL</translation>
-<translation id="8527932539502116028">ユーザーに使用を許可しないプリンタを指定します。
-
-      このポリシーは、<ph name="BULK_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_BLACKLIST" /> が選択されている場合にのみ使用されます。
-
-      このポリシーが使用される場合、ユーザーはこのポリシーに指定されている ID 以外のすべてのプリンタを使用できます。
-      </translation>
 <translation id="8538235451413605457">使用を許可する <ph name="PRODUCT_NAME" /> の最小バージョンを設定します。これより古いバージョンはサポート終了として扱われ、OS がアップデートされるまでユーザーは端末にログインできません。
       ユーザー セッション中に現在のバージョンがサポート終了となった場合、ユーザーは強制的にログアウトされます。
 
@@ -2483,6 +2509,12 @@
 <translation id="8544375438507658205"><ph name="PRODUCT_FRAME_NAME" /> のデフォルトの HTML レンダラ</translation>
 <translation id="8549772397068118889">コンテンツ パック外部のサイトを訪問したときに警告する</translation>
 <translation id="8566842294717252664">新しいタブページとアプリ ランチャーでウェブストアを非表示にする</translation>
+<translation id="8586528890725660268">ユーザーに使用を許可しないプリンタを指定します。
+
+      このポリシーは、<ph name="BULK_PRINTERS_ACCESS_MODE" /> の値に <ph name="PRINTERS_BLACKLIST" /> が選択されている場合にのみ使用されます。
+
+      このポリシーが使用される場合、ユーザーはこのポリシーで指定されている ID 以外のすべてのプリンタを使用できます。この ID は、<ph name="BULK_PRINTERS_POLICY" /> で指定されたファイル内の「id」または「guid」フィールドに対応している必要があります。
+      </translation>
 <translation id="8587229956764455752">新しいユーザー アカウントの作成を許可する</translation>
 <translation id="8598350264853261122">このポリシーが false に設定されている場合、外部のユーザーは ARC を使用できません。
 
@@ -2594,18 +2626,6 @@
 
           ポリシーの値はミリ秒単位で指定してください。アイドル時間より長い値は指定できません。</translation>
 <translation id="891435090623616439">JSON 文字列としてのエンコードについて詳しくは、<ph name="COMPLEX_POLICIES_URL" /> をご覧ください</translation>
-<translation id="8927384992072706174">デバイスに関連付けられる企業プリンタの設定を指定します。
-
-      このポリシーにより、<ph name="PRODUCT_OS_NAME" /> デバイスのプリンタ設定を指定できます。このファイルは、5 MB 以下のサイズで、JSON エンコードで作成されている必要があります。フォーマットは NativePrinters 辞書と同じです。5 MB は 約 2,1000 台のプリンタを指定してエンコードしたファイルに相当します。ダウンロードの整合性の確認には暗号化ハッシュが使用されます。
-
-      このファイルはダウンロードされてキャッシュされ、URL またはハッシュが変わったときには再度ダウンロードされます。
-
-      このポリシーが設定されている場合は、<ph name="PRODUCT_OS_NAME" /> によってプリンタ設定ファイルがダウンロードされ、<ph name="BULK_PRINTERS_ACCESS_MODE" />、<ph name="BULK_PRINTERS_WHITELIST" />、<ph name="BULK_PRINTERS_BLACKLIST" /> に沿ってプリンタが利用可能になります。
-
-      このポリシーを設定した場合、ユーザーがこのポリシーを変更したりオーバーライドしたりすることはできません。
-
-      このポリシーは、ユーザーが個々のデバイスでプリンタを設定できるかどうかに影響するものではなく、個々のユーザーがプリンタを設定するときの補助として使用されることを想定したものです。
-      </translation>
 <translation id="8934944553121392674">ユーザーが <ph name="DEVICE_PRINTERS_POLICY" /> のどのプリンタを使用できるかを制御します。
 
       このポリシーは、プリンタの一括設定で使用するアクセス ポリシーを指定するものです。<ph name="PRINTERS_ALLOW_ALL" /> が選択されている場合は、すべてのプリンタが表示されます。<ph name="PRINTERS_BLACKLIST" /> が選択されている場合は、<ph name="DEVICE_PRINTERS_BLACKLIST" /> に基づき、指定されたプリンタへのアクセスが制限されます。<ph name="PRINTERS_WHITELIST" /> が選択されている場合は、<ph name="DEVICE_PRINTERS_WHITELIST" />
