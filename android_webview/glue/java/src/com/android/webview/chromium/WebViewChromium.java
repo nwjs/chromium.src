@@ -22,6 +22,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
 import android.os.Message;
+import android.os.SystemClock;
 import android.print.PrintDocumentAdapter;
 import android.util.Log;
 import android.util.SparseArray;
@@ -61,6 +62,7 @@ import org.chromium.android_webview.ResourcesContextWrapperFactory;
 import org.chromium.android_webview.renderer_priority.RendererPriority;
 import org.chromium.base.BuildInfo;
 import org.chromium.base.ThreadUtils;
+import org.chromium.base.metrics.CachedMetrics.TimesHistogramSample;
 import org.chromium.components.autofill.AutofillProvider;
 import org.chromium.content_public.browser.NavigationHistory;
 import org.chromium.content_public.browser.SmartClipProvider;
@@ -71,6 +73,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.Map;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 
 /**
  * This class is the delegate to which WebViewProxy forwards all API calls.
@@ -146,6 +149,8 @@ class WebViewChromium implements WebViewProvider, WebViewProvider.ScrollDelegate
     // so is ignored. TODO: remove it from WebViewProvider.
     public void init(final Map<String, Object> javaScriptInterfaces,
             final boolean privateBrowsing) {
+        long startTime = SystemClock.elapsedRealtime();
+        boolean isFirstWebViewInit = !mFactory.hasStarted();
         if (privateBrowsing) {
             mFactory.startYourEngines(true);
             final String msg = "Private browsing is not supported in WebView.";
@@ -217,6 +222,15 @@ class WebViewChromium implements WebViewProvider, WebViewProvider.ScrollDelegate
                 }
             }
         });
+
+        // The real initialization may be deferred, in which case we don't record this.
+        if (!mFactory.hasStarted()) return;
+
+        TimesHistogramSample histogram = new TimesHistogramSample(
+                "Android.WebView.Startup.CreationTime.Stage2.ProviderInit."
+                        + (isFirstWebViewInit ? "Cold" : "Warm"),
+                TimeUnit.MILLISECONDS);
+        histogram.record(SystemClock.elapsedRealtime() - startTime);
     }
 
     // This is a workaround for https://crbug.com/622151.
