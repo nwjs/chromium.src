@@ -88,7 +88,6 @@
 #include "content/public/common/content_constants.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/origin_util.h"
-#include "content/public/common/resource_type.h"
 #include "net/base/auth.h"
 #include "net/base/load_flags.h"
 #include "net/base/mime_util.h"
@@ -552,8 +551,7 @@ scoped_refptr<LoginDelegate> ResourceDispatcherHostImpl::CreateLoginDelegate(
   ResourceRequestInfoImpl* resource_request_info =
       ResourceRequestInfoImpl::ForRequest(request);
   DCHECK(resource_request_info);
-  bool is_main_frame =
-      resource_request_info->GetResourceType() == RESOURCE_TYPE_MAIN_FRAME;
+  bool is_main_frame = resource_request_info->IsMainFrame();
   GlobalRequestID request_id = resource_request_info->GetGlobalRequestID();
 
   GURL url = request->url();
