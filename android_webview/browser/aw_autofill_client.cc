@@ -223,6 +223,10 @@ bool AwAutofillClient::IsAutofillSupported() {
   return true;
 }
 
+bool AwAutofillClient::AreServerCardsSupported() {
+  return true;
+}
+
 void AwAutofillClient::Dismissed(JNIEnv* env,
                                  const JavaParamRef<jobject>& obj) {
   anchor_view_.Reset();

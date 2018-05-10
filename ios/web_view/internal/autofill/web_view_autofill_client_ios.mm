@@ -156,4 +156,8 @@ bool WebViewAutofillClientIOS::IsAutofillSupported() {
   return true;
 }
 
+bool WebViewAutofillClientIOS::AreServerCardsSupported() {
+  return true;
+}
+
 }  // namespace autofill
