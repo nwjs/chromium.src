@@ -106,13 +106,22 @@ class ContentInputDelegate {
     OnWebInputTextChanged(text);
   }
 
- private:
-  void UpdateGesture(const gfx::PointF& normalized_content_hit_point,
-                     blink::WebGestureEvent& gesture);
-  void SendGestureToContent(std::unique_ptr<blink::WebInputEvent> event);
-  std::unique_ptr<blink::WebMouseEvent> MakeMouseEvent(
+  void ClearTextInputState();
+
+ protected:
+  virtual void UpdateGesture(const gfx::PointF& normalized_content_hit_point,
+                             blink::WebGestureEvent& gesture);
+  virtual void SendGestureToTarget(std::unique_ptr<blink::WebInputEvent> event);
+  virtual std::unique_ptr<blink::WebMouseEvent> MakeMouseEvent(
       blink::WebInputEvent::Type type,
       const gfx::PointF& normalized_web_content_location);
+
+ private:
+  enum TextRequestState {
+    kNoPendingRequest,
+    kRequested,
+    kResponseReceived,
+  };
   bool ContentGestureIsLocked(blink::WebInputEvent::Type type);
   void OnWebInputTextChanged(const base::string16& text);
 
