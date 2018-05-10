@@ -292,16 +292,18 @@ void DelegatedFrameHost::WasResized(
 
     if (!primary_surface_id ||
         primary_surface_id->local_surface_id() != pending_local_surface_id_) {
-      current_frame_size_in_dip_ = pending_surface_dip_size_;
-
       viz::SurfaceId surface_id(frame_sink_id_, pending_local_surface_id_);
 #if defined(OS_WIN) || defined(USE_X11)
       // On Windows and Linux, we would like to produce new content as soon as
       // possible or the OS will create an additional black gutter. Until we can
       // block resize on surface synchronization on these platforms, we will not
       // block UI on the top-level renderer.
-      deadline_policy = cc::DeadlinePolicy::UseSpecifiedDeadline(0u);
+      if (!current_frame_size_in_dip_.IsEmpty() &&
+          current_frame_size_in_dip_ != pending_surface_dip_size_) {
+        deadline_policy = cc::DeadlinePolicy::UseSpecifiedDeadline(0u);
+      }
 #endif
+      current_frame_size_in_dip_ = pending_surface_dip_size_;
       client_->DelegatedFrameHostGetLayer()->SetShowPrimarySurface(
           surface_id, current_frame_size_in_dip_, GetGutterColor(),
           deadline_policy);
