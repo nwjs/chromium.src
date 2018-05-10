@@ -476,8 +476,8 @@ void URLLoader::OnAuthRequired(net::URLRequest* unused,
   }
 
   network_service_client_->OnAuthRequired(
-      process_id_, render_frame_id_, request_id_, url_request_->url(),
-      first_auth_attempt_, auth_info,
+      process_id_, render_frame_id_, request_id_, resource_type_,
+      url_request_->url(), first_auth_attempt_, auth_info,
       base::BindOnce(&URLLoader::OnAuthRequiredResponse,
                      weak_ptr_factory_.GetWeakPtr()));
 

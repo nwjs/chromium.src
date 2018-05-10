@@ -286,6 +286,7 @@ interface NetworkServiceClient {
   OnAuthRequired(uint32 process_id,
                  uint32 routing_id,
                  uint32 request_id,
+                 int32 resource_type,
                  url.mojom.Url url,
                  bool first_auth_attempt,
                  AuthChallengeInfo auth_info) => (AuthCredentials? credentials);
