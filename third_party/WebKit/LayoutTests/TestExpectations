@@ -3470,3 +3470,6 @@ crbug.com/817705 [ Mac Win Linux ] http/tests/media/media-src-suspend-before-hav
 crbug.com/821216 compositing/overflow/mixed-composited-nested-sticky.html [ Crash Pass ]
 crbug.com/821216 virtual/prefer_compositing_to_lcd_text/compositing/overflow/mixed-composited-nested-sticky.html [ Crash Pass ]
 crbug.com/821216 virtual/disable-spv175/compositing/overflow/mixed-composited-nested-sticky.html [ Crash Pass ]
+
+# This will break for now
+crbug.com/841933 http/tests/webaudio/autoplay-crossorigin.html [ Skip ]

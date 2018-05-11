@@ -29,6 +29,7 @@
 #include "bindings/core/v8/ExceptionMessages.h"
 #include "bindings/core/v8/ExceptionState.h"
 #include "bindings/core/v8/ScriptPromiseResolver.h"
+#include "build/build_config.h"
 #include "core/dom/DOMException.h"
 #include "core/dom/Document.h"
 #include "core/dom/ExceptionCode.h"
@@ -673,9 +674,13 @@ Document* BaseAudioContext::GetDocument() const {
 }
 
 AutoplayPolicy::Type BaseAudioContext::GetAutoplayPolicy() const {
-  Document* document = GetDocument();
-  DCHECK(document);
-  return AutoplayPolicy::GetAutoplayPolicyForDocument(*document);
+// The policy is different on Android compared to Desktop.
+#if defined(OS_ANDROID)
+  return AutoplayPolicy::Type::kUserGestureRequired;
+#else
+  // Force no user gesture required on desktop.
+  return AutoplayPolicy::Type::kNoUserGestureRequired;
+#endif
 }
 
 bool BaseAudioContext::AreAutoplayRequirementsFulfilled() const {
