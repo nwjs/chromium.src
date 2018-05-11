@@ -4092,3 +4092,6 @@ crbug.com/832274 [ Linux ] fast/forms/search/search-appearance-basic.html [ Pass
 # Sheriff 2018-04-12
 crbug.com/818324 [ Linux ] external/wpt/html/syntax/parsing/html5lib_template.html?run_type=uri [ Pass Timeout ]
 crbug.com/831993 [ Linux ] virtual/gpu-rasterization/images/cross-fade-overflow-position.html [ Pass Timeout ]
+
+# This will break for now
+crbug.com/841933 http/tests/webaudio/autoplay-crossorigin.html [ Skip ]
