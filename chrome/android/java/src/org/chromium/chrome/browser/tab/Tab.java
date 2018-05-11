@@ -2107,7 +2107,7 @@ public class Tab
             mInfoBarContainer = null;
         }
 
-        mControlsOffsetHelper.clearPreviousPositions();
+        mControlsOffsetHelper.destroy();
 
         mNeedsReload = false;
     }
