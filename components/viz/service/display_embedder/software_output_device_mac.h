@@ -18,9 +18,27 @@
 #include "ui/gfx/vsync_provider.h"
 
 class SkCanvas;
+namespace ui {
+class Compositor;
+}
 
 namespace viz {
 
+class SoftwareOutputDeviceForceCPUMac : public viz::SoftwareOutputDevice {
+ public:
+  explicit SoftwareOutputDeviceForceCPUMac(gfx::AcceleratedWidget widget);
+  ~SoftwareOutputDeviceForceCPUMac() override;
+
+  void Resize(const gfx::Size& pixel_size, float scale_factor) override;
+  void EndPaint() override;
+
+ private:
+  gfx::AcceleratedWidget widget_;
+  float scale_factor_;
+
+  DISALLOW_COPY_AND_ASSIGN(SoftwareOutputDeviceForceCPUMac);
+};
+  
 class VIZ_SERVICE_EXPORT SoftwareOutputDeviceMac : public SoftwareOutputDevice,
                                                    public gfx::VSyncProvider {
  public:

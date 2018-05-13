@@ -33,6 +33,8 @@ vars = {
     '5f7cd2497d7a643125c3b6eb910d99ba28be6899',
   'freetype_revision':
     '713d68ee9f47cc8df56e47fa2f54b191bb8c3186',
+  'nwjs_git':
+    'https://github.com/nwjs',
   'google_toolbox_for_mac_revision':
     '3c3111d3aefe907c8c0f0e933029608d96ceefeb',
   'libfuzzer_revision':
@@ -587,10 +589,14 @@ deps = {
     (Var("chromium_git")) + '/chromium/deps/acid3.git@6be0a66a1ebd7ebc5abc1b2f405a945f6d871521',
   'src/tools/swarming_client':
     (Var("chromium_git")) + '/infra/luci/client-py.git@88229872dd17e71658fe96763feaa77915d8cbd6',
-  'src/v8': {
-    'url':
-      '{chromium_git}/v8/v8.git@53a7de0d034bdf43abada2d2157d8acd65d1d930'
-  }
+  #'src/v8': {
+  #  'url':
+  #    '{chromium_git}/v8/v8.git@53a7de0d034bdf43abada2d2157d8acd65d1d930'
+  #}
+  #'src/content/nw':
+  #  (Var("nwjs_git")) + '/nw.js.git@origin/nw16',
+  #'src/third_party/node':
+  #  (Var("nwjs_git")) + '/node.git@origin/nw16',
 }
 
 gclient_gn_args = [
@@ -1185,6 +1191,16 @@ hooks = [
       '.',
     'name':
       'wasm_fuzzer'
+  },
+  {
+    'action': [
+      'python',
+      'src/content/nw/tools/patcher.py'
+    ],
+    'pattern':
+      '.',
+    'name':
+      'nw_patch'
   },
   {
     'action': [

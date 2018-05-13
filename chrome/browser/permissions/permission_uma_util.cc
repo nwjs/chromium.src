@@ -429,6 +429,7 @@ void PermissionUmaUtil::RecordPermissionAction(
       autoblocker->GetDismissCount(requesting_origin, permission);
   int ignore_count = autoblocker->GetIgnoreCount(requesting_origin, permission);
 
+#if 0
   if (IsOptedIntoPermissionActionReporting(profile)) {
     PermissionReportInfo report_info(requesting_origin, permission, action,
                                      source_ui, gesture_type, dismiss_count,
@@ -436,6 +437,7 @@ void PermissionUmaUtil::RecordPermissionAction(
     g_browser_process->safe_browsing_service()
         ->ui_manager()->ReportPermissionAction(report_info);
   }
+#endif
 
   if (web_contents) {
     ukm::SourceId source_id =
