@@ -1484,7 +1484,7 @@ Per obtenir més informació sobre els usuaris supervisats, consulteu el <ph nam
 <translation id="3237784613213365159"><ph name="NEW_PROFILE_NAME" /> ara és un usuari supervisat</translation>
 <translation id="323803881985677942">Obre les opcions de l'extensió</translation>
 <translation id="3241680850019875542">Seleccioneu el directori arrel de l'extensió que voleu empaquetar. Per actualitzar una extensió, cal que seleccioneu també el fitxer de clau privada que s'utilitzarà.</translation>
-<translation id="3242765319725186192">Clau precompartida d'IPSec:</translation>
+<translation id="3242765319725186192">Clau precompartida:</translation>
 <translation id="3244294424315804309">Continua silenciant el so</translation>
 <translation id="3245321423178950146">Artista desconegut</translation>
 <translation id="3246097286174000800">Prova Smart Lock</translation>
@@ -2876,7 +2876,7 @@ Per obtenir més informació sobre els usuaris supervisats, consulteu el <ph nam
 <translation id="542872847390508405">Esteu navegant com a convidat.</translation>
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (l'actualització està disponible)</translation>
 <translation id="5431318178759467895">Color</translation>
-<translation id="5431825016875453137">VPN oberta / L2TP</translation>
+<translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="5432996274932278848">Fes cerques al dispositiu, en aplicacions i al web. Fes servir les tecles de fletxa per navegar per les aplicacions.</translation>
 <translation id="543381445212956829">Activa WiMAX</translation>
 <translation id="5434065355175441495">PKCS #1 amb encriptació RSA</translation>
@@ -4477,7 +4477,7 @@ En instal·lar <ph name="APP_NAME" />, s'utilitzaran <ph name="DOWNLOAD_SIZE" />
 <translation id="7912080627461681647">La contrasenya s'ha canviat al servidor. Tanca la sessió i torna-la a iniciar.</translation>
 <translation id="7912883689016444961">Configura la xarxa mòbil</translation>
 <translation id="7915471803647590281">Indica'ns el problema abans d'enviar els comentaris.</translation>
-<translation id="792514962475806987">Nivell de zoom de la lupa acoblada:</translation>
+<translation id="792514962475806987">Nivell de zoom acoblat:</translation>
 <translation id="7925247922861151263">Error en la comprovació d'AAA</translation>
 <translation id="7925285046818567682">Esperant <ph name="HOST_NAME" />...</translation>
 <translation id="7925686952655276919">No utilitzis les dades mòbils per a la sincronització</translation>
@@ -4909,7 +4909,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="862727964348362408">Suspesa</translation>
 <translation id="862750493060684461">Memòria cau CSS</translation>
 <translation id="8627795981664801467">Només les connexions segures</translation>
-<translation id="8628085465172583869">Nom d'amfitrió:</translation>
+<translation id="8628085465172583869">Nom d'amfitrió del servidor:</translation>
 <translation id="8630903300770275248">Importa un usuari supervisat</translation>
 <translation id="8631032106121706562">Flor</translation>
 <translation id="8637542770513281060">L'ordinador conté un mòdul de seguretat que s'utilitza per implementar un gran nombre de funcions de seguretat clau a Chrome OS. Visita el Centre d'ajuda de Chromebook per obtenir més informació: https://support.google.com/chromebook/?p=sm</translation>
@@ -4949,7 +4949,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8671210955687109937">Pot comentar</translation>
 <translation id="8673026256276578048">Cerca al web...</translation>
 <translation id="8673383193459449849">Problema del servidor</translation>
-<translation id="8675354002693747642">Clau compartida prèviament</translation>
+<translation id="8675354002693747642">Clau precompartida</translation>
 <translation id="8676374126336081632">Esborra l'entrada</translation>
 <translation id="8677039480012021122">Esborra les dades i desconnecta</translation>
 <translation id="8677212948402625567">Redueix-ho tot...</translation>
@@ -5282,7 +5282,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="9183836083779743117"><ph name="DOWNLOAD_RECEIVED" /> de <ph name="DOWNLOAD_DOMAIN" />, <ph name="TIME_LEFT" /></translation>
 <translation id="9187210477874601037">No s'ha pogut connectar l'ordinador al domini. El motiu pot ser que el compte no tingui prou permisos al servidor.</translation>
 <translation id="9188441292293901223">Feu l'actualització del telèfon a una versió més recent d'Android per desbloquejar aquest dispositiu <ph name="DEVICE_TYPE" /></translation>
-<translation id="9190063653747922532">L2TP/IPsec + clau precompartida d'IPSec</translation>
+<translation id="9190063653747922532">L2TP/IPsec + clau precompartida</translation>
 <translation id="920045321358709304">Cerca <ph name="SEARCH_ENGINE" /></translation>
 <translation id="9201220332032049474">Opcions de bloqueig de pantalla</translation>
 <translation id="9203398526606335860">Creació de &amp;perfils activada</translation>
