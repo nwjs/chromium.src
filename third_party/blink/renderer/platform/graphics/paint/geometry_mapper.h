@@ -98,6 +98,17 @@ class PLATFORM_EXPORT GeometryMapper {
       FloatClipRect& mapping_rect,
       OverlayScrollbarClipBehavior = kIgnorePlatformOverlayScrollbarSize);
 
+  // Returns true if |local_rect| is *not* clipped out by any clips
+  // between |local_state| and |ancestor_state|. This includes not just
+  // rectangular clips but rounded clips, and any clip paths stored on the
+  // ClipPaintPropertyNodes. It does *not* include any "complex" clips (see
+  // LayoutSVGResourceClipper::AsPath for the implementation of the heuristic
+  // which differentiates "simple" from "complex".
+  static bool PointVisibleInAncestorSpace(
+      const PropertyTreeState& local_state,
+      const PropertyTreeState& ancestor_state,
+      const FloatPoint& local_point);
+
   static void ClearCache();
 
  private:
