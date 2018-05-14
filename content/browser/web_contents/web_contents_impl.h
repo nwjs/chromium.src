@@ -695,11 +695,9 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   void RenderWidgetWasResized(RenderWidgetHostImpl* render_widget_host,
                               const ScreenInfo& screen_info,
                               bool width_changed) override;
-  void ResizeDueToAutoResize(
-      RenderWidgetHostImpl* render_widget_host,
-      const gfx::Size& new_size,
-      uint64_t sequence_number,
-      const viz::LocalSurfaceId& local_surface_id) override;
+  void ResizeDueToAutoResize(RenderWidgetHostImpl* render_widget_host,
+                             const gfx::Size& new_size,
+                             uint64_t sequence_number) override;
   gfx::Size GetAutoResizeSize() override;
   void ResetAutoResizeSize() override;
   KeyboardEventProcessingResult PreHandleKeyboardEvent(
