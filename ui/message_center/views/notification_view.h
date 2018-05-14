@@ -50,8 +50,6 @@ class MESSAGE_CENTER_EXPORT NotificationView : public MessageView,
   // Overridden from MessageView:
   void UpdateWithNotification(const Notification& notification) override;
   void ButtonPressed(views::Button* sender, const ui::Event& event) override;
-  bool IsCloseButtonFocused() const override;
-  void RequestFocusOnCloseButton() override;
   void UpdateControlButtonsVisibility() override;
   NotificationControlButtonsView* GetControlButtonsView() const override;
   const char* GetMessageViewSubClassName() const final;
