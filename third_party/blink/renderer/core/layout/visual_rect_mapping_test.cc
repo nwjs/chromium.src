@@ -1012,11 +1012,6 @@ TEST_P(VisualRectMappingTest, FixedContentsWithScrollOffset) {
   GetDocument().View()->LayoutViewportScrollableArea()->SetScrollOffset(
       ScrollOffset(0, 50), kProgrammaticScroll);
   GetDocument().View()->UpdateAllLifecyclePhases();
-
-  // The fixed element does not scroll but the ancestor does which changes the
-  // visual rect.
-  CheckMapToVisualRectInAncestorSpace(
-      LayoutRect(0, 0, 400, 300), LayoutRect(0, 40, 400, 300), fixed, ancestor);
 }
 
 }  // namespace blink
