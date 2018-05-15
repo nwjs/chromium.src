@@ -2531,7 +2531,7 @@
 <translation id="49027928311173603">सर्व्हरवरून डाउनलोड केलेले धोरण अवैध आहे: <ph name="VALIDATION_ERROR" />.</translation>
 <translation id="4905417359854579806"><ph name="FILE_COUNT" /> चा बॅकअप घेण्यास तयार</translation>
 <translation id="4907161631261076876">ही फाईल सामान्यपणे डाउनलोड केली नाही आणि कदाचित धोकादायक असू शकते.</translation>
-<translation id="4907306957610201395">परवानगी श्रेणी</translation>
+<translation id="4907306957610201395">परवानगी वर्गवारी</translation>
 <translation id="4907824805858067479">तुमच्या अॅडमिनिस्ट्रेटरने सेव्ह केलेली कार्डे बंद केली आहेत</translation>
 <translation id="4908811072292128752">एकाच वेळी दोन साइट ब्राउझ करण्यासाठी एक नवीन टॅब उघडा</translation>
 <translation id="4909038193460299775">हे खाते <ph name="DOMAIN" /> ने व्यवस्थापित केले असल्याने, आपले बुकमार्क, इतिहास, पासवर्ड आणि अन्य सेटिंग्ज या डिव्हाइस वरून साफ केल्या जातील. तथापि, आपला डेटा आपल्या Google खात्यामध्ये संचयित केलेला असेल आणि <ph name="BEGIN_LINK" />Google डॅशबोर्ड<ph name="END_LINK" /> वर व्यवस्थापित केला जाऊ शकतो.</translation>
@@ -2892,7 +2892,7 @@
 <translation id="5449551289610225147">अवैध पासवर्ड</translation>
 <translation id="5449588825071916739">सर्व टॅब बुकमार्क करा</translation>
 <translation id="5449716055534515760">विं&amp;डो बंद करा</translation>
-<translation id="5451285724299252438">पृष्ठ श्रेणी मजकूर बॉक्स</translation>
+<translation id="5451285724299252438">पृष्ठ वर्गवारी मजकूर बॉक्स</translation>
 <translation id="5453029940327926427">टॅब बंद करा</translation>
 <translation id="5454166040603940656"><ph name="PROVIDER" /> सह</translation>
 <translation id="5457113250005438886">अवैध</translation>
@@ -3891,7 +3891,7 @@
 <translation id="7003339318920871147">वेब डेटाबेस</translation>
 <translation id="7003723821785740825">आपले डिव्हाइस अनलॉक करण्‍यासाठी एक द्रुत मार्ग सेट करा</translation>
 <translation id="7004499039102548441">अलीकडील टॅब</translation>
-<translation id="7005848115657603926">अवैध पृष्ठ श्रेणी, <ph name="EXAMPLE_PAGE_RANGE" /> वापरा</translation>
+<translation id="7005848115657603926">अवैध पृष्ठ वर्गवारी, <ph name="EXAMPLE_PAGE_RANGE" /> वापरा</translation>
 <translation id="7006634003215061422">तळाचा समास</translation>
 <translation id="7006844981395428048">$1 ऑडिओ</translation>
 <translation id="7007648447224463482">सर्व नवीन विंडोमध्ये उघडा</translation>
@@ -4432,7 +4432,7 @@
 <translation id="7847212883280406910"><ph name="IDS_SHORT_PRODUCT_OS_NAME" /> वर स्विच करण्यासाठी Ctrl + Alt + S दाबा</translation>
 <translation id="7847644661628718598">चटकन नोंदणी करण्यासाठी बूटस्ट्रॅपिंग अ‍ॅप वापरा</translation>
 <translation id="7849264908733290972">नवीन टॅबमध्ये &amp;प्रतिमा उघडा</translation>
-<translation id="784934925303690534">वेळ श्रेणी</translation>
+<translation id="784934925303690534">वेळ वर्गवारी</translation>
 <translation id="7850851215703745691">या ड्राइव्ह फायली अद्याप सामायिक केल्या नाहीत</translation>
 <translation id="7851457902707056880">साइन इन केवळ मालकाच्या खात्यावर प्रतिबंधित आहे. कृपया रिबूट करा आणि मालक खात्यासह साइन इन करा. मशीन 30 सेकंदांमध्ये स्वयं रिबूट होईल.</translation>
 <translation id="7851716364080026749">नेहमी कॅमेरा आणि मायक्रोफोन प्रवेश अवरोधित करा</translation>
@@ -4927,7 +4927,7 @@
 <translation id="8650543407998814195">जरी तुम्ही आता तुमची जुनी प्रोफाइल अ‍ॅक्सेस करू शकत नसलात, तरीही तुम्ही ती काढून टाकू शकता.</translation>
 <translation id="8651585100578802546">सक्तीने हे पृष्ठ रीलोड करा</translation>
 <translation id="8652400352452647993">पॅक विस्तार एरर</translation>
-<translation id="8652487083013326477">पृष्ठ श्रेणी रेडिओ बटण</translation>
+<translation id="8652487083013326477">पृष्ठ वर्गवारी रेडिओ बटण</translation>
 <translation id="8654151524613148204">आपल्या संगणकाला हाताळण्‍यासाठी ही फाइल खूप मोठी आहे. क्षमस्व.</translation>
 <translation id="8655295600908251630">खाडी</translation>
 <translation id="8655319619291175901">अरेरे, काहीतरी चूक झाली.</translation>

@@ -343,7 +343,7 @@
 <translation id="3909320334364316587">পূর্ববর্তী স্তর ৬ শিরোনাম</translation>
 <translation id="3914173277599553213">প্রয়োজন</translation>
 <translation id="3914732343065571127">ChromeVox কমান্ড রেফারেন্স</translation>
-<translation id="3962990492275676168">বর্তমান অবস্থান থেকে পড়া শুরু করুন</translation>
+<translation id="3962990492275676168">বর্তমান লোকেশন থেকে পড়া শুরু করুন</translation>
 <translation id="4004802134384979325">চেক করা</translation>
 <translation id="4006140876663370126">img</translation>
 <translation id="4038349100599457191">মাস নির্বাচন</translation>
@@ -789,7 +789,7 @@ Chrome ব্রাউজার মেনু খুলতে, Alt+F টিপু
 <translation id="817440585505441544">{COUNT,plural, =1{আন্ডারস্কোর}one{#টি আন্ডারস্কোর}other{#টি আন্ডারস্কোর}}</translation>
 <translation id="8179976553408161302">Enter</translation>
 <translation id="8184828902145951186">সারি</translation>
-<translation id="8186185314313222077">পূর্ণ স্ক্রীন টগল করুন</translation>
+<translation id="8186185314313222077">পূর্ণ স্ক্রিন টগল করুন</translation>
 <translation id="8199231515320852133">বর্তমান কক্ষের শিরোলেখ ঘোষণা করুন</translation>
 <translation id="820417203470636242">ফাঁকা কক্ষ৷</translation>
 <translation id="820469951249669083">পরের সারিতে যান</translation>
