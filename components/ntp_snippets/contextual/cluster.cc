@@ -30,6 +30,8 @@ ClusterBuilder::ClusterBuilder(const ClusterBuilder& other) {
                       .PublisherName(suggestion.publisher_name)
                       .Snippet(suggestion.snippet)
                       .ImageId(suggestion.image_id)
+                      .FaviconImageId(suggestion.favicon_image_id)
+                      .FaviconImageUrl(suggestion.favicon_image_url)
                       .Build());
   }
 }
