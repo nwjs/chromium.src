@@ -22,6 +22,10 @@ extern const base::Feature kNewFileDownload;
 // Used to enable using WKHTTPSystemCookieStore in main context URL requests.
 extern const base::Feature kWKHTTPSystemCookieStore;
 
+// Used to crash the browser if unexpected URL change is detected.
+// https://crbug.com/841105.
+extern const base::Feature kCrashOnUnexpectedURLChange;
+
 }  // namespace features
 }  // namespace web
 
