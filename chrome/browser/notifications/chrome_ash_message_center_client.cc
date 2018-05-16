@@ -94,6 +94,10 @@ void ChromeAshMessageCenterClient::Display(
     Profile* /* profile */,
     const message_center::Notification& notification,
     std::unique_ptr<NotificationCommon::Metadata> metadata) {
+  // Null in unit tests.
+  if (!controller_)
+    return;
+
   // Remove any previous mapping to |notification.id()| before inserting a new
   // one.
   base::EraseIf(
