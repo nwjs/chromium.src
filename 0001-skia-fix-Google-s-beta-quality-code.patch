@@ -1,0 +1,36 @@
+From c30902b31cb885d13a04fe7266ae155c4edfaa38 Mon Sep 17 00:00:00 2001
+From: Jan Engelhardt <jengelh@inai.de>
+Date: Thu, 17 May 2018 21:44:24 +0200
+Subject: [PATCH] skia: fix Google's beta quality code
+
+rpmlint:
+  I: Program is using uninitialized variables.
+      Note the difference between "is used" and "may be used"
+  W: iridium-browser uninitialized-variable ../../third_party/skia/include/c/../private/SkTHash.h:272
+
+gcc:
+  ../../third_party/skia/include/c/../private/SkTHash.h: In member function 'void SkTHashTable<T, K, Traits>::remove(const K&) [with T = SkTHashMap<unsigned int, GrTextBlobCache::BlobIDCacheEntry>::Pair; K = unsigned int; Traits = SkTHashMap<unsigned int, GrTextBlobCache::BlobIDCacheEntry>::Pair]':
+  ../../third_party/skia/include/c/../private/SkTHash.h:272:12: warning: '<anonymous>.SkTHashMap<unsigned int, GrTextBlobCache::BlobIDCacheEntry>::Pair::key' is used uninitialized in this function [-Wuninitialized]
+    struct Pair {
+---
+ include/private/SkTHash.h | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/third_party/skia/include/private/SkTHash.h b/third_party/skia/include/private/SkTHash.h
+index 655e12c618..e48b79582c 100644
+--- a/third_party/skia/include/private/SkTHash.h
++++ b/third_party/skia/include/private/SkTHash.h
+@@ -270,8 +270,8 @@ public:
+ 
+ private:
+     struct Pair {
+-        K key;
+-        V val;
++        K key{};
++        V val{};
+         static const K& GetKey(const Pair& p) { return p.key; }
+         static uint32_t Hash(const K& key) { return HashK()(key); }
+     };
+-- 
+2.16.3
+

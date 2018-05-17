@@ -44,10 +44,8 @@ mojom::LifecycleUnitVisibility GetLifecycleUnitVisibility(
     case content::Visibility::VISIBLE:
       return mojom::LifecycleUnitVisibility::VISIBLE;
   }
-#if defined(COMPILER_MSVC)
   NOTREACHED();
   return mojom::LifecycleUnitVisibility::VISIBLE;
-#endif
 }
 
 class DiscardsDetailsProviderImpl : public mojom::DiscardsDetailsProvider {

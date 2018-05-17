@@ -207,7 +207,7 @@ class ObjectId {
   bool is_initialized_;
 
   /* The invalidation source type. */
-  int source_;
+  int source_ = 0;
 
   /* The name/unique id for the object. */
   string name_;
