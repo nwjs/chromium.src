@@ -871,6 +871,7 @@ void MediaControlsImpl::MaybeShow() {
 
   timeline_->OnControlsShown();
   UpdateCSSClassFromState();
+  UpdateActingAsAudioControls();
 }
 
 void MediaControlsImpl::Hide() {
@@ -896,6 +897,7 @@ void MediaControlsImpl::Hide() {
   timeline_->OnControlsHidden();
 
   UpdateCSSClassFromState();
+  UpdateActingAsAudioControls();
 }
 
 bool MediaControlsImpl::IsVisible() const {
@@ -1603,13 +1605,7 @@ void MediaControlsImpl::OnLoadedMetadata() {
   // to be changed.
   Reset();
   UpdateCSSClassFromState();
-
-  if (ShouldActAsAudioControls() != is_acting_as_audio_controls_) {
-    if (is_acting_as_audio_controls_)
-      StopActingAsAudioControls();
-    else
-      StartActingAsAudioControls();
-  }
+  UpdateActingAsAudioControls();
 }
 
 void MediaControlsImpl::OnEnteredFullscreen() {
@@ -1828,8 +1824,9 @@ MediaControlsImpl::ToggleClosedCaptions() {
 bool MediaControlsImpl::ShouldActAsAudioControls() const {
   // A video element should act like an audio element when it has an audio track
   // but no video track.
-  return IsModern() && MediaElement().IsHTMLVideoElement() &&
-         MediaElement().HasAudio() && !MediaElement().HasVideo();
+  return IsModern() && MediaElement().ShouldShowControls() &&
+         MediaElement().IsHTMLVideoElement() && MediaElement().HasAudio() &&
+         !MediaElement().HasVideo();
 }
 
 void MediaControlsImpl::StartActingAsAudioControls() {
@@ -1848,6 +1845,15 @@ void MediaControlsImpl::StopActingAsAudioControls() {
   is_acting_as_audio_controls_ = false;
   PopulatePanel();
   Reset();
+}
+
+void MediaControlsImpl::UpdateActingAsAudioControls() {
+  if (ShouldActAsAudioControls() != is_acting_as_audio_controls_) {
+    if (is_acting_as_audio_controls_)
+      StopActingAsAudioControls();
+    else
+      StartActingAsAudioControls();
+  }
 }
 
 bool MediaControlsImpl::ShouldShowAudioControls() const {
