@@ -1625,11 +1625,10 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
       const LayoutBoxModelObject* ancestor_to_stop_at,
       LayoutGeometryMap&) const;
 
-  virtual bool ShouldUseTransformFromContainer(
-      const LayoutObject* container) const;
-  virtual void GetTransformFromContainer(const LayoutObject* container,
-                                         const LayoutSize& offset_in_container,
-                                         TransformationMatrix&) const;
+  bool ShouldUseTransformFromContainer(const LayoutObject* container) const;
+  void GetTransformFromContainer(const LayoutObject* container,
+                                 const LayoutSize& offset_in_container,
+                                 TransformationMatrix&) const;
 
   bool CreatesGroup() const {
     return IsTransparent() || HasMask() || HasClipPath() ||
@@ -2057,10 +2056,6 @@ class CORE_EXPORT LayoutObject : public ImageResourceObserver,
   // other custom mechanisms (if they need to be notified of parent style
   // changes at all).
   virtual bool AnonymousHasStylePropagationOverride() { return false; }
-
-  void GetTransformFromContainerInternal(const LayoutObject* container,
-                                         const LayoutSize& offset_in_container,
-                                         TransformationMatrix&) const;
 
   // A fast path for MapToVisualRectInAncestorSpace for when GeometryMapper
   // can be used.
