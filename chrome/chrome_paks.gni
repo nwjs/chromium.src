@@ -77,7 +77,7 @@ template("chrome_repack_percent") {
       deps += [ "//ui/app_list/resources" ]
     }
 
-    output = "${invoker.output_dir}/chrome_${percent}_percent.pak"
+    output = "${invoker.output_dir}/nw_${percent}_percent.pak"
   }
 }
 
@@ -101,7 +101,6 @@ template("chrome_extra_paks") {
       "$root_gen_dir/chrome/task_scheduler_internals_resources.pak",
       "$root_gen_dir/chrome/translate_internals_resources.pak",
       "$root_gen_dir/components/components_resources.pak",
-      "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
       "$root_gen_dir/content/content_resources.pak",
       "$root_gen_dir/mojo/public/js/mojo_bindings_resources.pak",
       "$root_gen_dir/net/net_resources.pak",
@@ -130,6 +129,12 @@ template("chrome_extra_paks") {
     if (defined(invoker.additional_paks)) {
       sources += invoker.additional_paks
     }
+    if (nwjs_sdk) {
+      sources += [
+        "$root_gen_dir/content/browser/tracing/tracing_resources.pak",
+        "$root_gen_dir/content/browser/devtools/devtools_resources.pak",
+      ]
+    }
 
     if (is_android) {
       sources += [ "$root_gen_dir/chrome/webapks_ui_resources.pak" ]
@@ -139,7 +144,6 @@ template("chrome_extra_paks") {
       sources += [
         "$root_gen_dir/chrome/component_extension_resources.pak",
         "$root_gen_dir/chrome/settings_resources.pak",
-        "$root_gen_dir/content/browser/devtools/devtools_resources.pak",
         "$root_gen_dir/headless/headless_lib_resources.pak",
       ]
       deps += [

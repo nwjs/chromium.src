@@ -88,6 +88,7 @@ class CONTENT_EXPORT ContentClient {
   // WebSecurityOrigin or a full URL (if called from the browser process) and a
   // string is the lowest-common-denominator.
   virtual void SetActiveURL(const GURL& url, std::string top_origin) {}
+  virtual void SetNWReportURL(const GURL& url) {}
 
   // Sets the data on the current gpu.
   virtual void SetGpuInfo(const gpu::GPUInfo& gpu_info) {}

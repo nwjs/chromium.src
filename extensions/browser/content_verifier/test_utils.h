@@ -69,6 +69,7 @@ class MockContentVerifierDelegate : public ContentVerifierDelegate {
   std::set<base::FilePath> GetBrowserImagePaths(
       const extensions::Extension* extension) override;
   void VerifyFailed(const ExtensionId& extension_id,
+                    const base::FilePath& relative_path,
                     ContentVerifyJob::FailureReason reason) override;
   void Shutdown() override;
 

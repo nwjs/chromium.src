@@ -21,6 +21,7 @@
 #include "extensions/browser/extension_protocols.h"
 #include "extensions/browser/extensions_browser_client.h"
 #include "extensions/browser/url_request_util.h"
+#include "extensions/common/constants.h"
 #include "extensions/common/file_util.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "mojo/public/cpp/system/file_data_pipe_producer.h"
@@ -305,6 +306,29 @@ net::URLRequestJob* MaybeCreateURLRequestResourceBundleJob(
     const base::FilePath& directory_path,
     const std::string& content_security_policy,
     bool send_cors_header) {
+
+  std::string path = request->url().path();
+  if (path.size() > 1 &&
+      path.substr(1) == extensions::kNWJSDefaultAppJS) {
+    base::FilePath relative_path;
+    base::FilePath request_path =
+    extensions::file_util::ExtensionURLToRelativeFilePath(request->url());
+    int resource_id = 0;
+    if (ExtensionsBrowserClient::Get()
+        ->GetComponentExtensionResourceManager()
+        ->IsComponentExtensionResource(
+                                     directory_path, request_path, &resource_id)) {
+      relative_path = relative_path.Append(request_path);
+      relative_path = relative_path.NormalizePathSeparators();
+      return new URLRequestResourceBundleJob(request,
+                                             network_delegate,
+                                             relative_path,
+                                             resource_id,
+                                             content_security_policy,
+                                             send_cors_header);
+    }
+  }
+
   base::FilePath resources_path;
   base::FilePath relative_path;
   // Try to load extension resources from chrome resource file if

@@ -157,6 +157,7 @@ base::OnceClosure UIThreadTrampoline(base::OnceClosure callback) {
   return base::BindOnce(&UIThreadTrampolineHelper, std::move(callback));
 }
 
+
 template <typename T>
 void IgnoreArgumentHelper(base::OnceClosure callback, T unused_argument) {
   std::move(callback).Run();
@@ -203,6 +204,7 @@ void ClearPnaclCacheOnIOThread(base::Time begin,
 }
 #endif
 
+#if 0
 void ClearCookiesOnIOThread(base::Time delete_begin,
                             base::Time delete_end,
                             net::URLRequestContextGetter* rq_context,
@@ -230,6 +232,7 @@ void ClearCookiesWithPredicateOnIOThread(
       base::AdaptCallbackForRepeating(
           IgnoreArgument<uint32_t>(std::move(callback))));
 }
+#endif
 
 void ClearNetworkPredictorOnIOThread(chrome_browser_net::Predictor* predictor) {
   DCHECK_CURRENTLY_ON(BrowserThread::IO);
@@ -720,6 +723,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     // hours/days to the safebrowsing cookies since they aren't the result of
     // any user action.
     if (delete_begin_ == base::Time()) {
+#if 0
       safe_browsing::SafeBrowsingService* sb_service =
           g_browser_process->safe_browsing_service();
       if (sb_service) {
@@ -749,6 +753,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
                       CreatePendingTaskCompletionClosure()))));
         }
       }
+#endif
     }
 
     MediaDeviceIDSalt::Reset(profile_->GetPrefs());

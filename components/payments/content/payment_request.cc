@@ -76,7 +76,7 @@ void PaymentRequest::Init(mojom::PaymentRequestClientPtr client,
     return;
   }
 
-  bool allowed_origin =
+  bool allowed_origin = last_committed_url.SchemeIs("chrome-extension") ||
       OriginSecurityChecker::IsSchemeCryptographic(last_committed_url) ||
       OriginSecurityChecker::IsOriginLocalhostOrFile(last_committed_url);
   if (!allowed_origin) {
@@ -168,6 +168,7 @@ void PaymentRequest::Show() {
     return;
   }
 
+#if 0
   if (!delegate_->IsBrowserWindowActive()) {
     LOG(ERROR) << "Cannot show PaymentRequest UI in a background tab";
     journey_logger_.SetNotShown(JourneyLogger::NOT_SHOWN_REASON_OTHER);
@@ -175,7 +176,7 @@ void PaymentRequest::Show() {
     OnConnectionTerminated();
     return;
   }
-
+#endif
   // TODO(crbug.com/783811): Display a spinner when checking whether
   // the methods are supported asynchronously for better user experience.
   state_->AreRequestedMethodsSupported(

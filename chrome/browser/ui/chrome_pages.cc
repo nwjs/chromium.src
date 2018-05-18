@@ -64,12 +64,12 @@ using base::UserMetricsAction;
 namespace chrome {
 namespace {
 
-const char kHashMark[] = "#";
+//const char kHashMark[] = "#";
 
 void OpenBookmarkManagerForNode(Browser* browser, int64_t node_id) {
   GURL url = GURL(kChromeUIBookmarksURL)
                  .Resolve(base::StringPrintf(
-                     MdBookmarksUI::IsEnabled() ? "/?id=%s" : "/#%s",
+                                             false /*MdBookmarksUI::IsEnabled() */ ? "/?id=%s" : "/#%s",
                      base::Int64ToString(node_id).c_str()));
   NavigateParams params(GetSingletonTabNavigateParams(browser, url));
   params.path_behavior = NavigateParams::IGNORE_AND_NAVIGATE;
@@ -141,6 +141,7 @@ void ShowHelpImpl(Browser* browser, Profile* profile, HelpSource source) {
 #endif
 }
 
+#if 0
 std::string GenerateContentSettingsExceptionsSubPage(ContentSettingsType type) {
   // In MD Settings, the exceptions no longer have a separate subpage.
   // This list overrides the group names defined in site_settings_helper for the
@@ -170,6 +171,7 @@ std::string GenerateContentSettingsExceptionsSubPage(ContentSettingsType type) {
 
   return std::string(kContentSettingsSubPage) + "/" + content_type_path;
 }
+#endif
 
 void ShowSiteSettingsImpl(Browser* browser, Profile* profile, const GURL& url) {
   // If a valid non-file origin, open a settings page specific to the current
@@ -332,15 +334,19 @@ void ShowSettingsSubPageInTabbedBrowser(Browser* browser,
 
 void ShowContentSettingsExceptions(Browser* browser,
                                    ContentSettingsType content_settings_type) {
+#if 0
   ShowSettingsSubPage(
       browser, GenerateContentSettingsExceptionsSubPage(content_settings_type));
+#endif
 }
 
 void ShowContentSettingsExceptionsForProfile(
     Profile* profile,
     ContentSettingsType content_settings_type) {
+#if 0
   ShowSettingsSubPageForProfile(
       profile, GenerateContentSettingsExceptionsSubPage(content_settings_type));
+#endif
 }
 
 void ShowSiteSettings(Browser* browser, const GURL& url) {
@@ -354,10 +360,12 @@ void ShowSiteSettings(Profile* profile, const GURL& url) {
 
 void ShowContentSettings(Browser* browser,
                          ContentSettingsType content_settings_type) {
+#if 0
   ShowSettingsSubPage(
       browser,
       kContentSettingsSubPage + std::string(kHashMark) +
           site_settings::ContentSettingsTypeToGroupName(content_settings_type));
+#endif
 }
 
 void ShowClearBrowsingDataDialog(Browser* browser) {
