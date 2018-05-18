@@ -949,6 +949,17 @@ PaintResult PaintLayerPainter::PaintFragmentByApplyingTransform(
       context, transformed_painting_info, paint_flags, &fragment);
 }
 
+// See
+// https://chromium.googlesource.com/chromium/src.git/+/master/third_party/blink/renderer/core/paint/README.md
+// for the definition of a replaced normal-flow stacking element.
+static bool IsReplacedNormalFlowStacking(const PaintLayer& child) {
+  if (!child.GetLayoutObject().IsSVGForeignObject())
+    return false;
+  if (!child.GetLayoutObject().StyleRef().HasAutoZIndex())
+    return false;
+  return true;
+}
+
 PaintResult PaintLayerPainter::PaintChildren(
     unsigned children_to_visit,
     GraphicsContext& context,
@@ -981,6 +992,9 @@ PaintResult PaintLayerPainter::PaintChildren(
     // CompositedLayerMapping::DoPaintTask().
     if (child->Layer()->PaintsIntoOwnOrGroupedBacking(
             painting_info.GetGlobalPaintFlags()))
+      continue;
+
+    if (IsReplacedNormalFlowStacking(*child->Layer()))
       continue;
 
     PaintLayerPaintingInfo child_painting_info = painting_info;
