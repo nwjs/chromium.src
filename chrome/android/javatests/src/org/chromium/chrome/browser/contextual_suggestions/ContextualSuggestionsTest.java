@@ -12,6 +12,8 @@ import android.support.test.InstrumentationRegistry;
 import android.support.test.filters.MediumTest;
 import android.support.v7.widget.RecyclerView;
 import android.text.TextUtils;
+import android.view.View;
+import android.view.View.OnLayoutChangeListener;
 
 import org.junit.After;
 import org.junit.Before;
@@ -93,53 +95,6 @@ public class ContextualSuggestionsTest {
     @After
     public void tearDown() {
         mTestServer.stopAndDestroyServer();
-    }
-
-    @Test
-    @MediumTest
-    @Feature({"ContextualSuggestions"})
-    public void testOpenContextualSuggestionsBottomSheet() {
-        assertEquals("Sheet should be hidden.", BottomSheet.SHEET_STATE_HIDDEN,
-                mBottomSheet.getSheetState());
-        assertTrue("Title text should be empty, but was " + mModel.getTitle(),
-                TextUtils.isEmpty(mModel.getTitle()));
-        assertEquals("Cluster list should be empty.", 0, mModel.getClusterList().getItemCount());
-
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> mMediator.requestSuggestions("http://www.testurl.com"));
-
-        assertTrue("Bottom sheet should contain suggestions content",
-                mBottomSheet.getCurrentSheetContent()
-                                instanceof ContextualSuggestionsBottomSheetContent);
-        assertEquals("Sheet should still be hidden.", BottomSheet.SHEET_STATE_HIDDEN,
-                mBottomSheet.getSheetState());
-        assertEquals("Title text should be set.",
-                FakeContextualSuggestionsSource.TEST_TOOLBAR_TITLE, mModel.getTitle());
-
-        assertEquals("Cluster list should be set.",
-                (int) FakeContextualSuggestionsSource.TOTAL_ITEM_COUNT,
-                mModel.getClusterList().getItemCount());
-
-        ContextualSuggestionsBottomSheetContent content =
-                (ContextualSuggestionsBottomSheetContent) mBottomSheet.getCurrentSheetContent();
-        RecyclerView recyclerView = (RecyclerView) content.getContentView();
-        assertEquals("RecyclerView should be empty.", 0, recyclerView.getChildCount());
-
-        ThreadUtils.runOnUiThreadBlocking(() -> {
-            mMediator.showContentInSheetForTesting();
-            mBottomSheet.endAnimations();
-        });
-
-        assertEquals("Sheet should be peeked.", BottomSheet.SHEET_STATE_PEEK,
-                mBottomSheet.getSheetState());
-        assertNull("RecyclerView should still be empty.", recyclerView.getAdapter());
-
-        ThreadUtils.runOnUiThreadBlocking(
-                () -> mBottomSheet.setSheetState(BottomSheet.SHEET_STATE_FULL, false));
-
-        assertEquals("RecyclerView should have content.",
-                (int) FakeContextualSuggestionsSource.TOTAL_ITEM_COUNT,
-                recyclerView.getAdapter().getItemCount());
     }
 
     // TODO(twellington): Add more tests!

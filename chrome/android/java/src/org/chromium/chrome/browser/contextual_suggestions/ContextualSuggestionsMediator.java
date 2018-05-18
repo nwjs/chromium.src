@@ -177,8 +177,7 @@ class ContextualSuggestionsMediator implements EnabledStateMonitor.Observer, Fet
             List<ContextualSuggestionsCluster> clusters = suggestionsResult.getClusters();
 
             if (clusters.size() > 0 && clusters.get(0).getSuggestions().size() > 0) {
-                preloadContentInSheet(
-                        generateClusterList(clusters), suggestionsResult.getPeekText());
+                prepareModel(generateClusterList(clusters), suggestionsResult.getPeekText());
                 // If the controls are already off-screen, show the suggestions immediately so they
                 // are available on reverse scroll.
                 if (areBrowserControlsHidden()) showContentInSheet();
@@ -224,7 +223,7 @@ class ContextualSuggestionsMediator implements EnabledStateMonitor.Observer, Fet
         if (mHelpBubble != null) mHelpBubble.dismiss();
     }
 
-    private void preloadContentInSheet(ClusterList clusters, String title) {
+    private void prepareModel(ClusterList clusters, String title) {
         if (mSuggestionsSource == null) return;
 
         mModel.setClusterList(clusters);
@@ -237,7 +236,6 @@ class ContextualSuggestionsMediator implements EnabledStateMonitor.Observer, Fet
         });
         mModel.setDefaultToolbarClickListener(view -> mCoordinator.expandBottomSheet());
         mModel.setTitle(title);
-        mCoordinator.preloadContentInSheet();
     }
 
     private void showContentInSheet() {
