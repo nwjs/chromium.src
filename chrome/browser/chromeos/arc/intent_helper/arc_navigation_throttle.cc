@@ -159,9 +159,21 @@ void ArcNavigationThrottle::OnAppCandidatesReceived(
 
   content::WebContents* web_contents = handle->GetWebContents();
   // If one of the apps is marked as preferred, launch it immediately.
-  if (DidLaunchPreferredArcApp(url, web_contents, app_candidates)) {
-    std::move(callback).Run(chromeos::AppsNavigationAction::CANCEL, {});
-    return;
+  chromeos::PreferredPlatform pref_platform =
+      DidLaunchPreferredArcApp(url, web_contents, app_candidates);
+
+  switch (pref_platform) {
+    case chromeos::PreferredPlatform::ARC:
+      std::move(callback).Run(chromeos::AppsNavigationAction::CANCEL, {});
+      return;
+    case chromeos::PreferredPlatform::NATIVE_CHROME:
+      std::move(callback).Run(chromeos::AppsNavigationAction::RESUME, {});
+      return;
+    case chromeos::PreferredPlatform::PWA:
+      NOTREACHED();
+      break;
+    case chromeos::PreferredPlatform::NONE:
+      break;  // Do nothing.
   }
 
   // We are always going to resume navigation at this point, and possibly show
@@ -172,13 +184,15 @@ void ArcNavigationThrottle::OnAppCandidatesReceived(
                                  chromeos::AppsNavigationAction::RESUME));
 }
 
-bool ArcNavigationThrottle::DidLaunchPreferredArcApp(
+chromeos::PreferredPlatform ArcNavigationThrottle::DidLaunchPreferredArcApp(
     const GURL& url,
     content::WebContents* web_contents,
     const std::vector<mojom::IntentHandlerInfoPtr>& app_candidates) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
-  bool cancel_navigation = false;
+  chromeos::PreferredPlatform preferred_platform =
+      chromeos::PreferredPlatform::NONE;
+  chromeos::AppType app_type = chromeos::AppType::INVALID;
   const size_t index = FindPreferredApp(app_candidates, url);
   if (index != app_candidates.size()) {
     auto close_reason = chromeos::IntentPickerCloseReason::PREFERRED_APP_FOUND;
@@ -198,14 +212,15 @@ bool ArcNavigationThrottle::DidLaunchPreferredArcApp(
     } else if (ArcIntentHelperBridge::IsIntentHelperPackage(package_name)) {
       chrome::SetIntentPickerViewVisibility(
           chrome::FindBrowserWithWebContents(web_contents), true);
+      preferred_platform = chromeos::PreferredPlatform::NATIVE_CHROME;
     } else {
       instance->HandleUrl(url.spec(), package_name);
-      cancel_navigation = true;
+      preferred_platform = chromeos::PreferredPlatform::ARC;
+      app_type = chromeos::AppType::ARC;
     }
-    RecordUma(package_name, chromeos::AppType::ARC, close_reason,
-              false /* should_persist */);
+    RecordUma(package_name, app_type, close_reason, /*should_persist=*/false);
   }
-  return cancel_navigation;
+  return preferred_platform;
 }
 
 void ArcNavigationThrottle::ArcAppIconQuery(

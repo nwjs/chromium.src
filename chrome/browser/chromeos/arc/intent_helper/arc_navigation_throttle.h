@@ -141,10 +141,11 @@ class ArcNavigationThrottle {
       chromeos::AppsNavigationCallback callback,
       std::vector<mojom::IntentHandlerInfoPtr> app_candidates);
 
-  // Returns true if an app in |app_candidates| is preferred for handling the
-  // navigation represented by |handle|, and we are successfully able to launch
-  // it.
-  bool DidLaunchPreferredArcApp(
+  // Returns NONE if there is no preferred app given the potential
+  // |app_candidates| or if we had an error while checking for preferred apps.
+  // Otherwise return the platform where the preferred app lives (for now only
+  // ARC and NATIVE_CHROME).
+  chromeos::PreferredPlatform DidLaunchPreferredArcApp(
       const GURL& url,
       content::WebContents* web_contents,
       const std::vector<mojom::IntentHandlerInfoPtr>& app_candidates);
