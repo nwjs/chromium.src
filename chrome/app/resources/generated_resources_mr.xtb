@@ -1481,7 +1481,7 @@
 <translation id="323803881985677942">विस्तार पर्याय उघडा</translation>
 <translation id="3241680850019875542">पॅक करण्यासाठी विस्ताराची मूळ निर्देशिका निवडा. एक विस्तार अपडेट करण्याकरिता, पुनर्वापरासाठी खाजगी की फाइल देखील निवडा.</translation>
 <translation id="3242765319725186192">पूर्व-सामायिक की:</translation>
-<translation id="3244294424315804309">आवाज म्युट करणे सुरू ठेवा</translation>
+<translation id="3244294424315804309">आवाज म्यूट करणे सुरू ठेवा</translation>
 <translation id="3245321423178950146">अज्ञात कलाकार</translation>
 <translation id="3246097286174000800">Smart Lock वापरून पहा</translation>
 <translation id="324849028894344899"><ph name="WINDOW_TITLE" /> - नेटवर्क एरर</translation>
@@ -1719,7 +1719,7 @@
 <translation id="3593965109698325041">प्रमाणपत्र नाव प्रतिबंध</translation>
 <translation id="3596235046596950091">क्लाउड सेवा सक्षम करा</translation>
 <translation id="3599863153486145794">साइन-इन केलेल्या सर्व डिव्हाइसमधून इतिहास साफ करते. तुमच्या Google खात्यामध्ये <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> वर कदाचित ब्राउझिंगचे इतर फॉर्म असतील.</translation>
-<translation id="3600792891314830896">ध्वनी प्ले करणाऱ्या साइट म्युट करा</translation>
+<translation id="3600792891314830896">ध्वनी प्ले करणाऱ्या साइट म्यूट करा</translation>
 <translation id="3602290021589620013">पूर्वावलोकन</translation>
 <translation id="3603533104205588786">तुम्ही पेज बुकमार्क करण्यासाठी तारावर क्लिक करू शकता</translation>
 <translation id="3603622770190368340">नेटवर्क प्रमाणपत्र प्राप्त करा</translation>
@@ -2376,7 +2376,7 @@
 <translation id="4677585247300749148"><ph name="URL" /> ला अॅक्सेसिबिलिटी इव्‍हेंटना प्रतिसाद द्यायचा आहे</translation>
 <translation id="4677692029604506169">तुमचे <ph name="DEVICE_TYPE" /> अनलॉक करण्यासाठी तुम्ही वापरलेल्या फोनला सुरक्षिततेसाठी स्क्रीन लॉकची आवश्यकता आहे. साधारणपणे तो पिन, पॅटर्न किंवा पासवर्ड असतो. आधीपासून स्क्रीन लॉक आहे का? पडताळणी करण्यासाठी आणि सेट अप करणे सुरू ठेवण्यासाठी पुन्हा तपासून पहा निवडा.</translation>
 <translation id="4677772697204437347">GPU मेमरी</translation>
-<translation id="4680105648806843642">या पेजवर आवाज म्युट केला होता</translation>
+<translation id="4680105648806843642">या पेजवर आवाज म्यूट केला होता</translation>
 <translation id="4681930562518940301">नवीन टॅबमध्‍ये मूळ &amp;प्रतिमा उघडा</translation>
 <translation id="4682551433947286597">साइन-इन स्क्रीनवर दिसणारे वॉलपेपर.</translation>
 <translation id="4684427112815847243">सर्वकाही संंकालित करा</translation>
@@ -4619,7 +4619,7 @@
 <translation id="8111155949205007504">आपल्या iPhone सह हा पासवर्ड शेअर करा</translation>
 <translation id="8113043281354018522">परवाना प्रकार निवडा</translation>
 <translation id="8116190140324504026">अधिक माहिती...</translation>
-<translation id="8116925261070264013">म्युट केले</translation>
+<translation id="8116925261070264013">म्यूट केले</translation>
 <translation id="8116972784401310538">&amp;बुकमार्क व्यवस्थापक</translation>
 <translation id="8117620576188476503">स्थिती ट्रेने कनेक्शन, अपडेट आणि सेटिंग्ज व्यवस्थापित करा. येथे कीबोर्डने येण्यासाठी, Alt + Shift + S दाबा.</translation>
 <translation id="8118362518458010043">Chrome ने बंद केले आहे. हा विस्तार असुरक्षित असू शकतो.</translation>

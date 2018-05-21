@@ -1348,11 +1348,11 @@
           yang berikutnya. Selain itu, izin diberikan untuk API ekstensi
           enterprise.deviceAttributes dan enterprise.platformKeys.
           (Kedua API ini tidak tersedia untuk aplikasi/ekstensi yang tidak
-          diinstal paksa.)
+          diinstal otomatis.)
 
-          Kebijakan ini lebih diutamakan daripada kebijakan <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" /> yang berpotensi bertentangan. Jika aplikasi atau ekstensi yang sebelumnya diinstal paksa telah dihapus dari daftar ini, aplikasi/ekstensi tersebut otomatis di-uninstal oleh <ph name="PRODUCT_NAME" />.
+          Kebijakan ini lebih diutamakan daripada kebijakan <ph name="EXTENSION_INSTALL_BLACKLIST_POLICY_NAME" /> yang berpotensi bertentangan. Jika aplikasi atau ekstensi yang sebelumnya diinstal otomatis telah dihapus dari daftar ini, aplikasi/ekstensi tersebut otomatis di-uninstal oleh <ph name="PRODUCT_NAME" />.
 
-          Untuk instance Windows yang tidak tergabung dalam domain <ph name="MS_AD_NAME" />, penginstalan paksa dibatasi untuk aplikasi dan ekstensi yang tercantum di Chrome Webstore.
+          Untuk instance Windows yang tidak tergabung dalam domain <ph name="MS_AD_NAME" />, penginstalan otomatis dibatasi untuk aplikasi dan ekstensi yang tercantum di Chrome Webstore.
 
           Perlu diperhatikan bahwa kode sumber untuk ekstensi apa pun dapat diubah oleh pengguna melalui Fitur Developer (berpotensi merender disfungsi ekstensi). Jika hal ini menjadi masalah, kebijakan <ph name="DEVELOPER_TOOLS_POLICY_NAME" /> sebaiknya disetel.
 

@@ -1096,7 +1096,7 @@
 <translation id="2673135533890720193">לקרוא את היסטוריית הגלישה שלך</translation>
 <translation id="2673589024369449924">צור קיצור דרך בשולחן העבודה למשתמש זה.</translation>
 <translation id="2676946222714718093">מופעל ב-</translation>
-<translation id="2677748264148917807">צא</translation>
+<translation id="2677748264148917807">יציאה</translation>
 <translation id="2678063897982469759">הפוך מחדש לפעיל</translation>
 <translation id="2679385451463308372">הדפס באמצעות תיבת דו-שיח של המערכת...</translation>
 <translation id="268053382412112343">הי&amp;סטוריה</translation>
@@ -2569,7 +2569,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="4964455510556214366">סידור</translation>
 <translation id="4964673849688379040">בודק...</translation>
 <translation id="4965808351167763748">‏בחרת להגדיר שהמכשיר הזה יפעיל את Hangouts Meet. להמשיך?</translation>
-<translation id="4967749818080339523">בחר חשבון</translation>
+<translation id="4967749818080339523">בחירת חשבון</translation>
 <translation id="496888482094675990">‏היישום 'קבצים' מספק גישה מהירה לקבצים ששמרת ב-Google Drive, באחסון חיצוני או במכשיר שלך עם מערכת הפעלה של Chrome.</translation>
 <translation id="4969785127455456148">אלבום</translation>
 <translation id="4971412780836297815">פתח בסיום</translation>
@@ -5324,7 +5324,7 @@ http://www.chromium.org/chromium-os/how-tos-and-troubleshooting/debugging-featur
 <translation id="969096075394517431">החלף שפות</translation>
 <translation id="970047733946999531">{NUM_TABS,plural, =1{כרטיסייה אחת}two{# כרטיסיות}many{# כרטיסיות}other{# כרטיסיות}}</translation>
 <translation id="971774202801778802">כתובת אתר של סימניה</translation>
-<translation id="973473557718930265">צא</translation>
+<translation id="973473557718930265">יציאה</translation>
 <translation id="974555521953189084">הזן את ביטוי הסיסמה כדי להתחיל בסנכרון</translation>
 <translation id="981121421437150478">לא מקוון</translation>
 <translation id="983511809958454316">‏התכונה לא נתמכת ב-VR</translation>

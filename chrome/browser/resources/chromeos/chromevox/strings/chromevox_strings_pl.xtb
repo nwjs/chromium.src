@@ -6,7 +6,7 @@
 <translation id="1013742170491673792">srched</translation>
 <translation id="1022586497894531524">Korzystasz z czytnika ChromeVox po raz pierwszy? Pomoże Ci ten krótki samouczek.</translation>
 <translation id="1023866615269196768">Rozciągnięta.</translation>
-<translation id="1025074108959230262">Tryb przylegania wyłączony</translation>
+<translation id="1025074108959230262">Tryb klawiszy trwałych wyłączony</translation>
 <translation id="1031961866430398710">następnie</translation>
 <translation id="1038643060055067718">Wiersze</translation>
 <translation id="1038795173450935438">Aby przejść do następnego elementu na stronie, naciśnij Wyszukaj + strzałkę w prawo. Aby przejść do poprzedniego elementu, naciśnij Wyszukaj + strzałkę w lewo. Aby przejść do następnego wiersza, naciśnij Wyszukaj + strzałkę w dół. Aby przejść do poprzedniego wiersza, naciśnij Wyszukaj + strzałkę w górę. Jeśli chcesz kliknąć zaznaczony element, naciśnij Wyszukaj + spację.</translation>
@@ -495,7 +495,7 @@ Jeśli nie korzystasz już z samouczka, użyj czytnika ChromeVox, by przejść 
 <translation id="5291783959063340370">Obiekt</translation>
 <translation id="5304943142864553931"><ph name="TITLE" />, karta</translation>
 <translation id="5310788376443009632">usunięto:</translation>
-<translation id="5320727453979144100">Tryb przylegania włączony</translation>
+<translation id="5320727453979144100">Tryb klawiszy trwałych włączony</translation>
 <translation id="5321085947096604457">{COUNT,plural, =1{przecinek}few{# przecinki}many{# przecinków}other{# commas}}</translation>
 <translation id="532371086589123547"><ph name="VALUE" />, pole tekstowe</translation>
 <translation id="5330443287809544590"><ph name="NAME" />, link</translation>
@@ -892,7 +892,7 @@ Aby otworzyć menu przeglądarki Chrome, naciśnij Alt + F.</translation>
 <translation id="930275611743429116">Rozpocznij lub zakończ wybieranie.</translation>
 <translation id="948171205378458592">Zmniejsz tempo mowy</translation>
 <translation id="962913030769097253">Następny nagłówek poziomu 1</translation>
-<translation id="973955474346881951">Włącz/wyłącz tryb przylegania</translation>
+<translation id="973955474346881951">Włącz/wyłącz tryb klawiszy trwałych</translation>
 <translation id="976849232629612000">Brak elementów.</translation>
 <translation id="995852680044449248">Początek przekreślenia</translation>
 </translationbundle>
