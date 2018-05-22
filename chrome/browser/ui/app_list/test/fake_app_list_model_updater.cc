@@ -28,7 +28,6 @@ void FakeAppListModelUpdater::AddItemToFolder(
 void FakeAppListModelUpdater::AddItemToOemFolder(
     std::unique_ptr<ChromeAppListItem> item,
     app_list::AppListSyncableService::SyncItem* oem_sync_item,
-    const std::string& oem_folder_id,
     const std::string& oem_folder_name,
     const syncer::StringOrdinal& preferred_oem_position) {
   syncer::StringOrdinal position_to_try = preferred_oem_position;
@@ -36,9 +35,9 @@ void FakeAppListModelUpdater::AddItemToOemFolder(
   if (oem_sync_item && oem_sync_item->item_ordinal.IsValid())
     position_to_try = oem_sync_item->item_ordinal;
   // In ash:
-  FindOrCreateOemFolder(oem_folder_id, oem_folder_name, position_to_try);
+  FindOrCreateOemFolder(oem_folder_name, position_to_try);
   // In chrome, after oem folder is created:
-  AddItemToFolder(std::move(item), oem_folder_id);
+  AddItemToFolder(std::move(item), ash::kOemFolderId);
 }
 
 void FakeAppListModelUpdater::RemoveItem(const std::string& id) {
@@ -144,10 +143,9 @@ void FakeAppListModelUpdater::PublishSearchResults(
 
 ash::mojom::AppListItemMetadataPtr
 FakeAppListModelUpdater::FindOrCreateOemFolder(
-    const std::string& oem_folder_id,
     const std::string& oem_folder_name,
     const syncer::StringOrdinal& preferred_oem_position) {
-  ChromeAppListItem* oem_folder = FindFolderItem(oem_folder_id);
+  ChromeAppListItem* oem_folder = FindFolderItem(ash::kOemFolderId);
   if (oem_folder) {
     ash::mojom::AppListItemMetadataPtr folder_data =
         oem_folder->CloneMetadata();
@@ -155,7 +153,8 @@ FakeAppListModelUpdater::FindOrCreateOemFolder(
     oem_folder->SetMetadata(std::move(folder_data));
   } else {
     std::unique_ptr<ChromeAppListItem> new_folder =
-        std::make_unique<ChromeAppListItem>(nullptr, oem_folder_id, nullptr);
+        std::make_unique<ChromeAppListItem>(nullptr, ash::kOemFolderId,
+                                            nullptr);
     oem_folder = new_folder.get();
     AddItem(std::move(new_folder));
     ash::mojom::AppListItemMetadataPtr folder_data =

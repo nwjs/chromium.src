@@ -250,6 +250,12 @@ class AppListSyncableService::ModelUpdaterDelegate
     VLOG(2) << owner_ << " OnAppListItemAdded: " << item->ToDebugString();
     owner_->AddOrUpdateFromSyncItem(item);
     adding_item_id_.clear();
+
+    // Sync OEM name if it was created on demand on ash side.
+    if (item->id() == ash::kOemFolderId &&
+        item->name() != owner_->oem_folder_name_) {
+      item->SetName(owner_->oem_folder_name_);
+    }
   }
 
   void OnAppListItemWillBeDeleted(ChromeAppListItem* item) override {
@@ -477,8 +483,8 @@ void AppListSyncableService::AddItem(
   if (AppIsOem(app_item->id())) {
     VLOG(2) << this << ": AddItem to OEM folder: " << sync_item->ToString();
     model_updater_->AddItemToOemFolder(
-        std::move(app_item), FindSyncItem(ash::kOemFolderId), ash::kOemFolderId,
-        oem_folder_name_, GetPreferredOemFolderPos());
+        std::move(app_item), FindSyncItem(ash::kOemFolderId), oem_folder_name_,
+        GetPreferredOemFolderPos());
   } else {
     std::string folder_id = sync_item->parent_id;
     VLOG(2) << this << ": AddItem: " << sync_item->ToString() << " Folder: '"
@@ -703,7 +709,7 @@ void AppListSyncableService::ResolveFolderPositions() {
   // Move the OEM folder if one exists and we have not synced its position.
   if (!FindSyncItem(ash::kOemFolderId)) {
     model_updater_->ResolveOemFolderPosition(
-        ash::kOemFolderId, GetPreferredOemFolderPos(),
+        GetPreferredOemFolderPos(),
         base::BindOnce(
             [](base::WeakPtr<AppListSyncableService> self,
                ChromeAppListItem* oem_folder) {
