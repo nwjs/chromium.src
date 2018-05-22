@@ -349,3 +349,6 @@
 -DeclarativeNetRequestResourceTypeBrowserTest.Test2/1
 -MediaEngagementSessionRestoreBrowserTest.RestoredSession_Playback_MEI
 -AutoplayExtensionBrowserTest.*
+
+# https://crbug.com/843760: webm in <object> triggers RegisterFrameSinkId crash
+-*SavePageOriginalVsSavedComparisonTest.CrossSiteObject*
