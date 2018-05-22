@@ -145,7 +145,7 @@
 #   persistent IDs for all fields (but not for groups!) are needed. These are
 #   specified by the 'id' keys of each policy. NEVER CHANGE EXISTING IDs,
 #   because doing so would break the deployed wire format!
-#   For your editing convenience: highest ID currently used: 437
+#   For your editing convenience: highest ID currently used: 447
 #   And don't forget to also update the EnterprisePolicies enum of
 #   histograms.xml (run 'python tools/metrics/histograms/update_policies.py').
 #
@@ -11700,7 +11700,26 @@
 
       If the policy is set to False, users will not be able to add and configure their own native printers. They will also not be able to print using any previously configured native printers.
       ''',
-    }
+    },
+    {
+      'name': 'ArcAppInstallEventLoggingEnabled',
+      'type': 'main',
+      'schema': { 'type': 'boolean' },
+      'supported_on': ['chrome_os:67-'],
+      'supported_chrome_os_management': ['google_cloud'],
+      'features': {
+        'dynamic_refresh': True,
+        'per_profile': True,
+      },
+      'example_value': True,
+      'id': 447,
+      'caption': '''Log events for Android app installs''',
+      'tags': ['google-sharing'],
+      'desc': '''Enables reporting of key events during Android app installation to Google. Events are captured only for apps whose installation was triggered via policy.
+
+      If the policy is set to true, events will be logged.
+      If the policy is set to false or unset, events will not be logged.''',
+    },
   ],
 
   'messages': {
