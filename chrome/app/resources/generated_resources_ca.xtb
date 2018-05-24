@@ -245,7 +245,7 @@
 <translation id="1363028406613469049">Pista</translation>
 <translation id="1367951781824006909">Trieu un fitxer</translation>
 <translation id="136802136832547685">No hi ha cap usuari supervisat per afegir a aquest dispositiu.</translation>
-<translation id="1368265273904755308">Informeu d'un problema</translation>
+<translation id="1368265273904755308">Informa d'un problema</translation>
 <translation id="1370646789215800222">Voleu suprimir la persona?</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 element que cal suprimir}other{# elements que cal suprimir}}</translation>
 <translation id="1372841398847029212">Sincronitza amb el meu compte</translation>
@@ -664,7 +664,7 @@
 <translation id="1997616988432401742">Els meus certificats</translation>
 <translation id="1999115740519098545">A l'inici</translation>
 <translation id="2006638907958895361">Obre l'enllaç a <ph name="APP" /></translation>
-<translation id="2007404777272201486">Informeu d'un problema...</translation>
+<translation id="2007404777272201486">Informa d'un problema...</translation>
 <translation id="2016430552235416146">Tradicional</translation>
 <translation id="2017334798163366053">Desactiva la recopilació de dades de rendiment</translation>
 <translation id="2017836877785168846">Esborra l'historial i les complecions automàtiques a la barra d'adreces.</translation>
@@ -796,7 +796,7 @@
 <translation id="2218320521449013367">S'ha produït un error mentre Chrome suprimia programari perjudicial</translation>
 <translation id="2218515861914035131">Enganxa com a text sense format</translation>
 <translation id="221872881068107022">Desplaçament invers</translation>
-<translation id="2220529011494928058">Informeu d'un problema</translation>
+<translation id="2220529011494928058">Informa d'un problema</translation>
 <translation id="2220572644011485463">PIN o contrasenya</translation>
 <translation id="2222641695352322289">L'única manera de desfer aquesta acció és tornar a instal·lar <ph name="IDS_SHORT_PRODUCT_OS_NAME" />.</translation>
 <translation id="2224444042887712269">Aquesta configuració pertany a <ph name="OWNER_EMAIL" />.</translation>
@@ -4775,7 +4775,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8395901698320285466">Dimensions</translation>
 <translation id="8396532978067103567">Contrasenya incorrecta.</translation>
 <translation id="839736845446313156">Registra</translation>
-<translation id="8398790343843005537">Cerca el teu telèfon</translation>
+<translation id="8398790343843005537">Troba el teu telèfon</translation>
 <translation id="8398877366907290961">Continua igualment</translation>
 <translation id="8399276228600040370">Inicieu la sessió amb el compte desat a <ph name="PASSWORD_MANAGER_BRAND" /></translation>
 <translation id="8400146488506985033">Gestiona persones</translation>

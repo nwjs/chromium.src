@@ -2420,7 +2420,7 @@ Disse politikker er udelukkende beregnet til at blive brugt til konfiguration af
 
 Du behøver ikke at konfigurere disse indstillinger manuelt. Du kan downloade tilgængelige Windows-, Mac- og Linux-skabeloner på <ph name="POLICY_TEMPLATE_DOWNLOAD_URL" />.
 
-Den anbefalede fremgangsmåde til konfiguration af politikker i Windows er via GPO, selvom levering af politikker via registreringsdatabasen fortsat understøttes for forekomster i Windows, der er tilknyttet et <ph name="MS_AD_NAME" />-domæne.</translation>
+Den anbefalede fremgangsmåde til konfiguration af politikker i Windows er via GPO, selvom provisionering af politikker via registreringsdatabasen fortsat understøttes for forekomster i Windows, der er tilknyttet et <ph name="MS_AD_NAME" />-domæne.</translation>
 <translation id="8274603902181597201">Slet brugerens eCryptfs-hovedmapper, og start med en frisk ext4-krypteret hovedmappe.</translation>
 <translation id="8279832363395120715">Fjerner følsomme dele vedrørende personlige oplysninger og sikkerhed i webadresser af typen https://, før de overføres til PAC-scripter (Proxy Auto Config), som anvendes af <ph name="PRODUCT_NAME" /> i forbindelse med proxyopløsning.
 

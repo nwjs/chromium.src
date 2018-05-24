@@ -38,7 +38,7 @@
 <translation id="1747827819627189109">ऑन-स्क्रीन कीबोर्ड सक्षम</translation>
 <translation id="1823873187264960516">इथरनेट: <ph name="ADDRESS" /></translation>
 <translation id="1836215606488044471">साहाय्यक (लोड होत आहे...)</translation>
-<translation id="1850504506766569011">Wi-Fi बंद आहे.</translation>
+<translation id="1850504506766569011">वाय-फाय बंद आहे.</translation>
 <translation id="1864454756846565995">USB-C डिव्‍हाइस (मागील बाजूचे पोर्ट)</translation>
 <translation id="1882897271359938046"><ph name="DISPLAY_NAME" /> वर मिरर करत आहे</translation>
 <translation id="1919743966458266018">कार्य व्यवस्थापक उघडण्‍याचा शॉर्टकट बदलला आहे. कृपया <ph name="OLD_SHORTCUT" /> ऐवजी <ph name="NEW_SHORTCUT" /> वापरा.</translation>
@@ -323,7 +323,7 @@
 <translation id="8433186206711564395">नेटवर्क सेटिंग्ज</translation>
 <translation id="8433977262951327081">शेल्फमधील इनपुट पर्याय मेनू दर्शविण्यासाठीचा शॉर्टकट बदलला आहे. कृपया <ph name="OLD_SHORTCUT" /> ऐवजी <ph name="NEW_SHORTCUT" /> वापरा.</translation>
 <translation id="8452135315243592079">गहाळ सिम कार्ड</translation>
-<translation id="8454013096329229812">Wi-Fi चालू आहे.</translation>
+<translation id="8454013096329229812">वाय-फाय चालू आहे.</translation>
 <translation id="847056008324733326">स्केल सेटिंग्‍ज दाखवा</translation>
 <translation id="8477270416194247200">रद्द करण्यासाठी Alt+Search किंवा Shift दाबा.</translation>
 <translation id="8484916590211895857"><ph name="NAME" />: पुन्हा कनेक्ट करीत आहे...</translation>
@@ -335,7 +335,7 @@
 <translation id="8676770494376880701">निम्न-उर्जेचे चार्जर कनेक्ट केले</translation>
 <translation id="8734991477317290293">तो कदाचित तुमचे कीस्ट्रोक चोरण्याचा प्रयत्न करत असेल.</translation>
 <translation id="8809737090443522491">अ‍ॅप किंवा दस्तऐवजाचे नाव टाइप करा</translation>
-<translation id="8814190375133053267">Wi-Fi</translation>
+<translation id="8814190375133053267">वाय-फाय</translation>
 <translation id="8814715559352963456">दुसऱ्या डेस्कटॉपवर विंडो हलविण्याने अनपेक्षित वर्तन घडू शकते.
 
 नंतरच्या सूचना, विंडो आणि संवाद हे डेस्कटॉपच्या दरम्यान विभाजित केले जाऊ शकतात.</translation>
@@ -350,7 +350,7 @@
 <translation id="8940956008527784070">बॅटरी कमी झाली (<ph name="PERCENTAGE" />%)</translation>
 <translation id="8995603266996330174"><ph name="DOMAIN" /> द्वारे व्यवस्थापित</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
-<translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
+<translation id="9079731690316798640">वाय-फाय: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">मायक्रोफोन वापरात आहे.</translation>
 <translation id="9089416786594320554">इनपुट पद्धती</translation>
 <translation id="9091626656156419976"><ph name="DISPLAY_NAME" /> प्रदर्शन काढले</translation>
