@@ -62,7 +62,7 @@ content::DesktopMediaID DesktopStreamsRegistry::RequestMediaForStreamId(
     int render_process_id,
     int render_frame_id,
     const GURL& origin,
-    std::string* extension_name) {
+    std::string* extension_name, bool nodejs) {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
 
   StreamsMap::iterator it = approved_streams_.find(id);
@@ -72,7 +72,7 @@ content::DesktopMediaID DesktopStreamsRegistry::RequestMediaForStreamId(
   if (it == approved_streams_.end() ||
       render_process_id != it->second.render_process_id ||
       render_frame_id != it->second.render_frame_id ||
-      origin != it->second.origin) {
+      (!nodejs && origin != it->second.origin)) {
     return content::DesktopMediaID();
   }
 

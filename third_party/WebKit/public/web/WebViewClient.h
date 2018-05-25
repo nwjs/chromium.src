@@ -77,7 +77,8 @@ class WebViewClient : protected WebWidgetClient {
                               const WebString& name,
                               WebNavigationPolicy policy,
                               bool suppress_opener,
-                              WebSandboxFlags) {
+                              WebSandboxFlags,
+                              WebString* manifest = nullptr) {
     return nullptr;
   }
 
@@ -182,6 +183,7 @@ class WebViewClient : protected WebWidgetClient {
   // the given offset (relative to the current position in session
   // history).
   virtual void NavigateBackForwardSoon(int offset) {}
+  virtual void NavigateBackForwardSoon2(int offset, WebLocalFrame* initiator = nullptr) {}
 
   // Returns the number of history items before/after the current
   // history item.

@@ -20,6 +20,10 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
 
+#include "chrome/browser/profiles/profile_manager.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+#include "extensions/browser/app_window/app_window.h"
+
 #if defined(USE_AURA)
 #include "base/threading/thread_task_runner_handle.h"
 #include "chrome/browser/ui/browser.h"
@@ -96,8 +100,14 @@ class WindowAdoptionAgent : protected aura::WindowObserver {
         browsers ? browsers->GetLastActive() : nullptr;
     BrowserWindow* const active_window =
         active_browser ? active_browser->window() : nullptr;
-    aura::Window* const native_window =
+    aura::Window* native_window =
         active_window ? active_window->GetNativeWindow() : nullptr;
+    if (!native_window) {
+      Profile* profile = ProfileManager::GetActiveUserProfile();
+      const extensions::AppWindowRegistry::AppWindowList& app_windows =
+        extensions::AppWindowRegistry::Get(profile)->app_windows();
+      native_window = (*app_windows.begin())->GetNativeWindow();
+    }
     aura::Window* const root_window =
         native_window ? native_window->GetRootWindow() : nullptr;
     if (root_window) {

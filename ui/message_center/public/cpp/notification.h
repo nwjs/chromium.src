@@ -416,8 +416,7 @@ class MESSAGE_CENTER_PUBLIC_EXPORT Notification {
   }
 
   bool should_show_settings_button() const {
-    return optional_fields_.settings_button_handler !=
-           SettingsButtonHandler::NONE;
+    return false;
   }
 
   FullscreenVisibility fullscreen_visibility() const {

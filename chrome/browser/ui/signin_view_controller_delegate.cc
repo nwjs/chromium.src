@@ -81,6 +81,8 @@ void SigninViewControllerDelegate::ResetSigninViewControllerDelegate() {
 void SigninViewControllerDelegate::LoadingStateChanged(
     content::WebContents* source,
     bool to_different_document) {
+  if (!source->GetWebUI())
+    return;
   if (CanGoBack(source))
     source->GetWebUI()->CallJavascriptFunctionUnsafe(
         "inline.login.showBackButton");

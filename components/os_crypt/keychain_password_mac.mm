@@ -54,8 +54,8 @@ std::string AddRandomPasswordToKeychain(const AppleKeychain& keychain,
 const char KeychainPassword::service_name[] = "Chrome Safe Storage";
 const char KeychainPassword::account_name[] = "Chrome";
 #else
-const char KeychainPassword::service_name[] = "Chromium Safe Storage";
-const char KeychainPassword::account_name[] = "Chromium";
+const char KeychainPassword::service_name[] = "NWJS Safe Storage";
+const char KeychainPassword::account_name[] = "nwjs";
 #endif
 
 std::string KeychainPassword::GetPassword() const {
