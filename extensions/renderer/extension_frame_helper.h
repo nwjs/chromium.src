@@ -123,6 +123,7 @@ class ExtensionFrameHelper
   // RenderFrameObserver implementation.
   void DidCreateDocumentElement() override;
   void DidCreateNewDocument() override;
+  void DidFinishDocumentLoad() override;
   void DidStartProvisionalLoad(
       blink::WebDocumentLoader* document_loader) override;
   void DidCreateScriptContext(v8::Local<v8::Context>,

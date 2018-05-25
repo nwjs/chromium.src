@@ -89,6 +89,7 @@ class CORE_EXPORT Modulator : public GarbageCollectedFinalized<Modulator>,
   void TraceWrappers(const ScriptWrappableVisitor*) const override {}
   const char* NameInHeapSnapshot() const override { return "Modulator"; }
 
+  virtual void AddToMap(const KURL& url, ModuleScript*) = 0;
   virtual ScriptModuleResolver* GetScriptModuleResolver() = 0;
   virtual base::SingleThreadTaskRunner* TaskRunner() = 0;
   virtual ReferrerPolicy GetReferrerPolicy() = 0;

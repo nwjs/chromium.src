@@ -20,6 +20,9 @@
 
 namespace content {
 
+extern bool g_support_transparency;
+extern bool g_force_cpu_draw;
+
 namespace {
 
 // Bridge to a locally-hosted NSView -- this is always instantiated in the same
@@ -53,6 +56,8 @@ class RenderWidgetHostViewNSViewBridgeLocal
   void ShowDictionaryOverlay(
       const mac::AttributedStringCoder::EncodedString& encoded_string,
       gfx::Point baseline_point) override;
+
+  CALayer* GetBackgroundLayer() override;
 
  private:
   bool IsPopup() const {
@@ -88,8 +93,15 @@ RenderWidgetHostViewNSViewBridgeLocal::RenderWidgetHostViewNSViewBridgeLocal(
   cocoa_view_.reset([[RenderWidgetHostViewCocoa alloc] initWithClient:client]);
 
   background_layer_.reset([[CALayer alloc] init]);
+
+  bool isOpaque = [cocoa_view_ isOpaque];
+  if (content::g_support_transparency) {
+    [background_layer_ setBackgroundColor: (isOpaque || !content::g_support_transparency) ?
+      CGColorGetConstantColor(kCGColorWhite) : CGColorGetConstantColor(kCGColorClear)];
+  }
+
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!g_force_cpu_draw];
 }
 
 RenderWidgetHostViewNSViewBridgeLocal::
@@ -236,6 +248,11 @@ void RenderWidgetHostViewNSViewBridgeLocal::OnDisplayMetricsChanged(
   // NSWindowDidChangeBackingPropertiesNotification (some of these calls
   // will be redundant).
   [cocoa_view_ updateScreenProperties];
+}
+
+CALayer* RenderWidgetHostViewNSViewBridgeLocal::GetBackgroundLayer() {
+  assert(content::g_force_cpu_draw);
+  return background_layer_;
 }
 
 void RenderWidgetHostViewNSViewBridgeLocal::DisplayCursor(

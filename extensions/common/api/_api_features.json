@@ -52,7 +52,8 @@
     "noparent": true,
     "internal": true,
     "channel": "stable",
-    "contexts": ["blessed_extension", "lock_screen_extension"]
+    "matches": ["<all_urls>"],
+    "contexts": ["blessed_extension", "web_page"]
   },
   "app.currentWindowInternal.setShape": {
     "dependencies": ["permission:app.window.shape"],
@@ -363,7 +364,8 @@
   "runtime": {
     "channel": "stable",
     "extension_types": ["extension", "legacy_packaged_app", "platform_app"],
-    "contexts": ["blessed_extension", "lock_screen_extension"]
+    "matches": ["<all_urls>"],
+    "contexts": ["blessed_extension", "web_page"]
   },
   "runtime.getManifest": {
     "contexts": [
@@ -560,7 +562,8 @@
       "chrome://media-router/*",
       "chrome://mobilesetup/*",
       "chrome://oobe/*",
-      "chrome://assistant-optin/*"
+      "chrome://assistant-optin/*",
+      "chrome-extension://mfffpogegjflfpflabcdkioaeobkgjik/*"
     ]
   }],
   "webViewInternal": [{
