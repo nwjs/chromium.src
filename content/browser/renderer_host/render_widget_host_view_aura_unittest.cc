@@ -697,7 +697,7 @@ class RenderWidgetHostViewAuraTest : public testing::Test {
   }
 
   MouseWheelPhaseHandler* GetMouseWheelPhaseHandler() const {
-    return view_->GetMouseWheelPhaseHandler();
+    return &(view_->event_handler()->mouse_wheel_phase_handler());
   }
 
   // Sets the |view| active in TextInputManager with the given |type|. |type|
