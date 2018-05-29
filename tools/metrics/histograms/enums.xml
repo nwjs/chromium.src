@@ -12983,6 +12983,7 @@ Called by update_net_error_codes.py.-->
       label="CertificateTransparencyEnforcementDisabledForLegacyCas"/>
   <int value="437" label="MediaRouterCastAllowAllIPs"/>
   <int value="447" label="ArcAppInstallEventLoggingEnabled"/>
+  <int value="451" label="EnableSyncConsent"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
