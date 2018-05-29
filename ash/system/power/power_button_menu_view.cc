@@ -16,6 +16,7 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "ui/compositor/scoped_layer_animation_settings.h"
 #include "ui/gfx/canvas.h"
+#include "ui/views/accessibility/view_accessibility.h"
 
 namespace ash {
 
@@ -43,6 +44,7 @@ PowerButtonMenuView::PowerButtonMenuView(
   SetFocusBehavior(FocusBehavior::ALWAYS);
   SetPaintToLayer();
   layer()->SetFillsBoundsOpaquely(false);
+  GetViewAccessibility().OverrideRole(ax::mojom::Role::kMenu);
 
   CreateItems();
 }
@@ -231,6 +233,9 @@ void PowerButtonMenuView::ButtonPressed(views::Button* sender,
 void PowerButtonMenuView::OnImplicitAnimationsCompleted() {
   if (layer()->opacity() == 0.f)
     SetVisible(false);
+
+  if (layer()->opacity() == 1.0f)
+    RequestFocus();
 }
 
 }  // namespace ash
