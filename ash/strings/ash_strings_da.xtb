@@ -264,11 +264,13 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6723839937902243910">Strøm</translation>
 <translation id="6785414152754474415">Batteriet er <ph name="PERCENTAGE" /> % opladet og oplades nu.</translation>
 <translation id="6803622936009808957">Skærmene kunne ikke spejles, da der ikke fandtes en understøttet opløsning. I stedet anvendes Udvidet skrivebord.</translation>
+<translation id="6820676911989879663">Hold en pause</translation>
 <translation id="683971173229319003">Søg+L</translation>
 <translation id="6857811139397017780">Aktivér <ph name="NETWORKSERVICE" /></translation>
 <translation id="6911468394164995108">Vælg et andet...</translation>
 <translation id="6981982820502123353">Hjælpefunktioner</translation>
 <translation id="698231206551913481">Alle filer og lokale data, der er knyttet til denne bruger, slettes permanent, når brugeren fjernes.</translation>
+<translation id="7015766095477679451">Vend tilbage kl. <ph name="COME_BACK_TIME" />.</translation>
 <translation id="7029814467594812963">Afslut session</translation>
 <translation id="7034339000180558234">Caster <ph name="TAB_NAME" /> til <ph name="RECEIVER_NAME" /></translation>
 <translation id="7066646422045619941">Din administrator har deaktiveret dette netværk.</translation>

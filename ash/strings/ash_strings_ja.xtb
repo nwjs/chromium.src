@@ -263,11 +263,13 @@
 <translation id="6723839937902243910">電源</translation>
 <translation id="6785414152754474415">バッテリー残量: <ph name="PERCENTAGE" />%、充電しています。</translation>
 <translation id="6803622936009808957">サポートされている解像度が見つからなかったため、ディスプレイをミラーリングできませんでした。代わりに拡張デスクトップ モードに切り替えました。</translation>
+<translation id="6820676911989879663">休憩の時間です！</translation>
 <translation id="683971173229319003">Search+L</translation>
 <translation id="6857811139397017780"><ph name="NETWORKSERVICE" /> を有効にする</translation>
 <translation id="6911468394164995108">他のネットワークに接続...</translation>
 <translation id="6981982820502123353">ユーザー補助機能</translation>
 <translation id="698231206551913481">このユーザーを削除すると、このユーザーに関連付けられているファイルとローカルデータもすべて完全に削除されます。</translation>
+<translation id="7015766095477679451"><ph name="COME_BACK_TIME" /> になったら利用を再開できます。</translation>
 <translation id="7029814467594812963">セッションを終了</translation>
 <translation id="7034339000180558234"><ph name="TAB_NAME" /> を <ph name="RECEIVER_NAME" /> にキャスト中</translation>
 <translation id="7066646422045619941">このネットワークは管理者によって無効にされています。</translation>
