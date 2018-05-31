@@ -1438,7 +1438,12 @@ public abstract class ChromeActivity extends AsyncInitializationActivity
     public boolean shouldShowAppMenu() {
         if (isActivityDestroyed()) return false;
 
-        if (ApplicationStatus.getStateForActivity(this) != ActivityState.RESUMED) return false;
+        @ActivityState
+        int state = ApplicationStatus.getStateForActivity(this);
+        boolean inMultiWindow = MultiWindowUtils.getInstance().isInMultiWindowMode(this);
+        if (state != ActivityState.RESUMED && (!inMultiWindow || state != ActivityState.PAUSED)) {
+            return false;
+        }
 
         // Do not show the menu if Contextual Search panel is opened.
         if (mContextualSearchManager != null && mContextualSearchManager.isSearchPanelOpened()) {
