@@ -262,11 +262,13 @@
 <translation id="6723839937902243910">الطاقة</translation>
 <translation id="6785414152754474415">اكتمل شحن <ph name="PERCENTAGE" />% من البطارية ويجري شحنها.</translation>
 <translation id="6803622936009808957">تعذر إجراء النسخ المطابق للعروض نظرًا لعدم العثور على درجات دقة متوافقة. تم الدخول إلى سطح المكتب الممتد بدلاً من ذلك.</translation>
+<translation id="6820676911989879663">حان وقت الاستراحة</translation>
 <translation id="683971173229319003">Search+L</translation>
 <translation id="6857811139397017780">تفعيل <ph name="NETWORKSERVICE" /></translation>
 <translation id="6911468394164995108">الانضمام إلى شبكة أخرى...</translation>
 <translation id="6981982820502123353">إمكانية الدخول</translation>
 <translation id="698231206551913481">سيتم حذف جميع الملفات والبيانات المحلية المرتبطة بهذا المستخدم نهائيًا بمجرد إزالة هذا المستخدم.</translation>
+<translation id="7015766095477679451">يمكنك العودة لاستخدام الجهاز في <ph name="COME_BACK_TIME" />.</translation>
 <translation id="7029814467594812963">إنهاء الجلسة</translation>
 <translation id="7034339000180558234">إرسال <ph name="TAB_NAME" /> إلى <ph name="RECEIVER_NAME" />.</translation>
 <translation id="7066646422045619941">تم إيقاف هذه الشبكة من قِبل مشرفك.</translation>

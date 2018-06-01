@@ -1566,7 +1566,7 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="3407837288045706722">Gizlilik, güvenlik ve veri toplamayla ilgili daha fazla ayar için <ph name="BEGIN_LINK" />Senkronizasyon ve kişiselleştirme<ph name="END_LINK" /> konusuna bakın.</translation>
 <translation id="3412265149091626468">Seçim'e Atla</translation>
 <translation id="3413122095806433232">CA Verenler: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Dinlemek istediğiniz öğeyi vurgulayın, ardından Ara + S tuşlarına basın. İsterseniz Ara'yı basılı tutup profil resminizin yakınındaki Seç ve Dinle simgesine dokunabilir, ardından sesli okunması için bir bölgeyi seçebilirsiniz.</translation>
+<translation id="3414791204526549759">Dinlemek istediğiniz öğeyi vurgulayın, ardından Ara + S tuşlarına basın. İsterseniz Ara'yı basılı tutup profil resminizin yakınındaki Seç ve Dinle simgesine dokunabilir, ardından sesli okunacak bölgeyi seçebilirsiniz.</translation>
 <translation id="3414856743105198592">Çıkarılabilir medyanın biçimlendirilmesi tüm verileri silecektir. Devam etmek istiyor musunuz?</translation>
 <translation id="3414952576877147120">Boyut:</translation>
 <translation id="3420980393175304359">Kişi Değiştir</translation>
@@ -3928,7 +3928,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7063957500469387217">Google Cloud Print için yazıcıları kurun veya yönetin.</translation>
 <translation id="7065223852455347715">Bu cihaz, kurumsal kaydı engelleyen bir modda kilitlenmiş. Cihazı kaydetmek istiyorsanız önce cihaz kurtarma işlemini gerçekleştirmeniz gerekir.</translation>
 <translation id="7065534935986314333">Sistem Hakkında</translation>
-<translation id="706626672220389329">Paylaşım eklenirken hata oluştu. Belirtilen paylaşım önceden eklendi.</translation>
+<translation id="706626672220389329">Paylaşım eklenirken hata oluştu. Belirtilen paylaşım zaten eklenmiş.</translation>
 <translation id="7066944511817949584">"<ph name="DEVICE_NAME" />" cihazına bağlanamıyor.</translation>
 <translation id="7067725467529581407">Bunu bir daha gösterme.</translation>
 <translation id="7072010813301522126">Kısayol adı</translation>
@@ -5282,7 +5282,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="9131487537093447019">Bluetooth cihazlarına ileti gönderme ve Bluetooth cihazlarından gelen iletileri alma.</translation>
 <translation id="9131598836763251128">Bir veya daha fazla dosya seçin</translation>
 <translation id="9133055936679483811">Sıkıştırma başarısız oldu. <ph name="ERROR_MESSAGE" /></translation>
-<translation id="9134304429738380103">Evet, istiyorum'a dokunun.</translation>
+<translation id="9134304429738380103">Evet, istiyorum.</translation>
 <translation id="9134524245363717059">Bu dosya Macintosh yazılımı kullanan bilgisayarlar için tasarlanmıştır. Bu, Chrome OS çalıştıran cihazınızla uyumlu değildir. Uygun başka bir uygulama için lütfen Chrome Web Mağazası'nı arayın.</translation>
 <translation id="9137013805542155359">Orijinali göster</translation>
 <translation id="9137916601698928395">Bağlantıyı <ph name="USER" /> olarak aç</translation>

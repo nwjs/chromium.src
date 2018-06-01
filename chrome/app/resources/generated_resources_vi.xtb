@@ -621,7 +621,7 @@
 <translation id="1919345977826869612">Quảng cáo</translation>
 <translation id="1919814239594435008">Đã cho phép truy cập vào plugin không có hộp cát</translation>
 <translation id="1921584744613111023"><ph name="DPI" /> dpi</translation>
-<translation id="1924559387127953748">Nhận các tiện ích thông minh của Google trong <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
+<translation id="1924559387127953748">Trải nghiệm các tính năng thông minh của Google trong <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
 <translation id="192494336144674234">Mở bằng</translation>
 <translation id="1925021887439448749">Nhập địa chỉ web tùy chỉnh</translation>
 <translation id="1926339101652878330">Các cài đặt này chịu sự kiểm soát của chính sách doanh nghiệp. Vui lòng liên hệ với quản trị viên của bạn để biết thêm thông tin.</translation>
@@ -668,7 +668,7 @@
 <translation id="1997616988432401742">Chứng chỉ của bạn</translation>
 <translation id="1999115740519098545">Khi khởi động</translation>
 <translation id="2001796770603320721">Quản lý trong Drive</translation>
-<translation id="200544492091181894">Bạn luôn có thể thay đổi tùy chọn này sau trong mục cài đặt</translation>
+<translation id="200544492091181894">Bạn luôn có thể thay đổi tùy chọn này trong mục cài đặt</translation>
 <translation id="2006638907958895361">Mở liên kết trong <ph name="APP" /></translation>
 <translation id="2007404777272201486">Báo cáo sự cố...</translation>
 <translation id="2016430552235416146">Truyền thống</translation>
@@ -3560,7 +3560,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="6478248366783946499">Giữ tệp nguy hiểm?</translation>
 <translation id="6483805311199035658">Đang mở <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Không thể truy xuất thông tin dung lượng</translation>
-<translation id="648637985389593741">Tiếp tục, bật tính năng đồng bộ hóa và cá nhân hóa</translation>
+<translation id="648637985389593741">Tiếp tục bật tính năng đồng bộ hóa và cá nhân hóa</translation>
 <translation id="6488384360522318064">Chọn ngôn ngữ</translation>
 <translation id="648927581764831596">Không có</translation>
 <translation id="6490936204492416398">Cài đặt tiện ích mới từ cửa hàng trực tuyến</translation>
@@ -4570,7 +4570,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8012382203418782830">Trang này đã được dịch.</translation>
 <translation id="8014154204619229810">Trình cập nhật hiện đang chạy. Hãy làm mới sau một phút nữa để kiểm tra lại.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> không thể hoàn nguyên về phiên bản được cài đặt trước. Vui lòng thử lại để Powerwash thiết bị của bạn.</translation>
-<translation id="8014210335923519270">Cải tiến <ph name="IDS_SHORT_PRODUCT_NAME" /> và tăng cường bảo mật cho sản phẩm bằng cách gửi thông tin và việc sử dụng hệ thống cho Google</translation>
+<translation id="8014210335923519270">Cải tiến <ph name="IDS_SHORT_PRODUCT_NAME" /> và tăng cường bảo mật cho sản phẩm bằng cách gửi thông tin hệ thống và việc sử dụng cho Google</translation>
 <translation id="8016266267177410919">Bộ nhớ tạm thời</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Đã chỉnh sửa phím tắt</translation>

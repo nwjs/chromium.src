@@ -248,7 +248,7 @@
 <translation id="1367951781824006909">Selecciona un archivo</translation>
 <translation id="1368265273904755308">Informar un problema</translation>
 <translation id="1370646789215800222">¿Eliminar persona?</translation>
-<translation id="1371301976177520732">Tus favoritos, contraseñas, historial y otros datos en todos tus dispositivos</translation>
+<translation id="1371301976177520732">Tus favoritos, contraseñas, historial y más en todos tus dispositivos</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{Se quitará 1 elemento}other{Se quitarán # elementos}}</translation>
 <translation id="1372841398847029212">Sincronizar con tu cuenta</translation>
 <translation id="1374844444528092021">El certificado que requiere la red "<ph name="NETWORK_NAME" />" no está instalado o ya no es válido. Obtén un nuevo certificado e intenta volver a conectarte.</translation>
@@ -633,7 +633,7 @@
 <translation id="1942765061641586207">Resolución de imagen</translation>
 <translation id="1944921356641260203">Actualización encontrada</translation>
 <translation id="1951615167417147110">Desplaza hacia arriba una página</translation>
-<translation id="1954813140452229842">Se produjo un error al activar el uso compartido. Revisa tus credenciales y vuelve a intentarlo.</translation>
+<translation id="1954813140452229842">Se produjo un error al activar el recurso compartido. Revisa tus credenciales y vuelve a intentarlo.</translation>
 <translation id="1956050014111002555">El archivo contenía múltiples certificados. Ninguno fue importado:</translation>
 <translation id="1956390763342388273">Esta acción cargará todos los archivos de "<ph name="FOLDER_PATH" />". Hazlo únicamente si el sitio es de confianza.</translation>
 <translation id="1962233722219655970">Esta página usa una aplicación con tecnología Native Client que no funciona en tu computadora.</translation>
@@ -752,7 +752,7 @@
 <translation id="2143765403545170146">Siempre mostrar la barra de herramientas en pantalla completa</translation>
 <translation id="2143778271340628265">Configuración manual de proxy</translation>
 <translation id="2144536955299248197">Visualizador de certificados: <ph name="CERTIFICATE_NAME" /></translation>
-<translation id="2148219725039824548">Se produjo un error al activar este uso compartido, porque no se encontró en la red.</translation>
+<translation id="2148219725039824548">Se produjo un error al activar el recurso compartido porque no se lo encontró en la red.</translation>
 <translation id="2148756636027685713">Formato terminado</translation>
 <translation id="2148892889047469596">Transmitir pestaña</translation>
 <translation id="2149850907588596975">Contraseñas y formularios</translation>
@@ -1563,7 +1563,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="3407837288045706722">Para obtener más opciones de configuración relacionadas con la privacidad, la seguridad y la recopilación de datos, visita <ph name="BEGIN_LINK" />Sincronización y personalización<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Saltar a selección</translation>
 <translation id="3413122095806433232">Emisores de certificados: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Destaca lo que quieras escuchar y, luego, presiona Búsqueda + S. También puedes mantener presionado Búsqueda (o presionar el ícono Seleccionar para pronunciar que se encuentra cerca de tu imagen de perfil) y, luego, elegir una región para que se lea en voz alta.</translation>
+<translation id="3414791204526549759">Destaca lo que quieras escuchar y, luego, presiona Búsqueda + S. También puedes mantener presionado Búsqueda (o presionar el ícono Seleccionar para pronunciar que se encuentra cerca de tu imagen de perfil) y elegir una región para que se lea en voz alta.</translation>
 <translation id="3414856743105198592">El formato de los medios extraíbles borrará todos los datos. ¿Deseas continuar?</translation>
 <translation id="3414952576877147120">Tamaño:</translation>
 <translation id="3420980393175304359">Cambiar de persona</translation>
@@ -2470,7 +2470,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="4862642413395066333">Firma de respuestas de OCSP</translation>
 <translation id="4864369630010738180">Accediendo</translation>
 <translation id="486635084936119914">Abre determinados tipos de archivo después de descargarlos</translation>
-<translation id="4869142322204669043">Es posible que Google use contenido de sitios que visitas, así como interacciones y actividad de navegación, a fin de personalizar <ph name="IDS_SHORT_PRODUCT_NAME" /> y otros de nuestros servicios, como Traductor, Búsqueda y los anuncios. Puedes cambiar este comportamiento en cualquier momento a través de la sección Configuración.</translation>
+<translation id="4869142322204669043">Es posible que Google use contenido de sitios que visitas, así como tus interacciones y actividad de navegación a fin de personalizar <ph name="IDS_SHORT_PRODUCT_NAME" /> y otros de nuestros servicios, como el Traductor, la Búsqueda y los anuncios. Puedes cambiar este comportamiento en cualquier momento a través de la sección Configuración.</translation>
 <translation id="48704129375571883">Agregar funciones adicionales</translation>
 <translation id="4870903493621965035">Sin dispositivos sincronizados</translation>
 <translation id="4871210892959306034">$1 KB</translation>
@@ -3211,7 +3211,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="5955282598396714173">Tu contraseña caducó. Para cambiarla, sal de la cuenta y vuelve a acceder.</translation>
 <translation id="5956585768868398362">¿Esta es la página de búsqueda que esperabas ver?</translation>
 <translation id="5957613098218939406">Más opciones</translation>
-<translation id="5957987129450536192">Presiona el ícono Seleccionar para pronunciar que se encuentra cerca de tu imagen de perfil y, luego, elige lo que quieras escuchar.</translation>
+<translation id="5957987129450536192">Presiona el ícono de Seleccionar para pronunciar que se encuentra cerca de tu imagen de perfil y, luego, elige lo que quieras escuchar.</translation>
 <translation id="5958529069007801266">Usuario supervisado</translation>
 <translation id="5959471481388474538">Red no disponible</translation>
 <translation id="595959584676692139">Vuelve a cargar la página para usar esta extensión</translation>
@@ -3294,7 +3294,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="6086846494333236931">Instalado por el administrador</translation>
 <translation id="6087960857463881712">Cara increíble</translation>
 <translation id="6089481419520884864">Filtrar página</translation>
-<translation id="6091761513005122595">Se activó correctamente el uso compartido.</translation>
+<translation id="6091761513005122595">Se activó correctamente el recurso compartido.</translation>
 <translation id="6093888419484831006">Cancelando actualización…</translation>
 <translation id="6095984072944024315">−</translation>
 <translation id="6096047740730590436">Abrir de forma maximizada</translation>
@@ -3621,7 +3621,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="6584878029876017575">Firma de vigencia de Microsoft</translation>
 <translation id="6585283250473596934">Accediendo a la sesión pública...</translation>
 <translation id="6586451623538375658">Cambiar el botón principal del mouse</translation>
-<translation id="6589660129740381104">Ahora, las funciones relacionadas con la sincronización y personalización se controlan desde el mismo lugar para que puedas administrar tu experiencia en <ph name="IDS_SHORT_PRODUCT_NAME" /> de manera más fácil.</translation>
+<translation id="6589660129740381104">Ahora, las funciones relacionadas con la sincronización y personalización se controlan desde un mismo lugar para que puedas administrar tu experiencia en <ph name="IDS_SHORT_PRODUCT_NAME" /> de manera más fácil. La activación de esta característica puede cambiar la configuración actual.</translation>
 <translation id="6589706261477377614">Aumentar el brillo del teclado</translation>
 <translation id="6590458744723262880">Cambiar nombre de carpeta</translation>
 <translation id="6592267180249644460">Fecha y hora de captura de registro de WebRTC: <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
@@ -3924,7 +3924,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="7063957500469387217">Configurar o administrar impresoras en Google Cloud Print</translation>
 <translation id="7065223852455347715">Este dispositivo está bloqueado en un modo que evita el registro empresarial. Si deseas registrar este dispositivo, primero debes llevar a cabo su recuperación.</translation>
 <translation id="7065534935986314333">Acerca del sistema</translation>
-<translation id="706626672220389329">Se produjo un error al activar este uso compartido, porque ya se habilitó.</translation>
+<translation id="706626672220389329">Se produjo un error al activar el recurso compartido porque ya está activado.</translation>
 <translation id="7066944511817949584">Error al conectar con "<ph name="DEVICE_NAME" />".</translation>
 <translation id="7067725467529581407">No volver a mostrar.</translation>
 <translation id="7072010813301522126">Nombre del acceso directo</translation>
@@ -4030,7 +4030,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="7229570126336867161">Se necesita EVDO</translation>
 <translation id="7230787553283372882">Personaliza el tamaño del texto</translation>
 <translation id="7232750842195536390">No se pudo cambiar el nombre</translation>
-<translation id="7234406375359457793">Se produjo un error al activar este uso compartido, porque no es compatible.</translation>
+<translation id="7234406375359457793">Se produjo un error al activar el recurso compartido porque no es compatible.</translation>
 <translation id="7238585580608191973">Huella digital SHA-256</translation>
 <translation id="7240120331469437312">Nombre alternativo del sujeto del certificado</translation>
 <translation id="7240339475467890413">¿Deseas conectarte a un nuevo hotspot?</translation>
@@ -4566,7 +4566,7 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8012382203418782830">Se tradujo esta página.</translation>
 <translation id="8014154204619229810">El actualizador se está ejecutando en este momento. Actualiza dentro de un minuto para verificarlo de nuevo.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> no puede volver a la versión instalada previamente. Vuelve a intentarlo para utilizar la función Powerwash en el dispositivo.</translation>
-<translation id="8014210335923519270">Envía información del sistema y actividad de uso a Google para mejorar <ph name="IDS_SHORT_PRODUCT_NAME" /> y su seguridad</translation>
+<translation id="8014210335923519270">Envía a Google información sobre el sistema y sobre el modo en que lo usas para mejorar <ph name="IDS_SHORT_PRODUCT_NAME" /> y su seguridad</translation>
 <translation id="8016266267177410919">Almacenamiento temporal</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Se editó el acceso directo</translation>
@@ -5173,7 +5173,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="897939795688207351">En <ph name="ORIGIN" /></translation>
 <translation id="8980951173413349704"><ph name="WINDOW_TITLE" />: Falló</translation>
 <translation id="8983677657449185470">Ayudar a mejorar la Navegación segura</translation>
-<translation id="8984654317541110628">URL de archivos compartidos</translation>
+<translation id="8984654317541110628">URL de archivo compartido</translation>
 <translation id="8986362086234534611">Borrar</translation>
 <translation id="8986494364107987395">Enviar automáticamente estadísticas de uso e informes sobre fallos a Google</translation>
 <translation id="8987927404178983737">Mes</translation>
@@ -5200,7 +5200,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="9022847679183471841"><ph name="AVATAR_NAME" /> ya está usando esta cuenta en esta computadora.</translation>
 <translation id="9023009238991294202">Otros usuarios de este dispositivo pueden usar esta red.</translation>
 <translation id="9024127637873500333">&amp;Abrir en una nueva pestaña</translation>
-<translation id="9024158959543687197">Se produjo un error al activar este uso compartido. Revisa la URL de archivos compartidos y vuelve a intentarlo.</translation>
+<translation id="9024158959543687197">Se produjo un error al activar el recurso compartido. Revisa la URL del archivo compartido y vuelve a intentarlo.</translation>
 <translation id="9024331582947483881">pantalla completa</translation>
 <translation id="9025098623496448965">De acuerdo, volver a la pantalla de acceso</translation>
 <translation id="9026731007018893674">descarga</translation>
@@ -5237,7 +5237,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="9064275926664971810">Habilita Autocompletar para llenar formularios con un solo clic</translation>
 <translation id="9064939804718829769">Transfiriendo…</translation>
 <translation id="9065203028668620118">Editar</translation>
-<translation id="9066773882585798925">Escucha el texto que se lee en voz alta</translation>
+<translation id="9066773882585798925">Escucha el texto leído en voz alta</translation>
 <translation id="9066782832737749352">Texto a voz</translation>
 <translation id="9070219033670098627">Cambiar de persona</translation>
 <translation id="9071637495340542136">Instalando <ph name="APP_NAME" />…</translation>
@@ -5280,7 +5280,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="9131487537093447019">Enviar y recibir mensajes desde dispositivos Bluetooth</translation>
 <translation id="9131598836763251128">Selecciona uno o más archivos.</translation>
 <translation id="9133055936679483811">Se produjo un error al comprimir. <ph name="ERROR_MESSAGE" /></translation>
-<translation id="9134304429738380103">Sí, acepto.</translation>
+<translation id="9134304429738380103">Acepto.</translation>
 <translation id="9134524245363717059">Este archivo está diseñado para computadoras que utilizan software de Macintosh, por lo que no es compatible con tu dispositivo, el cual ejecuta el Sistema operativo Chrome. Busca una aplicación equivalente adecuada en Chrome Web Store.</translation>
 <translation id="9137013805542155359">Mostrar original</translation>
 <translation id="9137916601698928395">Abrir vínculo como <ph name="USER" /></translation>

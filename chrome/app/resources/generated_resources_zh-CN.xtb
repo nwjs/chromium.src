@@ -633,7 +633,7 @@
 <translation id="1942765061641586207">图片分辨率</translation>
 <translation id="1944921356641260203">发现更新</translation>
 <translation id="1951615167417147110">向上滚动一个网页</translation>
-<translation id="1954813140452229842">装载共享设备时出错。请检查您的凭据，然后重试。</translation>
+<translation id="1954813140452229842">装载共享资源时出错。请检查您的凭据，然后重试。</translation>
 <translation id="1956050014111002555">该文件包含多个证书，但均未导入：</translation>
 <translation id="1956390763342388273">此操作会上传“<ph name="FOLDER_PATH" />”下的所有文件。请仅在您信任该网站的情况下执行此操作。</translation>
 <translation id="1962233722219655970">此页使用了您的计算机不支持的 Native Client 应用。</translation>
@@ -752,7 +752,7 @@
 <translation id="2143765403545170146">在全屏模式下始终显示工具栏</translation>
 <translation id="2143778271340628265">手动配置代理</translation>
 <translation id="2144536955299248197">证书查看者：<ph name="CERTIFICATE_NAME" /></translation>
-<translation id="2148219725039824548">装载共享设备时出错。在网络上找不到所指定的共享设备。</translation>
+<translation id="2148219725039824548">装载共享资源时出错。在网络上找不到所指定的共享资源。</translation>
 <translation id="2148756636027685713">格式化已完成</translation>
 <translation id="2148892889047469596">投射标签页</translation>
 <translation id="2149850907588596975">密码和表单</translation>
@@ -3284,7 +3284,7 @@
 <translation id="6086846494333236931">这是您的管理员安装的</translation>
 <translation id="6087960857463881712">酷炫表情</translation>
 <translation id="6089481419520884864">提取页面</translation>
-<translation id="6091761513005122595">已成功装载共享设备。</translation>
+<translation id="6091761513005122595">已成功装载共享资源。</translation>
 <translation id="6093888419484831006">正在取消更新...</translation>
 <translation id="6095984072944024315">−</translation>
 <translation id="6096047740730590436">以最大化模式打开</translation>
@@ -3913,7 +3913,7 @@
 <translation id="7063957500469387217">设置或管理 Google 云打印中的打印机。</translation>
 <translation id="7065223852455347715">此设备已锁定为禁止注册到企业的模式。如果您要注册此设备，必须先完成设备恢复过程。</translation>
 <translation id="7065534935986314333">关于系统</translation>
-<translation id="706626672220389329">装载共享设备时出错。所指定的共享设备此前就已装载完毕。</translation>
+<translation id="706626672220389329">装载共享资源时出错。所指定的共享资源此前就已装载完毕。</translation>
 <translation id="7066944511817949584">无法连接“<ph name="DEVICE_NAME" />”。</translation>
 <translation id="7067725467529581407">不再显示此气泡。</translation>
 <translation id="7072010813301522126">快捷方式名称</translation>
@@ -4019,7 +4019,7 @@
 <translation id="7229570126336867161">需要 EVDO</translation>
 <translation id="7230787553283372882">自定义文字大小</translation>
 <translation id="7232750842195536390">重命名失败</translation>
-<translation id="7234406375359457793">装载共享设备时出错。所指定的共享设备不受支持。</translation>
+<translation id="7234406375359457793">装载共享资源时出错。所指定的共享资源不受支持。</translation>
 <translation id="7238585580608191973">SHA-256 指纹</translation>
 <translation id="7240120331469437312">证书主题背景的备用名称</translation>
 <translation id="7240339475467890413">要连接到新的热点吗？</translation>
@@ -5179,7 +5179,7 @@
 <translation id="9022847679183471841"><ph name="AVATAR_NAME" />目前已在此计算机上使用该帐号。</translation>
 <translation id="9023009238991294202">此设备的其他用户将可以使用此网络。</translation>
 <translation id="9024127637873500333">在新标签页中打开(&amp;O)</translation>
-<translation id="9024158959543687197">装载共享设备时出错。请检查文件共享网址，然后重试。</translation>
+<translation id="9024158959543687197">装载共享资源时出错。请检查文件共享网址，然后重试。</translation>
 <translation id="9024331582947483881">全屏</translation>
 <translation id="9025098623496448965">确定，返回登录屏幕</translation>
 <translation id="9026731007018893674">下载</translation>

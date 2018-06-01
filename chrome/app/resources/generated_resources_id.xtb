@@ -2473,7 +2473,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="4862642413395066333">Tanggapan OCSP Penandatanganan</translation>
 <translation id="4864369630010738180">Login...</translation>
 <translation id="486635084936119914">Buka jenis file tertentu secara otomatis setelah didownload</translation>
-<translation id="4869142322204669043">Google dapat menggunakan konten di situs yang Anda buka, aktivitas penjelajahan, dan interaksi untuk mempersonalisasi <ph name="IDS_SHORT_PRODUCT_NAME" /> dan layanan Google lainnya seperti Terjemahan, Penelusuran, dan iklan. Anda dapat menyesuaikannya kapan saja di Setelan.</translation>
+<translation id="4869142322204669043">Google dapat menggunakan konten di situs yang Anda buka, aktivitas browsing, dan interaksi untuk mempersonalisasi <ph name="IDS_SHORT_PRODUCT_NAME" /> dan layanan Google lainnya seperti Terjemahan, Penelusuran, dan iklan. Anda dapat menyesuaikannya kapan saja di Setelan.</translation>
 <translation id="48704129375571883">Tambahkan fitur tambahan</translation>
 <translation id="4870903493621965035">Tidak ada perangkat yang dihubungkan</translation>
 <translation id="4871210892959306034">$1 KB</translation>
@@ -3624,7 +3624,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="6584878029876017575">Microsoft Lifetime Signing</translation>
 <translation id="6585283250473596934">Memasuki sesi publik.</translation>
 <translation id="6586451623538375658">Tukar tombol mouse utama</translation>
-<translation id="6589660129740381104">Untuk membantu Anda lebih mudah mengelola pengalaman saat menggunakan <ph name="IDS_SHORT_PRODUCT_NAME" />, fitur yang terkait dengan sinkronisasi dan personalisasi kini ada di satu kontrol. Mengaktifkannya dapat mengubah setelan saat ini.</translation>
+<translation id="6589660129740381104">Untuk membantu Anda lebih mudah mengelola pengalaman saat menggunakan <ph name="IDS_SHORT_PRODUCT_NAME" />, fitur yang terkait dengan sinkronisasi dan personalisasi kini ada di 1 kontrol. Mengaktifkannya dapat mengubah setelan saat ini.</translation>
 <translation id="6589706261477377614">Tingkatkan kecerahan tombol</translation>
 <translation id="6590458744723262880">Ganti nama folder</translation>
 <translation id="6592267180249644460">Log WebRTC direkam pada <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>

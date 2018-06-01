@@ -248,7 +248,7 @@
 <translation id="1367951781824006909">Alege un fișier</translation>
 <translation id="1368265273904755308">Semnalați o problemă</translation>
 <translation id="1370646789215800222">Elimini persoana?</translation>
-<translation id="1371301976177520732">Marcajele, parolele, istoricul și alte date de pe toate dispozitivele</translation>
+<translation id="1371301976177520732">Marcajele, parolele, istoricul și alte date, pe toate dispozitivele</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 element de eliminat}few{# elemente de eliminat}other{# de elemente de eliminat}}</translation>
 <translation id="1372841398847029212">Sincronizează cu contul tău</translation>
 <translation id="1374844444528092021">Certificatul solicitat de rețeaua „<ph name="NETWORK_NAME" />” nu este instalat sau nu mai este valabil. Obțineți un certificat nou și reîncercați să vă conectați.</translation>
@@ -636,7 +636,7 @@
 <translation id="1942765061641586207">Rezoluția imaginii</translation>
 <translation id="1944921356641260203">A fost găsită o actualizare</translation>
 <translation id="1951615167417147110">Derulează o pagină în sus</translation>
-<translation id="1954813140452229842">Eroare la conectarea la spațiul comun de stocare a fișierelor. Verifică acreditările și încearcă din nou.</translation>
+<translation id="1954813140452229842">Eroare la montarea dispozitivului de stocare în rețea. Verifică acreditările și încearcă din nou.</translation>
 <translation id="1956050014111002555">Fișierul conținea certificate multiple și niciunul dintre acestea nu a fost importat:</translation>
 <translation id="1956390763342388273">Vor fi încărcate toate fișierele din „<ph name="FOLDER_PATH" />”. Fă acest lucru doar dacă ai încredere în site.</translation>
 <translation id="1962233722219655970">Această pagină utilizează o aplicație Client nativ care nu funcționează pe computerul dvs.</translation>
@@ -755,7 +755,7 @@
 <translation id="2143765403545170146">Afișează întotdeauna bara de instrumente în modul Ecran complet</translation>
 <translation id="2143778271340628265">Configurare proxy manuală</translation>
 <translation id="2144536955299248197">Vizualizator de certificate: <ph name="CERTIFICATE_NAME" /></translation>
-<translation id="2148219725039824548">Eroare la conectarea la spațiul comun de stocare a fișierelor. Spațiul comun de stocare a fișierelor indicat nu a fost găsit în rețea.</translation>
+<translation id="2148219725039824548">Eroare la montarea dispozitivului de stocare în rețea. Dispozitivul indicat nu a fost găsit în rețea.</translation>
 <translation id="2148756636027685713">Formatarea a fost finalizată</translation>
 <translation id="2148892889047469596">Proiectează fila</translation>
 <translation id="2149850907588596975">Parole și formulare</translation>
@@ -3297,7 +3297,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="6086846494333236931">Instalată de administrator</translation>
 <translation id="6087960857463881712">Față extraordinară</translation>
 <translation id="6089481419520884864">Faceți conversia paginii</translation>
-<translation id="6091761513005122595">Te-ai conectat la spațiul comun de stocare a fișierelor.</translation>
+<translation id="6091761513005122595">Dispozitivul de stocare în rețea a fost montat.</translation>
 <translation id="6093888419484831006">Se anulează actualizarea...</translation>
 <translation id="6095984072944024315">−</translation>
 <translation id="6096047740730590436">Deschideți aplicația maximizată</translation>
@@ -3927,7 +3927,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="7063957500469387217">Configurează sau gestionează imprimantele în Google Cloud Print.</translation>
 <translation id="7065223852455347715">Acest dispozitiv este blocat într-un mod care împiedică înregistrarea în sistemul companiei. Dacă dorești să înregistrezi dispozitivul, trebuie să parcurgi mai întâi procesul de recuperare a dispozitivului.</translation>
 <translation id="7065534935986314333">Despre sistem</translation>
-<translation id="706626672220389329">Eroare la conectarea la spațiul comun de stocare a fișierelor. Te-ai conectat deja la spațiul comun de stocare a fișierelor indicat.</translation>
+<translation id="706626672220389329">Eroare la montarea dispozitivului de stocare în rețea. Dispozitivul indicat este deja montat.</translation>
 <translation id="7066944511817949584">Conectarea la „<ph name="DEVICE_NAME" />” a eșuat.</translation>
 <translation id="7067725467529581407">Nu mai afișa niciodată acest mesaj.</translation>
 <translation id="7072010813301522126">Numele comenzii rapide</translation>
@@ -4033,7 +4033,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="7229570126336867161">Este necesar EVDO</translation>
 <translation id="7230787553283372882">Personalizează dimensiunea textului</translation>
 <translation id="7232750842195536390">Redenumirea nu a reușit</translation>
-<translation id="7234406375359457793">Eroare la conectarea la spațiul comun de stocare a fișierelor. Spațiul comun de stocare a fișierelor indicat nu este acceptat.</translation>
+<translation id="7234406375359457793">Eroare la montarea dispozitivului de stocare în rețea. Dispozitivul indicat nu este acceptat.</translation>
 <translation id="7238585580608191973">Amprentă digitală SHA-256</translation>
 <translation id="7240120331469437312">Nume alternativ subiect certificat</translation>
 <translation id="7240339475467890413">Te conectezi la noul hotspot?</translation>
@@ -5175,7 +5175,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="897939795688207351">Pe <ph name="ORIGIN" /></translation>
 <translation id="8980951173413349704"><ph name="WINDOW_TITLE" /> – s-a blocat</translation>
 <translation id="8983677657449185470">Contribuie la îmbunătățirea Navigării sigure</translation>
-<translation id="8984654317541110628">Adresa URL a spațiului comun de stocare a fișierelor</translation>
+<translation id="8984654317541110628">Adresa URL a dispozitivului de stocare în rețea</translation>
 <translation id="8986362086234534611">Șterge</translation>
 <translation id="8986494364107987395">Trimite automat la Google statistici de utilizare și rapoarte de blocare</translation>
 <translation id="8987927404178983737">Lună</translation>
@@ -5202,7 +5202,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="9022847679183471841">Acest cont este utilizat deja pe acest computer de <ph name="AVATAR_NAME" />.</translation>
 <translation id="9023009238991294202">Alți utilizatori ai dispozitivului pot folosi această rețea.</translation>
 <translation id="9024127637873500333">&amp;Deschideți într-o filă nouă</translation>
-<translation id="9024158959543687197">Eroare la conectarea la spațiul comun de stocare a fișierelor. Verifică adresa URL a spațiului comun de stocare a fișierelor și încearcă din nou.</translation>
+<translation id="9024158959543687197">Eroare la montarea dispozitivului de stocare în rețea. Verifică adresa URL a dispozitivului și încearcă din nou.</translation>
 <translation id="9024331582947483881">ecran complet</translation>
 <translation id="9025098623496448965">OK, revin la ecranul de conectare</translation>
 <translation id="9026731007018893674">descărcare</translation>

@@ -1564,7 +1564,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="3407837288045706722">Per trobar més opcions relacionades amb la privadesa, la seguretat i la recopilació de dades, consulta <ph name="BEGIN_LINK" />Sincronització i personalització<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Ves directament a la selecció</translation>
 <translation id="3413122095806433232">Emissors de CA: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Destaca el que vulguis escoltar i, a continuació, prem Cerca+S. També pots mantenir premuda la tecla Cerca o tocar la icona d'Escolta la selecció que hi ha a prop de la teva imatge de perfil; tot seguit, selecciona una part del text per escoltar-lo en veu alta.</translation>
+<translation id="3414791204526549759">Destaca el que vulguis escoltar i, a continuació, prem Cerca+S. També pots mantenir premuda la tecla Cerca o tocar la icona d'Escolta la selecció que hi ha a prop de la teva imatge de perfil; tot seguit, selecciona una part del text per sentir-la en veu alta.</translation>
 <translation id="3414856743105198592">Si formateu els suports extraïbles esborrareu totes les dades. Voleu continuar?</translation>
 <translation id="3414952576877147120">Mida:</translation>
 <translation id="3420980393175304359">Canviar de persona</translation>
@@ -4560,7 +4560,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8012382203418782830">Aquesta pàgina s'ha traduït.</translation>
 <translation id="8014154204619229810">L'actualitzador està en funcionament. Actualitzeu la pantalla d'aquí a un minut per tornar-ho a comprovar.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> no pot canviar a la versió anterior instal·lada. Torneu a provar de fer un Powerwash al dispositiu.</translation>
-<translation id="8014210335923519270">Envia a Google informació del sistema i dades sobre l'ús de <ph name="IDS_SHORT_PRODUCT_NAME" /> per millorar aquest servei i protegir-lo millor</translation>
+<translation id="8014210335923519270">Envia a Google informació del sistema i dades sobre l'ús de <ph name="IDS_SHORT_PRODUCT_NAME" /> per millorar aquest servei i la seva seguretat</translation>
 <translation id="8016266267177410919">Emmagatzematge temporal</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">S'ha editat la drecera</translation>
@@ -5230,7 +5230,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="9064275926664971810">Activa Emplenament automàtic per emplenar els formularis amb un sol clic</translation>
 <translation id="9064939804718829769">S'està transferint...</translation>
 <translation id="9065203028668620118">Edita</translation>
-<translation id="9066773882585798925">Escolta text en veu alta</translation>
+<translation id="9066773882585798925">Sent text en veu alta</translation>
 <translation id="9066782832737749352">Síntesi de veu</translation>
 <translation id="9070219033670098627">Canvia de persona</translation>
 <translation id="9071637495340542136">S'està instal·lant <ph name="APP_NAME" />...</translation>

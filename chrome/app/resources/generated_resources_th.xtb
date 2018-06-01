@@ -620,7 +620,7 @@
 <translation id="1919345977826869612">โฆษณา</translation>
 <translation id="1919814239594435008">อนุญาตปลั๊กอินที่ไม่ได้อยู่ในแซนด์บ็อกซ์</translation>
 <translation id="1921584744613111023"><ph name="DPI" /> dpi</translation>
-<translation id="1924559387127953748">ดูตัวเลือกตัวเลือกเจ๋งๆ ของ Google ใน <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
+<translation id="1924559387127953748">ดูตัวเลือกดีๆ จาก Google ใน <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
 <translation id="192494336144674234">เปิดด้วย</translation>
 <translation id="1925021887439448749">ป้อนที่อยู่เว็บที่กำหนดเอง</translation>
 <translation id="1926339101652878330">การตั้งค่านี้ควบคุมโดยนโยบายองค์กร โปรดสอบถามข้อมูลเพิ่มเติมจากผู้ดูแลระบบ</translation>
@@ -2473,7 +2473,7 @@
 <translation id="4862642413395066333">การเซ็นชื่อในการตอบสนอง OCSP</translation>
 <translation id="4864369630010738180">กำลังลงชื่อเข้าใช้...</translation>
 <translation id="486635084936119914">เปิดไฟล์บางประเภทโดยอัตโนมัติหลังจากที่ดาวน์โหลดมา</translation>
-<translation id="4869142322204669043">Google อาจใช้เนื้อหาในเว็บไซต์ที่คุณเข้าชมและกิจกรรมการท่องเว็บเพื่อปรับ <ph name="IDS_SHORT_PRODUCT_NAME" /> และบริการอื่นๆ ของ Google เช่น แปลภาษา Search และโฆษณาให้เหมาะกับคุณ ปรับแต่งค่านี้ได้ทุกเมื่อในการตั้งค่า</translation>
+<translation id="4869142322204669043">Google อาจใช้เนื้อหาในเว็บไซต์ที่คุณเข้าชมและกิจกรรมการท่องเว็บเพื่อปรับ <ph name="IDS_SHORT_PRODUCT_NAME" /> และบริการอื่นๆ ของ Google เช่น การแปลภาษา การค้นหา และโฆษณาให้เหมาะกับคุณ ปรับแต่งค่านี้ได้ทุกเมื่อในการตั้งค่า</translation>
 <translation id="48704129375571883">เพิ่มฟีเจอร์</translation>
 <translation id="4870903493621965035">ไม่มีอุปกรณ์ที่จับคู่</translation>
 <translation id="4871210892959306034">$1 KB</translation>

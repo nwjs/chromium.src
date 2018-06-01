@@ -248,7 +248,7 @@
 <translation id="1367951781824006909">Velg en fil</translation>
 <translation id="1368265273904755308">Rapportér problem</translation>
 <translation id="1370646789215800222">Vil du fjerne personen?</translation>
-<translation id="1371301976177520732">Bokmerkene dine, loggen din og mer på alle enhetene dine.</translation>
+<translation id="1371301976177520732">Bokmerkene dine, loggen din med mer på alle enhetene dine.</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 element som skal fjernes}other{# elementer som skal fjernes}}</translation>
 <translation id="1372841398847029212">Synkroniser til kontoen din</translation>
 <translation id="1374844444528092021">Sertifikatet som kreves av nettverket «<ph name="NETWORK_NAME" />» mangler eller er ikke gyldig lenger. Hent et nytt sertifikat og prøv å koble til på nytt.</translation>
@@ -1561,7 +1561,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="3407837288045706722">Se <ph name="BEGIN_LINK" />Synkronisering og personlig tilpasning<ph name="END_LINK" /> for flere innstillinger som er relatert til personvern, sikkerhet og datainnsamling.</translation>
 <translation id="3412265149091626468">Gå til utvalg</translation>
 <translation id="3413122095806433232">Sertifiseringsinstanser: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Fremhev det du vil høre, og trykk på Søk + S. Eller trykk og hold på Søk, eller trykk på tekstopplesing-ikonet ved profilbildet ditt, og deretter velg et område som skal leses høyt.</translation>
+<translation id="3414791204526549759">Fremhev det du vil høre, og trykk på Søk + S. Eller trykk og hold på Søk, eller trykk på tekstopplesing-ikonet ved profilbildet ditt, og velg deretter et område som skal leses høyt.</translation>
 <translation id="3414856743105198592">Hvis du formaterer den flyttbare medieenheten, blir alle dataene slettet. Vil du fortsette?</translation>
 <translation id="3414952576877147120">Størrelse:</translation>
 <translation id="3420980393175304359">Bytt person</translation>
@@ -2466,7 +2466,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="4862642413395066333">Signering av OCSP-svar</translation>
 <translation id="4864369630010738180">Logger på ...</translation>
 <translation id="486635084936119914">Åpne visse filtyper automatisk når de lastes ned</translation>
-<translation id="4869142322204669043">Google kan bruke innhold på nettsteder du besøker, nettleseraktiviteten og andre interaksjoner for å personlig tilpasse <ph name="IDS_SHORT_PRODUCT_NAME" /> og andre Google-tjenester (som Oversetter, Søk og annonser). Du kan når som helst tilpasse dette i innstillingene.</translation>
+<translation id="4869142322204669043">Google kan bruke innhold på nettsteder du besøker, nettleseraktiviteten og andre interaksjoner for å gi <ph name="IDS_SHORT_PRODUCT_NAME" /> og andre Google-tjenester (som Oversetter, Søk og annonser) et personlig preg. Du kan når som helst tilpasse dette i innstillingene.</translation>
 <translation id="48704129375571883">Legg til flere funksjoner</translation>
 <translation id="4870903493621965035">Ingen sammenkoblede enheter</translation>
 <translation id="4871210892959306034">$1 KB</translation>
@@ -2538,7 +2538,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="4953689047182316270">Svar på tilgjengelighetshendelser</translation>
 <translation id="4953808748584563296">Oransje standardbrukerbilde</translation>
 <translation id="4955814292505481804">Årlig</translation>
-<translation id="4957949153200969297">Bare aktivert funksjoner knyttet til <ph name="IDS_SHORT_PRODUCT_NAME" />-synkronisering</translation>
+<translation id="4957949153200969297">Slår bare på funksjoner knyttet til <ph name="IDS_SHORT_PRODUCT_NAME" />-synkronisering</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
 <translation id="496226124210045887">Mappen du valgte inneholder sensitive filer. Er du sikker på at du vil gi «$1» permanent lesetilgang til denne mappen?</translation>
 <translation id="4964455510556214366">Oppsett</translation>
@@ -3289,7 +3289,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="6086846494333236931">Installert av administratoren din</translation>
 <translation id="6087960857463881712">Fantastisk-fjes</translation>
 <translation id="6089481419520884864">Destiller siden</translation>
-<translation id="6091761513005122595">Delingen ble innsatt.</translation>
+<translation id="6091761513005122595">Delingen er aktivert.</translation>
 <translation id="6093888419484831006">Avbryter oppdatering …</translation>
 <translation id="6095984072944024315">−</translation>
 <translation id="6096047740730590436">Maksimer ved åpning</translation>
@@ -3423,7 +3423,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="6286684120317096255">Databruken blir målt</translation>
 <translation id="6286708577777130801">Lagrede passorddetaljer</translation>
 <translation id="6287852322318138013">Velg en app for å åpne denne filen</translation>
-<translation id="6289452883081499048">Google-tjenester med personlig tilpasning, som for eksempel Play</translation>
+<translation id="6289452883081499048">Google-tjenester med et personlig preg, som for eksempel Play</translation>
 <translation id="6290556621549272952">Du kan bruke denne funksjonen for å vise innhold fra Chromium på TV-en eller andre enheter.</translation>
 <translation id="6291949900244949761">Spør når et nettsted vil ha tilgang til USB-enheter (anbefales)</translation>
 <translation id="6291953229176937411">&amp;Vis i Finder</translation>
@@ -3550,7 +3550,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="6478248366783946499">Vil du beholde den farlige filen?</translation>
 <translation id="6483805311199035658">Åpner <ph name="FILE" /> ...</translation>
 <translation id="6485131920355264772">Kunne ikke hente informasjon om lagringsplass</translation>
-<translation id="648637985389593741">Fortsett, slå på funksjoner for synkronisering og personlig tilpasning</translation>
+<translation id="648637985389593741">Kom igjen, slå på funksjoner for synkronisering og personlig tilpasning</translation>
 <translation id="6488384360522318064">Velg språk</translation>
 <translation id="648927581764831596">Ikke tilgjengelig</translation>
 <translation id="6490936204492416398">Installer en ny fra nettmarkedet</translation>
@@ -3615,7 +3615,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="6584878029876017575">Microsoft-livstidssignering</translation>
 <translation id="6585283250473596934">Starter offentlig økt …</translation>
 <translation id="6586451623538375658">Bytt primær museknapp</translation>
-<translation id="6589660129740381104">For å hjelpe deg med å administrere erfaringen din i <ph name="IDS_SHORT_PRODUCT_NAME" />, har funksjoner knyttet til synkronisering og personlig tilpasning nå én og samme kontroll. Hvis dette slås på, kan det endre de nåværende innstillingene dine.</translation>
+<translation id="6589660129740381104">For å hjelpe deg med å administrere opplevelsen din i <ph name="IDS_SHORT_PRODUCT_NAME" />, har funksjoner knyttet til synkronisering og personlig tilpasning nå én og samme kontroll. Hvis du slår på dette, endrer du kanskje de nåværende innstillingene dine.</translation>
 <translation id="6589706261477377614">Øk lysstyrke for taster</translation>
 <translation id="6590458744723262880">Gi mappen nytt navn</translation>
 <translation id="6592267180249644460">WebRTC-loggen ble lagret <ph name="WEBRTC_LOG_CAPTURE_TIME" /></translation>
@@ -3810,7 +3810,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="6898440773573063262">Nå kan kioskapper konfigureres til å starte automatisk på denne enheten.</translation>
 <translation id="6898699227549475383">Organisasjon (O)</translation>
 <translation id="6900284862687837908">Bakgrunnsapp: <ph name="BACKGROUND_APP_URL" /></translation>
-<translation id="6902066522699286937">Tale til forhåndsvisning</translation>
+<translation id="6902066522699286937">Forhåndsutdrag av tekst til tale</translation>
 <translation id="6902837902700739466">Knytt enhet til domene</translation>
 <translation id="6903534926908201625">Du kan når som helst tilpasse hvilken informasjon Google samler inn, i <ph name="BEGIN_LINK" />innstillingene<ph name="END_LINK" />.</translation>
 <translation id="6904344821472985372">Opphev filtilgangen</translation>
@@ -3918,7 +3918,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="7063957500469387217">Konfigurer eller administrer skrivere i Google Cloud Print.</translation>
 <translation id="7065223852455347715">Denne enheten er låst i en modus som forhindrer bedriftsregistrering. Hvis du vil registrere enheten, må du du gjenopprette enheten først.</translation>
 <translation id="7065534935986314333">Om systemet</translation>
-<translation id="706626672220389329">Feil ved innsetting av deling. Den spesifiserte delingen er allerede innsatt.</translation>
+<translation id="706626672220389329">Feil ved aktivering av deling. Den spesifiserte delingen er allerede aktivert.</translation>
 <translation id="7066944511817949584">Kunne ikke tilknytte «<ph name="DEVICE_NAME" />».</translation>
 <translation id="7067725467529581407">Ikke vis dette igjen.</translation>
 <translation id="7072010813301522126">Snarveisnavn</translation>
@@ -4024,7 +4024,7 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet.</translation>
 <translation id="7229570126336867161">Krever EVDO</translation>
 <translation id="7230787553283372882">Tilpass tekststørrelsen</translation>
 <translation id="7232750842195536390">Navneendringen mislyktes</translation>
-<translation id="7234406375359457793">Feil ved innsetting av deling. Den spesifiserte delingen støttes ikke.</translation>
+<translation id="7234406375359457793">Feil ved aktivering av deling. Den spesifiserte delingen støttes ikke.</translation>
 <translation id="7238585580608191973">SHA-256-fingeravtrykk</translation>
 <translation id="7240120331469437312">Alternativt navn på sertifikatemne</translation>
 <translation id="7240339475467890413">Vil du koble til den nye Wi-Fi-sonen?</translation>
@@ -4354,7 +4354,7 @@ Når du installerer <ph name="APP_NAME" />, blir det lastet ned <ph name="DOWNLO
 <translation id="7772127298218883077">Om <ph name="PRODUCT_NAME" /></translation>
 <translation id="7772773261844472235">Sjekk statusen for Chromebooken</translation>
 <translation id="7773726648746946405">Øktlagring</translation>
-<translation id="7776701556330691704">Fant ingen tale</translation>
+<translation id="7776701556330691704">Fant ingen stemmer</translation>
 <translation id="7781335840981796660">Alle brukerkontoer og lokale data fjernes.</translation>
 <translation id="7782102568078991263">Google har ikke flere forslag</translation>
 <translation id="778330624322499012"><ph name="PLUGIN_NAME" /> kunne ikke lastes inn</translation>
@@ -4552,7 +4552,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8012382203418782830">Denne siden er oversatt.</translation>
 <translation id="8014154204619229810">Oppdateringsprogrammet kjører. Last inn siden på nytt om en liten stund for å sjekke igjen.</translation>
 <translation id="8014206674403687691"><ph name="IDS_SHORT_PRODUCT_NAME" /> kunne ikke tilbakestilles til forrige versjon. Prøv å utføre en powerwash av enheten på nytt.</translation>
-<translation id="8014210335923519270">Forbedre <ph name="IDS_SHORT_PRODUCT_NAME" /> og sikkerheten ved å sende systeminformasjon og bruk til Google</translation>
+<translation id="8014210335923519270">Gjør <ph name="IDS_SHORT_PRODUCT_NAME" /> bedre og sikrere ved å sende systeminformasjon og bruk til Google</translation>
 <translation id="8016266267177410919">Midlertidig lagring</translation>
 <translation id="8017335670460187064"><ph name="LABEL" /></translation>
 <translation id="8017679124341497925">Snarveien er endret</translation>
@@ -4697,7 +4697,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="8241806945692107836">Fastslår enhetskonfigurasjonen …</translation>
 <translation id="8241868517363889229">lese og endre bokmerker</translation>
 <translation id="8242426110754782860">Gå videre</translation>
-<translation id="8244514732452879619">Det er snart tid for å slukke lyset</translation>
+<translation id="8244514732452879619">Det er snart på tide å slukke lyset</translation>
 <translation id="8246209727385807362">Ukjent operatør</translation>
 <translation id="8248050856337841185">&amp;Lim inn</translation>
 <translation id="8249048954461686687">OEM-mappe</translation>
@@ -5185,7 +5185,7 @@ Oppbevar nøkkelfilen på et trygt sted. Du får bruk for den når du skal oppre
 <translation id="9022847679183471841">Denne kontoen er allerede i bruk på denne datamaskinen, av <ph name="AVATAR_NAME" />.</translation>
 <translation id="9023009238991294202">Andre brukere av denne enheten kan bruke dette nettverket.</translation>
 <translation id="9024127637873500333">&amp;Åpne i ny fane</translation>
-<translation id="9024158959543687197">Feil ved innsetting av deling. Sjekk nettadressen for fildeling og prøv igjen.</translation>
+<translation id="9024158959543687197">Feil ved aktivering av deling. Sjekk nettadressen for fildeling og prøv igjen.</translation>
 <translation id="9024331582947483881">full skjerm</translation>
 <translation id="9025098623496448965">OK, ta meg tilbake til påloggingsskjermen</translation>
 <translation id="9026731007018893674">last ned</translation>
