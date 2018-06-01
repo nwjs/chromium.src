@@ -833,6 +833,8 @@ public class ChromeTabbedActivity
             };
             OnClickListener bookmarkClickHandler = v -> addOrEditBookmark(getActivityTab());
             OnClickListener incognitoClickHandler = v -> {
+                if (!mLayoutManager.getActiveLayout().shouldAllowIncognitoSwitching()) return;
+
                 if (mTabModelSelectorImpl != null) {
                     mTabModelSelectorImpl.selectModel(!mTabModelSelectorImpl.isIncognitoSelected());
                 }
