@@ -159,6 +159,12 @@ class WebSocketStreamRequestImpl : public WebSocketStreamRequest {
   }
 
   void PerformUpgrade() {
+    // Fail gracefully instead of crashing.  TODO(bnc): Investigate and fix.
+    if (!handshake_stream_ || !connect_delegate_) {
+      ReportFailure(ERR_NOT_IMPLEMENTED);
+      return;
+    }
+
     DCHECK(timer_);
     DCHECK(handshake_stream_);
 
