@@ -4,6 +4,7 @@
 
 #include "chrome/browser/conflicts/installed_programs_win.h"
 
+#include <algorithm>
 #include <map>
 
 #include "base/macros.h"
@@ -69,9 +70,8 @@ class InstalledProgramsTest : public testing::Test {
   InstalledProgramsTest() = default;
   ~InstalledProgramsTest() override = default;
 
-  // ASSERT_NO_FATAL_FAILURE cannot be used in a constructor so the registry
-  // hive overrides are done here.
-  void SetUp() override {
+  // Overrides HKLM and HKCU to prevent real keys from messing with the tests.
+  void OverrideRegistry() {
     ASSERT_NO_FATAL_FAILURE(
         registry_override_manager_.OverrideRegistry(HKEY_LOCAL_MACHINE));
     ASSERT_NO_FATAL_FAILURE(
@@ -167,6 +167,8 @@ TEST_F(InstalledProgramsTest, InvalidEntries) {
       },
   };
 
+  ASSERT_NO_FATAL_FAILURE(OverrideRegistry());
+
   for (const auto& test_case : kTestCases)
     AddFakeProgram(test_case);
 
@@ -193,6 +195,8 @@ TEST_F(InstalledProgramsTest, InstallLocation) {
       },
       kInstallLocation,
   };
+
+  ASSERT_NO_FATAL_FAILURE(OverrideRegistry());
 
   AddFakeProgram(kTestCase);
 
@@ -234,6 +238,8 @@ TEST_F(InstalledProgramsTest, Msi) {
           L"c:\\windows\\system32\\file4.dll",
       },
   };
+
+  ASSERT_NO_FATAL_FAILURE(OverrideRegistry());
 
   AddFakeProgram(kTestCase);
 
@@ -285,6 +291,8 @@ TEST_F(InstalledProgramsTest, PrioritizeMsi) {
       },
   };
 
+  ASSERT_NO_FATAL_FAILURE(OverrideRegistry());
+
   AddFakeProgram(kInstallLocationFakeProgram);
   AddFakeProgram(kMsiFakeProgram);
 
@@ -322,6 +330,8 @@ TEST_F(InstalledProgramsTest, ConflictingInstallLocations) {
       kInstallLocationChild,
   };
 
+  ASSERT_NO_FATAL_FAILURE(OverrideRegistry());
+
   AddFakeProgram(kFakeProgram1);
   AddFakeProgram(kFakeProgram2);
 
@@ -330,4 +340,26 @@ TEST_F(InstalledProgramsTest, ConflictingInstallLocations) {
   std::vector<InstalledPrograms::ProgramInfo> programs;
   EXPECT_FALSE(installed_programs().GetInstalledPrograms(base::FilePath(kFile),
                                                          &programs));
+}
+
+// This test ensures that each uninstall registry key is only read once, and
+// thus no programs are picked up twice.
+// This is possible if the same registry key is requested for both the 32-bit
+// and 64-bit view but either that key is shared between the views, or the host
+// OS is 32-bit, and there is no 64-bit view.
+TEST_F(InstalledProgramsTest, NoDuplicates) {
+  InitializeInstalledPrograms();
+
+  auto programs = installed_programs().programs_;
+  std::sort(std::begin(programs), std::end(programs));
+  EXPECT_EQ(std::end(programs),
+            std::adjacent_find(std::begin(programs), std::end(programs),
+                               [](const auto& lhs, const auto& rhs) {
+                                 return std::tie(lhs.name, lhs.registry_root,
+                                                 lhs.registry_key_path,
+                                                 lhs.registry_wow64_access) ==
+                                        std::tie(rhs.name, rhs.registry_root,
+                                                 rhs.registry_key_path,
+                                                 rhs.registry_wow64_access);
+                               }));
 }
