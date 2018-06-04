@@ -121,6 +121,8 @@ class OmniboxViewViews : public OmniboxView,
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, MaintainCursorAfterFocusCycle);
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, OnBlur);
   FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsTest, DoNotNavigateOnDrop);
+                           NegligibleDragKeepsElisions);
+  FRIEND_TEST_ALL_PREFIXES(OmniboxViewViewsSteadyStateElisionsTest,
   friend class OmniboxViewViewsSteadyStateElisionsTest;
 
   // Update the field with |text| and set the selection.
