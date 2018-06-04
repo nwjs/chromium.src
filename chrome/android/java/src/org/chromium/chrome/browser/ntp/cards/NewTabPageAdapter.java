@@ -115,9 +115,16 @@ public class NewTabPageAdapter extends Adapter<NewTabPageViewHolder> implements 
             mRoot.addChild(mSiteSection);
         }
 
-        mRoot.addChild(mSections);
-        if (mSigninPromo != null) mRoot.addChild(mSigninPromo);
-        mRoot.addChild(mAllDismissed);
+        if (SuggestionsConfig.scrollToLoad()) {
+            // If scroll-to-load is enabled, show the sign-in promo above suggested content.
+            if (mSigninPromo != null) mRoot.addChild(mSigninPromo);
+            mRoot.addChild(mAllDismissed);
+            mRoot.addChild(mSections);
+        } else {
+            mRoot.addChild(mSections);
+            if (mSigninPromo != null) mRoot.addChild(mSigninPromo);
+            mRoot.addChild(mAllDismissed);
+        }
 
         mFooter = new Footer();
         mRoot.addChild(mFooter);
