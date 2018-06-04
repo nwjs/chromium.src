@@ -253,7 +253,7 @@ void ThreadState::RunTerminationGC() {
     }
   }
 
-  CHECK(!GetPersistentRegion()->NumberOfPersistents());
+  DCHECK(!GetPersistentRegion()->NumberOfPersistents());
 
   // All of pre-finalizers should be consumed.
   DCHECK(ordered_pre_finalizers_.IsEmpty());
