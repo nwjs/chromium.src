@@ -178,6 +178,7 @@
 <translation id="2717271541250958000">панель вкладок</translation>
 <translation id="2723001399770238859">аудіо</translation>
 <translation id="2732718972699418926">дп</translation>
+<translation id="2737520612859577214">Кінець надрядкового тексту</translation>
 <translation id="2749275490991666823">З прапорцем</translation>
 <translation id="27527859628328957">Перейти до наступного інтерактивного елемента</translation>
 <translation id="276402504937943375">зміст</translation>
@@ -202,6 +203,7 @@
 <translation id="288178314850623291">Щоб переходити до елементів певного типу, використовуйте команди переходу. Наприклад, щоб переходити між заголовками, натискайте Search+H (уперед) або Search+Shift+H (назад).</translation>
 <translation id="2894654529758326923">Інформація</translation>
 <translation id="2899328121302785497">{COUNT,plural, =1{ліва фігурна дужка}one{# ліва фігурна дужка}few{# ліві фігурні дужки}many{# лівих фігурних дужок}other{# left braces}}</translation>
+<translation id="2909478709401302630">Початок надрядкового тексту</translation>
 <translation id="2911433807131383493">Відкрити навчальний посібник ChromeVox</translation>
 <translation id="2932083475399492303">Переключення між структурною лінією та лінією розмітки</translation>
 <translation id="2944762337049891859">Автоматично озвучувати сторінку, коли вона завантажиться.</translation>
@@ -383,6 +385,7 @@
 <translation id="4148180433151187540">{COUNT,plural, =1{права фігурна дужка}one{# права фігурна дужка}few{# праві фігурні дужки}many{# правих фігурних дужок}other{# right braces}}</translation>
 <translation id="4158704014418536539">Ураховується регістр.</translation>
 <translation id="4161663686871496107">Голосові підказки ChromeVox активовано</translation>
+<translation id="4166192625054637755">Кінець підрядкового тексту</translation>
 <translation id="4173994908659439270">Немає наступного текстового поля для редагування.</translation>
 <translation id="4176463684765177261">Вимкнено</translation>
 <translation id="4188530942454211480">Попереднє речення</translation>
@@ -526,6 +529,7 @@
 <translation id="5330443287809544590"><ph name="NAME" />, посилання</translation>
 <translation id="5336381510091010269">вбудоване автозавершення та список</translation>
 <translation id="5349770431644471053">Зворотне посилання</translation>
+<translation id="5350654862897073517">Початок підрядкового тексту</translation>
 <translation id="536031132345979795">Перехід назад під час безперервного читання</translation>
 <translation id="5368000168321181111">Звуковий ефект вимкнено</translation>
 <translation id="5374320867641260420">Немає наступної кнопки.</translation>

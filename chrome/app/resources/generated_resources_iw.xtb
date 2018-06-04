@@ -248,7 +248,7 @@
 <translation id="1367951781824006909">בחר קובץ</translation>
 <translation id="1368265273904755308">דיווח על בעיה</translation>
 <translation id="1370646789215800222">האם להסיר את המשתמש?</translation>
-<translation id="1371301976177520732">הסימניות, הסיסמאות, ההיסטוריה ונתונים נוספים שלך בכל המכשירים שברשותך</translation>
+<translation id="1371301976177520732">הסימניות, הסיסמאות, ההיסטוריה ונתונים נוספים שלך - בכל המכשירים שברשותך</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{פריט אחד להסרה}two{# פריטים להסרה}many{# פריטים להסרה}other{# פריטים להסרה}}</translation>
 <translation id="1372841398847029212">סנכרון עם החשבון שלך</translation>
 <translation id="1374844444528092021">האישור הנדרש על ידי הרשת "<ph name="NETWORK_NAME" />" אינו מותקן או שכבר אינו חוקי. קבל אישור חדש ונסה להתחבר שוב.</translation>
@@ -617,7 +617,7 @@
 <translation id="1919345977826869612">מודעות</translation>
 <translation id="1919814239594435008">פלאגין ללא ארגז חול הותר</translation>
 <translation id="1921584744613111023">‏dpi‏ <ph name="DPI" /></translation>
-<translation id="1924559387127953748">‏גישה ליכולות החכמות של Google ב-<ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
+<translation id="1924559387127953748">‏ליהנות מהיכולות החכמות של Google ב-<ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
 <translation id="192494336144674234">פתח באמצעות</translation>
 <translation id="1925021887439448749">הזן כתובת אינטרנט מותאמת אישית</translation>
 <translation id="1926339101652878330">ההגדרות האלה נשלטות על פי מדיניות הארגון. צור קשר עם מנהל המערכת שלך לקבלת מידע נוסף.</translation>

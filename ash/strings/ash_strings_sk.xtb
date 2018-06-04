@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">Zariadenie Bluetooth s názvom <ph name="DEVICE_NAME" /> žiada o povolenie párovania.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> do úplného nabitia</translation>
 <translation id="4544944664594876241">Skratka uzamknutia obrazovky bola zmenená. Namiesto skratky <ph name="OLD_SHORTCUT" /> používajte kombináciu klávesov <ph name="NEW_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Služba písiem</translation>
 <translation id="4570957409596482333">Tlačidlo počúvania vybraného textu</translation>
 <translation id="4659419629803378708">Funkcia ChromeVox je povolená</translation>
 <translation id="4776917500594043016">Heslo pre účet <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">Presunutie klepnutím</translation>
 <translation id="5777841717266010279">Chcete ukončiť zdieľanie obrazovky?</translation>
 <translation id="57838592816432529">Vypnúť zvuk</translation>
+<translation id="5805697420284793859">Správca okien</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Pridať osobu</translation>
 <translation id="5860033963881614850">Vypnuté</translation>
 <translation id="5895138241574237353">Reštartovať</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">Zobrazovač skratiek</translation>
 <translation id="5916664084637901428">Zapnuté</translation>
 <translation id="5927132638760172455">Prebieha prenášanie na neznámy prijímač</translation>
 <translation id="5947494881799873997">Vrátiť</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">Neboli nájdené žiadne mobilné zariadenia.</translation>
 <translation id="671928215901716392">Uzamknúť obrazovku</translation>
 <translation id="6723839937902243910">Napájanie</translation>
+<translation id="6725073593266469338">Služba používateľského rozhrania</translation>
 <translation id="6785414152754474415">Batéria je nabitá na <ph name="PERCENTAGE" /> % a nabíja sa.</translation>
 <translation id="6803622936009808957">Obraz na monitoroch sa nedá zrkadliť, pretože sa nenašli podporované rozlíšenia. Namiesto toho sa spustil režim rozšírenej pracovnej plochy.</translation>
 <translation id="6820676911989879663">Urobte si prestávku.</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">Vytvoriť poznámku</translation>
 <translation id="8392451568018454956">Ponuka možností pre používateľa <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">Nastavenia</translation>
+<translation id="8431190899827883166">Zobrazovanie klepnutí</translation>
 <translation id="8433186206711564395">Nastavenia siete</translation>
 <translation id="8433977262951327081">Klávesová skratka na zobrazenie bubliny s možnosťami vstupu na poličke sa zmenila. Namiesto skratky <ph name="OLD_SHORTCUT" /> použite skratku <ph name="NEW_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">Chýba SIM karta</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">Asistent Google nehovorí týmto jazykom.</translation>
 <translation id="8938800817013097409">Zariadenie USB-C (pravý port vzadu)</translation>
 <translation id="8940956008527784070">Kapacita batérie je nízka (<ph name="PERCENTAGE" /> %)</translation>
+<translation id="8984179138335769204">Rýchle spustenie</translation>
 <translation id="8995603266996330174">Spravované doménou <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi‑Fi: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">Ak sa chcete odhlásiť, stlačte dvakrát kombináciu klávesov Ctrl, Shift a Q.</translation>
 <translation id="945522503751344254">Poslať spätnú väzbu</translation>
 <translation id="98515147261107953">Na šírku</translation>
+<translation id="995927048686010764">Automatické klikanie</translation>
 </translationbundle>
