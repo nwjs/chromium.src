@@ -112,8 +112,10 @@ void ResourceLoader::Start() {
 
   // Synchronous requests should not work with a throttling. Also, disables
   // throttling for the case that can be used for aka long-polling requests.
+  // We also disable throttling for non-http[s] requests.
   if (resource_->Options().synchronous_policy == kRequestSynchronously ||
-      !IsThrottlableRequestContext(request.GetRequestContext())) {
+      !IsThrottlableRequestContext(request.GetRequestContext()) ||
+      !request.Url().ProtocolIsInHTTPFamily()) {
     throttle_option = ResourceLoadScheduler::ThrottleOption::kCanNotBeThrottled;
   }
 
