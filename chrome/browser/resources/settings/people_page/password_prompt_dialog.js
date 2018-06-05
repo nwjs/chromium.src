@@ -30,6 +30,10 @@
 Polymer({
   is: 'settings-password-prompt-dialog',
 
+  behaviors: [
+    LockStateBehavior,
+  ],
+
   properties: {
     /**
      * A wrapper around chrome.quickUnlockPrivate.setModes with the account
@@ -65,12 +69,6 @@ Polymer({
      * @private
      */
     passwordInvalid_: Boolean,
-
-    /**
-     * Interface for chrome.quickUnlockPrivate calls. May be overriden by tests.
-     * @private {QuickUnlockPrivate}
-     */
-    quickUnlockPrivate_: {type: Object, value: chrome.quickUnlockPrivate},
 
     /**
      * writeUma_ is a function that handles writing uma stats. It may be
@@ -119,7 +117,7 @@ Polymer({
       return;
     }
 
-    this.quickUnlockPrivate_.getAuthToken(password, (tokenInfo) => {
+    this.quickUnlockPrivate.getAuthToken(password, (tokenInfo) => {
       if (chrome.runtime.lastError) {
         this.passwordInvalid_ = true;
         // Select the whole password if user entered an incorrect password.
@@ -137,7 +135,7 @@ Polymer({
       // Create the |this.setModes| closure and automatically clear it after
       // tokenInfo.lifetimeSeconds.
       this.setModes = (modes, credentials, onComplete) => {
-        this.quickUnlockPrivate_.setModes(
+        this.quickUnlockPrivate.setModes(
             tokenInfo.token, modes, credentials, () => {
               let result = true;
               if (chrome.runtime.lastError) {
@@ -174,6 +172,17 @@ Polymer({
   /** @private */
   onValueChanged_: function() {
     this.confirmEnabled_ = this.$.passwordInput.value && !this.passwordInvalid_;
+  },
+
+  /**
+   * Looks up the translation id, which depends on PIN login support.
+   * @param {boolean} hasPinLogin
+   * @private
+   */
+  selectPasswordPromptEnterPasswordString(hasPinLogin) {
+    if (hasPinLogin)
+      return this.i18n('passwordPromptEnterPasswordLoginLock');
+    return this.i18n('passwordPromptEnterPasswordLock');
   },
 });
 })();
