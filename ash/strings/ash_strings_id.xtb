@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">Perangkat Bluetooth "<ph name="DEVICE_NAME" />" meminta izin untuk bersanding.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> sampai penuh</translation>
 <translation id="4544944664594876241">Pintasan untuk mengunci layar telah berubah. Gunakan <ph name="NEW_SHORTCUT" /> sebagai gantinya <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Font service</translation>
 <translation id="4570957409596482333">Tombol Klik untuk Diucapkan</translation>
 <translation id="4659419629803378708">ChromeVox diaktifkan</translation>
 <translation id="4776917500594043016">Sandi untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">Tap tarik</translation>
 <translation id="5777841717266010279">Berhenti membagikan layar?</translation>
 <translation id="57838592816432529">Bisukan</translation>
+<translation id="5805697420284793859">Window manager</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Tambahkan Pengguna</translation>
 <translation id="5860033963881614850">Nonaktif</translation>
 <translation id="5895138241574237353">Mulai Ulang</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">Shortcut viewer</translation>
 <translation id="5916664084637901428">Aktif</translation>
 <translation id="5927132638760172455">Mentransmisi ke penerima tak dikenal</translation>
 <translation id="5947494881799873997">Kembalikan</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">Perangkat seluler tidak ditemukan.</translation>
 <translation id="671928215901716392">Kunci layar</translation>
 <translation id="6723839937902243910">Daya</translation>
+<translation id="6725073593266469338">UI service</translation>
 <translation id="6785414152754474415">Baterai sudah terisi <ph name="PERCENTAGE" />% dan masih mengisi.</translation>
 <translation id="6803622936009808957">Tidak dapat menggandakan tampilan karena tidak ditemukan resolusi yang didukung. Memasuki desktop yang diperluas sebagai gantinya.</translation>
 <translation id="6820676911989879663">Istirahatlah sebentar</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">Buat catatan</translation>
 <translation id="8392451568018454956">Menu opsi untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">Setelan</translation>
+<translation id="8431190899827883166">Show taps</translation>
 <translation id="8433186206711564395">Setelan jaringan</translation>
 <translation id="8433977262951327081">Pintasan untuk menampilkan balon menu opsi masukan di rak telah diubah. Harap gunakan <ph name="NEW_SHORTCUT" />, bukan <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">Kartu SIM tidak ada</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">Asisten Google tidak berbicara dalam bahasa ini.</translation>
 <translation id="8938800817013097409">Perangkat USB-C (port belakang sebelah kanan)</translation>
 <translation id="8940956008527784070">Baterai lemah (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">Quick launch</translation>
 <translation id="8995603266996330174">Dikelola menurut <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">Tekan Control Shift Q dua kali untuk keluar.</translation>
 <translation id="945522503751344254">Kirim masukan</translation>
 <translation id="98515147261107953">Lanskap</translation>
+<translation id="995927048686010764">Autoclick</translation>
 </translationbundle>

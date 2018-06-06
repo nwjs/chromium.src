@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">藍牙裝置「<ph name="DEVICE_NAME" />」要求配對權限。</translation>
 <translation id="453661520163887813"><ph name="TIME" /> 後充飽</translation>
 <translation id="4544944664594876241">螢幕鎖定快速鍵已變更，請改用 <ph name="NEW_SHORTCUT" /> (停用 <ph name="OLD_SHORTCUT" />)。</translation>
+<translation id="4564869809620998694">字型服務</translation>
 <translation id="4570957409596482333">隨選朗讀按鈕</translation>
 <translation id="4659419629803378708">ChromeVox 已啟用</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> 的密碼</translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">輕觸拖曳</translation>
 <translation id="5777841717266010279">停止共用螢幕？</translation>
 <translation id="57838592816432529">靜音</translation>
+<translation id="5805697420284793859">視窗管理員</translation>
 <translation id="5820394555380036790">Chromium 作業系統</translation>
 <translation id="5832805196449965646">新增使用者</translation>
 <translation id="5860033963881614850">關閉</translation>
 <translation id="5895138241574237353">重新啟動</translation>
 <translation id="5901316534475909376">Shift + Esc 鍵</translation>
+<translation id="5911533659001334206">快速鍵檢視器</translation>
 <translation id="5916664084637901428">開啟</translation>
 <translation id="5927132638760172455">正在投放至不明接收端</translation>
 <translation id="5947494881799873997">還原</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">找不到行動裝置。</translation>
 <translation id="671928215901716392">鎖定螢幕</translation>
 <translation id="6723839937902243910">電源</translation>
+<translation id="6725073593266469338">UI 服務</translation>
 <translation id="6785414152754474415">電池電量為 <ph name="PERCENTAGE" />% (充電中)。</translation>
 <translation id="6803622936009808957">找不到系統支援的解析度，因此無法顯示鏡像。已改為進入延伸桌面。</translation>
 <translation id="6820676911989879663">目前禁止使用裝置！</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">寫筆記</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> 的選項選單</translation>
 <translation id="8428213095426709021">設定</translation>
+<translation id="8431190899827883166">顯示觸控回應</translation>
 <translation id="8433186206711564395">網路設定</translation>
 <translation id="8433977262951327081">在檔案櫃中顯示輸入選項選單方塊的快速鍵已變更，請改用：<ph name="NEW_SHORTCUT" /> (停用 <ph name="OLD_SHORTCUT" />)。</translation>
 <translation id="8452135315243592079">找不到 SIM 卡</translation>
@@ -366,4 +371,5 @@
 <translation id="923686485342484400">按兩下 Ctrl+Shift+Q 鍵即可登出。</translation>
 <translation id="945522503751344254">提供意見</translation>
 <translation id="98515147261107953">橫向</translation>
+<translation id="995927048686010764">自動點擊</translation>
 </translationbundle>

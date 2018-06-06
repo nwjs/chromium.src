@@ -1221,7 +1221,7 @@
 
       Als dit beleid is geconfigureerd, kan de gebruiker de instelling niet wijzigen en wordt de snelkoppeling voor apps altijd of nooit weergegeven.</translation>
 <translation id="4432762137771104529">Uitgebreide rapportage van Safe Browsing inschakelen</translation>
-<translation id="443454694385851356">Verouderd (onveilig)</translation>
+<translation id="443454694385851356">Verouderd (onbeveiligd)</translation>
 <translation id="443665821428652897">Sitegegevens wissen als de browser wordt gesloten (verouderd)</translation>
 <translation id="4439336120285389675">Een lijst met verouderde webplatformfuncties opgeven die tijdelijk kunnen worden ingeschakeld.
 
@@ -1493,11 +1493,11 @@
 <translation id="5247006254130721952">Gevaarlijke downloads blokkeren</translation>
 <translation id="5248863213023520115">Hiermee worden versleutelingstypen ingesteld die zijn toegestaan wanneer Kerberos-tickets van een <ph name="MS_AD_NAME" />-server worden aangevraagd.
 
-      Als het beleid is ingesteld op Alles, zijn de AES-versleutelingstypen 'aes256-cts-hmac-sha1-96' en 'aes128-cts-hmac-sha1-96' en het RC4-versleutelingstype 'rc4-hmac' toegestaan. AES-versleuteling heeft de voorkeur als de server ondersteuning biedt voor beide typen. RC4 wordt als onveilig beschouwd en de server moet indien mogelijk opnieuw worden geconfigureerd om ondersteuning te bieden voor AES-versleuteling.
+      Als het beleid is ingesteld op Alles, zijn de AES-versleutelingstypen 'aes256-cts-hmac-sha1-96' en 'aes128-cts-hmac-sha1-96' en het RC4-versleutelingstype 'rc4-hmac' toegestaan. AES-versleuteling heeft de voorkeur als de server ondersteuning biedt voor beide typen. RC4 wordt als onbeveiligd beschouwd en de server moet indien mogelijk opnieuw worden geconfigureerd om ondersteuning te bieden voor AES-versleuteling.
 
       Als het beleid is ingesteld op Sterk of niet is ingesteld, zijn alleen de AES-versleutelingstypen toegestaan.
 
-      Als het beleid is ingesteld op Verouderd, is alleen het RC4-versleutelingstype toegestaan. Deze optie is onveilig en zou alleen nodig moeten zijn in zeer specifieke situaties.
+      Als het beleid is ingesteld op Verouderd, is alleen het RC4-versleutelingstype toegestaan. Deze optie is onbeveiligd en zou alleen nodig moeten zijn in zeer specifieke situaties.
 
       Bekijk voor meer informatie het volgende artikel: https://wiki.samba.org/index.php/Samba_4.6_Features_added/changed#Kerberos_client_encryption_types.</translation>
 <translation id="5255162913209987122">Kan worden aanbevolen</translation>
@@ -1599,7 +1599,7 @@
       Als dit beleid is ingesteld, wordt de opgegeven sessie automatisch ingelogd na een tijdsperiode zonder gebruikersinteractie op het inlogscherm is verstreken. De openbare sessie moet al zijn geconfigureerd (zie |DeviceLocalAccounts|).
 
       Als dit beleid niet is ingesteld, wordt er niet automatisch ingelogd.</translation>
-<translation id="5526701598901867718">Alle (onveilig)</translation>
+<translation id="5526701598901867718">Alle (onbeveiligd)</translation>
 <translation id="5529037166721644841">Hiermee wordt de periode in milliseconden gespecificeerd waarna de apparaatbeheerservice wordt gevraagd om informatie over het apparaatbeleid.
 
       Als je dit beleid instelt, wordt de standaardwaarde van 3 uur overschreven. Geldige waarden voor dit beleid liggen tussen 1800000 (30 minuten) en 86400000 (1 dag). Alle waarden die niet binnen dit bereik vallen, worden afgerond tot de betreffende minimum- of maximumgrens.

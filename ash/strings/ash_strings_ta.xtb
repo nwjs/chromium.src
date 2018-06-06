@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">புளூடூத் சாதனம் "<ph name="DEVICE_NAME" />", இணைப்பதற்கான அனுமதியை விரும்புகிறது.</translation>
 <translation id="453661520163887813">முழு சார்ஜாக <ph name="TIME" /> ஆகும்</translation>
 <translation id="4544944664594876241">திரையைப் பூட்டுவதற்கான குறுக்குவழி மாற்றப்பட்டது.  <ph name="OLD_SHORTCUT" /> க்குப் பதிலாக <ph name="NEW_SHORTCUT" /> ஐப் பயன்படுத்தவும்.</translation>
+<translation id="4564869809620998694">எழுத்துரு சேவை</translation>
 <translation id="4570957409596482333">பேசும் திரைக்கான பொத்தான்</translation>
 <translation id="4659419629803378708">ChromeVox இயக்கப்பட்டது</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> க்கான கடவுச்சொல்</translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">தட்டி நகர்த்துதல்</translation>
 <translation id="5777841717266010279">திரைப் பகிர்வதை நிறுத்தவா?</translation>
 <translation id="57838592816432529">ஒலியடக்கு</translation>
+<translation id="5805697420284793859">சாளர நிர்வாகி</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">நபரைச் சேர்</translation>
 <translation id="5860033963881614850">ஆஃப்</translation>
 <translation id="5895138241574237353">மறுதொடக்கம்</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">Shortcut viewer</translation>
 <translation id="5916664084637901428">இயக்கு</translation>
 <translation id="5927132638760172455">தெரியாத ரிசீவருக்கு அனுப்புகிறது</translation>
 <translation id="5947494881799873997">மாற்றியமை</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">மொபைல் சாதனங்கள் எதுவுமில்லை.</translation>
 <translation id="671928215901716392">திரையைப் பூட்டு</translation>
 <translation id="6723839937902243910">ஆற்றல்</translation>
+<translation id="6725073593266469338">UI சேவை</translation>
 <translation id="6785414152754474415">பேட்டரி <ph name="PERCENTAGE" />% நிரம்பியது, மேலும் சார்ஜ் ஆகிறது.</translation>
 <translation id="6803622936009808957">ஆதரிக்கும் தெளிவுகள் கிடைக்காததால் காட்சிகளைப் பிரதிபலிக்க முடியவில்லை. பதிலாக நீட்டிக்கப்பட்ட டெஸ்க்டாப்பிற்குச் சென்றது.</translation>
 <translation id="6820676911989879663">சிறிது நேரம் இடைவேளை எடுத்துக்கொள்ளவும்!</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">குறிப்பை உருவாக்கு</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> க்கான விருப்பத்தேர்வுகள் மெனு</translation>
 <translation id="8428213095426709021">அமைப்புகள்</translation>
+<translation id="8431190899827883166">Show taps</translation>
 <translation id="8433186206711564395">நெட்வொர்க் அமைப்புகள்</translation>
 <translation id="8433977262951327081">உள்ளீட்டு விருப்பங்கள் மெனு குமிழியை, ஷெல்ஃபில் காட்டுவதற்கான குறுக்குவழி மாறியுள்ளது. <ph name="OLD_SHORTCUT" />க்குப் பதிலாக <ph name="NEW_SHORTCUT" />ஐப் பயன்படுத்தவும்.</translation>
 <translation id="8452135315243592079">சிம் கார்டு இல்லை</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">Google அசிஸ்டண்ட், இந்த மொழியை ஆதரிக்கவில்லை.</translation>
 <translation id="8938800817013097409">USB-C சாதனம் (பின்பக்கம் உள்ள வலது போர்ட்)</translation>
 <translation id="8940956008527784070">பேட்டரி குறைவு (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">Quick launch</translation>
 <translation id="8995603266996330174"><ph name="DOMAIN" /> ஆல் நிர்வகிக்கப்படுகிறது</translation>
 <translation id="9074739597929991885">புளூடூத்</translation>
 <translation id="9079731690316798640">வைஃபை: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">வெளியேற Control Shift Q ஐ இருமுறை அழுத்தவும்.</translation>
 <translation id="945522503751344254">பின்னூட்டம் அனுப்புக</translation>
 <translation id="98515147261107953">கிடைமட்டம்</translation>
+<translation id="995927048686010764">Autoclick</translation>
 </translationbundle>

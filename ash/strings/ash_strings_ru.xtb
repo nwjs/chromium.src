@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">Устройству <ph name="DEVICE_NAME" /> требуется разрешение на подключение через Bluetooth.</translation>
 <translation id="453661520163887813">До полной зарядки <ph name="TIME" /></translation>
 <translation id="4544944664594876241">Изменились быстрые клавиши для блокировки экрана. Используйте <ph name="NEW_SHORTCUT" /> вместо <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Сервис шрифтов</translation>
 <translation id="4570957409596482333">Кнопка "Озвучивание при нажатии"</translation>
 <translation id="4659419629803378708">Функция ChromeVox включена</translation>
 <translation id="4776917500594043016">Пароль для адреса электронной почты <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">Перетаскивание нажатием</translation>
 <translation id="5777841717266010279">Закрыть доступ к экрану?</translation>
 <translation id="57838592816432529">Отключить звук</translation>
+<translation id="5805697420284793859">Менеджер окон</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Добавить пользователя</translation>
 <translation id="5860033963881614850">Выкл.</translation>
 <translation id="5895138241574237353">Перезапустить</translation>
 <translation id="5901316534475909376">Shift + Esc</translation>
+<translation id="5911533659001334206">Просмотр ярлыков</translation>
 <translation id="5916664084637901428">ВКЛ</translation>
 <translation id="5927132638760172455">Трансляция на неизвестное устройство</translation>
 <translation id="5947494881799873997">Отменить</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">Мобильные устройства не найдены.</translation>
 <translation id="671928215901716392">Блокировать экран</translation>
 <translation id="6723839937902243910">Питание</translation>
+<translation id="6725073593266469338">Сервис интерфейса</translation>
 <translation id="6785414152754474415">Батарея заряжена на <ph name="PERCENTAGE" />% и подключена к источнику питания.</translation>
 <translation id="6803622936009808957">Не удалось дублировать изображение экрана, т. к. указанное разрешение не поддерживается. Включен режим расширенного рабочего стола.</translation>
 <translation id="6820676911989879663">Пора отдохнуть!</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">Создать заметку</translation>
 <translation id="8392451568018454956">Меню параметров пользователя "<ph name="USER_EMAIL_ADDRESS" />"</translation>
 <translation id="8428213095426709021">Настройки</translation>
+<translation id="8431190899827883166">Визуальный отклик</translation>
 <translation id="8433186206711564395">Настройки сети</translation>
 <translation id="8433977262951327081">Быстрые клавиши для вызова всплывающего окна с параметрами ввода на панели запуска изменились. Используйте <ph name="NEW_SHORTCUT" /> вместо <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">SIM-карта не обнаружена</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">Google Ассистент не говорит на этом языке</translation>
 <translation id="8938800817013097409">Устройство USB-C (порт справа на задней панели)</translation>
 <translation id="8940956008527784070">Низкий заряд батареи (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">Быстрый запуск</translation>
 <translation id="8995603266996330174">В домене <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">Чтобы выйти, дважды нажмите Control+Shift+Q.</translation>
 <translation id="945522503751344254">Отправить отзыв</translation>
 <translation id="98515147261107953">Альбомная</translation>
+<translation id="995927048686010764">Автоклик</translation>
 </translationbundle>

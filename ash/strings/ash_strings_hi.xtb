@@ -172,6 +172,7 @@
 <translation id="4527045527269911712">ब्लूटूथ डिवाइस "<ph name="DEVICE_NAME" />" युग्मित करने की अनुमति चाहता है.</translation>
 <translation id="453661520163887813">पूरी तरह चार्ज होने में <ph name="TIME" /></translation>
 <translation id="4544944664594876241">स्‍क्रीन को लॉक करने का शॉर्टकट बदल गया है. कृपया <ph name="OLD_SHORTCUT" /> के बजाय <ph name="NEW_SHORTCUT" /> का उपयोग करें.</translation>
+<translation id="4564869809620998694">फ़ॉन्ट सेवा</translation>
 <translation id="4570957409596482333">चुनें और सुनें बटन</translation>
 <translation id="4659419629803378708">ChromeVox सक्षम है</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> के लिए पासवर्ड</translation>
@@ -208,11 +209,13 @@
 <translation id="5744083938413354016">टैप करके खींचना</translation>
 <translation id="5777841717266010279">स्‍क्रीन साझाकरण बंद करें?</translation>
 <translation id="57838592816432529">म्यूट करें</translation>
+<translation id="5805697420284793859">विंडो मैनेजर</translation>
 <translation id="5820394555380036790">क्रोमियम OS</translation>
 <translation id="5832805196449965646">व्‍यक्ति जोड़ें</translation>
 <translation id="5860033963881614850">बंद</translation>
 <translation id="5895138241574237353">पुन: प्रारंभ करें</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">शॉर्टकट व्यूअर</translation>
 <translation id="5916664084637901428">चालू</translation>
 <translation id="5927132638760172455">किसी अज्ञात प्राप्तकर्ता को कास्ट कर रहा है</translation>
 <translation id="5947494881799873997">वापस लाएं</translation>
@@ -262,6 +265,7 @@
 <translation id="6715542151869432661">कोई मोबाइल डिवाइस नहीं मिला.</translation>
 <translation id="671928215901716392">लॉक स्‍क्रीन</translation>
 <translation id="6723839937902243910">पावर</translation>
+<translation id="6725073593266469338">यूज़र इंटरफ़ेस (यूआई) सेवा</translation>
 <translation id="6785414152754474415">बैटरी <ph name="PERCENTAGE" />% भरी हुई है और चार्ज हो रही है.</translation>
 <translation id="6803622936009808957">प्रदर्शनों को मिरर नहीं किया जा सका क्योंकि कोई समर्थित रिज़ॉल्यूशन नहीं मिला. इसके बजाय विस्तारित डेस्कटॉप में चला गया है.</translation>
 <translation id="6820676911989879663">आज के लिए इतना ही!</translation>
@@ -325,6 +329,7 @@
 <translation id="8351131234907093545">नोट बनाएं</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> के लिए विकल्प मेनू</translation>
 <translation id="8428213095426709021">सेटिंग</translation>
+<translation id="8431190899827883166">टैप दिखाएं</translation>
 <translation id="8433186206711564395">नेटवर्क सेटिंग</translation>
 <translation id="8433977262951327081">शेल्फ़ में इनपुट विकल्पों का मेनू बबल दिखाने वाला शॉर्टकट बदल गया है. कृपया <ph name="OLD_SHORTCUT" /> के बजाय <ph name="NEW_SHORTCUT" /> का उपयोग करें.</translation>
 <translation id="8452135315243592079">अनुपलब्ध SIM कार्ड</translation>
@@ -350,6 +355,7 @@
 <translation id="8921624153894383499">Google Assistant सेवा इस भाषा में उपलब्ध नहीं है.</translation>
 <translation id="8938800817013097409">USB-C डिवाइस (पीछे की ओर दायां पोर्ट)</translation>
 <translation id="8940956008527784070">बैटरी कम (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">झटपट लॉन्च</translation>
 <translation id="8995603266996330174"><ph name="DOMAIN" /> द्वारा प्रबंधित</translation>
 <translation id="9074739597929991885">ब्लूटूथ</translation>
 <translation id="9079731690316798640">वाई-फ़ाई: <ph name="ADDRESS" /></translation>
@@ -366,4 +372,5 @@
 <translation id="923686485342484400">प्रस्थान करने के लिए दो बार Control Shift Q दबाएं.</translation>
 <translation id="945522503751344254">सुझाव भेजें</translation>
 <translation id="98515147261107953">भू-दृश्य</translation>
+<translation id="995927048686010764">Autoclick</translation>
 </translationbundle>

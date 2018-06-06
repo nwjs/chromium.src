@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">Bluetooth-enheden "<ph name="DEVICE_NAME" />" vil gerne have parringstilladelse.</translation>
 <translation id="453661520163887813">Fuldt opladet om <ph name="TIME" /></translation>
 <translation id="4544944664594876241">Genvejen til at låse skærmen er ændret. Brug <ph name="NEW_SHORTCUT" /> i stedet for <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Skrifttypetjeneste</translation>
 <translation id="4570957409596482333">Knap for Tekstoplæsning</translation>
 <translation id="4659419629803378708">ChromeVox er aktiveret</translation>
 <translation id="4776917500594043016">Adgangskode for <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">Tryk og træk</translation>
 <translation id="5777841717266010279">Vil du afslutte skærmdeling?</translation>
 <translation id="57838592816432529">Slå lyden fra</translation>
+<translation id="5805697420284793859">Vinduesadministrator</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Tilføj person</translation>
 <translation id="5860033963881614850">Fra</translation>
 <translation id="5895138241574237353">Genstart</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">Genvejsviser</translation>
 <translation id="5916664084637901428">Til</translation>
 <translation id="5927132638760172455">Caster til en ukendt modtager</translation>
 <translation id="5947494881799873997">Fortryd</translation>
@@ -262,6 +265,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6715542151869432661">Der blev ikke fundet nogen mobilenheder.</translation>
 <translation id="671928215901716392">Lås skærmen</translation>
 <translation id="6723839937902243910">Strøm</translation>
+<translation id="6725073593266469338">Brugerfladetjeneste</translation>
 <translation id="6785414152754474415">Batteriet er <ph name="PERCENTAGE" /> % opladet og oplades nu.</translation>
 <translation id="6803622936009808957">Skærmene kunne ikke spejles, da der ikke fandtes en understøttet opløsning. I stedet anvendes Udvidet skrivebord.</translation>
 <translation id="6820676911989879663">Hold en pause</translation>
@@ -325,6 +329,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="8351131234907093545">Opret note</translation>
 <translation id="8392451568018454956">Menuen Indstillinger for <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">Indstillinger</translation>
+<translation id="8431190899827883166">Vis tryk</translation>
 <translation id="8433186206711564395">Netværksindstillinger</translation>
 <translation id="8433977262951327081">Genvejen til menuboblen med indtastningsmuligheder på hylden har ændret sig. Brug <ph name="NEW_SHORTCUT" /> i stedet for <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">SIM-kort mangler</translation>
@@ -367,4 +372,5 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="923686485342484400">Tryk på Control+Shift+Q to gange for at logge ud.</translation>
 <translation id="945522503751344254">Send feedback</translation>
 <translation id="98515147261107953">Liggende</translation>
+<translation id="995927048686010764">Autoclick</translation>
 </translationbundle>

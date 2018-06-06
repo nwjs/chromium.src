@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">El dispositiu Bluetooth "<ph name="DEVICE_NAME" />" sol·licita permís per emparellar-se.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> per completar la càrrega</translation>
 <translation id="4544944664594876241">La drecera per bloquejar la pantalla ha canviat. Utilitzeu <ph name="NEW_SHORTCUT" /> en lloc de la drecera <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Servei de tipus de lletra</translation>
 <translation id="4570957409596482333">Botó Escolta la selecció</translation>
 <translation id="4659419629803378708">S'ha activat ChromeVox</translation>
 <translation id="4776917500594043016">Contrasenya per a <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">Tocar i arrossegar</translation>
 <translation id="5777841717266010279">Voleu deixar de compartir la pantalla?</translation>
 <translation id="57838592816432529">Silencia</translation>
+<translation id="5805697420284793859">Gestor de finestres</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Afegeix una persona</translation>
 <translation id="5860033963881614850">Desactivat</translation>
 <translation id="5895138241574237353">Reinicia</translation>
 <translation id="5901316534475909376">Maj + Esc</translation>
+<translation id="5911533659001334206">Visualitzador de dreceres</translation>
 <translation id="5916664084637901428">Activat</translation>
 <translation id="5927132638760172455">S'està emetent a un receptor desconegut</translation>
 <translation id="5947494881799873997">Reverteix</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">No s'ha trobat cap dispositiu mòbil.</translation>
 <translation id="671928215901716392">Bloqueja la pantalla</translation>
 <translation id="6723839937902243910">Bateria</translation>
+<translation id="6725073593266469338">Servei d'IU</translation>
 <translation id="6785414152754474415">La bateria està carregada fins al <ph name="PERCENTAGE" />% i s'està carregant.</translation>
 <translation id="6803622936009808957">No s'ha pogut fer la rèplica de les pantalles, perquè no s'ha trobat cap resolució compatible. S'està entrant al mode d'escriptori ampliat.</translation>
 <translation id="6820676911989879663">Fes una pausa</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">Crea una nota</translation>
 <translation id="8392451568018454956">Menú d'opcions per a <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">Configuració</translation>
+<translation id="8431190899827883166">Mostra els tocs</translation>
 <translation id="8433186206711564395">Configuració de la xarxa</translation>
 <translation id="8433977262951327081">La drecera per mostrar el quadre d'ajuda amb el menú d'opcions d'introducció al prestatge ha canviat. Fes servir <ph name="NEW_SHORTCUT" /> en lloc de la drecera <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">Falta la targeta SIM</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">L'Assistent de Google no parla aquest idioma.</translation>
 <translation id="8938800817013097409">Dispositiu USB-C (port posterior dret)</translation>
 <translation id="8940956008527784070">Bateria baixa (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">Inici ràpid</translation>
 <translation id="8995603266996330174">Gestionat per <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">Premeu Control+Maj+Q dues vegades per tancar la sessió.</translation>
 <translation id="945522503751344254">Envia suggeriments</translation>
 <translation id="98515147261107953">Horitzontal</translation>
+<translation id="995927048686010764">Clic automàtic</translation>
 </translationbundle>

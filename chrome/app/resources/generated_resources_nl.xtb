@@ -310,7 +310,7 @@
 <translation id="1451917004835509682">Persoon met beperkte rechten toevoegen</translation>
 <translation id="1454223536435069390">&amp;Screenshot maken</translation>
 <translation id="1459967076783105826">Zoekmachines toegevoegd door extensies</translation>
-<translation id="146000042969587795">Dit frame is geblokkeerd omdat het onveilige content bevat.</translation>
+<translation id="146000042969587795">Dit frame is geblokkeerd omdat het onbeveiligde content bevat.</translation>
 <translation id="146219525117638703">ONC-status</translation>
 <translation id="146220085323579959">Verbinding met internet verbroken. Controleer je internetverbinding en probeer het opnieuw.</translation>
 <translation id="1464258312790801189">Je accounts</translation>
@@ -1697,7 +1697,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="3584169441612580296">Foto's, muziek en andere media van je computer lezen en wijzigen</translation>
 <translation id="3587482841069643663">Alles</translation>
 <translation id="358796204584394954">Typ deze code op '<ph name="DEVICE_NAME" />' om te koppelen:</translation>
-<translation id="3589766037099229847">Onveilige content geblokkeerd</translation>
+<translation id="3589766037099229847">Onbeveiligde content geblokkeerd</translation>
 <translation id="3590194807845837023">Profiel ontgrendelen en opnieuw starten</translation>
 <translation id="3592260987370335752">&amp;Meer informatie</translation>
 <translation id="359283478042092570">Invoeren</translation>
@@ -2219,7 +2219,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="4430019312045809116">Volume</translation>
 <translation id="4430369329743628066">Bladwijzer toegevoegd</translation>
 <translation id="4434045419905280838">Pop-ups en omleidingen</translation>
-<translation id="443454694385851356">Verouderd (onveilig)</translation>
+<translation id="443454694385851356">Verouderd (onbeveiligd)</translation>
 <translation id="443464694732789311">Doorgaan</translation>
 <translation id="443475966875174318">Ongeschikte apps updaten en verwijderen</translation>
 <translation id="4439318412377770121">Wil je de <ph name="DEVICE_NAME" /> registreren voor Google Cloud Devices?</translation>
@@ -2936,7 +2936,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="5524517123096967210">Het bestand kan niet worden gelezen.</translation>
 <translation id="5525677322972469346">Een nieuwe gebruiker met beperkte rechten maken</translation>
 <translation id="5525695896049981561">Ja, ik zie het</translation>
-<translation id="5526701598901867718">Alle (onveilig)</translation>
+<translation id="5526701598901867718">Alle (onbeveiligd)</translation>
 <translation id="5526745900034778153">Log opnieuw in om de synchronisatie te hervatten</translation>
 <translation id="5527463195266282916">Je probeert een oudere versie van de extensie te installeren.</translation>
 <translation id="5527474464531963247">Je kunt ook een ander netwerk selecteren.</translation>
@@ -4089,7 +4089,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="7290594223351252791">Registratie bevestigen</translation>
 <translation id="729459249680637905">Resterende pogingen: $1</translation>
 <translation id="7295662345261934369">Delen met anderen</translation>
-<translation id="729583233778673644">AES- en RC4-versleuteling toestaan. Als je deze optie gebruikt, loop je meer risico, aangezien RC4-codering onveilig is.</translation>
+<translation id="729583233778673644">AES- en RC4-versleuteling toestaan. Als je deze optie gebruikt, loop je meer risico, aangezien RC4-codering onbeveiligd is.</translation>
 <translation id="7296774163727375165">Voorwaarden voor <ph name="DOMAIN" /></translation>
 <translation id="7297443947353982503">Gebruikersnaam/wachtwoord onjuist of EAP-verificatie mislukt</translation>
 <translation id="729761647156315797">Kies je taal en toetsenbord</translation>
@@ -5243,7 +5243,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="9052208328806230490">Je hebt met het account <ph name="EMAIL" /> je printers geregistreerd bij <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="9052404922357793350">Doorgaan met blokkeren</translation>
 <translation id="9053893665344928494">Mijn keuze onthouden</translation>
-<translation id="9055636786322918818">RC4-versleuteling afdwingen. Als je deze optie gebruikt, loop je meer risico, aangezien RC4-codering onveilig is.</translation>
+<translation id="9055636786322918818">RC4-versleuteling afdwingen. Als je deze optie gebruikt, loop je meer risico, aangezien RC4-codering onbeveiligd is.</translation>
 <translation id="9056034633062863292">Chromebox bijwerken</translation>
 <translation id="9056810968620647706">Geen overeenkomsten gevonden.</translation>
 <translation id="9057119625587205566">Geen printers in de buurt</translation>

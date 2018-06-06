@@ -233,7 +233,7 @@
 <translation id="2556876185419854533">&amp;संपादन वापस लाएं</translation>
 <translation id="2586657967955657006">क्लिपबोर्ड</translation>
 <translation id="2587730715158995865"><ph name="ARTICLE_PUBLISHER" /> की ओर से. यह और <ph name="OTHER_ARTICLE_COUNT" /> दूसरे समाचार पढ़ें.</translation>
-<translation id="2587841377698384444">निर्देशिका API आईडी:</translation>
+<translation id="2587841377698384444">निर्देशिका API (एपीआई) आईडी:</translation>
 <translation id="2597378329261239068">यह दस्तावेज़ पासवर्ड सुरक्षित है.  कृपया पासवर्ड डालें.</translation>
 <translation id="2609632851001447353">विविधताएं</translation>
 <translation id="262424810616849754">{COUNT,plural, =0{कुछ नहीं}=1{1 ऐप्लिकेशन ($1)}=2{2 ऐप्लिकेशन ($1, $2)}one{# ऐप्लिकेशन ($1, $2, $3)}other{# ऐप्लिकेशन ($1, $2, $3)}}</translation>
@@ -496,6 +496,7 @@
 <translation id="4275830172053184480">अपना डिवाइस पुन: प्रारंभ करें</translation>
 <translation id="4277028893293644418">पासवर्ड रीसेट करें</translation>
 <translation id="4280429058323657511">, समाप्ति दिनांक <ph name="EXPIRATION_DATE_ABBR" /></translation>
+<translation id="4305817255990598646">'स्विच करें'</translation>
 <translation id="4312866146174492540">अवरुद्ध करें (डिफ़ॉल्ट)</translation>
 <translation id="4325863107915753736">लेख ढूंढ़ने में विफल</translation>
 <translation id="4326324639298822553">अपना समाप्ति दिनांक जाँचें और फिर से कोशिश करें</translation>

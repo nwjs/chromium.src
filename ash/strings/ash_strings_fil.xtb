@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">Gusto ng bluetooth device na "<ph name="DEVICE_NAME" />" na magpares.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> na lang bago mapuno</translation>
 <translation id="4544944664594876241">Napalitan na ang shortcut para sa pagla-lock sa screen. Mangyaring gamitin ang <ph name="NEW_SHORTCUT" /> sa halip na gamitin ang <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Serbisyo sa font</translation>
 <translation id="4570957409596482333">Button ng Select-to-Speak</translation>
 <translation id="4659419629803378708">Na-enable ang ChromeVox</translation>
 <translation id="4776917500594043016">Password para sa <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">Pag-tap upang mag-drag</translation>
 <translation id="5777841717266010279">Itigil ang screen sharing?</translation>
 <translation id="57838592816432529">I-mute</translation>
+<translation id="5805697420284793859">Window manager</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Magdagdag ng Tao</translation>
 <translation id="5860033963881614850">Naka-off</translation>
 <translation id="5895138241574237353">I-restart</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">Shortcut viewer</translation>
 <translation id="5916664084637901428">Naka-on</translation>
 <translation id="5927132638760172455">Ikina-cast sa isang hindi kilalang tatanggap</translation>
 <translation id="5947494881799873997">I-revert</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">Walang nahanap na mobile device.</translation>
 <translation id="671928215901716392">I-lock ang screen</translation>
 <translation id="6723839937902243910">Power</translation>
+<translation id="6725073593266469338">Serbisyo sa UI</translation>
 <translation id="6785414152754474415">Ang baterya ay <ph name="PERCENTAGE" />% na puno at nagcha-charge.</translation>
 <translation id="6803622936009808957">Hindi ma-mirror ang mga display dahil walang mga sinusuportahang resolusyon na nakita. Pumasok na lang sa pinalawak na desktop.</translation>
 <translation id="6820676911989879663">Magpahinga!</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">Gumawa ng tala</translation>
 <translation id="8392451568018454956">Menu ng mga pagpipilian para sa <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">Mga Setting</translation>
+<translation id="8431190899827883166">Ipakita ang mga pag-tap</translation>
 <translation id="8433186206711564395">Mga setting ng network</translation>
 <translation id="8433977262951327081">Napalitan na ang shortcut para sa pagpapakita ng bubble na menu ng mga opsyon sa input sa shelf. Pakigamit ang <ph name="NEW_SHORTCUT" /> sa halip na <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">Walang nakalagay na SIM card</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">Hindi nagsasalita ng ganitong wika ang Google Assistant.</translation>
 <translation id="8938800817013097409">USB-C device (kanang port sa likod)</translation>
 <translation id="8940956008527784070">Mahina na ang baterya (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">Mabilisang paglunsad</translation>
 <translation id="8995603266996330174">Pinamamahalaan ni <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">Pindutin ang Control Shift Q nang dalawang beses upang mag-sign out.</translation>
 <translation id="945522503751344254">Magpadala ng feedback...</translation>
 <translation id="98515147261107953">Landscape</translation>
+<translation id="995927048686010764">Autoclick</translation>
 </translationbundle>

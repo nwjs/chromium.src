@@ -210,6 +210,12 @@ Si esta política está establecida en "false" o no está establecida, se inhabi
       La política se debe establecer en una URL desde la que <ph name="PRODUCT_OS_NAME" /> podrá descargar las Condiciones de Servicio. Las Condiciones de Servicio deben ser texto sin formato, que actúe como texto/sin formato del tipo de MIME. No se permite ningún tipo de marcado.</translation>
 <translation id="1750315445671978749">Bloquear todas las descargas</translation>
 <translation id="1781356041596378058">Esta política también controla el acceso a las Opciones para Desarrolladores de Android. Si se asigna el valor true a esta política, los usuarios no podrán acceder a las Opciones para Desarrolladores. Si se le asigna el valor false o no se configura, los usuarios podrán tocar siete veces el número de compilación en la aplicación Ajustes de Android para acceder a esas opciones.</translation>
+<translation id="178832255504524723">Configura la URL de cambio de contraseñas (solo esquemas HTTP y HTTPS). El servicio de protección de contraseña enviará a los usuarios esta URL para cambiar sus contraseñas si han sufrido un ataque de phishing.
+      Para que <ph name="PRODUCT_NAME" /> capture correctamente la nueva huella digital de la contraseña en esta página de cambio de contraseña, la página debe seguir las directrices incluidas en https://www.chromium.org/developers/design-documents/create-amazing-password-forms.
+
+      Si se habilita esta opción, el servicio de protección de contraseña enviará a los usuarios a esta URL para cambiar sus contraseñas si han sufrido un ataque de phishing.
+      Si se inhabilita esta opción o no se configura, el servicio de protección de contraseña enviará a los usuarios a la página https://myaccounts.google.com para cambiar su contraseña.
+      Esta política no está disponible en las instancias de Windows que no están vinculadas a un dominio de <ph name="MS_AD_NAME" />.</translation>
 <translation id="1797233582739332495">Mostrar un mensaje periódico al usuario indicando que es necesario reiniciar el navegador</translation>
 <translation id="1803646570632580723">Lista de aplicaciones fijadas que deben aparecer en la barra de aplicaciones</translation>
 <translation id="1808715480127969042">Bloquear cookies en estos sitios</translation>
@@ -381,11 +387,17 @@ Si esta política se establece en True, <ph name="PRODUCT_OS_NAME" /> intentará
 
       Si se establece la política SystemTimezone, se anula esta política. En este caso, la detección automática de la zona horaria se inhabilita por completo.</translation>
 <translation id="2178899310296064282">Aplicar como mínimo el modo restringido moderado en YouTube</translation>
+<translation id="2182291258410176649">El usuario decide si quiere habilitar la opción para crear una copia de seguridad y restaurar los datos</translation>
 <translation id="2183294522275408937">Esta opción controla la frecuencia con la que la pantalla de bloqueo solicitará que se introduzca la contraseña y así poder seguir utilizando el desbloqueo rápido. Cada vez que se introduzca la pantalla de bloqueo (si la frecuencia con la que se hizo la última vez fue mayor), el desbloqueo rápido no estará disponible. Si el usuario permanece en la pantalla de bloqueo tras este periodo de tiempo, se le solicitará una contraseña la próxima vez que este introduzca un código erróneo o vuelva a introducir la pantalla de bloqueo (lo que ocurra primero).
 
           Si se configura esta opción, se solicitará a los usuarios que utilicen el desbloqueo rápido que introduzcan sus contraseñas en la pantalla de bloqueo según corresponda.
 
           Si esta opción no se configura, se solicitará a los usuarios que utilicen el desbloqueo rápido que introduzcan su contraseña en la pantalla de bloqueo todos los días.</translation>
+<translation id="2187588466015916207">Te permite controlar dónde se pueden usar las herramientas para desarrolladores.
+
+      Si se asigna a esta política el valor "DeveloperToolsDisallowedForForceInstalledExtensions" (el valor 0, que es el predeterminado para usuarios de empresa), se podrá acceder a las herramientas para desarrolladores y a la consola de JavaScript en general, excepto en extensiones instaladas por la política de empresa.
+      Si se asigna a esta política el valor "DeveloperToolsAllowed" (el valor 1, que es el predeterminado para usuarios no administrados), se podrá acceder a las herramientas para desarrolladores y a la consola de JavaScript sin excepciones, incluso en extensiones instaladas por la política de empresa..
+      Si se asigna a esta política el valor "DeveloperToolsDisallowed" (el valor 2), no se podrá acceder a las herramientas para desarrolladores y no se podrán inspeccionar los elementos de los sitios web. También se inhabilitarán las combinaciones de teclas y las entradas de menús o menús contextuales que permiten abrir las herramientas para desarrolladores y la consola de JavaScript.</translation>
 <translation id="2194470398825717446">Esta política está obsoleta en M61. En su lugar, utiliza EcryptfsMigrationStrategy.
 
       Especifica cómo debe comportarse un dispositivo que se ha enviado con eCryptfs y tiene que transferirse al sistema de cifrado ext4.
@@ -395,6 +407,7 @@ Si esta política se establece en True, <ph name="PRODUCT_OS_NAME" /> intentará
       Si se asigna el valor AllowMigration a esta política, los usuarios que usen eCryptfs en sus directorios principales podrán migrarlos al sistema de cifrado ext4 si hace falta (cuando Android N esté disponible en el dispositivo).
 
       Esta política no se aplica a las aplicaciones de kiosco porque se migran automáticamente. Si no se establece esta política, el dispositivo se comportará como si se hubiera seleccionado el valor DisallowArc.</translation>
+<translation id="2195032660890227692">Esta política se retiró en <ph name="PRODUCT_NAME" /> 68 y se ha sustituido por <ph name="ARC_BR_POLICY_NAME" />.</translation>
 <translation id="2201555246697292490">Configurar la lista blanca de mensajes nativos</translation>
 <translation id="2204753382813641270">Controlar opción para ocultar archivos automáticamente</translation>
 <translation id="2208976000652006649">Parámetros para URL de búsqueda que utiliza POST</translation>
@@ -404,6 +417,7 @@ Si esta política se establece en True, <ph name="PRODUCT_OS_NAME" /> intentará
 <translation id="2240879329269430151">Permite establecer si los sitios web pueden mostrar o no pop-ups. La ejecución de pop-ups se permite o se deniega a todos los sitios web.
 
           Si no se establece esta política, se usará la política BlockPopups y el usuario podrá modificarla.</translation>
+<translation id="2269319728625047531">Habilitar Sync Consent durante el inicio de sesión</translation>
 <translation id="2274864612594831715">Esta política configura la habilitación del teclado virtual como un dispositivo de entrada en Chrome OS. Los usuarios no pueden anular esta política.
 
 Si la política se establece en True, el teclado virtual en pantalla siempre estará habilitado.
@@ -580,6 +594,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="2529700525201305165">Restringir los usuarios que pueden iniciar sesión en <ph name="PRODUCT_NAME" /></translation>
 <translation id="2529880111512635313">Configura la lista de aplicaciones y extensiones de instalación forzada</translation>
 <translation id="253135976343875019">Tiempo de espera de inactividad cuando el dispositivo está conectado a la red</translation>
+<translation id="2536525645274582300">El usuario decide si quiere habilitar los servicios de ubicación de Google</translation>
 <translation id="2552966063069741410">Zona horaria</translation>
 <translation id="2562339630163277285">Especifica la URL del motor de búsqueda utilizada para proporcionar resultados instantáneos. La URL debe contener la cadena <ph name="SEARCH_TERM_MARKER" />, que se sustituirá en el momento de la consulta por el texto que el usuario haya introducido hasta el momento.
 
@@ -661,6 +676,11 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 
       Si se habilita esta opción o si no se establece, las páginas web podrán utilizar JavaScript y los usuarios podrán modificar esta configuración.</translation>
 <translation id="2753637905605932878">Restringe el intervalo de puertos UDP locales utilizado por WebRTC</translation>
+<translation id="2755385841634849932">Esta política controla la disponibilidad de la opción para crear una copia de seguridad y restaurar los datos de Android.
+
+      Si esta política no se configura o se le asigna el valor <ph name="BR_DISABLED" />, la opción está inhabilitada y el usuario no la puede habilitar.
+
+      Si se le asigna el valor <ph name="BR_UNDER_USER_CONTROL" />, se pregunta al usuario si quiere usar la opción de Android para crear una copia de seguridad y restaurar los datos. Si el usuario habilita esta opción, los datos de aplicaciones de Android se suben a los servidores de copia de seguridad de Android y se restauran cuando se vuelve a instalar aplicaciones compatibles.</translation>
 <translation id="2757054304033424106">Tipos de extensiones o aplicaciones que se pueden instalar</translation>
 <translation id="2759224876420453487">Controlar el comportamiento del usuario en una sesión de varios perfiles</translation>
 <translation id="2761483219396643566">Tiempo de espera de advertencia de inactividad cuando el dispositivo funciona con batería</translation>
@@ -848,6 +868,11 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="332771718998993005">Determina el nombre que se utiliza como destino de <ph name="PRODUCT_NAME" />.
 
           Si se asigna una cadena que no esté vacía a esta política, esa cadena se utilizará como nombre del destino de <ph name="PRODUCT_NAME" />. De lo contrario, el nombre del destino será el nombre del dispositivo. Si esta política no se establece, el nombre del destino será el nombre del dispositivo y su propietario (o un usuario del dominio que gestiona el dispositivo) podrá cambiarlo. El nombre tiene un límite de 24 caracteres.</translation>
+<translation id="3335468714959531450">Permite definir una lista de patrones de URL para especificar los sitios web que pueden establecer cookies.
+
+          Si no se le asigna ningún valor a esta política, se usará para todos los sitios web el valor general predeterminado de la política "DefaultCookiesSetting" (si se ha establecido) o el valor personalizado que haya definido el usuario (en caso contrario).
+
+          Consulta también las políticas "CookiesBlockedForUrls" y "CookiesSessionOnlyForUrls". Ten en cuenta que no puede haber patrones de URL en conflicto entre estas políticas, ya que no se especifica qué política prevalece.</translation>
 <translation id="3381968327636295719">Utilizar el navegador del host de forma predeterminada</translation>
 <translation id="3414260318408232239">Si esta política no se configura, <ph name="PRODUCT_NAME" /> usa una versión mínima predeterminada (TLS 1.0).
 
@@ -922,6 +947,12 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="3715569262675717862">Autenticación basada en certificados de cliente</translation>
 <translation id="3736879847913515635">Habilitar Añadir persona en el administrador de usuarios</translation>
 <translation id="3737544779868348650">Nombre de host de la red del dispositivo</translation>
+<translation id="3746590506846867985">
+      Esta política se aplica a la pantalla de inicio de sesión. También puedes consultar la política <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> que se aplica a la sesión del usuario. Te recomendamos que asignes el mismo valor a ambas políticas. Si los valores no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      Si se habilita la política, cada uno de los orígenes especificados en una lista de elementos separados por comas se ejecutará en un proceso propio. También se aislarán los orígenes de los subdominios correspondientes (p. ej., si especificas https://example.com/, se aislará https://foo.example.com/ como parte del sitio web https://example.com/).
+      Si se inhabilita, no se aplica ningún aislamiento explícito de sitios web y se inhabilitan las pruebas de campo de IsolateOrigins y SitePerProcess. Los usuarios podrán seguir habilitando la política IsolateOrigins manualmente.
+      Si no se configura, se utilizarán los ajustes predeterminados de aislamiento de sitios web de la plataforma para la pantalla de inicio de sesión.
+      </translation>
 <translation id="3750220015372671395">Bloquear la generación de claves en estos sitios web</translation>
 <translation id="3756011779061588474">Bloquear el modo de desarrollador</translation>
 <translation id="3758089716224084329">Permite especificar el servidor proxy que utiliza <ph name="PRODUCT_NAME" /> e impide que los usuarios cambien la configuración del proxy.
@@ -1084,6 +1115,13 @@ Si esta política se establece en False, el usuario no podrá canjear ofertas.</
 
           Esta opción suele estar inhabilitada para defender al usuario frente a los ataques de phishing. Si no se establece esta política, esta opción estará inhabilitada y el contenido secundario de terceros no podrá mostrarse como un cuadro de diálogo emergente de autenticación básica HTTP.</translation>
 <translation id="4056910949759281379">Inhabilitar protocolo SPDY</translation>
+<translation id="4059515172917655545">Esta política controla la disponibilidad de los servicios de ubicación de Google.
+
+      Si esta política no se configura o se le asigna el valor <ph name="GLS_DISABLED" />, se inhabilitan los servicios de ubicación de Google y el usuario no los puede habilitar.
+
+      Si se le asigna el valor <ph name="GLS_UNDER_USER_CONTROL" />, se pregunta al usuario si quiere usar los servicios de ubicación de Google. De esta forma, se permite que las aplicaciones para Android utilicen los servicios para consultar la ubicación del dispositivo, y se envían datos de ubicación anónimos a Google.
+
+      Ten en cuenta que esta política se ignora y los servicios de ubicación de Google están siempre inhabilitados si a la política <ph name="DEFAULT_GEOLOCATION_SETTING_POLICY_NAME" /> se le asigna el valor <ph name="BLOCK_GEOLOCATION_SETTING" />.</translation>
 <translation id="408029843066770167">Permitir consultas a un servicio de hora de Google</translation>
 <translation id="4088589230932595924">Modo de incógnito forzado</translation>
 <translation id="4088983553732356374">Permite seleccionar si los sitios web tienen permiso para establecer datos locales. El establecimiento de datos locales se puede permitir o rechazar en todos los sitios web.
@@ -1107,6 +1145,7 @@ Si esta política se establece en False, el usuario no podrá canjear ofertas.</
       En caso contrario, se le asignará uno de estos valores: "tls1.2" o "tls1.3". Si se habilita, <ph name="PRODUCT_NAME" /> no usará las versiones de SSL/TLS superiores a la versión especificada y se ignorarán los valores no reconocidos.</translation>
 <translation id="4121350739760194865">Evitar que las promociones de aplicaciones aparezcan en la página Nueva pestaña</translation>
 <translation id="412697421478384751">Permitir que los usuarios utilicen un PIN poco seguro para la pantalla de bloqueo</translation>
+<translation id="4138655880188755661">Límite de tiempo</translation>
 <translation id="4157003184375321727">Informar de la versión del firmware y del sistema operativo</translation>
 <translation id="4157594634940419685">Permitir el acceso a impresoras CUPS nativas</translation>
 <translation id="4183229833636799228">Configuración predeterminada de <ph name="FLASH_PLUGIN_NAME" /></translation>
@@ -1264,6 +1303,17 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 <translation id="4567137030726189378">Permite el uso de las herramientas para desarrolladores</translation>
 <translation id="4600786265870346112">Habilitar cursor grande</translation>
 <translation id="4604931264910482931">Configurar la lista negra de mensajes nativos</translation>
+<translation id="4613261833393532156">Te permite bloquear la sesión del usuario en función del tiempo del cliente o la cuota de uso diaria.
+
+          El parámetro |time_window_limit| especifica un periodo diario durante el que se debería bloquear la sesión del usuario. Solo se admite una regla por cada día de la semana, por lo que la cantidad de |entries| puede variar entre 0 y 7. Los parámetros |starts_at| y |ends_at| representan el principio y el final del límite de tiempo. Si |ends_at| es inferior a |starts_at|, significa que |time_limit_window| finaliza al día siguiente. |last_updated_millis| es la marca de tiempo UTC de la última vez que se ha actualizado esta entrada y se envía en forma de cadena porque la marca de tiempo no cabe en un número entero.
+
+          |time_usage_limit| especifica una cuota de pantalla y, cuando el usuario la alcanza, se bloquea su sesión. Hay una propiedad para cada día de la semana y se debería definir únicamente si hay una cuota activa ese día. |usage_quota_mins| es la cantidad de tiempo que el dispositivo administrado se puede usar durante un día y |reset_at| es la hora a la que se renueva la cuota de uso. El valor predeterminado de |reset_at| es medianoche ({'hour': 0, 'minute': 0}). |last_updated_millis| es la marca de tiempo UTC de la última vez que se ha actualizado esta entrada y se envía en forma de cadena porque la marca de tiempo no cabe en un número entero.
+
+          El parámetro |overrides| se proporciona para invalidar temporalmente una o más de las reglas anteriores.
+          * Si no están activos time_window_limit ni time_usage_limit, se puede usar |LOCK| para bloquear el dispositivo.
+          * |LOCK| bloquea temporalmente la sesión de un usuario hasta la próxima vez que se inician time_window_limit o time_usage_limit starts.
+          * |UNLOCK| desbloquea la sesión de un usuario durante el periodo de time_window_limit o time_usage_limit.
+          |created_time_millis| es la marca de tiempo UTC de la creación de la anulación y se envía en forma de cadena porque la marca de tiempo no cabe en un número entero. Se usa para determinar si la anulación se debería seguir aplicando. Si la función de límite de tiempo activa (el límite de tiempo de uso o el periodo límite) se ha iniciado después de crear la anulación, no se debería aplicar. De la misma forma, si la anulación se ha creado antes de que se aplicara el último cambio de los parámetros time_window_limit o time_usage_window activos, no se debería aplicar.</translation>
 <translation id="4613508646038788144">Si se le asigna el valor "False" a esta política, el software de terceros podrá insertar código ejecutable en los procesos de Chrome. Si no se asigna ningún valor a esta política o se le asigna el valor "True", el software de terceros no podrá insertar código ejecutable en los procesos de Chrome.</translation>
 <translation id="4617338332148204752">Omitir la comprobación de metaetiquetas en <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="4625915093043961294">Configurar lista de admisión de instalación de extensiones</translation>
@@ -1598,6 +1648,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
       Recuerda que no se recomienda esta opción, ya que puede permitir que se omita la extensión nameConstraints que restringe los nombres de host para los que puede estar autorizado un certificado concreto.
 
       Si esta política no se configura o se le asigna el valor valse, los certificados de servidor que no tengan ninguna extensión subjectAlternativeName que incluya un nombre de DNS o una dirección IP no serán de confianza.</translation>
+<translation id="5584132346604748282">Controlar los servicios de ubicación de Google de Android</translation>
 <translation id="5586942249556966598">No hacer nada</translation>
 <translation id="5630352020869108293">Restaurar la última sesión</translation>
 <translation id="5645779841392247734">Permitir cookies en estos sitios</translation>
@@ -1867,6 +1918,7 @@ Si la política está establecida en False, no se informará sobre los usuarios.
 
           Si decides usar un script del proxy .pac, se proporcionará la URL del script a las aplicaciones de Android.</translation>
 <translation id="6440051664870270040">Permitir que los sitios web abran ventanas emergentes y naveguen de forma simultánea</translation>
+<translation id="6447948611083700881">La función de copia de seguridad y restauración está inhabilitada</translation>
 <translation id="645425387487868471">Habilitar el inicio de sesión forzoso de <ph name="PRODUCT_NAME" /></translation>
 <translation id="6473623140202114570">Configura la lista de dominios en los que la Navegación Segura no activará advertencias.</translation>
 <translation id="6491139795995924304">Permitir Bluetooth en el dispositivo</translation>
@@ -1975,6 +2027,7 @@ Al habilitar esta política, se inhabilita la sincronización en la nube.
 <translation id="6810445994095397827">Bloquear JavaScript en estos sitios</translation>
 <translation id="681446116407619279">Esquemas de autenticación admitidos</translation>
 <translation id="6835883744948188639">Mostrar un mensaje periódico al usuario indicando que se recomienda reiniciar el navegador</translation>
+<translation id="684856667300805181">Esta política se retiró en <ph name="PRODUCT_NAME" /> 68 y se ha sustituido por <ph name="ARC_GLS_POLICY_NAME" />.</translation>
 <translation id="6856743875250214792">Esta política está obsoleta y se ha quitado de M66, ya que solo se utilizaba para realizar pruebas internas y es un requisito de seguridad.
 
       Especifica las opciones que se deben aplicar a <ph name="PRODUCT_NAME" /> cuando se inicia. Las opciones especificadas solo se aplican en la pantalla de inicio de sesión. Las opciones establecidas a través de esta política no se propagan a las sesiones del usuario.</translation>
@@ -2018,6 +2071,17 @@ Al habilitar esta política, se inhabilita la sincronización en la nube.
           Si estableces esta política, los usuarios no podrán modificarla o anularla.
 
           Si no se establece esta política, los comentarios por voz se inhabilitarán de forma inicial, pero el usuario podrá habilitarlos en cualquier momento.</translation>
+<translation id="6916507170737609563">
+      Para conseguir tanto aislamiento como
+      un impacto limitado para los usuarios, utiliza la política IsolateOriginsAndroid
+      con una lista de los sitios web que quieras aislar. La opción
+      SitePerProcessAndroid aísla todos los sitios web.
+      Si se habilita la política, cada sitio web se ejecuta en un proceso propio.
+      Si se inhabilita, no se aplica ningún aislamiento explícito de sitios web y se inhabilitan las pruebas de campo de IsolateOriginsAndroid y SitePerProcessAndroid. Los usuarios podrán seguir habilitando la política SitePerProcess manualmente.
+      Si no se configura la política, el usuario podrá cambiar esta opción.
+
+      NOTA:  Esta política solo se aplica a Chrome si se utiliza en dispositivos Android con más de 1 GB de RAM. Para aplicar esta política a plataformas distintas de Android, usa SiteperProcess.
+      </translation>
 <translation id="6922040258551909078">
       Si se le asigna el valor "true" a esta política, la política de la nube prevalecerá si entra en conflicto con la política del equipo.
       Si se le asigna el valor "false" o no se le asigna ningún valor, la política del equipo prevalecerá si entra en conflicto con la política de la nube.
@@ -2068,6 +2132,7 @@ Al habilitar esta política, se inhabilita la sincronización en la nube.
 
 Estas políticas te permiten configurar el comportamiento de <ph name="PRODUCT_OS_NAME" /> cuando el usuario permanece inactivo durante un periodo de tiempo determinado.</translation>
 <translation id="7040229947030068419">Valor de ejemplo:</translation>
+<translation id="7044883996351280650">Controlar el servicio de copia de seguridad y restauración de Android</translation>
 <translation id="7049373494483449255">Permite que <ph name="PRODUCT_NAME" /> envíe documentos a <ph name="CLOUD_PRINT_NAME" /> para imprimirlos. NOTA: Esto solo afecta a la asistencia de <ph name="CLOUD_PRINT_NAME" /> en <ph name="PRODUCT_NAME" />. No evita que otros usuarios envíen trabajos de impresión a través sitios web.
 
       Si esta opción está habilitada o no se ha configurado, los usuarios pueden imprimir en <ph name="CLOUD_PRINT_NAME" /> desde el cuadro de diálogo de impresión de <ph name="PRODUCT_NAME" />.
@@ -2148,6 +2213,15 @@ Estas políticas te permiten configurar el comportamiento de <ph name="PRODUCT_O
 <translation id="7258823566580374486">Activar modo de cortina en hosts de acceso remoto</translation>
 <translation id="7260277299188117560">Conexión P2P para actualizaciones automáticas habilitada</translation>
 <translation id="7261252191178797385">Imagen de fondo de pantalla del dispositivo</translation>
+<translation id="7264704483008663819">Esta política está obsoleta en M68. Utiliza en su lugar DeveloperToolsAvailability.
+
+      Inhabilita las herramientas para desarrolladores y la consola de JavaScript.
+
+      Si habilita esta opción, no se podrá acceder a las herramientas para desarrolladores y no se podrán inspeccionar los elementos de los sitios web. También se inhabilitarán las combinaciones de teclas y las entradas de menús o menús contextuales que permiten abrir las Herramientas para desarrolladores y la consola de JavaScript.
+
+      Si se inhabilita esta opción o si no se le asigna ningún valor, se podrán usar las herramientas para desarrolladores y la consola de JavaScript.
+
+      Si se utiliza la política DeveloperToolsAvailability, se ignora el valor de la política DeveloperToolsDisabled.</translation>
 <translation id="7266471712301230894">Esta política está obsoleta desde <ph name="PRODUCT_NAME" /> 64.
 
       Ya no están disponibles la búsqueda y la instalación automáticas de complementos que falten.</translation>
@@ -2214,6 +2288,7 @@ Estas políticas te permiten configurar el comportamiento de <ph name="PRODUCT_O
       </translation>
 <translation id="7443616896860707393">Mensajes de autenticación básica de HTTP de origen cruzado</translation>
 <translation id="7458437477941640506">No vuelve a instalar la versión de destino si la versión del SO es más reciente que la de destino. También inhabilita las actualizaciones.</translation>
+<translation id="7464991223784276288">Limitar las cookies de las URL coincidentes de la sesión actual</translation>
 <translation id="7469554574977894907">Habilitar sugerencias de búsqueda</translation>
 <translation id="7474249562477552702">Si se permiten los certificados SHA-1 firmados emitidos por los anclajes de confianza locales</translation>
 <translation id="7485481791539008776">Reglas para la selección de la impresora predeterminada</translation>
@@ -2290,6 +2365,15 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
 <translation id="7643883929273267746">Restringir cuentas que se muestran en <ph name="PRODUCT_NAME" /></translation>
 <translation id="7651739109954974365">Permite determinar la habilitación de la itinerancia de datos en el dispositivo. Si el valor se establece en "true", se permite la itinerancia de datos. Si no se configura o si el valor se establece en "false", la itinerancia de datos no estará disponible.</translation>
 <translation id="7673194325208122247">Periodo de tiempo (milisegundos)</translation>
+<translation id="7676708657861783864">Las cookies definidas por las páginas que coincidan con estos patrones de URL se limitarán a la sesión actual, es decir, se eliminarán cuando se cierre el navegador.
+
+          En el caso de las URL que no se incluyan en los patrones especificados en esta política, o en el caso de todas las URL si esta política no se habilita, se usará el valor general predeterminado de la política "DefaultCookiesSetting" (si se ha definido) o el valor personalizado que haya definido el usuario (en caso contrario).
+
+          Ten en cuenta que, si <ph name="PRODUCT_NAME" /> se está ejecutando en "modo de segundo plano", es posible que la sesión no se cierre al cerrar la ventana del navegador y que permanezca activa hasta que el usuario salga del navegador. Consulta la política "BackgroundModeEnabled" para obtener más información sobre cómo configurar este comportamiento.
+
+          Consulta también las políticas "CookiesAllowedForUrls" y "CookiesBlockedForUrls". Recuerda que no puede haber conflicto entre los patrones de URL de estas tres políticas, ya que no se especifica cuál de ellas prevalece.
+
+          Si se ha configurado la política "RestoreOnStartup" para restaurar las URL de las sesiones anteriores, esta política no se respetará y las cookies de esos sitios web se almacenarán de forma permanente.</translation>
 <translation id="7683777542468165012">Actualización dinámica de política</translation>
 <translation id="7694807474048279351">Programa un reinicio automático después de haberse aplicado una actualización de <ph name="PRODUCT_OS_NAME" />.
 
@@ -2357,6 +2441,18 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
           <ph name="PROXY_HELP_URL" />.</translation>
 <translation id="7781069478569868053">Página Nueva pestaña</translation>
 <translation id="7788511847830146438">Por perfil</translation>
+<translation id="7788872453000173219">
+      Para conseguir tanto aislamiento como
+      un impacto limitado para los usuarios, utiliza la política
+      IsolateOrigins con una lista de los sitios web que quieras aislar. La opción
+      SitePerProcess aísla todos los sitios web.
+      Si se habilita la política, cada sitio web se ejecuta en un proceso propio.
+      Si se inhabilita, no se aplica ningún aislamiento explícito de sitios web y se inhabilitan las pruebas de campo de IsolateOrigins y SitePerProcess. Los usuarios podrán seguir habilitando la política SitePerProcess manualmente.
+      Si no se configura la política, el usuario podrá cambiar esta opción.
+      En <ph name="PRODUCT_OS_NAME" />, también se recomienda asignar el mismo valor a la política de dispositivos <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" />. Si los valores especificados por las dos políticas no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+
+      NOTA: Esta política no se aplica a Android. Para habilitar SitePerProcess en Android, utiliza la política SitePerProcessAndroid.
+      </translation>
 <translation id="780603170519840350">Inhabilita los requisitos de transparencia en los certificados en una lista de hashes subjectPublicKeyInfo.
 
       Esta política permite inhabilitar los requisitos de comunicación de transparencia en los certificados en cadenas que contienen certificados con uno de los hashes subjectPublicKeyInfo especificados. Esto permite que se sigan usando en hosts empresariales los certificados que, de otra forma, no serían de confianza por no haberse comunicado públicamente de forma correcta.
@@ -2392,6 +2488,16 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
       Permite determinar el ID de la extensión que se debe utilizar como salvapantallas en la pantalla de inicio de sesión. La extensión debe formar parte del paquete AppPack configurado para ese dominio a través de la política DeviceAppPack.</translation>
 <translation id="7882857838942884046">Inhabilitar Google Sync provocará que Android Backup and Restore no funcione correctamente.</translation>
 <translation id="7882890448959833986">Eliminar la advertencia de SO no admitido</translation>
+<translation id="7892077286206685156">
+      Esta política se aplica a la pantalla de inicio de sesión. También puedes consultar la política <ph name="SITE_PER_PROCESS_POLICY_NAME" /> que se aplica a la sesión del usuario. Te recomendamos que asignes el mismo valor a ambas políticas. Si los valores no coinciden, es posible que se produzca un retraso al acceder a una sesión de usuario mientras se aplica el valor especificado por la política del usuario.
+      Para conseguir tanto aislamiento como
+      un impacto limitado para los usuarios, utiliza la política
+      IsolateOrigins con una lista de los sitios web que quieras aislar. La opción
+      SitePerProcess aísla todos los sitios web.
+      Si se habilita la política, cada sitio web se ejecuta en un proceso propio.
+      Si se inhabilita, no se aplica ningún aislamiento de sitios web explícito y se inhabilitarán las pruebas de campo de IsolateOrigins y SitePerProcess. Los usuarios podrán seguir habilitando la política SitePerProcess manualmente.
+      Si no se configura la política, el usuario podrá cambiar esta opción.
+      </translation>
 <translation id="7912255076272890813">Configurar tipos de extensiones o aplicaciones permitidos</translation>
 <translation id="7915236031252389808">Permite especificar la URL de un archivo .pac de proxy.
 
@@ -2406,6 +2512,19 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
 <translation id="793473937901685727">Establecer la disponibilidad del certificado para las aplicaciones ARC</translation>
 <translation id="7937766917976512374">Permitir o denegar captura de vídeo</translation>
 <translation id="7941975817681987555">No predecir las acciones de red en ninguna conexión de red</translation>
+<translation id="7952880400776676958">
+      Si se habilita la política, cada uno de los orígenes especificados en una
+      lista de elementos separados por comas se ejecutará en un proceso propio. También se aislarán
+      los orígenes de los subdominios correspondientes (p. ej., si especificas https://example.com/
+      se aislará https://foo.example.com/ como parte del sitio web 
+      https://example.com/).
+      Si se inhabilita, no se aplica ningún aislamiento explícito de sitios web y se inhabilitan las pruebas de campo de IsolateOriginsAndroid y SitePerProcessAndroid. Los usuarios podrán seguir habilitando la política IsolateOrigins manualmente.
+      Si no se configura la política, el usuario podrá cambiar esta opción.
+
+      NOTA: En Android, el aislamiento de sitios web es experimental. La compatibilidad mejorará con el tiempo, pero es posible que actualmente provoque problemas de rendimiento. 
+
+      NOTA: Esta política solo se aplica a Chrome si se utiliza en dispositivos Android con más de 1 GB de RAM. Para aplicar esta política a plataformas distintas de Android, usa IsolateOrigins.
+      </translation>
 <translation id="7953256619080733119">Hosts de excepción manual de usuario administrado</translation>
 <translation id="7961779417826583251">Inhabilitar los requisitos de la transparencia en los certificados en una lista de autoridades de certificación antiguas</translation>
 <translation id="7974114691960514888">Ya no se admite esta política.
@@ -2428,6 +2547,11 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
 <translation id="8044493735196713914">Notificar modo de inicio de dispositivo</translation>
 <translation id="8050080920415773384">Impresión nativa</translation>
 <translation id="8059164285174960932">URL en la que los clientes de acceso remoto deben obtener su token de autenticación</translation>
+<translation id="8078366200175825572">Permite definir una lista de patrones de URL para especificar los sitios web que no pueden establecer cookies.
+
+          Si no se establece esta política, se usará para todos los sitios web el valor general predeterminado que se indique en la política "DefaultCookiesSetting" (si se ha establecido) o el valor personalizado que haya definido el usuario (en caso contrario).
+
+          Consulta también las políticas "CookiesAllowedForUrls" y "CookiesSessionOnlyForUrls". Recuerda que no puede haber conflicto entre los patrones de URL de estas tres políticas, ya que no se especifica cuál de ellas prevalece.</translation>
 <translation id="8099880303030573137">Retraso de inactividad cuando el dispositivo funciona con la batería</translation>
 <translation id="8102913158860568230">Opción predeterminada de MediaStream</translation>
 <translation id="8104962233214241919">Seleccionar automáticamente certificados de cliente de estos sitios</translation>
@@ -2737,6 +2861,9 @@ Te recomendamos que utilices GPO para configurar la política en Windows, aunque
 
       Si no se establece esta política, se utilizará <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Esta política controla si se muestra Sync Consent al usuario durante el primer inicio de sesión. Se le debería asignar el valor "False" si no es necesario mostrar Sync Consent al usuario en ningún caso.
+      Si se le asigna el valor "False", Sync Consent no se mostrará.
+      Si se le asigna el valor "True" o no se le asigna ningún valor, Sync Consent no se puede mostrar.</translation>
 <translation id="8947415621777543415">Informar de ubicación del dispositivo</translation>
 <translation id="8951350807133946005">Establecer directorio de caché de disco</translation>
 <translation id="8952317565138994125">Permite inhabilitar la sincronización de datos en <ph name="PRODUCT_NAME" /> a través de los servicios de sincronización alojados por Google e impide que los usuarios cambien esta opción.
@@ -2758,6 +2885,12 @@ Te recomendamos que utilices GPO para configurar la política en Windows, aunque
 <translation id="8976248126101463034">Permitir la autenticación gnubby para los hosts de acceso remoto</translation>
 <translation id="8976531594979650914">Usar impresora predeterminada del sistema como opción predeterminada</translation>
 <translation id="8992176907758534924">No permitir que todos los sitios muestren imágenes</translation>
+<translation id="9012851181124311976">Configura la lista de las URL de acceso empresarial (solo esquemas HTTP y HTTPS). En estas URL se capturará la huella digital de la contraseña, que se utilizará para detectar si se reutiliza la contraseña.
+      Para que <ph name="PRODUCT_NAME" /> capture correctamente las huellas digitales de las contraseñas, tus páginas de inicio de sesión deben seguir las directrices incluidas en https://www.chromium.org/developers/design-documents/create-amazing-password-forms.
+
+      Si se habilita esta opción, el servicio de protección de contraseña capturará la huella digital de la contraseña en estas URL para detectar si la contraseña se reutiliza.
+     Si se inhabilita esta opción o no se configura, el servicio de protección de contraseña solo capturará la huella digital en la página https://accounts.google.com.
+      Esta política no está disponible en las instancias de Windows que no están vinculadas a un dominio de <ph name="MS_AD_NAME" />.</translation>
 <translation id="9035964157729712237">ID de extensiones que no deben estar incluidas en la lista negra</translation>
 <translation id="9042911395677044526">Permite aplicar la configuración de red al dispositivo <ph name="PRODUCT_OS_NAME" /> de cada usuario. La configuración de red es una cadena escrita en formato JSON, tal como se define en la siguiente página sobre el formato Open Network Configuration: <ph name="ONC_SPEC_URL" /></translation>
 <translation id="9084985621503260744">Especificar si la actividad de vídeo afecta a la administración de energía</translation>
@@ -2842,5 +2975,6 @@ Los controladores de protocolos registrados por la política se combinan con los
 <translation id="924557436754151212">Importar las contraseñas guardadas desde el navegador predeterminado en la primera ejecución</translation>
 <translation id="930930237275114205">Configurar directorio de datos de usuario de <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="944817693306670849">Establecer tamaño de caché de disco</translation>
+<translation id="981346395360763138">Los servicios de ubicación de Google están inhabilitados</translation>
 <translation id="982497069985795632">Habilitar corrector ortográfico</translation>
 </translationbundle>

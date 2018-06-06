@@ -16,6 +16,7 @@
 <translation id="1129510026454351943">詳細: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">既存のデータを削除します。</translation>
 <translation id="1146678959555564648">VR を入力</translation>
+<translation id="114721135501989771">Chrome で Google の最先端技術を活用</translation>
 <translation id="116280672541001035">使用量</translation>
 <translation id="1172593791219290334">起動ページ</translation>
 <translation id="1178581264944972037">一時停止</translation>
@@ -102,6 +103,7 @@
 <translation id="1891331835972267886">Chrome で <ph name="APP_NAME" /> を開きます。続行すると、Chrome の<ph name="BEGIN_LINK1" />利用規約<ph name="END_LINK1" />と<ph name="BEGIN_LINK2" />プライバシーに関するお知らせ<ph name="END_LINK2" />に同意したことになります。</translation>
 <translation id="189172778771606813">操作パネルを閉じる</translation>
 <translation id="1919345977826869612">広告</translation>
+<translation id="1923695749281512248"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> / <ph name="FILE_SIZE_WITH_UNITS" /></translation>
 <translation id="1933845786846280168">選択したタブ</translation>
 <translation id="1938981467853765413">フィードバックを送信</translation>
 <translation id="194341124344773587"><ph name="BEGIN_LINK" />Android の設定<ph name="END_LINK" />で Chrome の権限を有効にしてください。</translation>
@@ -109,6 +111,7 @@
 <translation id="1944384637046898011"><ph name="TIME" />時点の Google パスワードですべてのデータを暗号化する</translation>
 <translation id="1946005195648379376">Google が閲覧履歴をどのような方法で使用し、検索やその他の Google サービスをカスタマイズするかを設定します。</translation>
 <translation id="1952172573699511566">可能な場合、設定した言語でウェブサイトのテキストを表示します。</translation>
+<translation id="195283394249132567">カスタマイズされる Google サービス</translation>
 <translation id="1966710179511230534">ログイン情報を更新してください。</translation>
 <translation id="1974060860693918893">詳細設定</translation>
 <translation id="1984937141057606926">サードパーティを除いて許可する</translation>
@@ -151,6 +154,7 @@
 <translation id="2321086116217818302">パスワードを準備しています…</translation>
 <translation id="2321958826496381788">読みやすくなるまでスライダをドラッグしてください。段落をダブルタップするとテキストがこれより大きくなります。</translation>
 <translation id="2323763861024343754">サイトのストレージ</translation>
+<translation id="2325181368089033281"><ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />は、ユーザー自身またはユーザーの保護者がいつでも変更できます。Google は、Chrome やその他の Google サービス（翻訳、検索、広告など）をカスタマイズする目的で、ユーザーがアクセスしたサイトのコンテンツ、ユーザーの閲覧行動や操作を使用することがあります。</translation>
 <translation id="2328985652426384049">ログインできません</translation>
 <translation id="2342981853652716282">Chrome にログインすれば、ブックマーク、パスワード、その他の設定をどの端末からでもご利用いただけます。</translation>
 <translation id="2343328333327081434">インストール中...</translation>
@@ -160,9 +164,13 @@
 <translation id="2359808026110333948">続行</translation>
 <translation id="2369533728426058518">開いているタブ</translation>
 <translation id="2387895666653383613">テキストの拡大と縮小</translation>
+<translation id="2402980924095424747"><ph name="MEGABYTES" /> MB</translation>
+<translation id="2410754283952462441">アカウントの選択</translation>
 <translation id="2414886740292270097">暗</translation>
 <translation id="2416359993254398973">このサイトを利用するには、Chrome でカメラの使用を許可する必要があります。</translation>
+<translation id="2426805022920575512">別のアカウントを選択</translation>
 <translation id="2433507940547922241">デザイン</translation>
+<translation id="2434158240863470628">ダウンロードが完了しました<ph name="SEPARATOR" /> <ph name="BYTES_DOWNLOADED" /></translation>
 <translation id="2440823041667407902">現在地情報へのアクセス</translation>
 <translation id="2450083983707403292"><ph name="FILE_NAME" /> のダウンロードをやり直してもよろしいですか？</translation>
 <translation id="2476578072172137802">サイトの設定</translation>
@@ -212,6 +220,7 @@
 <translation id="290376772003165898"><ph name="LANGUAGE" />のページではない場合:</translation>
 <translation id="2913331724188855103">サイトに Cookie データの保存と読み取りを許可する（推奨）</translation>
 <translation id="2932150158123903946">Google <ph name="APP_NAME" /> ストレージ</translation>
+<translation id="2943166482989655199">システムと使用状況に関するデータが Google に送信され、Chrome とそのセキュリティの向上に役立てられます</translation>
 <translation id="2956410042958133412">このアカウントは <ph name="PARENT_NAME_1" /> と <ph name="PARENT_NAME_2" /> によって管理されています。</translation>
 <translation id="2960796085439532066">Copyright <ph name="YEAR" /> Google Inc. All rights reserved.</translation>
 <translation id="2962095958535813455">シークレット タブに切り替えました</translation>
@@ -254,6 +263,7 @@
 <translation id="3328801116991980348">サイト情報</translation>
 <translation id="3341058695485821946">データ削減量を確認できます</translation>
 <translation id="3350687908700087792">すべてのシークレット タブを閉じます</translation>
+<translation id="3361477720586884778"><ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />はいつでも変更できます。Google は、Chrome やその他の Google サービス（翻訳、検索、広告など）をカスタマイズする目的で、ユーザーがアクセスしたサイトのコンテンツ、ユーザーの閲覧行動や操作を使用することがあります。</translation>
 <translation id="3365671512111106261">データセーバーが有効になっている場合は使用できません</translation>
 <translation id="3367813778245106622">同期を開始するにはもう一度ログインします</translation>
 <translation id="3384347053049321195">画像を共有</translation>
@@ -264,6 +274,7 @@
 <translation id="3414952576877147120">サイズ:</translation>
 <translation id="3443221991560634068">現在のページを再読み込みする</translation>
 <translation id="3452612588551937789">Google アカウントでログインすると、どの端末からでも同じブックマーク、履歴、パスワードなどの設定を利用できるようになります。</translation>
+<translation id="3485359633434254965">{FILES,plural, =1{%1$d 個のファイルがダウンロードされました}other{%1$d 個のファイルがダウンロードされました}}</translation>
 <translation id="3487093336331957349">検索とサイトの候補を表示</translation>
 <translation id="3492207499832628349">新しいシークレット タブ</translation>
 <translation id="3493531032208478708">詳しくは、<ph name="BEGIN_LINK" />おすすめのコンテンツ<ph name="END_LINK" />についての説明をご覧ください</translation>
@@ -318,6 +329,7 @@
 <translation id="3987993985790029246">リンクのコピー</translation>
 <translation id="3988213473815854515">位置情報は許可</translation>
 <translation id="3988466920954086464">このパネルにインスタント検索の結果が表示されます</translation>
+<translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> / ？</translation>
 <translation id="3997476611815694295">重要度の低いストレージ</translation>
 <translation id="4002066346123236978">タイトル</translation>
 <translation id="4042870126885713738">ウェブアドレスが解決されない場合や接続を確立できない場合にアドバイスを表示します</translation>
@@ -427,6 +439,7 @@
 <translation id="4915549754973153784">デバイスのスキャン中… <ph name="BEGIN_LINK" />ヘルプ<ph name="END_LINK" /></translation>
 <translation id="4943872375798546930">結果はありません</translation>
 <translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> が画面を共有しています</translation>
+<translation id="4961334780091921942">すべての端末で同じパスワード、履歴、その他の設定を使用できます</translation>
 <translation id="4961700429721424617"><ph name="MANAGED_DOMAIN" /> で管理されているアカウントからログアウトしようとしています。この操作を行うと、Chrome データはこの端末から削除されますが、Google アカウントには残ります。</translation>
 <translation id="497421865427891073">次に進む</translation>
 <translation id="4988526792673242964">ページ</translation>
@@ -520,6 +533,7 @@
 あらゆる場所に記録が一切残らないわけではありません。シークレット モードを使っても、雇用主、インターネット サービス プロバイダ、訪問先のウェブサイトに閲覧内容が知られる可能性はあります。</translation>
 <translation id="572328651809341494">最近使ったタブ</translation>
 <translation id="5726692708398506830">ページ上のすべての要素を拡大する</translation>
+<translation id="5731185123186077399">カスタマイズされる Google サービス（Google Pay など）</translation>
 <translation id="5738816946784116349">Chrome のダウンロード</translation>
 <translation id="5748802427693696783">標準のタブに切り替えました</translation>
 <translation id="5749068826913805084">Chrome でファイルをダウンロードするにはストレージへのアクセス権が必要です。</translation>
@@ -620,6 +634,7 @@
 <translation id="6583199322650523874">現在のページをブックマークする</translation>
 <translation id="6593061639179217415">PC 版サイト</translation>
 <translation id="6600954340915313787">Chrome にコピー済み</translation>
+<translation id="6608650720463149374"><ph name="GIGABYTES" /> GB</translation>
 <translation id="6612358246767739896">保護されたコンテンツ</translation>
 <translation id="6627583120233659107">フォルダを編集</translation>
 <translation id="6643016212128521049">クリア</translation>
@@ -687,6 +702,7 @@
 <translation id="7141896414559753902">サイトでのポップアップ表示とリダイレクトをブロックする（推奨）</translation>
 <translation id="7144878232160441200">再読み込み</translation>
 <translation id="7149893636342594995">過去 24 時間</translation>
+<translation id="7176368934862295254"><ph name="KILOBYTES" /> KB</translation>
 <translation id="7177466738963138057">これは後から [設定] で変更できます</translation>
 <translation id="7180611975245234373">更新</translation>
 <translation id="7189372733857464326">Google Play 開発者サービスの更新完了を待機しています</translation>

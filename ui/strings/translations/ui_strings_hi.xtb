@@ -58,8 +58,8 @@
 <translation id="3618849550573277856">“<ph name="LOOKUP_STRING" />” को खोजें</translation>
 <translation id="364720409959344976">अपलोड करने के लिए फ़ोल्‍डर चुनें</translation>
 <translation id="3660179305079774227">ऊपर तीर</translation>
-<translation id="3740362395218339114"><ph name="QUANTITY" /> GB/s</translation>
-<translation id="3757388668994797779"><ph name="QUANTITY" /> GB</translation>
+<translation id="3740362395218339114"><ph name="QUANTITY" /> जीबी/सेकंड</translation>
+<translation id="3757388668994797779"><ph name="QUANTITY" /> जीबी</translation>
 <translation id="385051799172605136">वापस</translation>
 <translation id="3889424535448813030">दायां तीर</translation>
 <translation id="3892641579809465218">आंतरिक डिस्प्ले</translation>
@@ -174,5 +174,5 @@
 <translation id="9150735707954472829">टैब</translation>
 <translation id="9161053988251441839">सुझाए गए ऐप्लिकेशन</translation>
 <translation id="9170848237812810038">&amp;पूर्ववत् करें</translation>
-<translation id="932327136139879170">मुख्यपृष्ठ</translation>
+<translation id="932327136139879170">होम</translation>
 </translationbundle>

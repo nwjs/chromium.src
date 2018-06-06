@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">የብሉቱዝ መሣሪያ «<ph name="DEVICE_NAME" />» ለመጣመር ፍቃድ ይፈልጋል።</translation>
 <translation id="453661520163887813"><ph name="TIME" /> ሙሉ እስከሚሆን ድረስ</translation>
 <translation id="4544944664594876241">የመቆለፊያ ገጹ የሚቆለፍበት አቋራጭ ተቀይሯል። እባክዎ ከ<ph name="OLD_SHORTCUT" /> ይልቅ <ph name="NEW_SHORTCUT" />ን ይጠቀሙ።</translation>
+<translation id="4564869809620998694">የቅርጸ-ቁምፊ አገልግሎት</translation>
 <translation id="4570957409596482333">ለመናገር-ይምረጡ አዝራር</translation>
 <translation id="4659419629803378708">ChromeVox ነቅቷል</translation>
 <translation id="4776917500594043016">የ<ph name="USER_EMAIL_ADDRESS" /> ይለፍ ቃል</translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">መታ አድርጎ መጎተት</translation>
 <translation id="5777841717266010279">ማያ ገጽ ማጋራት ይቁም?</translation>
 <translation id="57838592816432529">ድምጽ ይዝጉ</translation>
+<translation id="5805697420284793859">የWindow አስተዳዳሪ</translation>
 <translation id="5820394555380036790">Chromium ስርዓተ ክወና</translation>
 <translation id="5832805196449965646">ሰው አክል</translation>
 <translation id="5860033963881614850">አጥፋ</translation>
 <translation id="5895138241574237353">እንደገና ጀምር</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">የአቋራጭ ተመልካች</translation>
 <translation id="5916664084637901428">በርቷል</translation>
 <translation id="5927132638760172455">ወዳልታወቀ ተቀባይ በመውሰድ ላይ</translation>
 <translation id="5947494881799873997">አድህር</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">ምንም ተንቀሳቃሽ መሣሪያዎች አልተገኙም።</translation>
 <translation id="671928215901716392">ማያ ገጽ ይቆልፉ</translation>
 <translation id="6723839937902243910">ኃይል</translation>
+<translation id="6725073593266469338">የዩአይ አገልግሎት</translation>
 <translation id="6785414152754474415">ባትሪው <ph name="PERCENTAGE" />% ሙሉ ሆኖ በተጨማሪም ኃይል እየሞላ ነው።</translation>
 <translation id="6803622936009808957">ምንም የሚደገፉ ጥራቶች ስላልተገኙ ማሳያዎችን ማሳየት አልተቻለም። ይልቁንስ ወደ የተስፋፋ ዴስክቶፕ ሁነታ ተገብቷል።</translation>
 <translation id="6820676911989879663">እረፍት ይውሰዱ!</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">ማስታወሻን ይፍጠሩ</translation>
 <translation id="8392451568018454956">የ<ph name="USER_EMAIL_ADDRESS" /> አማራጮች ምናሌ</translation>
 <translation id="8428213095426709021">ቅንብሮች</translation>
+<translation id="8431190899827883166">መታ ማድረጎችን አሳይ</translation>
 <translation id="8433186206711564395">የአውታረ መረብ ቅንብሮች</translation>
 <translation id="8433977262951327081">በመደርደሪያው ውስጥ የግቤት አማራጮች ምናሌ አረፋን ለማሳየት የሚሆነው አቋራጭ ተለውጧል። እባክዎ በ<ph name="OLD_SHORTCUT" /> ምትክ <ph name="NEW_SHORTCUT" />ን ይጠቀሙ።</translation>
 <translation id="8452135315243592079">ሲም ካርድ ይጎድላል</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">የGoogle ረዳቱ ይህን ቋንቋ አይናገርም።</translation>
 <translation id="8938800817013097409">USB-C መሣሪያ (የቀኝ ወደብ ከኋላ በኩል)</translation>
 <translation id="8940956008527784070">ባትሪ ዝቅተኛ ነው (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">ፈጣን ማስጀመሪያ</translation>
 <translation id="8995603266996330174">የተቀናበረው በ<ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">ብሉቱዝ</translation>
 <translation id="9079731690316798640">Wi-Fi፦ <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">ዘግተው ለመውጣት Ctrl Shift Qን ሁለቴ ይጫኑ።</translation>
 <translation id="945522503751344254">ግብረ መልስ ላክ</translation>
 <translation id="98515147261107953">በወርድ</translation>
+<translation id="995927048686010764">ራስ-ሰር ጠቅ ማድረግ</translation>
 </translationbundle>

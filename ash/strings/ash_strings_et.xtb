@@ -172,6 +172,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4527045527269911712">Bluetoothi seade „<ph name="DEVICE_NAME" />” küsib luba sidumiseks.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> täislaadimiseni</translation>
 <translation id="4544944664594876241">Ekraani lukustamise otseteed on muudetud. Kasutage vana otsetee <ph name="OLD_SHORTCUT" /> asemel uut otseteed <ph name="NEW_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Fonditeenus</translation>
 <translation id="4570957409596482333">Nupp Vali ja kuula</translation>
 <translation id="4659419629803378708">ChromeVox on lubatud</translation>
 <translation id="4776917500594043016">Kasutaja <ph name="USER_EMAIL_ADDRESS" /> parool</translation>
@@ -208,11 +209,13 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="5744083938413354016">Puudutusega lohistamine</translation>
 <translation id="5777841717266010279">Kas peatada ekraani jagamine?</translation>
 <translation id="57838592816432529">Vaigista</translation>
+<translation id="5805697420284793859">Aknahaldur</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Lisa inimene</translation>
 <translation id="5860033963881614850">Väljas</translation>
 <translation id="5895138241574237353">Taaskäivitamine</translation>
 <translation id="5901316534475909376">Tõstuklahv + ESC</translation>
+<translation id="5911533659001334206">Otseteede vaatur</translation>
 <translation id="5916664084637901428">Sees</translation>
 <translation id="5927132638760172455">Ülekandmine teadmata vastuvõtjasse</translation>
 <translation id="5947494881799873997">Ennista</translation>
@@ -262,6 +265,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="6715542151869432661">Mobiilseadmeid ei leitud.</translation>
 <translation id="671928215901716392">Lukusta ekraan</translation>
 <translation id="6723839937902243910">Toide</translation>
+<translation id="6725073593266469338">Kasutajaliidese teenus</translation>
 <translation id="6785414152754474415">Aku on <ph name="PERCENTAGE" />% täis ja seda laetakse.</translation>
 <translation id="6803622936009808957">Ei saanud kuvasid peegeldada, kuna toetatud eraldusvõimeid ei leitud. Selle asemel siseneti laiendatud töölaua režiimi.</translation>
 <translation id="6820676911989879663">Tehke paus!</translation>
@@ -325,6 +329,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="8351131234907093545">Märkme loomine</translation>
 <translation id="8392451568018454956">Konto <ph name="USER_EMAIL_ADDRESS" /> valikute menüü</translation>
 <translation id="8428213095426709021">Seaded</translation>
+<translation id="8431190899827883166">Puudutuste kuvamine</translation>
 <translation id="8433186206711564395">Võrguseaded</translation>
 <translation id="8433977262951327081">Otsetee sisestusvalikute menüü mulli kuvamiseks riiulil on muutunud. Kasutage otsetee <ph name="OLD_SHORTCUT" /> asemel otseteed <ph name="NEW_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">SIM-kaart puudub</translation>
@@ -350,6 +355,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="8921624153894383499">Google'i assistent ei räägi selles keeles.</translation>
 <translation id="8938800817013097409">C-tüüpi USB-seade (parempoolne port taga)</translation>
 <translation id="8940956008527784070">Aku tühjeneb (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">Kiirkäivitus</translation>
 <translation id="8995603266996330174">Haldaja: <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">WiFi: <ph name="ADDRESS" /></translation>
@@ -366,4 +372,5 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="923686485342484400">Väljalogimiseks vajutage kaks korda klahvikombinatsiooni Ctrl + tõstuklahv + Q.</translation>
 <translation id="945522503751344254">Saada tagasisidet</translation>
 <translation id="98515147261107953">Horisontaalpaigutus</translation>
+<translation id="995927048686010764">Autoclick</translation>
 </translationbundle>
