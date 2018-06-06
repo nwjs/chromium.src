@@ -2164,7 +2164,9 @@ void LayoutBox::MapAncestorToLocal(const LayoutBoxModelObject* ancestor,
   LayoutBoxModelObject::MapAncestorToLocal(ancestor, transform_state, mode);
 }
 
-LayoutSize LayoutBox::OffsetFromContainer(const LayoutObject* o) const {
+LayoutSize LayoutBox::OffsetFromContainerInternal(
+    const LayoutObject* o,
+    bool ignore_scroll_offset) const {
   DCHECK_EQ(o, Container());
 
   LayoutSize offset;
@@ -2174,7 +2176,7 @@ LayoutSize LayoutBox::OffsetFromContainer(const LayoutObject* o) const {
   offset += PhysicalLocationOffset();
 
   if (o->HasOverflowClip())
-    offset -= ToLayoutBox(o)->ScrolledContentOffset();
+    offset += OffsetFromScrollableContainer(o, ignore_scroll_offset);
 
   if (IsOutOfFlowPositioned() && o->IsLayoutInline() &&
       o->CanContainOutOfFlowPositionedElement(Style()->GetPosition())) {

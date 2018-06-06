@@ -1343,8 +1343,9 @@ bool LayoutInline::MapToVisualRectInAncestorSpaceInternal(
       ancestor, transform_state, visual_rect_flags);
 }
 
-LayoutSize LayoutInline::OffsetFromContainer(
-    const LayoutObject* container) const {
+LayoutSize LayoutInline::OffsetFromContainerInternal(
+    const LayoutObject* container,
+    bool ignore_scroll_offset) const {
   DCHECK_EQ(container, Container());
 
   LayoutSize offset;
@@ -1352,7 +1353,7 @@ LayoutSize LayoutInline::OffsetFromContainer(
     offset += OffsetForInFlowPosition();
 
   if (container->HasOverflowClip())
-    offset -= ToLayoutBox(container)->ScrolledContentOffset();
+    offset += OffsetFromScrollableContainer(container, ignore_scroll_offset);
 
   return offset;
 }
