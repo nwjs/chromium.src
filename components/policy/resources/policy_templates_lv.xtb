@@ -417,6 +417,7 @@
 <translation id="2240879329269430151">Ļauj iestatīt, vai vietnēm ir atļauts rādīt uznirstošos logus. Uznirstošo logu rādīšana var tikt atļauta visām vietnēm vai noraidīta visām vietnēm.
 
           Ja šī politika nav iestatīta, tiks lietota politika BlockPopups un lietotājs to varēs mainīt.</translation>
+<translation id="2269319728625047531">Sinhronizācijas atļaušanas dialoglodziņa iespējošana rādīšanai pierakstīšanās laikā</translation>
 <translation id="2274864612594831715">Ar šo politiku var konfigurēt virtuālās tastatūras kā ievades ierīces iespējošanu operētājsistēmā Chrome OS. Lietotāji nevar ignorēt šo politiku.
 
       Ja politikas iestatījums ir “True”, ekrāna virtuālā tastatūra vienmēr būs iespējota.
@@ -526,6 +527,10 @@
       Ja šis iestatījums nav iestatīts, lietotāji var izlemt, vai izmantot šo funkciju.
 
       Šis iestatījums ir noņemts pārlūkā <ph name="PRODUCT_NAME" /> 29 un jaunākās versijās.</translation>
+<translation id="2438609638493026652">Iespējo galveno notikumu ziņošanu Google serveriem Android lietotņu instalēšanas laikā. Notikumi tiek reģistrēti tikai lietotnēm, kuru instalēšana tika aktivizēta, izmantojot politiku.
+
+      Ja politikai ir iestatīta vērtība “true”, notikumi tiks reģistrēti.
+      Ja politikai ir iestatīta vērtība “false” vai tā nav iestatīta, notikumi netiks reģistrēti.</translation>
 <translation id="244317009688098048">Glābšanas īsinājumtaustiņa iespējošana automātiskās pieteikšanās darbībai
 
       Ja šī politika nav iestatīta vai ja tai ir iestatīta vērtība “True” un lokālais ierīces konts ir konfigurēts nulles aizkaves automātiskās pieteikšanas izmantošanai, operētājsistēmā <ph name="PRODUCT_OS_NAME" /> tiks izmantota taustiņu kombinācija Ctrl+Alt+S, lai izlaistu automātisko pieteikšanos un parādītu pieteikšanās ekrānu.
@@ -1185,6 +1190,7 @@ Ja šai politikai ir iestatīta vērtība “Nepatiesa”, netiek sniegta inform
 <translation id="4309640770189628899">DHE šifra komplektu iespējošana standartā TLS</translation>
 <translation id="4322842393287974810">Atļaut kioska lietotnei, kas tiek automātiski palaista ar nulles aizkavi, kontrolēt <ph name="PRODUCT_OS_NAME" /> versiju</translation>
 <translation id="4325690621216251241">Atteikšanās pogas pievienošana sistēmas teknei</translation>
+<translation id="4332177773549877617">Android lietotņu instalēšanas notikumu reģistrēšana</translation>
 <translation id="4346674324214534449">Ļauj iestatīt, vai bloķēt reklāmu rādīšanu vietnēs, kurās tiek rādītas traucējošas reklāmas.
 
       Ja politikai ir iestatīta vērtība “2”, reklāmu rādīšana tiks bloķēta vietnēs, kurās tiek rādītas traucējošas reklāmas.
@@ -2763,6 +2769,9 @@ Operētājsistēmā Windows politikas konfigurēšanai ieteicams izmantot GPO, t
 
       Ja šī politika nav iestatīta, tiek izmantota vērtība <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Šī politika nosaka, vai lietotājam pirmajā pierakstīšanās reizē tiek rādīts dialoglodziņš sinhronizācijas atļaušanai. Ja lietotājam nekad nav nepieciešams rādīt dialoglodziņu sinhronizācijas atļaušanai, politikai jāiestata vērtība “False”.
+      Ja ir iestatīta vērtība “False”, dialoglodziņš sinhronizācijas atļaušanai netiks rādīts.
+      Ja ir iestatīta vērtība “True” vai politika nav iestatīta, dialoglodziņš sinhronizācijas atļaušanai tiks rādīts.</translation>
 <translation id="8947415621777543415">Ziņot par ierīces atrašanās vietu</translation>
 <translation id="8951350807133946005">Iestatīt diska kešatmiņas direktoriju</translation>
 <translation id="8952317565138994125">Atspējo datu sinhronizāciju pārlūkā <ph name="PRODUCT_NAME" />, izmantojot Google mitinātos sinhronizācijas pakalpojumus, un neļauj lietotājiem mainīt šo iestatījumu.

@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">Sisestatud kasutajanimi ja parool ei ühti</translation>
 <translation id="1397854323885047133">Sünkroonimine ja isikupärastamine</translation>
 <translation id="1398853756734560583">Maksimeeri</translation>
+<translation id="1399511500114202393">Kasutaja sertifikaat puudub</translation>
 <translation id="140250605646987970">Teie telefon on leitud, kuid Smart Lock töötab ainult seadmetel, mis kasutavad operatsioonisüsteemi Android 5.0 ja uuemaid versioone. &lt;a&gt;Lisateave&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (jälgitav)</translation>
 <translation id="1405476660552109915">Kas soovite, et rakendus <ph name="PASSWORD_MANAGER_BRAND" /> salvestaks teie konto selle saidi jaoks?</translation>
@@ -5232,6 +5233,7 @@ Inimesed, kelle ühendus on aeglane, ei pruugi teie sisu näha.</translation>
 <translation id="9094982973264386462">Eemalda</translation>
 <translation id="9095253524804455615">Eemalda</translation>
 <translation id="9099674669267916096">Lehtede arv</translation>
+<translation id="9100610230175265781">Parool on vajalik</translation>
 <translation id="9100765901046053179">Täpsemad seaded</translation>
 <translation id="9101691533782776290">Rakenduse käivitamine</translation>
 <translation id="9102610709270966160">Luba laiendus</translation>

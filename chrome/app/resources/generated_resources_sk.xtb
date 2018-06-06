@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">Zadané používateľské meno a heslo sa nezhodujú</translation>
 <translation id="1397854323885047133">Synchronizácia a prispôsobenie</translation>
 <translation id="1398853756734560583">Maximalizovať</translation>
+<translation id="1399511500114202393">Žiadny certifikát používateľa</translation>
 <translation id="140250605646987970">Našli sme váš telefón. Funkcia Smart Lock však funguje iba na zariadeniach s Androidom verzie 5.0 a novšej. &lt;a&gt;Ďalšie informácie&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (kontrolovaný)</translation>
 <translation id="1405476660552109915">Chcete, aby prehliadač <ph name="PASSWORD_MANAGER_BRAND" /> uložil váš účet pre tento web?</translation>
@@ -1099,7 +1100,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2673135533890720193">Čítať históriu prehliadania</translation>
 <translation id="2673589024369449924">Vytvoriť pre tohto používateľa odkaz na pracovnej ploche</translation>
 <translation id="2676946222714718093">Prehráva sa na zariadení</translation>
-<translation id="2677748264148917807">Opustiť</translation>
+<translation id="2677748264148917807">Odísť</translation>
 <translation id="2678063897982469759">Znova povoliť</translation>
 <translation id="2679385451463308372">Tlačiť prostredníctvom dialógového okna systému...</translation>
 <translation id="268053382412112343">Hi&amp;stória</translation>
@@ -5229,6 +5230,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="9094982973264386462">Odstrániť</translation>
 <translation id="9095253524804455615">Odstrániť</translation>
 <translation id="9099674669267916096">Počet strán</translation>
+<translation id="9100610230175265781">Vyžaduje sa prístupová fráza</translation>
 <translation id="9100765901046053179">Rozšírené nastavenia</translation>
 <translation id="9101691533782776290">Spustiť aplikáciu</translation>
 <translation id="9102610709270966160">Povoliť rozšírenie</translation>

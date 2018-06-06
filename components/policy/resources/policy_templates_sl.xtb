@@ -416,6 +416,7 @@ Vrednost prilagoditve mora biti 100 % ali več.</translation>
 <translation id="2240879329269430151">Omogoča nastavitev, ali je spletnim mestom dovoljeno prikazovati pojavna okna. Prikazovanje pojavnih oken je mogoče dovoliti ali zavrniti za vsa spletna mesta.
 
          Če ta pravilnik ni nastavljen, bo uporabljen pravilnik »BlockPopups« in uporabnik ga bo lahko spremenil.</translation>
+<translation id="2269319728625047531">Omogočanje prikaza soglasja za sinhronizacijo med prijavo</translation>
 <translation id="2274864612594831715">Ta pravilnik nastavi omogočanje navidezne tipkovnice kot vhodne naprave v sistemu Chrome OS. Uporabniki tega pravilnika ne morejo preglasiti.
 
       Če je pravilnik nastavljen na »true«, je zaslonska navidezna tipkovnica vedno omogočena.
@@ -525,6 +526,10 @@ Vrednost prilagoditve mora biti 100 % ali več.</translation>
       Če te nastavitve ne nastavite, se lahko uporabnik odloči, ali želi uporabljati to funkcijo.
 
       Ta nastavitev je bila odstranjena iz programa <ph name="PRODUCT_NAME" /> 29 in novejših različic.</translation>
+<translation id="2438609638493026652">Omogoča poročanje Googlu o ključnih dogodkih pri namestitvi aplikacije za Android. Dogodki so zajeti samo za aplikacije, katerih namestitev je bila sprožena s pravilnikom.
+
+      Če je pravilnik omogočen, bodo dogodki zabeleženi.
+      Če je pravilnik onemogočen ali ni nastavljen, dogodki ne bodo zabeleženi.</translation>
 <translation id="244317009688098048">Omogočanje bližnjičnih tipk, da se obide samodejna prijava.
 
       Če ta pravilnik ni nastavljen ali je nastavljen na »True« in je lokalni račun v napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, <ph name="PRODUCT_OS_NAME" /> upošteva bližnjične tipke Ctrl + Alt + S, da obide samodejno prijavo in prikaz zaslona za prijavo.
@@ -1189,6 +1194,7 @@ Vrednost pravilnika mora vedno biti navedena v sekundah. Vrednosti so navzdol om
 <translation id="4309640770189628899">Ali so v protokolu TLS omogočene šifrirne zbirke DHE</translation>
 <translation id="4322842393287974810">Dovoli samodejno zagnani aplikaciji za kiosk brez zamika nadzor nad različico sistema <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Dodajanje gumb za odjavo v sistemsko vrstico</translation>
+<translation id="4332177773549877617">Beleženje dogodkov za namestitve aplikacije za Android</translation>
 <translation id="4346674324214534449">Omogoča, da nastavite, ali je treba oglase blokirati na spletnih mestih z vsiljivimi oglasi.
 
       Če je ta pravilnik nastavljen na 2, bodo oglasi blokirani na spletnih mestih z vsiljivimi oglasi.
@@ -2769,6 +2775,9 @@ Teh nastavitev ni treba konfigurirati ročno. Za sisteme Windows, macOS in Linux
 
       Če ta pravilnik ni nastavljen, se predvideva uporaba pravilnika <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Ta pravilnik nadzira, ali je soglasje za sinhronizacijo lahko prikazano uporabniku med prvo prijavo. Če soglasja za sinhronizacijo ne potrebujete za uporabnika, mora biti pravilnik onemogočen.
+      Če je onemogočen, soglasje za sinhronizacijo ne bo prikazano.
+      Če je omogočen ali ni nastavljen, je soglasje za sinhronizacijo mogoče prikazati.</translation>
 <translation id="8947415621777543415">Prijava lokacije naprave</translation>
 <translation id="8951350807133946005">Nastavi imenik predpomnilnika diska</translation>
 <translation id="8952317565138994125">Onemogoča sinhronizacijo podatkov v izdelku <ph name="PRODUCT_NAME" /> s storitvami sinhronizacije, ki jih gosti Google, in uporabnikom prepreči spreminjanje te nastavitve.

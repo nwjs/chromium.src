@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">Το όνομα χρήστη και ο κωδικός πρόσβασης που καταχωρίσατε δεν ταιριάζουν</translation>
 <translation id="1397854323885047133">Συγχρονισμός και εξατομίκευση</translation>
 <translation id="1398853756734560583">Μεγιστοποίηση</translation>
+<translation id="1399511500114202393">Δεν υπάρχει πιστοποιητικό χρήστη</translation>
 <translation id="140250605646987970">Εντοπίστηκε το τηλέφωνό σας. Ωστόσο, το Smart Lock λειτουργεί μόνο σε συσκευές με έκδοση λογισμικού Android 5.0 και νεότερη. &lt;a&gt;Μάθετε περισσότερα&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (Εποπτευόμενος)</translation>
 <translation id="1405476660552109915">Θέλετε το <ph name="PASSWORD_MANAGER_BRAND" /> να αποθηκεύσει τον λογαριασμό σας για αυτόν τον ιστότοπο;</translation>
@@ -5231,6 +5232,7 @@
 <translation id="9094982973264386462">Κατάργηση</translation>
 <translation id="9095253524804455615">Κατάργηση</translation>
 <translation id="9099674669267916096">Πλήθος σελίδων</translation>
+<translation id="9100610230175265781">Απαιτείται φράση πρόσβασης</translation>
 <translation id="9100765901046053179">Σύνθετες ρυθμίσεις</translation>
 <translation id="9101691533782776290">Εκκίνηση εφαρμογής</translation>
 <translation id="9102610709270966160">Ενεργοποίηση επέκτασης</translation>

@@ -101,7 +101,7 @@
 <translation id="189172778771606813">मार्गदर्शक ड्रॉवर बंद करें</translation>
 <translation id="1919345977826869612">विज्ञापन</translation>
 <translation id="1933845786846280168">चयनित टैब</translation>
-<translation id="1938981467853765413">फ़ीडबैक दें</translation>
+<translation id="1938981467853765413">सुझाव दें</translation>
 <translation id="194341124344773587"><ph name="BEGIN_LINK" />Android सेटिंग<ph name="END_LINK" /> में Chrome के लिए अनुमति चालू करें.</translation>
 <translation id="1943432128510653496">पासवर्ड सहेजें</translation>
 <translation id="1944384637046898011"><ph name="TIME" /> तक का सभी डेटा Google पासवर्ड से एन्‍क्रिप्‍ट करें</translation>
@@ -118,7 +118,7 @@
 <translation id="2017836877785168846">इतिहास साफ़ करता है और पता बार में स्वत: पूर्णता को साफ़ करता है.</translation>
 <translation id="2021896219286479412">पूरी स्क्रीन के साइट नियंत्रण</translation>
 <translation id="2038563949887743358">अनुरोध डेस्कटॉप साइट चालू करें</translation>
-<translation id="2045104531052923016"><ph name="GIGABYTES" /> GB अन्य ऐप्लिकेशन</translation>
+<translation id="2045104531052923016"><ph name="GIGABYTES" /> जीबी अन्य ऐप्लिकेशन</translation>
 <translation id="2079545284768500474">वापस लाएं</translation>
 <translation id="2082238445998314030"><ph name="TOTAL_RESULTS" /> में से <ph name="RESULT_NUMBER" /> परिणाम</translation>
 <translation id="2086652334978798447">Google द्वारा सुझाई गई वैयक्तिकृत सामग्री प्राप्त करने के लिए, Chrome में प्रवेश करें.</translation>
@@ -253,7 +253,7 @@
 <translation id="3350687908700087792">सभी गुप्त टैब बंद करें</translation>
 <translation id="3365671512111106261">डेटा बचाने के साधन के चालू होने पर यह सेटिंग अनुपलब्ध होती है</translation>
 <translation id="3367813778245106622">समन्वयन शुरू करने के लिए फिर से प्रवेश करें</translation>
-<translation id="3384347053049321195">चित्र साझा करें</translation>
+<translation id="3384347053049321195">चित्र शेयर करें</translation>
 <translation id="3386292677130313581">साइट को अपना स्थान जानने देने से पहले अनुमति लेना आवश्यक बनाएं (अनुशंसित)</translation>
 <translation id="3387650086002190359">सिस्‍टम त्रुटियों के कारण <ph name="FILE_NAME" /> डाउनलोड विफल रहा.</translation>
 <translation id="339329030417445648">यह साइट तंग करने वाले विज्ञापन दिखाने के लिए जानी जाती है</translation>
@@ -277,9 +277,9 @@
 <translation id="3599863153486145794">प्रवेश किए हुए सभी डिवाइसों से इतिहास साफ़ कर देता है. आपके Google खाते में <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> पर अन्य प्रकार के ब्राउज़िंग इतिहास हो सकतेे हैं.</translation>
 <translation id="3600792891314830896">आवाज़ चलाने वाली साइटों की आवाज़ बंद करें</translation>
 <translation id="360207483134687714">Chrome में VR अनुभव को बेहतर बनाने में सहायता करें</translation>
-<translation id="360480449234699036">पृष्‍ठ को छोड़े बिना वेबसाइटों पर मौजूद विषयों के बारे में जानें. स्‍पर्श करने के लिए खोजें, Google खोज को एक शब्‍द और उसके आस-पास का संदर्भ भेजता है, जिससे वह परिभाषाएं, चित्र, खोज परिणाम और अन्‍य विवरण लौटाता है.
+<translation id="360480449234699036">पेज को छोड़े बिना वेबसाइटों पर मौजूद विषयों के बारे में जानें. 'खोजने के लिए टैप करें' सुविधा, 'Google सर्च' को कोई शब्‍द और उससे जुड़ी जानकारी भेजती है. इससे परिभाषाएं, तस्वीर, खोज नतीजे और दूसरी जानकारियां हासिल होती हैं.
 
-अपने खोज शब्‍द को एडजस्‍ट करने के लिए, चुनने हेतु देर तक दबाएं. अपनी खोज को परिष्‍कृत करने के लिए, फलक को सीधे ऊपर स्‍लाइड करें और खोज बॉक्‍स को स्‍पर्श करें.</translation>
+अपने खोज के शब्द को एडजस्‍ट करने के लिए उसे चुनें. चुनने के लिए उसे देर तक दबाकर रखें. अपनी खोज को बेहतर बनाने के लिए, पैनल को सीधे ऊपर स्‍लाइड करें और खोज बॉक्‍स' पर टैप करें.</translation>
 <translation id="3616113530831147358">ऑडियो</translation>
 <translation id="3620176948598597475">रीसेट करने से आपकी देखी गई साइटों की सूची के साथ, डेटा बचाने के साधन का इतिहास हमेशा के लिए मिट जाता है.</translation>
 <translation id="3632295766818638029">पासवर्ड दिखाएं</translation>
@@ -422,11 +422,11 @@
 <translation id="4913169188695071480">रीफ्रेश करना बंद करें</translation>
 <translation id="4915549754973153784">डिवाइस स्कैन करने में <ph name="BEGIN_LINK" />सहायता पाएं<ph name="END_LINK" />...</translation>
 <translation id="4943872375798546930">कोई परिणाम नहीं</translation>
-<translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> आपकी स्क्रीन साझा कर रहा है</translation>
+<translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> आपकी स्क्रीन शेयर कर रहा है</translation>
 <translation id="4961700429721424617">आप <ph name="MANAGED_DOMAIN" /> द्वारा प्रबंधित खाते से प्रस्थान कर रहे हैं. इससे आपका Chrome डेटा इस डिवाइस से हट जाएगा, लेकिन आपका डेटा आपके Google खाते में बना रहेगा.</translation>
 <translation id="497421865427891073">आगे जाएं</translation>
 <translation id="4988526792673242964">पेज</translation>
-<translation id="4996978546172906250">इसके द्वारा साझा करें</translation>
+<translation id="4996978546172906250">इसके द्वारा शेयर करें</translation>
 <translation id="5004339818306944878">60% कम डेटा का उपयोग करके वेब में तेज़ी लाएं. Google सर्वर उन पेज को अनुकूलित करेंगे जिन पर आप विज़िट करते हैं.</translation>
 <translation id="5005498671520578047">पासवर्ड कॉपी करें</translation>
 <translation id="5011311129201317034"><ph name="SITE" /> कनेक्ट करना चाहती है</translation>
@@ -470,13 +470,13 @@
 <translation id="5403644198645076998">सिर्फ़ कुछ निश्चित साइटों को ही अनुमति दें</translation>
 <translation id="5414836363063783498">सत्यापन हो रहा है...</translation>
 <translation id="5423934151118863508">आपके द्वारा सबसे अधिक देखे गए पेज यहां दिखाई देंगे</translation>
-<translation id="5424588387303617268"><ph name="GIGABYTES" /> GB उपलब्ध है</translation>
+<translation id="5424588387303617268"><ph name="GIGABYTES" /> जीबी उपलब्ध है</translation>
 <translation id="5433691172869980887">उपयोगकर्ता नाम कॉपी किया गया</translation>
 <translation id="5441522332038954058">सीधे पता बार पर जाएं</translation>
 <translation id="5447201525962359567">सभी साइट मेमोरी, जिसमें कुकी और स्थानीय रूप से संग्रहित अन्य डेटा शामिल है</translation>
 <translation id="5447765697759493033">इस साइट का अनुवाद नहीं किया जाएगा</translation>
 <translation id="5456381639095306749">पेज डाउनलोड करें</translation>
-<translation id="548278423535722844">मानचित्र ऐप्लिकेशन में खोलें</translation>
+<translation id="548278423535722844">मैप ऐप्लिकेशन में खोलें</translation>
 <translation id="5487521232677179737">डेटा साफ़ करें</translation>
 <translation id="5487729733663684359">Chrome अपडेट अब Android के इस वर्शन के लिए समर्थित नहीं हैं.</translation>
 <translation id="550684401320795253">Chrome अपडेट किया जा रहा है...</translation>
@@ -528,7 +528,7 @@
 <translation id="5809361687334836369">{HOURS,plural, =1{# घंटा पहले}one{# घंटे पहले}other{# घंटे पहले}}</translation>
 <translation id="5817918615728894473">युग्‍मित करें</translation>
 <translation id="583281660410589416">अज्ञात</translation>
-<translation id="5833984609253377421">लिंक साझा करें</translation>
+<translation id="5833984609253377421">लिंक शेयर करें</translation>
 <translation id="583891442612896534">Chrome डेटा संपीड़न के लिए Google के सर्वर तक नहीं पहुंच पा रहा है. आपकी डेटा की बचत सीमित हो सकती हैं.</translation>
 <translation id="5854790677617711513">30 दिनों से ज़्यादा पुराना</translation>
 <translation id="5858741533101922242">Chrome, ब्लूटूथ एडाप्टर को चालू नहीं कर सका</translation>
@@ -580,7 +580,7 @@
 <translation id="6295158916970320988">सभी साइटें</translation>
 <translation id="6320088164292336938">कंपन</translation>
 <translation id="6324034347079777476">Android सिस्टम समन्वयन अक्षम है</translation>
-<translation id="6333140779060797560"><ph name="APPLICATION" /> के द्वारा साझा करें</translation>
+<translation id="6333140779060797560"><ph name="APPLICATION" /> के द्वारा शेयर करें</translation>
 <translation id="6337234675334993532">सुरक्षित तरीका</translation>
 <translation id="6343192674172527289">कोई डाउनलोड नहीं मिला</translation>
 <translation id="6343495912647200061">{SHIPPING_ADDRESS,plural, =1{<ph name="SHIPPING_ADDRESS_PREVIEW" />\u2026 और <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> अन्य}one{<ph name="SHIPPING_ADDRESS_PREVIEW" />\u2026 और <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> अन्य}other{<ph name="SHIPPING_ADDRESS_PREVIEW" />\u2026 और <ph name="NUMBER_OF_ADDITIONAL_ADDRESSES" /> अन्य}}</translation>
@@ -602,14 +602,14 @@
 <translation id="6475951671322991020">वीडियो डाउनलोड करें</translation>
 <translation id="6482749332252372425">मेमोरी स्‍थान कम होने के कारण <ph name="FILE_NAME" /> डाउनलोड विफल रहा.</translation>
 <translation id="6496823230996795692">पहली बार <ph name="APP_NAME" /> का उपयोग करने के लिए, कृपया इंटरनेट चालू करें.</translation>
-<translation id="6527303717912515753">साझा करें</translation>
+<translation id="6527303717912515753">शेयर करें</translation>
 <translation id="6534565668554028783">Google को प्रतिक्रिया देने में बहुत अधिक समय लगा</translation>
 <translation id="6538442820324228105"><ph name="GBS" /> जीबी डाउनलोड किया गया</translation>
 <translation id="654446541061731451">बीम के लिए टैब को चुनें</translation>
 <translation id="6545017243486555795">सभी डेटा साफ़ करें</translation>
 <translation id="6556716549745717622">अगर साइट तंग करने वाले विज्ञापन दिखाने के लिए जानी जाती है, तो ब्लॉक करें (सुझाया गया)</translation>
 <translation id="6560414384669816528">Sogou से खोजें</translation>
-<translation id="6566259936974865419">Chrome ने आपके <ph name="GIGABYTES" /> GB की बचत की</translation>
+<translation id="6566259936974865419">Chrome ने आपके <ph name="GIGABYTES" /> जीबी की बचत की</translation>
 <translation id="6573431926118603307">आपके द्वारा अपने अन्य डिवाइस पर खोले गए टैब यहां दिखाई देंगे.</translation>
 <translation id="6575643671698722332">रीसेट विफल रहा. डिवाइस ऑनलाइन होना सुनिश्चित करें और पुन: प्रयास करें.</translation>
 <translation id="6583199322650523874">वर्तमान पेज को बुकमार्क करें</translation>
@@ -625,7 +625,7 @@
 <translation id="666268767214822976">आपके द्वारा पता बार में लिखते ही संबंधित क्‍वेरी और लोकप्रिय वेबसाइटें दिखाने के लिए पूर्वानुमान सेवा का उपयोग करें</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" /> में खोलें</translation>
 <translation id="666981079809192359">Chrome निजता सूचना</translation>
-<translation id="6697947395630195233">Chrome को इस साइट से आपका स्थान साझा करने के लिए आपके स्थान का एक्सेस चाहिए.</translation>
+<translation id="6697947395630195233">Chrome को इस साइट से आपका स्थान शेयर करने के लिए आपके स्थान का एक्सेस चाहिए.</translation>
 <translation id="6698801883190606802">समन्वयित डेटा प्रबंधित करें</translation>
 <translation id="6701279291835318271">सुरक्षा रिपोर्ट</translation>
 <translation id="6710213216561001401">पिछला</translation>
@@ -681,7 +681,7 @@
 <translation id="7177466738963138057">आप इसे बाद में सेटिंग में जाकर बदल सकते हैं</translation>
 <translation id="7180611975245234373">रीफ्रेश करें</translation>
 <translation id="7189372733857464326">Google Play सेवाएं द्वारा अपडेट समाप्त किए जाने की प्रतीक्षा की जा रही है</translation>
-<translation id="7189598951263744875">साझा करें...</translation>
+<translation id="7189598951263744875">शेयर करें...</translation>
 <translation id="7191430249889272776">पृष्ठभूमि में टैब खोला गया.</translation>
 <translation id="723171743924126238">फ़ोटो चुनें</translation>
 <translation id="7243308994586599757">विकल्‍प स्‍क्रीन के नीचे उपलब्‍ध हैं</translation>
@@ -692,7 +692,7 @@
 <translation id="729975465115245577">आपके डिवाइस में पासवर्ड फ़ाइल को संग्रहित करने वाला कोई ऐप्लिकेशन नहीं है.</translation>
 <translation id="7333031090786104871">पिछली साइट अभी भी जोड़ी जा रही है</translation>
 <translation id="7352939065658542140">वीडियो</translation>
-<translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1 चयनित आइटम साझा करें}one{# चयनित आइटम साझा करें}other{# चयनित आइटम साझा करें}}</translation>
+<translation id="7353894246028566792">{NUM_SELECTED,plural, =1{1 चयनित आइटम शेयर करें}one{# चयनित आइटम शेयर करें}other{# चयनित आइटम शेयर करें}}</translation>
 <translation id="7366340029385295517"><ph name="SCREEN_NAME" /> पर कास्ट किया जा रहा है</translation>
 <translation id="7375125077091615385">प्रकार:</translation>
 <translation id="7400418766976504921">URL</translation>
@@ -784,13 +784,13 @@
 <translation id="8105951947646329362">मिलते-जुलते पेज सुझाएं</translation>
 <translation id="8116925261070264013">आवाज़ बंद की गई</translation>
 <translation id="813082847718468539">साइट जानकारी देखें</translation>
-<translation id="8137558756159375272">खोजने के लिए स्‍पर्श करें चयनित शब्‍द और वर्तमान पृष्‍ठ को संदर्भ के रूप में Google खोज पर भेजती है. आप उसे <ph name="BEGIN_LINK" />सेटिंग<ph name="END_LINK" /> में बंद कर सकते हैं.</translation>
+<translation id="8137558756159375272">'खोजने के लिए छुएं' सुविधा चुने हुए शब्‍द और मौजूदा पेज को संदर्भ के रूप में 'Google सर्च' पर भेजती है. इसे <ph name="BEGIN_LINK" />सेटिंग<ph name="END_LINK" /> में जाकर बंद किया जा सकता.</translation>
 <translation id="8168435359814927499">सामग्री</translation>
 <translation id="8186512483418048923"><ph name="FILES" /> फ़ाइलें बची हैं</translation>
 <translation id="8190358571722158785">1 दिन शेष</translation>
 <translation id="8200772114523450471">फिर से शुरू करें</translation>
 <translation id="8209050860603202033">चित्र खोलें</translation>
-<translation id="8220488350232498290"><ph name="GIGABYTES" /> GB डाउनलोड किया गया</translation>
+<translation id="8220488350232498290"><ph name="GIGABYTES" /> जीबी डाउनलोड किया गया</translation>
 <translation id="8249310407154411074">सबसे ऊपर ले जाएं</translation>
 <translation id="8250920743982581267">दस्तावेज़</translation>
 <translation id="8260126382462817229">फिर से प्रवेश करके देखें</translation>
@@ -856,7 +856,7 @@
 <translation id="8853345339104747198"><ph name="TAB_TITLE" />, टैब</translation>
 <translation id="885701979325669005">मेमोरी</translation>
 <translation id="8901170036886848654">कोई बुकमार्क नहीं मिला</translation>
-<translation id="8909135823018751308">साझा करें…</translation>
+<translation id="8909135823018751308">शेयर करें…</translation>
 <translation id="8912362522468806198">Google खाता</translation>
 <translation id="8920114477895755567">अभिभावकों के विवरण की प्रतीक्षा कर रहे हैं.</translation>
 <translation id="8922289737868596582">पेज का ऑफ़लाइन उपयोग करने के लिए उन्हें अधिक विकल्प बटन से डाउनलोड करें</translation>
@@ -890,7 +890,7 @@
 <translation id="9204836675896933765">1 फ़ाइल बची है</translation>
 <translation id="9206873250291191720">A</translation>
 <translation id="9219103736887031265">चित्र</translation>
-<translation id="932327136139879170">मुख्यपृष्ठ</translation>
+<translation id="932327136139879170">होम</translation>
 <translation id="932599481871055447">डेटा बचाएं और तेज़ी से ब्राउज़ करें</translation>
 <translation id="938850635132480979">गड़बड़ी: <ph name="ERROR_CODE" /></translation>
 <translation id="945632385593298557">अपना माइक्रोफ़ोन एक्सेस करें</translation>

@@ -416,6 +416,7 @@
 <translation id="2240879329269430151">Võimaldab määrata, kas veebisaitidel on lubatud kuvada hüpikaknaid. Hüpikaknad võib kõikide veebisaitide puhul lubada või keelata.
 
           Kui jätate reegli määramata, siis kasutatakse reeglit „BlockPopups” ja kasutaja saab seda muuta.</translation>
+<translation id="2269319728625047531">Sisselogimisel sünkroonimise nõusoleku kuvamise lubamine</translation>
 <translation id="2274864612594831715">See reegel seadistab virtuaalse klaviatuuri sisendseadmena lubamise Chrome OS-is. Kasutajad ei saa seda reeglit alistada.
 
       Kui reegel on määratud väärtusele Tõene, on ekraanil kuvatav virtuaalne klaviatuur alati lubatud.
@@ -523,6 +524,10 @@
       Kui jätate seade määramata, saavad kasutajad otsustada, kas seda funktsiooni kasutada või mitte.
 
       Toote <ph name="PRODUCT_NAME" /> 29-st ja uuematest versioonidest on see seade eemaldatud.</translation>
+<translation id="2438609638493026652">Võimaldab Androidi rakenduse installimise ajal saata Google'ile teavitusi oluliste sündmuste kohta. Sündmused jäädvustatakse ainult rakenduste puhul, mille installimine käivitati reegli kaudu.
+
+      Kui reegel on määratud väärtusele Tõene, siis sündmused logitakse.
+      Kui reegel on määratud väärtusele Väär või määramata, siis sündmusi ei logita.</translation>
 <translation id="244317009688098048">Pääsu otsetee lubamine automaatseks sisselogimiseks.
 
       Kui reegel on seadmata või on selle väärtuseks seatud Tõene ja seadmepõhine konto on konfigureeritud nullviivitusega automaatsele sisselogimisele, kasutab <ph name="PRODUCT_OS_NAME" /> automaatse sisselogimise vahelejätmiseks ja sisselogimisekraani näitamiseks klaviatuuri osteteed Ctrl + Alt + S.
@@ -1178,6 +1183,7 @@
 <translation id="4309640770189628899">Näitab, kas DHE šifreerimiskomplektid on TLS-is lubatud</translation>
 <translation id="4322842393287974810">Luba automaatselt käivitatud viivituseta kioskirakendusel juhtida operatsioonisüsteemi <ph name="PRODUCT_OS_NAME" /> versiooni</translation>
 <translation id="4325690621216251241">Lisa väljalogimisnupp süsteemisalve</translation>
+<translation id="4332177773549877617">Androidi rakenduse installimiste logisündmused</translation>
 <translation id="4346674324214534449">Võimaldab teil määrata, kas blokeerida reklaamid sekkuvate reklaamidega saitidel.
 
       Kui selle reegli väärtuseks on määratud 2, blokeeritakse reklaamid sekkuvate reklaamidega saitidel.
@@ -2758,6 +2764,9 @@ Soovituslik viis selle reegli seadistamiseks Windowsis on GPO kaudu, kuigi reegl
 
       Kui see reegel on määramata, kasutatakse väärtust <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Reegel määrab, kas kasutajale võib esimesel sisselogimisel kuvada sünkroonimise nõusoleku. Kui kasutaja ei pea kunagi sünkroonimiseks nõusolekut andma, tuleb reegli väärtuseks määrata Väär.
+      Kui reegel on seatud väärtusele Väär, ei kuvata sünkroonimise nõusolekut.
+      Kui reegel on määramata või seatud väärtusele Tõene, võidakse kuvada sünkroonimise nõusolek.</translation>
 <translation id="8947415621777543415">Esita seadme asukoht</translation>
 <translation id="8951350807133946005">Vahemälu kataloogi seadmine</translation>
 <translation id="8952317565138994125">Keelab teenuses <ph name="PRODUCT_NAME" /> andmete sünkroonimise Google'i hostitavate sünkroonimisteenuste kaudu ja takistab kasutajaid seda seadet muutmast.

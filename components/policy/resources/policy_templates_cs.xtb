@@ -392,6 +392,7 @@ Tato zásada se netýká terminálových aplikací – ty jsou migrovány automa
 <translation id="2240879329269430151">Umožňuje nastavit, zda mohou webové stránky zobrazovat vyskakovací okna. Zobrazování vyskakovacích oken lze buď povolit pro všechny weby, nebo je pro všechny weby zakázat.
 
           Není-li zásada nastavena, bude použita zásada BlockPopups a uživatelé ji budou moci změnit.</translation>
+<translation id="2269319728625047531">Zapnout zobrazení souhlasu se synchronizací při přihlašování</translation>
 <translation id="2274864612594831715">Tato zásada konfiguruje aktivaci virtuální klávesnice jako vstupního zařízení v systému Chrome OS. Tuto zásadu nemohou uživatelé přepsat.
 
           Pokud je zásada nastavena na hodnotu True, bude softwarová virtuální klávesnice vždy povolena.
@@ -500,6 +501,10 @@ Pokud tuto zásadu aktivujete nebo deaktivujete, uživatelé je nebudou moci zm�
 Pokud toto nastavení ponecháte nenastavené, uživatelé se budou moci rozhodnout, zda tuto funkci chtějí používat.
 
 Z prohlížeče <ph name="PRODUCT_NAME" /> verze 29 a novějších verzí bylo toto nastavení odebráno.</translation>
+<translation id="2438609638493026652">Umožňuje hlášení zásadních událostí během instalace aplikací pro Android do Googlu. Události se zaznamenávají pouze pro aplikace, jejichž instalace byla spuštěna prostřednictvím zásady.
+
+      Pokud je tato zásada nastavena na hodnotu true, budou se události protokolovat.
+      Pokud je tato zásada nastavena na hodnotu false nebo není nastavena, události se protokolovat nebudou.</translation>
 <translation id="244317009688098048">Bude aktivována nouzová klávesová zkratka pro automatické přihlašování.
 
       Pokud tato zásada není nastavena nebo má hodnotu True a místní účet v zařízení je nakonfigurován na automatické přihlašování s nulovou prodlevou, systém <ph name="PRODUCT_OS_NAME" /> bude sledovat klávesovou zkratku Ctrl+Alt+S, pomocí které bude možné obejít automatické přihlášení a zobrazit přihlašovací obrazovku.
@@ -1142,6 +1147,7 @@ Je-li tato zásada použita, bude mít uživatel k dispozici pouze tiskárny, j
 <translation id="4309640770189628899">Zda jsou v protokolu TLS povoleny šifrovací sady DHE</translation>
 <translation id="4322842393287974810">Povolit automaticky spouštěné terminálové aplikaci s nulovým zpožděním ovládat verzi systému <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Přidat na hlavní panel systému tlačítko pro odhlášení</translation>
+<translation id="4332177773549877617">Protokolovat události při instalaci aplikací pro Android</translation>
 <translation id="4346674324214534449">Umožňuje nastavit, zda mají být blokovány reklamy na webech s rušivými reklamami.
 
       Je-li tato zásada nastavena na hodnotu 2, budou reklamy na webech s rušivými reklamami blokovány.
@@ -2688,6 +2694,9 @@ Pokud tato zásada není nakonfigurována nebo je hodnota nižší než 1 MB, <p
 
       Pokud tato zásada není nastavena, předpokládá se použití možnosti <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Tato zásada určuje, zda je možné uživateli při prvním přihlášení zobrazit žádost o souhlas se synchronizací. Pokud žádost o souhlas se synchronizací u uživatele není potřeba, měla by být nastavena na hodnotu false.
+      Pokud je nastavena na hodnotu false, žádost o souhlas se synchronizací se nebude zobrazovat.
+      Pokud je nastavena na hodnotu true nebo není nastavena, žádost o souhlas se synchronizací se může zobrazit.</translation>
 <translation id="8947415621777543415">Oznamovat polohu zařízení</translation>
 <translation id="8951350807133946005">Nastavit adresář mezipaměti na disku</translation>
 <translation id="8952317565138994125">Deaktivuje v prohlížeči <ph name="PRODUCT_NAME" /> synchronizaci dat pomocí synchronizačních služeb hostovaných na Googlu a zabrání uživatelům ve změně tohoto nastavení.

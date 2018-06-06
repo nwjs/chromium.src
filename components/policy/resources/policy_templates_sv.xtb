@@ -417,6 +417,7 @@
 <translation id="2240879329269430151">Gör att du kan ange om webbplatser får visa popup-fönster. Du kan tillåta popup-fönster för alla webbplatser eller blockera popup-fönster för alla webbplatser.
 
           Om du inte anger policyn används BlockPopups och inställningen kan ändras av användaren.</translation>
+<translation id="2269319728625047531">Aktivera visning av samtycke till synkronisering vid inloggning</translation>
 <translation id="2274864612594831715">Denna policy konfigurerar aktiveringen av det virtuella tangentbordet som en inmatningsenhet i Chrome OS. Användare kan inte åsidosätta denna policy.
 
       Om värdet som har angetts för policyn är "true" är det virtuella tangentbordet på skärmen alltid aktiverat.
@@ -526,6 +527,10 @@
       Om ingen inställning anges kan användaren välja att använda eller inte använda denna funktion.
 
       Den här inställningen har tagits bort från och med version 29 av <ph name="PRODUCT_NAME" />.</translation>
+<translation id="2438609638493026652">Aktiverar rapportering av centrala händelser vid installation av Android-appar till Google. Händelser registreras bara för appar som installerats via en princip.
+
+      Om principen är inställd på sant loggas händelser.
+      Om principen är inställd på falskt eller lämnas utan inställning loggas inga händelser.</translation>
 <translation id="244317009688098048">Aktivera kortkommandot för bailout vid automatisk inloggning.
 
       Om den här policyn har inställningen sant eller saknar inställning, och det lokala kontot på enheten konfigureras för automatisk inloggning utan fördröjning kommer <ph name="PRODUCT_OS_NAME" /> att använda kortkommandot Ctrl+Alt+S för att passera skärmen för automatisk inloggning och i stället visa inloggningsskärmen.
@@ -1188,6 +1193,7 @@
 <translation id="4309640770189628899">Om DHE-krypteringssviter i TLS är aktiverade eller inte</translation>
 <translation id="4322842393287974810">Tillåt att kioskappen som startas automatiskt utan fördröjning styr <ph name="PRODUCT_OS_NAME" />-versionen</translation>
 <translation id="4325690621216251241">Lägg till en utloggningsknapp i systemfältet</translation>
+<translation id="4332177773549877617">Logga händelser vid installation av Android-appar</translation>
 <translation id="4346674324214534449">Ger dig möjlighet att ställa in om annonser ska blockeras på webbplatser med påträngande annonser.
 
       Om värdet 2 har angetts för principen blockeras annonser på webbplatser med påträngande annonser.
@@ -2771,6 +2777,9 @@ Det rekommenderade sättet att konfigurera principer på när du använder Windo
 
       Om inget värde anges för principen används <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Den här principen styr om samtycke till synkronisering får visas för användaren vid den första inloggningen. Den ska ställas in på falskt om samtycke till synkronisering aldrig behövs för användaren.
+      Om principen är inställd på falskt visas inget samtycke till synkronisering.
+      Om principen är inställd på sant eller lämnas utan inställning kan samtycke till synkronisering visas.</translation>
 <translation id="8947415621777543415">Rapportera enhetsplats</translation>
 <translation id="8951350807133946005">Ange katalog för diskcache</translation>
 <translation id="8952317565138994125">Inaktiverar datasynkronisering i <ph name="PRODUCT_NAME" /> med synkroniseringstjänster från Google och förhindrar att användarna ändrar inställningen.

@@ -424,6 +424,7 @@ Si ce paramètre n'est pas défini, les utilisateurs peuvent ouvrir normalement 
 <translation id="2240879329269430151">Permet de définir si les sites Web sont autorisés à afficher les pop-ups. L'affichage des pop-ups peut être soit autorisé pour tous les sites, soit refusé pour tous les sites. 
 
 Si cette règle n'est pas configurée, le paramètre "BlockPopups" est utilisé et l'utilisateur est en mesure de le modifier.</translation>
+<translation id="2269319728625047531">Activer l'affichage de l'autorisation de synchronisation lors de la connexion</translation>
 <translation id="2274864612594831715">Cette règle configure l'activation du clavier virtuel en tant que périphérique d'entrée sur Chrome OS. Les utilisateurs ne peuvent pas la modifier.
 
       Si la règle est définie sur la valeur "true", le clavier virtuel à l'écran est toujours activé.
@@ -533,6 +534,10 @@ Si cette règle n'est pas configurée, la valeur par défaut globale sera utilis
       Si vous ne définissez pas ce paramètre, les utilisateurs peuvent choisir d'appliquer cette fonctionnalité ou non.
 
       Ce paramètre a été supprimé de <ph name="PRODUCT_NAME" /> 29 et versions ultérieures.</translation>
+<translation id="2438609638493026652">Permet de signaler des événements clés à Google pendant l'installation d'une application Android. Les événements ne sont enregistrés que pour les applications dont l'installation a été déclenchée via des règles.
+
+      Si cette règle est définie sur "True", les événements sont enregistrés.
+      Si cette règle est définie sur "False" ou si elle n'est pas configurée, les événements ne sont pas enregistrés.</translation>
 <translation id="244317009688098048">Activer le raccourci clavier permettant d'ignorer le processus de connexion automatique
 
       Si cette règle n'est pas définie, ou si elle est définie sur "true", et qu'un compte local de l'appareil est configuré pour une connexion automatique sans délai d'expiration, le raccourci clavier Ctrl + Alt + S est pris en compte dans <ph name="PRODUCT_OS_NAME" /> pour ignorer la connexion automatique et afficher l'écran de connexion.
@@ -1198,6 +1203,7 @@ Cette option est habituellement désactivée dans le cadre de la protection cont
 <translation id="4309640770189628899">Activation ou non des suites de chiffrement DHE dans TLS</translation>
 <translation id="4322842393287974810">Autoriser l'application kiosque lancée automatiquement sans délai à contrôler la version de l'application <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Ajouter un bouton de déconnexion dans la barre d'état système</translation>
+<translation id="4332177773549877617">Enregistrer des événements pour les installations d'applications Android</translation>
 <translation id="4346674324214534449">Vous permet de définir si les annonces doivent être bloquées sur les sites présentant des annonces intrusives.
 
       Si cette règle est définie sur 2, les annonces seront bloquées sur les sites présentant des annonces intrusives.
@@ -2787,6 +2793,9 @@ indique uniquement les imprimantes qui peuvent être choisies.
 
       Si cette règle n'est pas définie, <ph name="PRINTERS_ALLOW_ALL" /> est supposé s'appliquer.
       </translation>
+<translation id="8942616385591203339">Permet d'activer l'affichage de l'autorisation de synchronisation lors de la première connexion de l'utilisateur. Si cette autorisation n'a jamais besoin d'être montrée à l'utilisateur, cette règle doit être définie sur False.
+      Si cette règle est définie sur False, l'autorisation de synchronisation n'est pas affichée.
+      Si cette règle est définie sur True ou si elle n'est pas configurée, l'autorisation de synchronisation peut être affichée.</translation>
 <translation id="8947415621777543415">Indiquer l'emplacement de l'appareil</translation>
 <translation id="8951350807133946005">Définir le répertoire du cache disque</translation>
 <translation id="8952317565138994125">Désactive la synchronisation des données dans <ph name="PRODUCT_NAME" /> à l'aide des services de synchronisation hébergés par Google et empêche les utilisateurs de modifier ce paramètre.

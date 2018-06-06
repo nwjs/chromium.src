@@ -404,6 +404,7 @@
 <translation id="2231817271680715693">Tuo selaushistoria oletusselaimesta ensimmäisellä käyttökerralla</translation>
 <translation id="2236488539271255289">Älä salli sivustojen luoda tiedostoja tietokoneelle</translation>
 <translation id="2240879329269430151">Voit määrittää, saavatko sivustot näyttää ponnahdusikkunoita. Ponnahdusikkunoiden näyttäminen voidaan sallia kaikille sivustoille tai kieltää kaikilta sivustoilta. Jos tätä käytäntöä ei ole määritetty, käytetään BlockPopups-asetusta, ja käyttäjä voi muuttaa asetusta.</translation>
+<translation id="2269319728625047531">Ota käyttöön synkronointisuostumuksen näyttäminen kirjautumisen aikana</translation>
 <translation id="2274864612594831715">Tämän käytännön avulla virtuaalinen näppäimistö voidaan ottaa käyttöön syöttölaitteena Chrome-käyttöjärjestelmässä. Käyttäjät eivät voi ohittaa tätä käytäntöä.
 
       Jos käytännön arvoksi asetetaan true, virtuaalinen näppäimistö on aina käytössä.
@@ -507,6 +508,10 @@
       Jos tätä asetusta ei ole määritetty, käyttäjä voi päättää, käyttääkö tätä toimintoa vai ei.
 
       Tämä asetus on poistettu <ph name="PRODUCT_NAME" /> 29:stä ja uudemmista versioista.</translation>
+<translation id="2438609638493026652">Sallii tärkeistä tapahtumista raportoimisen Googlelle Android-sovelluksen asennuksen aikana. Tapahtumia tallennetaan vain, jos sovelluksen asennus käynnistetään käytännön kautta.
+
+      Jos käytännön arvoksi on asetettu tosi, tapahtumat kirjataan.
+      Jos käytännön arvoksi on asetettu epätosi tai sitä ei ole asetettu, tapahtumia ei kirjata.</translation>
 <translation id="244317009688098048">Salli automaattisen kirjautumisen peruutusnäppäin.
 
       Jos tätä käytäntöä ei ole asetettu tai sen arvo on tosi ja laitteelle on määritetty paikallinen tili viiveettömällä automaattisella kirjautumisella, <ph name="PRODUCT_OS_NAME" /> hyväksyy pikanäppäimen Ctrl+Alt+S, jolla ohitetaan automaattinen kirjautuminen ja tuodaan näkyviin kirjautumisruutu.
@@ -1144,6 +1149,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="4309640770189628899">TLS:n DHE-salaustekniikoiden käyttöönotto</translation>
 <translation id="4322842393287974810">Salli automaattisesti ilman viivettä käynnistettävän kioskisovelluksen hallinnoida käyttöjärjestelmän <ph name="PRODUCT_OS_NAME" /> versiota</translation>
 <translation id="4325690621216251241">Lisää uloskirjautumispainike järjestelmäpalkkiin</translation>
+<translation id="4332177773549877617">Android-sovellusten asennusten lokitapahtumat</translation>
 <translation id="4346674324214534449">Sallii sinun määrittää, estetäänkö mainokset häiritseviä mainoksia sisältävillä sivustoilla
 
       Jos käytännön arvo on 2, mainokset estetään häiritseviä mainoksia sisältävillä sivustoilla.
@@ -2630,6 +2636,9 @@ Suosittelemme määrittämään käytännöt Windowsissa ryhmäkäytäntöobjekt
 
       Jos tätä käytäntöä ei ole määritetty, oletusarvo on <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Tällä käytännöllä määritetään, voiko suostumuksen synkronointia näyttää käyttäjälle ensimmäisen kirjautumisen aikana. Arvon pitäisi olla epätosi, jos käyttäjän ei koskaan tarvitse käyttää suostumuksen synkronointia.
+      Jos arvoksi on asetettu epätosi, suostumuksen synkronointia ei näytetä.
+      Jos arvoksi on asetettu tosi tai käytäntöä ei ole määritetty, suostumuksen synkronointi voidaan näyttää.</translation>
 <translation id="8947415621777543415">Ilmoita laitteen sijainti</translation>
 <translation id="8951350807133946005">Aseta levyn välimuistihakemisto</translation>
 <translation id="8952317565138994125">Tämän seurauksena <ph name="PRODUCT_NAME" /> ei voi synkronoida tietoja Googlen isännöimien synkronointipalvelujen kanssa, eivätkä käyttäjät voi muuttaa tätä asetusta.

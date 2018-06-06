@@ -403,6 +403,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="2240879329269430151">Umožňuje nastaviť, či môžu webové stránky zobrazovať kontextové okná. Zobrazovanie kontextových okien je možné pre všetky webové stránky buď umožniť, alebo zamietnuť.
 
           Ak toto pravidlo ponecháte nenastavené, použije sa pravidlo „BlockPopups“ a používateľ ho bude môcť zmeniť.</translation>
+<translation id="2269319728625047531">Povolenie zobrazovania súhlasu so synchronizáciou počas prihlasovania</translation>
 <translation id="2274864612594831715">Toto pravidlo konfiguruje povolenie virtuálnej klávesnice ako zariadenia vstupu v systéme OS Chrome. Používatelia nemôžu toto pravidlo prepísať.
 
       Ak je toto pravidlo povolené, bude virtuálna klávesnica na obrazovke vždy povolená.
@@ -514,6 +515,10 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
       Ak toto pravidlo ponecháte nenastavené, používatelia si budú môcť vybrať, či chcú funkciu používať alebo nie.
 
       Toto nastavenie sa v prehliadači <ph name="PRODUCT_NAME" /> verzie 29 a vyšších už nenachádza.</translation>
+<translation id="2438609638493026652">Povolí nahlasovanie kľúčových udalostí počas inštalácie aplikácie pre Android do Googlu. Udalosti sa zaznamenávajú iba v prípade aplikácií, ktorých inštalácia bola spustená prostredníctvom pravidla.
+
+      Ak toto pravidlo nastavíte na hodnotu true, udalosti sa budú zaznamenávať.
+      Ak toto pravidlo nastavíte na hodnotu false alebo ho nenastavíte, udalosti sa zaznamenávať nebudú.</translation>
 <translation id="244317009688098048">Povolí záchrannú klávesovú skratku pre automatické prihlásenie.
 
       Ak je toto pravidlo nastavené na hodnotu True alebo nie je nastavené vôbec a účet na miestnom zariadení je nastavený na automatické prihlásenie s nulovým oneskorením, systém <ph name="PRODUCT_OS_NAME" /> bude prijímať klávesovú skratku Ctrl+Alt+S, ktorá umožňuje obísť automatické prihlásenie a okamžite zobraziť prihlasovaciu obrazovku.
@@ -1160,6 +1165,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
 <translation id="4309640770189628899">Ovláda, či sú v protokole TLS povolené šifrovacie súpravy DHE</translation>
 <translation id="4322842393287974810">Povoliť verejnej aplikácii, ktorá sa spúšťa automaticky s nulovým oneskorením, ovládať verziu systému <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Pridať do oblasti oznámení tlačidlo odhlásenia</translation>
+<translation id="4332177773549877617">Zaznamenávať udalosti počas inštalácie aplikácií pre Android</translation>
 <translation id="4346674324214534449">Umožňuje nastaviť, či by mali byť reklamy blokované na weboch s obťažujúcimi reklamami.
 
       Ak toto pravidlo nastavíte na hodnotu 2, reklamy budú blokované na weboch s obťažujúcimi reklamami.
@@ -2739,6 +2745,9 @@ Odporúčaný spôsob nastavenia pravidiel v systéme Windows je prostredníctv
 
       Ak toto pravidlo nenastavíte, bude platiť možnosť <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Toto pravidlo riadi, či je možné používateľovi pri prvom prihlásení zobraziť súhlas so synchronizáciou. Ak používateľ nebude súhlas so synchronizáciou nikdy potrebovať, malo by byť nastavené na hodnotu false.
+      Ak ho nastavíte na hodnotu false, súhlas so synchronizáciou sa nikdy nezobrazí.
+      Ak ho nastavíte na hodnotu true alebo nenastavíte, súhlas so synchronizáciou je možné zobraziť.</translation>
 <translation id="8947415621777543415">Nahlasovať polohu zariadenia</translation>
 <translation id="8951350807133946005">Nastaviť adresár diskovej vyrovnávacej pamäte</translation>
 <translation id="8952317565138994125">Zakáže v prehliadači <ph name="PRODUCT_NAME" /> synchronizáciu údajov pomocou služieb synchronizácie hostených Googlom a zabráni používateľom toto nastavenie zmeniť.

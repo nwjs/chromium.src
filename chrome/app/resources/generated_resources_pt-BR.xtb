@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">O nome de usuário e a senha inseridos não correspondem</translation>
 <translation id="1397854323885047133">Sincronização e personalização</translation>
 <translation id="1398853756734560583">Maximizar</translation>
+<translation id="1399511500114202393">Nenhum certificado do usuário</translation>
 <translation id="140250605646987970">Seu smartphone foi localizado. No entanto, o Smart Lock funciona apenas em dispositivos com Android 5.0 e posterior. &lt;a&gt;Saiba mais&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (supervisionado)</translation>
 <translation id="1405476660552109915">Quer que <ph name="PASSWORD_MANAGER_BRAND" /> salve sua conta para este site?</translation>
@@ -2277,7 +2278,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="451407183922382411">Tecnologia da <ph name="COMPANY_NAME" /></translation>
 <translation id="4514542542275172126">Configurar um novo usuário supervisionado</translation>
 <translation id="451515744433878153">Remover</translation>
-<translation id="4518677423782794009">O Chrome apresenta falhas, mostrando páginas de inicialização ou barras de ferramentas incomuns ou anúncios indesejados dos quais você não consegue se livrar ou fazendo alguma outra alteração na sua experiência de navegação? Talvez seja possível corrigir o problema executando a Ferramenta de limpeza do Chrome.</translation>
+<translation id="4518677423782794009">O Chrome apresenta falhas, mostrando páginas de inicialização ou barras de ferramentas incomuns ou anúncios indesejados dos quais você não consegue se livrar ou fazendo alguma outra alteração na sua experiência de navegação? Talvez seja possível corrigir o problema executando a Ferramenta de varredura do Chrome.</translation>
 <translation id="4520385623207007473">Cookies em uso</translation>
 <translation id="452039078290142656">dispositivos desconhecidos do <ph name="VENDOR_NAME" /></translation>
 <translation id="4522570452068850558">Detalhes</translation>
@@ -2589,7 +2590,7 @@ Para ver mais informações, visite nossa <ph name="BEGIN_LINK" />Central de Aju
 <translation id="4988526792673242964">Páginas</translation>
 <translation id="49896407730300355">Girar no s&amp;entido anti-horário</translation>
 <translation id="4989966318180235467">Inspecionar página de &amp;fundo</translation>
-<translation id="4990343175649730969">Fazer o download da Ferramenta de limpeza do Chrome</translation>
+<translation id="4990343175649730969">Fazer o download da Ferramenta de varredura do Chrome</translation>
 <translation id="4991420928586866460">Tratar teclas de linha superior como teclas de função</translation>
 <translation id="499165176004408815">Usar modo de alto contraste</translation>
 <translation id="4992066212339426712">Ativar som</translation>
@@ -5235,6 +5236,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="9094982973264386462">Remover</translation>
 <translation id="9095253524804455615">Remover</translation>
 <translation id="9099674669267916096">Contagem de páginas</translation>
+<translation id="9100610230175265781">Senha necessária</translation>
 <translation id="9100765901046053179">Configurações avançadas</translation>
 <translation id="9101691533782776290">Iniciar aplicativo</translation>
 <translation id="9102610709270966160">Ativar extensão</translation>

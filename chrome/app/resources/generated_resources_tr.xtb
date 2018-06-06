@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">Girdiğiniz kullanıcı adı ve parola eşleşmiyor</translation>
 <translation id="1397854323885047133">Senkronizasyon ve kişiselleştirme</translation>
 <translation id="1398853756734560583">Büyüt</translation>
+<translation id="1399511500114202393">Kullanıcı sertifikası yok</translation>
 <translation id="140250605646987970">Telefonunuz bulundu. Ancak Smart Lock yalnızca Android 5.0 ve üzeri sürümlere sahip cihazlarda çalışır. &lt;a&gt;Daha fazla bilgi edinin&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (Denetlenen)</translation>
 <translation id="1405476660552109915">Bu siteye ait hesabınızın <ph name="PASSWORD_MANAGER_BRAND" /> tarafından kaydedilmesini ister misiniz?</translation>
@@ -5232,6 +5233,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="9094982973264386462">Kaldır</translation>
 <translation id="9095253524804455615">Kaldır</translation>
 <translation id="9099674669267916096">Sayfa sayısı</translation>
+<translation id="9100610230175265781">Parola gerekli</translation>
 <translation id="9100765901046053179">Gelişmiş ayarlar</translation>
 <translation id="9101691533782776290">Uygulamayı başlat</translation>
 <translation id="9102610709270966160">Uzantıyı Etkinleştir</translation>

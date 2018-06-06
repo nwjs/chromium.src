@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">The username and password that you entered do not match</translation>
 <translation id="1397854323885047133">Sync and personalisation</translation>
 <translation id="1398853756734560583">Maximise</translation>
+<translation id="1399511500114202393">No user certificate</translation>
 <translation id="140250605646987970">Found your phone. But Smart Lock only works on devices with Android 5.0 and up. &lt;a&gt;Learn more&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (Supervised)</translation>
 <translation id="1405476660552109915">Do you want <ph name="PASSWORD_MANAGER_BRAND" /> to save your account for this site?</translation>
@@ -5231,6 +5232,7 @@ Keep your key file in a safe place. You will need it to create new versions of y
 <translation id="9094982973264386462">Remove</translation>
 <translation id="9095253524804455615">Remove</translation>
 <translation id="9099674669267916096">Page count</translation>
+<translation id="9100610230175265781">Passphrase required</translation>
 <translation id="9100765901046053179">Advanced settings</translation>
 <translation id="9101691533782776290">Launch app</translation>
 <translation id="9102610709270966160">Enable Extension</translation>

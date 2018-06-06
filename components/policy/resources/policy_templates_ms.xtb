@@ -416,6 +416,7 @@
 <translation id="2240879329269430151">Membolehkan anda menetapkan sama ada tapak web dibenarkan untuk memaparkan pop timbul. Memaparkan pop  timbul boleh dibenarkan untuk semua tapak web atau dinafikan untuk semua tapak web.
 
           Jika dasar ini dibiarkan tanpa ditetapkan, 'BlockPopups' akan digunakan dan pengguna akan boleh mengubahnya.</translation>
+<translation id="2269319728625047531">Dayakan pemaparan Persetujuan Penyegerakan semasa log masuk</translation>
 <translation id="2274864612594831715">Dasar ini mengkonfigurasi mendayakan papan kekunci maya sebagai peranti input pada ChromeOS. Pengguna tidak boleh mengatasi dasar ini.
 
       Jika dasar ditetapkan kepada benar, papan kekunci maya pada skrin akan sentiasa didayakan.
@@ -525,6 +526,10 @@
       Jika tetapan ini dibiarkan tanpa ditetapkan, pengguna boleh memutuskan untuk menggunakan fungsi ini atau tidak.
 
       Tetapan ini telah dialih keluar daripada <ph name="PRODUCT_NAME" /> 29 dan versi yang lebih tinggi.</translation>
+<translation id="2438609638493026652">Mendayakan pelaporan acara penting semasa pemasangan apl Android pada Google. Acara dirakam hanya untuk apl yang dimulakan pemasangannya melalui dasar.
+
+      Jika dasar ditetapkan kepada benar, acara akan dilog.
+      Jika dasar ditetapkan kepada palsu atau tidak ditetapkan, acara tidak akan dilog.</translation>
 <translation id="244317009688098048">Dayakan pintasan papan kekunci keluar untuk log masuk automatik.
 
       Jika dasar ini tidak ditetapkan atau ditetapkan kepada Benar dan akaun peranti setempat dikonfigurasikan untuk log masuk automatik lengah sifar, <ph name="PRODUCT_OS_NAME" /> akan menggunakan pintasan papan kekunci Ctrl+Alt+S untuk memintas log masuk automatik dan memaparkan skrin log masuk.
@@ -1189,6 +1194,7 @@
 <translation id="4309640770189628899">Sama ada suit sifer DHE dalam TLS didayakan</translation>
 <translation id="4322842393287974810">Benarkan apl kios kelewatan sifar yang dilancarkan secara automatik untuk mengawal versi <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Tambahkan butang log keluar pada dulang sistem</translation>
+<translation id="4332177773549877617">Log acara untuk pemasangan apl Android</translation>
 <translation id="4346674324214534449">Membenarkan anda menetapkan sama ada iklan harus disekat pada tapak yang mengandungi iklan yang mengganggu.
 
       Jika dasar ini ditetapkan kepada 2, iklan akan disekat pada tapak yang mengandungi iklan yang mengganggu.
@@ -2769,6 +2775,9 @@ Cara yang disyorkan untuk mengkonfigurasikan dasar pada Windows adalah melalui G
 
       Jika dasar ini tidak ditetapkan, <ph name="PRINTERS_ALLOW_ALL" /> akan digunakan.
       </translation>
+<translation id="8942616385591203339">Dasar ini mengawal sama ada Persetujuan Penyegerakan boleh ditunjukkan kepada pengguna semasa log masuk pertama. Dasar ini harus ditetapkan kepada palsu jika Persetujuan Penyegerakan tidak diperlukan untuk pengguna.
+      Jika ditetapkan kepada palsu, Persetujuan Penyegerakan tidak akan dipaparkan.
+      Jika ditetapkan kepada benar atau tidak ditetapkan, Persetujuan Penyegerakan boleh dipaparkan.</translation>
 <translation id="8947415621777543415">Laporkan lokasi peranti</translation>
 <translation id="8951350807133946005">Tetapkan direktori cache cakera</translation>
 <translation id="8952317565138994125">Melumpuhkan penyegerakan data dalam <ph name="PRODUCT_NAME" /> menggunakan perkhidmatan penyegerakan yang dihoskan Google dan menghalang pengguna daripada menukar tetapan ini.

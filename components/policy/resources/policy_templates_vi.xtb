@@ -416,6 +416,7 @@
 <translation id="2240879329269430151">Cho phép bạn đặt liệu các trang web có được phép hiển thị cửa sổ bật lên hay không. Bạn có thể cho phép hoặc từ chối hiển thị cửa sổ bật lên đối với tất cả các trang web.
 
           Nếu không thiết lập chính sách này, 'BlockPopups' sẽ được sử dụng và người dùng có thể thay đổi cài đặt này.</translation>
+<translation id="2269319728625047531">Cho phép hiển thị mục Chấp thuận đồng bộ hóa trong khi đăng nhập</translation>
 <translation id="2274864612594831715">Chính sách này định cấu hình bật bàn phím ảo làm thiết bị nhập liệu trên ChromeOS. Người dùng không thể ghi đè chính sách này.
 
       Nếu chính sách này được đặt thành true, bàn phím ảo trên màn hình sẽ luôn được bật.
@@ -522,6 +523,10 @@
       Nếu cài đặt này không được đặt, người dùng có thể quyết định sử dụng chức năng này hay không.
 
       Cài đặt này đã bị xóa khỏi phiên bản <ph name="PRODUCT_NAME" /> 29 và các phiên bản cao hơn.</translation>
+<translation id="2438609638493026652">Bật tính năng báo cáo các sự kiện quan trọng trong quá trình cài đặt ứng dụng Android cho Google. Các sự kiện chỉ được ghi lại cho các ứng dụng có quá trình cài đặt được kích hoạt qua chính sách.
+
+      Nếu bạn đặt chính sách này là true thì các sự kiện sẽ được ghi lại.
+      Nếu bạn đặt chính sách này là false hoặc không đặt, thì các sự kiện sẽ không được ghi lại.</translation>
 <translation id="244317009688098048">Bật phím tắt bailout cho tự động đăng nhập.
 
       Nếu chính sách này chưa được đặt hoặc được đặt thành True và tài khoản trong thiết bị được định cấu hình cho tự động đăng nhập không trễ, <ph name="PRODUCT_OS_NAME" /> sẽ đặt phím tắt là Ctrl+Alt+S để bỏ qua tự động đăng nhập và hiển thị màn hình đăng nhập.
@@ -1178,6 +1183,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="4309640770189628899">Bộ mã hóa DHE trong TLS có được bật hay không</translation>
 <translation id="4322842393287974810">Cho phép ứng dụng kiosk tự động khởi chạy với độ trễ bằng không kiểm soát phiên bản <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Thêm một nút đăng xuất vào khay hệ thống</translation>
+<translation id="4332177773549877617">Ghi lại các sự kiện cho lượt cài đặt ứng dụng Android</translation>
 <translation id="4346674324214534449">Cho phép bạn thiết lập xem có chặn quảng cáo trên các trang web chứa quảng cáo xâm nhập hay không.
 
       Nếu bạn đặt chính sách này thành 2, quảng cáo sẽ bị chặn trên các trang web chứa quảng cáo xâm nhập.
@@ -2745,6 +2751,9 @@ Bạn nên định cấu hình chính sách trên Windows qua GPO, mặc dù vi�
 
       Nếu bạn chưa đặt chính sách này, thì <ph name="PRINTERS_ALLOW_ALL" /> sẽ là tùy chọn mặc định.
       </translation>
+<translation id="8942616385591203339">Chính sách này sẽ kiểm soát liệu mục Chấp thuận đồng bộ hóa có hiển thị với người dùng trong lần đăng nhập đầu tiên hay không. Bạn nên đặt chính sách này thành false nếu không cần hiển thị mục Chấp thuận đồng bộ hóa cho người dùng.
+      Nếu đặt chính sách thành false, thì mục Chấp thuận đồng bộ hóa sẽ không hiển thị.
+      Nếu đặt thành true hoặc không đặt chính sách này, thì mục Chấp thuận đồng bộ hóa có thể được hiển thị.</translation>
 <translation id="8947415621777543415">Báo cáo vị trí thiết bị</translation>
 <translation id="8951350807133946005">Thiết lập thư mục bộ nhớ đệm trên đĩa</translation>
 <translation id="8952317565138994125">Tắt đồng bộ hóa dữ liệu trong <ph name="PRODUCT_NAME" /> bằng cách sử dụng các dịch vụ đồng bộ hóa được lưu trữ trên Google và ngăn người dùng thay đổi cài đặt này.

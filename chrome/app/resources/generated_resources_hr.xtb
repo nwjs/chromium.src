@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">Unijeli ste e-adresu i zaporku koje se ne podudaraju</translation>
 <translation id="1397854323885047133">Sinkronizacija i prilagodba</translation>
 <translation id="1398853756734560583">Maksimiziraj</translation>
+<translation id="1399511500114202393">Nema korisničkog certifikata</translation>
 <translation id="140250605646987970">Vaš je telefon pronađen, ali Smart Lock funkcionira samo na uređajima s Androidom 5.0 i novijima. &lt;a&gt;Saznajte više&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (nadzirani korisnik)</translation>
 <translation id="1405476660552109915">Želite li da <ph name="PASSWORD_MANAGER_BRAND" /> spremi vaš račun za ovu web-lokaciju?</translation>
@@ -5231,6 +5232,7 @@ Osobe sa sporom vezom možda neće vidjeti vaš sadržaj.</translation>
 <translation id="9094982973264386462">Ukloni</translation>
 <translation id="9095253524804455615">Ukloni</translation>
 <translation id="9099674669267916096">Broj stranica</translation>
+<translation id="9100610230175265781">Potrebna je zaporka</translation>
 <translation id="9100765901046053179">Napredne postavke</translation>
 <translation id="9101691533782776290">Pokreni aplikaciju</translation>
 <translation id="9102610709270966160">Omogući proširenje</translation>

@@ -389,6 +389,7 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="2231817271680715693">Importa cronologia di navigazione dal browser predefinito alla prima esecuzione</translation>
 <translation id="2236488539271255289">Non consentire ai siti di impostare i dati locali</translation>
 <translation id="2240879329269430151">Permette di stabilire se consentire o meno la visualizzazione dei popup nei siti web. La visualizzazione dei popup può essere consentita o negata per tutti i siti web. Se questa norma non viene impostata, verrà utilizzato il valore "BlockPopups", che potrà essere modificato dagli utenti.</translation>
+<translation id="2269319728625047531">Abilita la visualizzazione del consenso di sincronizzazione durante l'accesso</translation>
 <translation id="2274864612594831715">Questa norma consente di configurare l'attivazione della tastiera virtuale come dispositivo di immissione su Chrome OS. Gli utenti non possono sostituire questa norma.
 
       Se la norma viene impostata su true, la tastiera virtuale sullo schermo sarà sempre attiva.
@@ -492,6 +493,10 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
       Se l'impostazione non viene impostata, l'utente può decidere se utilizzare o meno la funzione.
 
       L'impostazione è stata rimossa da <ph name="PRODUCT_NAME" /> 29 e versioni successive.</translation>
+<translation id="2438609638493026652">Attiva la segnalazione di eventi chiave durante l'installazione di app Android a Google. Gli eventi vengono acquisiti solo per le app la cui installazione è stata lanciata tramite norma.
+
+      Se la norma viene impostata su True, gli eventi saranno registrati.
+      Se la norma viene impostata su False o non viene impostata, gli eventi non saranno registrati.</translation>
 <translation id="244317009688098048">Attiva scorciatoia da tastiera bailout per accesso automatico.
 
       Se questa norma non è impostata o è impostata su True e un account dispositivo locale è configurato per l'accesso automatico senza ritardo, <ph name="PRODUCT_OS_NAME" /> rispetterà la scorciatoia da tastiera Ctrl+Alt+S per bypassare l'accesso automatico e la visualizzazione della schermata di accesso.
@@ -1122,6 +1127,7 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="4309640770189628899">Attiva o meno i pacchetti di crittografia DHE in TLS</translation>
 <translation id="4322842393287974810">Consenti all'app kiosk avviata automaticamente senza ritardo di controllare la versione di <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Aggiungi un pulsante di uscita all'area di notifica</translation>
+<translation id="4332177773549877617">Registra eventi per le installazioni di app Android</translation>
 <translation id="4346674324214534449">Consente di stabilire se bloccare o meno gli annunci su siti con annunci invasivi.
 
       Se questa norma viene impostata su 2, gli annunci verranno bloccati sui siti con annunci invasivi.
@@ -2578,6 +2584,9 @@ Il valore della norma deve essere specificato in millisecondi. I valori devono e
 
       Se questa norma non viene impostata, viene usata l'opzione <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Questa norma consente di controllare se il consenso di sincronizzazione può essere mostrato all'utente durante il primo accesso. Dovrebbe essere impostato su false se tale consenso non è mai necessario per l'utente.
+      Se impostato su false, il consenso di sincronizzazione non verrà visualizzato.
+      Se impostato su true o non viene impostato, il consenso di sincronizzazione può essere visualizzato.</translation>
 <translation id="8947415621777543415">Segnala posizione del dispositivo</translation>
 <translation id="8951350807133946005">Impostazione directory della cache su disco</translation>
 <translation id="8952317565138994125">Consente di disattivare la sincronizzazione dei dati in <ph name="PRODUCT_NAME" /> tramite servizi di sincronizzazione in hosting su Google e di impedire agli utenti di modificare questa impostazione.

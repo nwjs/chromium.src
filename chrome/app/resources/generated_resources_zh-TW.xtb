@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">你輸入的使用者名稱和密碼不相符</translation>
 <translation id="1397854323885047133">同步處理和個人化</translation>
 <translation id="1398853756734560583">放到最大</translation>
+<translation id="1399511500114202393">不使用使用者憑證</translation>
 <translation id="140250605646987970">找到您的手機，但 Smart Lock 僅適用於搭載 Android 5.0 以上版本的裝置。&lt;a&gt;瞭解詳情&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (受監管)</translation>
 <translation id="1405476660552109915">您要讓 <ph name="PASSWORD_MANAGER_BRAND" /> 儲存您在這個網站使用的帳戶嗎？</translation>
@@ -5225,6 +5226,7 @@
 <translation id="9094982973264386462">移除</translation>
 <translation id="9095253524804455615">移除</translation>
 <translation id="9099674669267916096">頁數</translation>
+<translation id="9100610230175265781">請提供通關密語</translation>
 <translation id="9100765901046053179">進階設定</translation>
 <translation id="9101691533782776290">啟動應用程式</translation>
 <translation id="9102610709270966160">啟用擴充功能</translation>

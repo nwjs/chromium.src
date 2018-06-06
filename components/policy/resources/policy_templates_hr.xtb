@@ -403,6 +403,7 @@
 <translation id="2231817271680715693">Uvoz povijesti pregledavanja iz zadanog preglednika pri prvom pokretanju</translation>
 <translation id="2236488539271255289">Ne dopusti nijednoj web-lokaciji postavljanje lokalnih podataka</translation>
 <translation id="2240879329269430151">Omogućuje da postavite smiju li web-lokacije prikazivati skočne prozore. Prikazivanje skočnih prozora može biti dopušteno za sve web-lokacije ili odbijeno za sve web-lokacije. Ako to pravilo nije postavljeno, upotrebljavat će se pravilo "BlockPopups", a korisnik će to moći promijeniti.</translation>
+<translation id="2269319728625047531">Omogući prikaz pristanka na sinkronizaciju tijekom prijave</translation>
 <translation id="2274864612594831715">To pravilo konfigurira omogućivanje virtualne tipkovnice kao uređaja za unos na OS-u Chrome. Korisnici ne mogu nadjačati to pravilo.
 
       Ako se pravilo postavi na istinito, virtualna zaslonska tipkovnica uvijek će biti omogućena.
@@ -506,6 +507,10 @@
       Ako se ta postavka ne postavi, korisnici mogu upotrebljavati tu funkciju prema želji.
 
       Ta je postavka uklonjena iz verzije <ph name="PRODUCT_NAME" /> 29 i novijih verzija.</translation>
+<translation id="2438609638493026652">Omogućuje izvještavanje o ključnim događajima tijekom instalacije Android aplikacije na Googleu. Događaji se bilježe samo za aplikacije čija je instalacija pokrenuta putem pravila.
+
+      Ako je pravilo postavljeno na "true", događaji će biti zabilježeni.
+      Ako je pravilo postavljeno na "false" ili nije postavljeno uopće, događaji neće biti zabilježeni.</translation>
 <translation id="244317009688098048">Omogućuje tipkovni prečac za izbjegavanje automatske prijave.
 
       Ako to pravilo nije postavljeno ili ako je postavljeno na točno, a račun na uređaju konfiguriran je za automatsku prijavu bez odgode, proizvod <ph name="PRODUCT_OS_NAME" /> primjenjivat će tipkovni prečac Ctrl + Alt + S za izbjegavanje automatske prijave i prikazivanje zaslona za prijavu.
@@ -1131,6 +1136,7 @@ Ako se to pravilo omogući, svaki od navedenih izvora na popisu odijeljenom zare
 <translation id="4309640770189628899">Omogući DHE pakete šifri u TLS-u</translation>
 <translation id="4322842393287974810">Dopusti kiosk aplikaciji pokrenutoj automatski bez odgode da upravlja verzijom proizvoda <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Dodaj gumb za odjavu na programsku traku</translation>
+<translation id="4332177773549877617">Zabilježite događaje za instalacije aplikacije za Android</translation>
 <translation id="4346674324214534449">Omogućuje vam da postavite hoće li se oglasi blokirati na web-lokacijama s ometajućim oglasima.
 
      Ako se to pravilo postavi na 2, oglasi će se blokirati na web-lokacijama s ometajućim oglasima.
@@ -2622,6 +2628,9 @@ Za sustav Windows preporučuje se konfiguriranje pravila putem GPO-a, iako se pr
 
       Ako se to pravilo ne postavi, pretpostavlja se da vrijedi <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Ovo pravilo određuje može li se prilikom prve prijave korisniku prikazivati pristanak na sinkronizaciju. Treba ga postaviti na False ako pristanak na sinkronizaciju nikad nije potreban za korisnika.
+      Ako se postavi na False, pristanak na sinkronizaciju neće se prikazivati.
+      Ako se postavi na True ili se ne postavi, pristanak na sinkronizaciju može se prikazati.</translation>
 <translation id="8947415621777543415">Prijava lokacije uređaja</translation>
 <translation id="8951350807133946005">Postavi direktorij predmemorije na disku</translation>
 <translation id="8952317565138994125">Onemogućuje sinkronizaciju podataka na usluzi <ph name="PRODUCT_NAME" /> putem usluga sinkronizacije hostiranih na Googleu i onemogućuje korisnicima da promjene tu postavku.

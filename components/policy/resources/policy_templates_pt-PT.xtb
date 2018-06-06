@@ -412,6 +412,7 @@
 <translation id="2231817271680715693">Importar histórico de navegação a partir do navegador predefinido na primeira execução</translation>
 <translation id="2236488539271255289">Não permitir que os sites definam dados de local</translation>
 <translation id="2240879329269430151">Permite definir se os Web sites estão autorizados a apresentar janelas de pop-up. A apresentação de janelas de pop-up pode ser permitida para todos os Web sites ou negada para todos os Web sites. Se esta política não for definida, será utilizada a definição "BlockPopups" e o utilizador poderá alterá-la.</translation>
+<translation id="2269319728625047531">Ativar a apresentação do Consentimento de sincronização durante o início de sessão.</translation>
 <translation id="2274864612594831715">Esta política configura a ativação do teclado virtual como um dispositivo de introdução no Chrome OS. Os utilizadores não podem substituir esta política.
 
       Se a política for definida como verdadeira, o teclado virtual no ecrã fica sempre ativado.
@@ -516,6 +517,10 @@
       Se esta definição não for definida, o utilizador poderá decidir utilizar esta função ou não.
 
       Esta definição foi removida do <ph name="PRODUCT_NAME" /> 29 e versões superiores.</translation>
+<translation id="2438609638493026652">Ativa a comunicação dos eventos principais durante a instalação de aplicações Android no Google. Os eventos são capturados apenas para as aplicações cuja instalação foi acionada através da política.
+
+      Se a política estiver definida como verdadeira, os eventos são registados.
+      Se a política estiver definida como falsa ou não estiver definida, os eventos não são registados.</translation>
 <translation id="244317009688098048">Permite o atalho de teclado de resgate para o início de sessão automático.
 
       Se esta política não estiver definida ou estiver definida como Verdadeira e uma conta do dispositivo local estiver configurada para o início de sessão automático de atraso zero, o <ph name="PRODUCT_OS_NAME" /> irá cumprir o atalho Ctrl+Alt+S, ignorando o início de sessão automático e apresentando o ecrã de início de sessão.
@@ -1153,6 +1158,7 @@ Se desativar ou não definir esta opção, permite que o utilizador use as Ferra
 <translation id="4309640770189628899">Determinar se os conjuntos de cifras DHE no TLS estão ativados</translation>
 <translation id="4322842393287974810">Permitir que a aplicação de quiosque de início automático com atraso zero controle a versão do <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Adicionar um botão para terminar sessão ao tabuleiro do sistema</translation>
+<translation id="4332177773549877617">Registar eventos para instalações de aplicações Android</translation>
 <translation id="4346674324214534449">Permite-lhe definir se os anúncios devem ser bloqueados em sites com anúncios intrusivos.
 
       Se esta política estiver definida como 2, os anúncios são bloqueados em sites com anúncios intrusivos.
@@ -2646,6 +2652,9 @@ A forma recomendada para configurar a política no Windows é através do GPO, e
 
       Se esta política não estiver definida, é assumida a opção <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Esta política controla se é possível mostrar o Consentimento de sincronização ao utilizador durante o primeiro início de sessão. Deve estar definida como falsa se o Consentimento de sincronização nunca for necessário para o utilizador.
+      Se estiver definida como falsa, o Consentimento de sincronização não é apresentado.
+      Se estiver definida como verdadeira ou se não estiver definida, é possível apresentar o Consentimento de sincronização.</translation>
 <translation id="8947415621777543415">Comunicar localização do dispositivo</translation>
 <translation id="8951350807133946005">Definir o diretório de cache do disco</translation>
 <translation id="8952317565138994125">Desativa a sincronização de dados no <ph name="PRODUCT_NAME" /> através de serviços de sincronização alojados no Google e impede que os utilizadores alterem esta definição.

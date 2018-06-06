@@ -515,6 +515,10 @@
       Hvis denne innstillingen ikke angis, kan brukere bestemme om de vil bruke den eller ikke.
 
       Denne innstillingen er fjernet fra <ph name="PRODUCT_NAME" /> 29 og nyere versjoner.</translation>
+<translation id="2438609638493026652">Slår på rapportering av viktige hendelser under Android-appinstallasjoner til Google. Hendelser registreres bare for apper som ble installert på grunn av en regel.
+
+      Hvis regelen er satt til «True» (sann), blir hendelser loggført.
+      Hvis regelen er satt til «False» (usann) eller ikke er angitt, blir ikke hendelser loggført.</translation>
 <translation id="244317009688098048">Aktiver hurtigtasten for avbrudd av automatisk pålogging.
 
       Hvis denne regelen ikke er angitt eller har verdien «True», og en lokal konto på enheten er konfigurert for automatisk pålogging uten forsinkelse, følger <ph name="PRODUCT_OS_NAME" /> hurtigtasten Ctrl+Alt+S for å unngå automatisk pålogging og vise påloggingsskjermen.
@@ -1161,6 +1165,7 @@
 <translation id="4309640770189628899">Definerer om DHE-chifferserier i TLS er slått på</translation>
 <translation id="4322842393287974810">La den automatisk startede kioskappen uten forsinkelse kontrollere <ph name="PRODUCT_OS_NAME" />-versjonen</translation>
 <translation id="4325690621216251241">Legg til en avloggingsknapp for systemstatusfeltet</translation>
+<translation id="4332177773549877617">Loggfør hendelser for installasjoner av Android-apper</translation>
 <translation id="4346674324214534449">Lar deg angi om annonser skal blokkeres på nettsteder med forstyrrende annonser.
 
       Hvis denne regelen er satt til «2», blokkeres annonser på nettsteder med forstyrrende annonser.

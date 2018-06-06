@@ -486,6 +486,10 @@
       如果此设置未指定，那么用户可以决定是否使用此功能。
 
       29 版及更高版本的 <ph name="PRODUCT_NAME" /> 中已取消此设置。</translation>
+<translation id="2438609638493026652">允许向 Google 报告 Android 应用安装过程中发生的重要事件。系统仅会针对通过政策触发安装的应用捕获相关事件。
+
+      如果此政策设为 true，系统将会记录相关事件。
+      如果此政策设为 false 或未设置，系统将不会记录相关事件。</translation>
 <translation id="244317009688098048">启用停止自动登录的键盘快捷键。
 
       如果未设置此政策或将其设为 True，并且将设备的本地帐号配置为零延时自动登录，那么 <ph name="PRODUCT_OS_NAME" />将允许通过键盘快捷键 Ctrl+Alt+S 绕过自动登录过程并显示登录屏幕。
@@ -1102,6 +1106,7 @@
 <translation id="4309640770189628899">是否在 TLS 中启用 DHE 加密套件</translation>
 <translation id="4322842393287974810">允许自动启动零延迟的自助服务终端应用控制 <ph name="PRODUCT_OS_NAME" />版本</translation>
 <translation id="4325690621216251241">向系统任务栏添加退出按钮</translation>
+<translation id="4332177773549877617">记录 Android 应用安装事件</translation>
 <translation id="4346674324214534449">可让您设置是否应禁止含侵扰性广告的网站展示广告。
 
       如果此政策设为 2，系统将禁止含侵扰性广告的网站展示广告。

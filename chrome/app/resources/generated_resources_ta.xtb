@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">நீங்கள் உள்ளிட்ட பயனர்பெயரும் கடவுச்சொல்லும் பொருந்தவில்லை</translation>
 <translation id="1397854323885047133">ஒத்திசைவு மற்றும் தனிப்பயனாக்கம்</translation>
 <translation id="1398853756734560583">பெரிதாக்கு</translation>
+<translation id="1399511500114202393">பயனர் சான்றிதழ் இல்லை</translation>
 <translation id="140250605646987970">உங்கள் ஃபோன் அறியப்பட்டது. ஆனால் Android 5.0 மற்றும் அதற்கு மேற்பட்ட பதிப்புகளைக் கொண்ட சாதனங்களில் மட்டும் Smart Lock இயங்கும். &lt;a&gt;மேலும் அறிக&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (கண்காணிக்கப்படும் பயனர்)</translation>
 <translation id="1405476660552109915">இந்தத் தளத்திற்கான உங்கள் கணக்கை <ph name="PASSWORD_MANAGER_BRAND" /> சேமிக்க வேண்டுமா?</translation>
@@ -5224,6 +5225,7 @@
 <translation id="9094982973264386462">அகற்று</translation>
 <translation id="9095253524804455615">அகற்று</translation>
 <translation id="9099674669267916096">பக்க எண்ணிக்கை</translation>
+<translation id="9100610230175265781">கடவுச்சொற்றொடர் தேவை</translation>
 <translation id="9100765901046053179">மேம்பட்ட அமைப்புகள்</translation>
 <translation id="9101691533782776290">பயன்பாட்டைத் தொடங்கு</translation>
 <translation id="9102610709270966160">நீட்டிப்பை இயக்கு</translation>

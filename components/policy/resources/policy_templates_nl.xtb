@@ -115,7 +115,7 @@
       Als de instelling wordt gewijzigd terwijl de gebruiker is ingelogd bij een sessie met meerdere profielen, worden alle gebruikers in de sessie gecontroleerd op basis van hun overeenkomstige instellingen. De sessie wordt gesloten als een van de gebruikers niet langer deel mag uitmaken van de sessie.
 
       Als dit beleid niet wordt ingesteld, is de standaardwaarde 'MultiProfileUserBehaviorMustBePrimary' van toepassing op gebruikers die op ondernemingsniveau worden beheerd en wordt 'MultiProfileUserBehaviorUnrestricted' gebruikt voor niet-beheerde gebruikers.</translation>
-<translation id="1465619815762735808">Klikken om te spelen</translation>
+<translation id="1465619815762735808">Klikken om af te spelen</translation>
 <translation id="1466133662354365542">Hiermee wordt de functie Automatisch aanvullen van <ph name="PRODUCT_NAME" /> ingeschakeld en wordt gebruikers toegestaan creditcard- of adresgegevens automatisch in te vullen op webformulieren aan de hand van eerder opgeslagen gegevens.
 
       Als je deze instelling uitschakelt, worden er nooit creditcardgegevens voorgesteld of ingevuld door Automatisch aanvullen. Er worden ook geen aanvullende creditcardgegevens opgeslagen die de gebruiker mogelijk verzendt terwijl hij browst op internet.
@@ -410,6 +410,7 @@
 <translation id="2240879329269430151">Hiermee kun je instellen of websites pop-ups mogen weergeven. Het weergeven van pop-ups kan worden toegestaan voor alle websites of worden geweigerd voor alle websites.
 
           Als dit beleid niet is ingesteld, wordt 'BlockPopups' gebruikt en kan de gebruiker dit wijzigen.</translation>
+<translation id="2269319728625047531">Weergave van synchronisatietoestemming inschakelen tijdens het inloggen</translation>
 <translation id="2274864612594831715">Dit beleid configureert de inschakeling van het virtuele toetsenbord als invoerapparaat in ChromeOS. Gebruikers kunnen dit beleid niet overschrijven.
 
       Als het beleid wordt ingesteld op 'true', is het virtuele schermtoetsenbord altijd ingeschakeld.
@@ -517,6 +518,10 @@ Als het beleid niet is ingesteld, is de updatefunctionaliteit voor <ph name="TPM
       Als je deze instelling niet instelt, kan de gebruiker bepalen of de functie wordt gebruikt.
 
       Deze instelling is verwijderd uit <ph name="PRODUCT_NAME" /> 29 en hogere versies.</translation>
+<translation id="2438609638493026652">Hiermee schakel je de rapportage aan Google in van belangrijke gebeurtenissen tijdens de installatie van Android-apps. Gebeurtenissen worden alleen geregistreerd voor apps waarvan de installatie via beleid is geactiveerd.
+
+      Als het beleid is ingesteld op True (Waar), worden gebeurtenissen geregistreerd.
+      Als het beleid is ingesteld op False (Onwaar) of niet is ingesteld, worden gebeurtenissen niet geregistreerd.</translation>
 <translation id="244317009688098048">Sneltoets voor automatisch inloggen inschakelen.
 
       Als dit beleid niet is ingesteld of is ingesteld als 'true', en een lokaal account op een apparaat is geconfigureerd voor automatisch inloggen zonder uitstel, gebruikt <ph name="PRODUCT_OS_NAME" /> de sneltoets Ctrl+Alt+S voor het overslaan van het automatisch inloggen en weergeven van het inlogvenster.
@@ -1169,6 +1174,7 @@ Als het beleid niet is ingesteld, is de updatefunctionaliteit voor <ph name="TPM
 <translation id="4309640770189628899">Of DHE-coderingssuites in TLS zijn ingeschakeld</translation>
 <translation id="4322842393287974810">Toestaan dat de kiosk-app die automatisch zonder vertraging is gestart, de <ph name="PRODUCT_OS_NAME" />-versie beheert</translation>
 <translation id="4325690621216251241">Een afmeldknop toevoegen aan de systeembalk</translation>
+<translation id="4332177773549877617">Gebeurtenissen registreren voor installatie van Android-apps</translation>
 <translation id="4346674324214534449">Hiermee kun je instellen of advertenties moeten worden voorkomen op sites met opdringerige advertenties.
 
       Als dit beleid is ingesteld op 2, worden advertenties geblokkeerd op sites met opdringerige advertenties.
@@ -1200,7 +1206,7 @@ Als het beleid niet is ingesteld, is de updatefunctionaliteit voor <ph name="TPM
 
       Als dit beleid is geconfigureerd, kan de gebruiker de instelling niet wijzigen en wordt de snelkoppeling voor apps altijd of nooit weergegeven.</translation>
 <translation id="4432762137771104529">Uitgebreide rapportage van Safe Browsing inschakelen</translation>
-<translation id="443454694385851356">Verouderd (onveilig)</translation>
+<translation id="443454694385851356">Verouderd (onbeveiligd)</translation>
 <translation id="443665821428652897">Sitegegevens wissen als de browser wordt gesloten (verouderd)</translation>
 <translation id="4439336120285389675">Een lijst met verouderde webplatformfuncties opgeven die tijdelijk kunnen worden ingeschakeld.
 
@@ -1479,11 +1485,11 @@ Als dit beleid niet wordt ingesteld, worden apps en extensies automatisch geïns
 <translation id="5247006254130721952">Gevaarlijke downloads blokkeren</translation>
 <translation id="5248863213023520115">Hiermee worden versleutelingstypen ingesteld die zijn toegestaan wanneer Kerberos-tickets van een <ph name="MS_AD_NAME" />-server worden aangevraagd.
 
-      Als het beleid is ingesteld op Alles, zijn de AES-versleutelingstypen 'aes256-cts-hmac-sha1-96' en 'aes128-cts-hmac-sha1-96' en het RC4-versleutelingstype 'rc4-hmac' toegestaan. AES-versleuteling heeft de voorkeur als de server ondersteuning biedt voor beide typen. RC4 wordt als onveilig beschouwd en de server moet indien mogelijk opnieuw worden geconfigureerd om ondersteuning te bieden voor AES-versleuteling.
+      Als het beleid is ingesteld op Alles, zijn de AES-versleutelingstypen 'aes256-cts-hmac-sha1-96' en 'aes128-cts-hmac-sha1-96' en het RC4-versleutelingstype 'rc4-hmac' toegestaan. AES-versleuteling heeft de voorkeur als de server ondersteuning biedt voor beide typen. RC4 wordt als onbeveiligd beschouwd en de server moet indien mogelijk opnieuw worden geconfigureerd om ondersteuning te bieden voor AES-versleuteling.
 
       Als het beleid is ingesteld op Sterk of niet is ingesteld, zijn alleen de AES-versleutelingstypen toegestaan.
 
-      Als het beleid is ingesteld op Verouderd, is alleen het RC4-versleutelingstype toegestaan. Deze optie is onveilig en zou alleen nodig moeten zijn in zeer specifieke situaties.
+      Als het beleid is ingesteld op Verouderd, is alleen het RC4-versleutelingstype toegestaan. Deze optie is onbeveiligd en zou alleen nodig moeten zijn in zeer specifieke situaties.
 
       Bekijk voor meer informatie het volgende artikel: https://wiki.samba.org/index.php/Samba_4.6_Features_added/changed#Kerberos_client_encryption_types.</translation>
 <translation id="5255162913209987122">Kan worden aanbevolen</translation>
@@ -1584,7 +1590,7 @@ Als dit beleid niet wordt ingesteld, worden apps en extensies automatisch geïns
       Als dit beleid is ingesteld, wordt de opgegeven sessie automatisch ingelogd na een tijdsperiode zonder gebruikersinteractie op het inlogscherm is verstreken. De openbare sessie moet al zijn geconfigureerd (zie |DeviceLocalAccounts|).
 
       Als dit beleid niet is ingesteld, wordt er niet automatisch ingelogd.</translation>
-<translation id="5526701598901867718">Alle (onveilig)</translation>
+<translation id="5526701598901867718">Alle (onbeveiligd)</translation>
 <translation id="5529037166721644841">Hiermee wordt de periode in milliseconden gespecificeerd waarna de apparaatbeheerservice wordt gevraagd om informatie over het apparaatbeleid.
 
       Als je dit beleid instelt, wordt de standaardwaarde van 3 uur overschreven. Geldige waarden voor dit beleid liggen tussen 1800000 (30 minuten) en 86400000 (1 dag). Alle waarden die niet binnen dit bereik vallen, worden afgerond tot de betreffende minimum- of maximumgrens.
@@ -2731,6 +2737,9 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
 
       Als dit beleid niet is ingesteld, wordt er uitgegaan van <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Dit beleid bepaalt of er informatie over toestemming voor synchronisatie mag worden getoond aan de gebruiker wanneer deze voor het eerst inlogt. De waarde moet op 'false' (onwaar) worden ingesteld als er nooit toestemming voor synchronisatie is vereist voor de gebruiker.
+      Als dit is ingesteld op 'false' (onwaar), wordt er geen informatie over toestemming voor synchronisatie weergegeven.
+      Als dit is ingesteld op 'true' (waar) of als dit niet is ingesteld, kan er informatie over toestemming voor synchronisatie weergegeven.</translation>
 <translation id="8947415621777543415">Apparaatlocatie rapporteren</translation>
 <translation id="8951350807133946005">Directory voor schijfcache instellen</translation>
 <translation id="8952317565138994125">Hiermee wordt gegevenssynchronisatie uitgeschakeld in <ph name="PRODUCT_NAME" /> via door Google gehoste synchronisatieservices. Gebruikers kunnen deze instelling niet wijzigen.

@@ -63,7 +63,7 @@
         <ph name="BEGIN_LIST" />
           <ph name="LIST_ITEM" />Στους ιστοτόπους που επισκέπτεστε
           <ph name="LIST_ITEM" />Στον εργοδότη ή στο σχολείο σας
-          <ph name="LIST_ITEM" />Στον παροχέα υπηρεσιών διαδικτύου σας
+          <ph name="LIST_ITEM" />Στον πάροχο υπηρεσιών διαδικτύου σας
         <ph name="END_LIST" /></translation>
 <translation id="1339601241726513588">Τομέας εγγραφής:</translation>
 <translation id="1340482604681802745">Διεύθυνση παραλαβής</translation>

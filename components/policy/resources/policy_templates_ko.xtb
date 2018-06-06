@@ -523,6 +523,10 @@
       이 정책이 설정되어 있지 않은 경우 사용자가 이 기능의 사용 여부를 결정할 수 있습니다.
 
       이 설정은 <ph name="PRODUCT_NAME" /> 29 이상 버전에서 제거되었습니다.</translation>
+<translation id="2438609638493026652">Android 앱 설치 중 주요 이벤트를 Google에 보고할 수 있습니다. 정책을 통해 설치가 실행된 앱의 이벤트만 기록됩니다.
+
+      정책을 true로 설정하면 이벤트가 로깅됩니다.
+      정책을 false로 설정하거나 설정하지 않으면 이벤트가 로깅되지 않습니다.</translation>
 <translation id="244317009688098048">자동 로그인 시 긴급용 단축키를 사용합니다.
 
       이 정책이 설정되지 않거나 True로 설정되고, 기기 로컬 계정이 zero-delay 자동 로그인인 경우, <ph name="PRODUCT_OS_NAME" />에서 자동 로그인을 우회하고 로그인 화면을 표시할 수 있도록 단축키 Ctrl+Alt+S를 적용합니다.
@@ -1180,6 +1184,7 @@
 <translation id="4309640770189628899">TLS DHE 암호화 기술 사용 설정 여부</translation>
 <translation id="4322842393287974810">지연 없이 자동 실행된 키오스크 앱에서 <ph name="PRODUCT_OS_NAME" /> 버전을 제어하도록 허용합니다.</translation>
 <translation id="4325690621216251241">작업 표시줄에 로그아웃 버튼 추가</translation>
+<translation id="4332177773549877617">Android 앱 설치 이벤트 로깅</translation>
 <translation id="4346674324214534449">방해가 되는 광고가 포함된 사이트에서 광고를 차단할지 설정할 수 있습니다.
 
       이 정책을 2로 설정하면 방해가 되는 광고가 포함된 사이트에서 광고가 차단됩니다.

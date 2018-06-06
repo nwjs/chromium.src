@@ -500,6 +500,10 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
       Si no se establece esta opción, el usuario podrá decidir si quiere o no utilizar esta función.
 
       Esta opción se eliminó de la versión 29 de <ph name="PRODUCT_NAME" /> y versiones posteriores.</translation>
+<translation id="2438609638493026652">Permite informar eventos clave durante la instalación de apps de Android en Google. Solo se capturan los eventos de las apps cuya instalación se activó a través de la política.
+
+      Si la política se establece como verdadera, se registrarán los eventos.
+      Si se establece como falsa o no se establece, no se registrarán los eventos.</translation>
 <translation id="244317009688098048">Permite habilitar combinación de teclas de acceso directo de rescate para acceso automático.
 
       Si esta política no está establecida o se establece en Verdadero y hay una cuenta local de dispositivo configurada con el acceso automático sin retraso, <ph name="PRODUCT_OS_NAME" /> utilizará la combinación de teclas para acceso directo Ctrl+Alt+S para omitir el acceso automático y mostrar la pantalla de acceso.
@@ -1138,6 +1142,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 <translation id="4309640770189628899">Si se habilitan los paquetes de encriptación DHE en TLS</translation>
 <translation id="4322842393287974810">Permitir que la aplicación de kiosko con lanzamiento automático sin tiempo de espera controle la versión de <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Agregar un botón para cerrar sesión en la bandeja del sistema</translation>
+<translation id="4332177773549877617">Registrar eventos de instalaciones de apps de Android</translation>
 <translation id="4346674324214534449">Te permite establecer si se bloquearán los anuncios en sitios con anuncios intrusivos.
 
       Si se establece esta política como 2, se bloquearán los anuncios en sitios con anuncios intrusivos.

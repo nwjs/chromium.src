@@ -414,6 +414,7 @@
 <translation id="2240879329269430151">Binibigyang-daan kang magtakda kung pinapayagan o hindi ang mga website na magpakita ng mga pop-up. Maaaring payagan para sa lahat ng website o tanggihan para sa lahat ng website ang pagpapakita ng mga popup.
 
           Kung hinayaang hindi nakatakda ang patakarang ito, gagamitin ang 'BlockPopups' at magagawa ng user na baguhin ito.</translation>
+<translation id="2269319728625047531">I-enable ang pagpapakita ng Pahintulot sa Pag-sync habang nagsa-sign in</translation>
 <translation id="2274864612594831715">Kino-configure ng patakarang ito ang pag-e-enable ng virtual na keyboard bilang isang input device sa ChromeOS. Hindi maaaring i-override ng mga user ang patakarang ito.
 
       Kung nakatakda ang patakaran sa true, palaging magiging naka-enable ang on-screen na virtual na keyboard.
@@ -521,6 +522,10 @@
       Kung iniwang hindi nakatakda ang setting na ito, maaaring magpasya ang user kung gagamitin o hindi ang function na ito.
 
       Inalis ang setting na ito sa <ph name="PRODUCT_NAME" /> 29 at sa mga mas bagong bersyon.</translation>
+<translation id="2438609638493026652">Ine-enable ang pag-uulat ng mahahalagang event sa panahon ng pag-install ng Android app sa Google. Kina-capture lang ang mga event para sa mga app na kung saan na-trigger ng patakaran ang pag-install.
+
+      Kung itatakda ang patakaran sa true, mala-log ang mga event.
+      Kung itatakda ang patakaran sa false o kung hindi ito itatakda, hindi mala-log ang mga event.</translation>
 <translation id="244317009688098048">I-enable ang bailout keyboard shortcut para sa awtomatikong pag-log in.
 
       Kung hindi nakatakda o nakatakda sa True ang patakarang ito at may naka-configure na lokal na account sa device para sa walang pagkaantalang awtomatikong pag-log in, tatanggapin ng <ph name="PRODUCT_OS_NAME" /> ang keyboard shortcut na Ctrl+Alt+S para sa pag-bypass sa awtomatikong pag-log in at pagpapakita ng screen sa pag-log in.
@@ -1178,6 +1183,7 @@
 <translation id="4309640770189628899">Kung naka-enable ang mga DHE na cipher suite sa TLS o hindi</translation>
 <translation id="4322842393287974810">Payagan ang awtomatikong inilunsad na walang pagkaantalang kiosk app na kontrolin ang bersyon ng <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Magdagdag ng button sa pag-logout sa tray ng system</translation>
+<translation id="4332177773549877617">Mga log event para sa mga pag-install ng Android app</translation>
 <translation id="4346674324214534449">Nagbibigay-daan sa iyong itakda kung dapat i-block ang mga ad sa mga site na may mga nakakasagabal na ad.
 
       Kung nakatakda ang patakarang ito sa 2, iba-block ang mga ad sa mga site na may mga nakakasagabal na ad.
@@ -2757,6 +2763,9 @@ Ang inirerekomendang paraan upang mag-configure ng patakaran sa Windows ay sa pa
 
       Kung hindi nakatakda ang patakaran, ipagpapalagay ang <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Kinokontrol ng patakarang ito kung maaaring ipakita sa user ang Pahintulot sa Pag-sync sa panahon ng unang pag-sign in. Dapat ay nakatakda ito sa false kung hindi kailanman kinakailangan ang Pahintulot sa Pag-sync para sa user.
+      Kung itatakda sa false, hindi ipapakita ang Pahintulot sa Pag-sync.
+      Kung itatakda sa true o hindi itatakda, maaaring ipakita ang Pahintulot sa Pag-sync.</translation>
 <translation id="8947415621777543415">I-ulat ang lokasyon ng device</translation>
 <translation id="8951350807133946005">Itakda ang direktoryo ng cache ng disk</translation>
 <translation id="8952317565138994125">Dini-disable ang pag-synchronize ng data sa <ph name="PRODUCT_NAME" /> gamit ang mga serbisyo sa pag-synchronize na hino-host ng Google at pinipigilan ang mga user na baguhin ang setting na ito.

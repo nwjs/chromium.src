@@ -405,6 +405,7 @@
 <translation id="2231817271680715693">第一次執行時從預設瀏覽器匯入瀏覽記錄</translation>
 <translation id="2236488539271255289">不允許任何網站設定本機資料</translation>
 <translation id="2240879329269430151">允許你設定是否要讓網站顯示彈出式視窗。你可以允許或禁止所有網站顯示彈出式視窗。如果未設定這項政策，系統會使用「BlockPopups」，不過使用者可以變更設定。</translation>
+<translation id="2269319728625047531">在登入期間允許顯示同步處理同意聲明</translation>
 <translation id="2274864612594831715">這項政策可設定在 Chrome 作業系統中啟用虛擬鍵盤做為輸入裝置。使用者無法覆寫這項政策。
 
       如果你將這項政策設為 True，虛擬螢幕小鍵盤會持續啟用。
@@ -508,6 +509,10 @@
       如果你未設定這項政策，使用者可以自行決定是否要使用這項功能。
 
       我們已於 <ph name="PRODUCT_NAME" /> 版本 29 及更高版本中移除這項設定。</translation>
+<translation id="2438609638493026652">允許將 Android 應用程式安裝期間的重要事件回報給 Google。系統只會記錄透過政策觸發的應用程式安裝事件。
+
+      如果將這項政策設為 true，系統就會記錄事件。
+      如果將這項政策設為 false 或不予設定，系統就不會記錄事件。</translation>
 <translation id="244317009688098048">啟用停止自動登入的鍵盤快速鍵。
 
       如果這項政策設為「True」或未設定，且裝置本機帳戶已設為無延遲自動登入，<ph name="PRODUCT_OS_NAME" /> 會將 Ctrl+Alt+S 設為鍵盤快速鍵，以用來停止自動登入並顯示登入畫面。
@@ -1141,6 +1146,7 @@
 <translation id="4309640770189628899">是否在 TLS 中啟用 DHE 加密套件</translation>
 <translation id="4322842393287974810">允許使用無延遲資訊站應用程式的自動啟動功能來控制 <ph name="PRODUCT_OS_NAME" /> 版本</translation>
 <translation id="4325690621216251241">在系統列顯示登出按鈕</translation>
+<translation id="4332177773549877617">Android 應用程式安裝記錄事件</translation>
 <translation id="4346674324214534449">讓你設定是否禁止含侵入式廣告的網站顯示廣告。
 
       如果將這項政策的值設為 2，含侵入式廣告的網站將無法顯示廣告。
@@ -2620,6 +2626,9 @@
 
       如果未設定這項政策，系統會自動採用 <ph name="PRINTERS_ALLOW_ALL" />。
       </translation>
+<translation id="8942616385591203339">這項政策可控制是否可在使用者初次登入時，向使用者顯示同步處理同意聲明。如果使用者不需要查看同步處理同意聲明，則應設為 false。
+      如果設為 false，就不會顯示同步處理同意聲明。
+      如果設為 true 或不予設定，則可顯示同步處理同意聲明。</translation>
 <translation id="8947415621777543415">回報裝置位置</translation>
 <translation id="8951350807133946005">設定磁碟快取目錄</translation>
 <translation id="8952317565138994125">使用 Google 代管的同步處理服務停用 <ph name="PRODUCT_NAME" /> 的資料同步處理功能，並禁止使用者變更這項設定。

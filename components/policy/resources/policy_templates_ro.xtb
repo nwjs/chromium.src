@@ -407,6 +407,7 @@
 <translation id="2231817271680715693">Importați istoricul de navigare din browserul prestabilit, la prima rulare</translation>
 <translation id="2236488539271255289">Nu permite niciunui site să seteze date locale</translation>
 <translation id="2240879329269430151">Vă permite să setați dacă site-urile web au permisiunea să afișeze ferestre de tip pop-up. Afișarea ferestrelor de tip pop-up poate fi permisă sau refuzată în bloc pentru toate site-urile web. Dacă această politică este lăsată nesetată, va fi utilizată politica „BlockPopups”, dar utilizatorul va putea să o schimbe.</translation>
+<translation id="2269319728625047531">Activează afișarea Consimțământului de sincronizare în timpul conectării</translation>
 <translation id="2274864612594831715">Această politică configurează activarea tastaturii virtuale ca dispozitiv de introducere a textului în sistemul de operare Chrome. Utilizatorii nu pot înlocui această politică.
 
       Dacă politica este activată, tastatura virtuală de pe ecran va fi întotdeauna activată.
@@ -512,6 +513,10 @@
       Dacă această setare nu este configurată, utilizatorul poate alege să folosească sau nu această funcție.
 
       Această setare a fost eliminată din <ph name="PRODUCT_NAME" /> versiunea 29 și din versiunile ulterioare.</translation>
+<translation id="2438609638493026652">Activează raportarea evenimentelor cheie la Google în timpul instalării aplicației pentru Android. Evenimentele sunt înregistrate numai pentru aplicațiile a căror instalare a fost declanșată în baza politicii.
+
+      Dacă politica este activată, vor fi înregistrate evenimente.
+      Dacă politica este dezactivată sau nu este configurată, nu vor fi înregistrate evenimente.</translation>
 <translation id="244317009688098048">Activați comanda rapidă de la tastatură de rezervă pentru conectarea automată.
 
       Dacă această politică nu este configurată sau este activată și un cont local de pe dispozitiv este configurat pentru conectarea automată fără întârziere, <ph name="PRODUCT_OS_NAME" /> va executa comanda rapidă de la tastatură Ctrl+Alt+S pentru a ocoli conectarea automată și pentru a afișa ecranul de conectare.
@@ -1155,6 +1160,7 @@
 <translation id="4309640770189628899">Specifică dacă suitele de codificare DHE din TLS sunt activate</translation>
 <translation id="4322842393287974810">Permite aplicației chioșc lansate automat fără nicio întârziere să controleze versiunea <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Adăugați un buton de deconectare în bara de sistem</translation>
+<translation id="4332177773549877617">Înregistrează evenimente pentru instalările aplicației pentru Android</translation>
 <translation id="4346674324214534449">Îți permite să setezi dacă anunțurile trebuie blocate pe site-urile cu anunțuri deranjante.
 
       Dacă această valoare este setată la 2, anunțurile vor fi blocate pe site-urile cu anunțuri deranjante.
@@ -2650,6 +2656,9 @@ Este recomandat să configurezi politica în Windows prin GPO, cu toate că gest
 
       Dacă politica nu este configurată, se va folosi <ph name="PRINTERS_ALLOW_ALL" /> în mod prestabilit.
       </translation>
+<translation id="8942616385591203339">Această politică gestionează dacă utilizatorul poate vedea Consimțământul de sincronizare la prima conectare. Ea trebuie setată la false dacă Consimțământul de sincronizare nu este niciodată necesar pentru utilizator.
+      Dacă este setată la false, Consimțământul de sincronizare nu se va afișa.
+      Dacă este setată la true sau nu este setată, Consimțământul de sincronizare se poate afișa.</translation>
 <translation id="8947415621777543415">Raportați locația dispozitivului</translation>
 <translation id="8951350807133946005">Setează directorul pentru memorare în cache pe disc</translation>
 <translation id="8952317565138994125">Dezactivează sincronizarea datelor în <ph name="PRODUCT_NAME" /> folosind serviciile de sincronizare găzduite de Google și împiedică utilizatorii să modifice această setare.

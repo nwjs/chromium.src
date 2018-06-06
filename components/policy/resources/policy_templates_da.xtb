@@ -406,6 +406,7 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
 <translation id="2231817271680715693">Import af browseroversigt fra standardbrowser ved første visning</translation>
 <translation id="2236488539271255289">Tillad ikke, at websites angiver lokale data</translation>
 <translation id="2240879329269430151">Giver dig mulighed for at bestemme, om websites må vise pop op-vinduer. Visning af pop op-vinduer kan enten være tilladt for alle websites eller nægtet for alle websites. Hvis denne politik ikke angives, anvendes "BlockPopups", og brugeren vil kunne ændre den.</translation>
+<translation id="2269319728625047531">Aktivér visning af samtykke til synkronisering under login</translation>
 <translation id="2274864612594831715">Denne politik konfigurerer aktiveringen af det virtuelle tastatur som inputenhed i ChromeOS. Brugere kan ikke tilsidesætte denne politik.
 
       Hvis politikken er angivet som Sand, vil det virtuelle tastatur på skærmen altid være aktiveret.
@@ -509,6 +510,10 @@ Hvis kompatabilitet med en fejlbehæftet server skal opretholdes, kan denne poli
       Hvis denne indstilling ikke konfigureres, kan brugeren bestemme, om denne funktion skal anvendes eller ej.
 
       Denne indstilling er fjernet fra <ph name="PRODUCT_NAME" />-version 29 og nyere.</translation>
+<translation id="2438609638493026652">Aktivér rapportering af vigtige hændelser under Android-appinstallation til Google. Hændelser registreres kun i forbindelse med apps, hvis installation blev aktiveret via en politik.
+
+      Hvis politikken er angivet som sand, logføres hændelser.
+      Hvis politikken er angivet som falsk eller ikke er angivet, logføres hændelser ikke.</translation>
 <translation id="244317009688098048">Aktivér nødtastaturgenvej til automatisk login.
 
       Hvis denne politik ikke er angivet eller er angivet til Sand, og en lokal konto på enheden er konfigureret til ingen forsinkelse ved automatisk login, indfrier <ph name="PRODUCT_OS_NAME" /> tastaturgenvejen Ctrl+Alt+S til at omgå automatisk login og visning af loginskærmen.
@@ -1153,6 +1158,7 @@ Hvis denne indstilling ikke er angivet, vil <ph name="PRODUCT_NAME" /> tillade b
 <translation id="4309640770189628899">Afgør, om DHE-krypteringsprogrammerne i TLS aktiveres</translation>
 <translation id="4322842393287974810">Tillad, at den automatisk startede terminalapp uden forsinkelse kontrollerer <ph name="PRODUCT_OS_NAME" />-versionen</translation>
 <translation id="4325690621216251241">Tilføj en log ud-knap til systembakken</translation>
+<translation id="4332177773549877617">Logfør hændelser under Android-appinstallationer</translation>
 <translation id="4346674324214534449">Giver dig mulighed for at angive, om annoncer skal blokeres på websites med påtrængende annoncer.
 
       Hvis mulighed 2 er angivet for denne politik, blokeres annoncer på websites med påtrængende annoncer.
@@ -2634,6 +2640,9 @@ Den anbefalede fremgangsmåde til konfiguration af politikker i Windows er via G
 
       Hvis politikken ikke angives, anvendes <ph name="PRINTERS_ALLOW_ALL" /> som standard.
       </translation>
+<translation id="8942616385591203339">Denne politik styrer, hvorvidt samtykke til synkronisering kan vises til brugeren ved første login. Den bør angives som falsk, hvis brugeren aldrig behøver at bruge samtykke til synkronisering.
+      Hvis den angives som falsk, vises samtykke til synkronisering ikke.
+      Hvis den angives som sand eller slet ikke angives, vises samtykke til synkronisering.</translation>
 <translation id="8947415621777543415">Rapportér enhedens placering</translation>
 <translation id="8951350807133946005">Angiv mappen for diskens cache</translation>
 <translation id="8952317565138994125">Deaktiverer datasynkronisering i <ph name="PRODUCT_NAME" /> ved hjælp af Google-hostede synkroniseringstjenester og forhindrer brugerne i at ændre denne indstilling.

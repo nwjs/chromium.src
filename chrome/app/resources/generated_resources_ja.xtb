@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">入力したユーザー名とパスワードが一致しません</translation>
 <translation id="1397854323885047133">同期とカスタマイズ</translation>
 <translation id="1398853756734560583">最大化</translation>
+<translation id="1399511500114202393">ユーザー証明書なし</translation>
 <translation id="140250605646987970">スマートフォンが見つかりましたが、Smart Lock は Android 5.0 以上を搭載した端末でのみ機能します。&lt;a&gt;詳細&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" />（管理対象）</translation>
 <translation id="1405476660552109915"><ph name="PASSWORD_MANAGER_BRAND" /> でこのサイトのアカウントを保存しますか？</translation>
@@ -5234,6 +5235,7 @@
 <translation id="9094982973264386462">削除</translation>
 <translation id="9095253524804455615">削除</translation>
 <translation id="9099674669267916096">ページ数</translation>
+<translation id="9100610230175265781">パスフレーズを入力してください</translation>
 <translation id="9100765901046053179">詳細設定</translation>
 <translation id="9101691533782776290">アプリを起動</translation>
 <translation id="9102610709270966160">拡張機能を有効にする</translation>

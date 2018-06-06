@@ -268,6 +268,7 @@
 <translation id="1396963298126346194">Wpisana nazwa użytkownika i hasło nie pasują do siebie</translation>
 <translation id="1397854323885047133">Synchronizacja i personalizacja</translation>
 <translation id="1398853756734560583">Maksymalizuj</translation>
+<translation id="1399511500114202393">Brak certyfikatu użytkownika</translation>
 <translation id="140250605646987970">Telefon został wykryty, jednak Smart Lock działa tylko na urządzeniach z Androidem 5.0 lub nowszym. &lt;a&gt;Więcej informacji&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (nadzorowany)</translation>
 <translation id="1405476660552109915">Czy <ph name="PASSWORD_MANAGER_BRAND" /> ma zapisać konto dla tej strony?</translation>
@@ -894,7 +895,7 @@
 <translation id="2359808026110333948">Dalej</translation>
 <translation id="236141728043665931">Zawsze blokuj dostęp do mikrofonu</translation>
 <translation id="2365507699358342471">Ta witryna ma dostęp do tekstu i obrazów skopiowanych do schowka.</translation>
-<translation id="2367199180085172140">Dodaj dostęp do plików</translation>
+<translation id="2367199180085172140">Dodaj udział plików</translation>
 <translation id="2367972762794486313">Pokaż aplikacje</translation>
 <translation id="2371076942591664043">Otwórz po &amp;zakończeniu</translation>
 <translation id="2377319039870049694">Przełącz na widok listy</translation>
@@ -3373,7 +3374,7 @@ Więcej informacji znajduje się w naszym <ph name="BEGIN_LINK" />Centrum pomocy
 <translation id="6181431612547969857">Pobieranie zostało zablokowane</translation>
 <translation id="6185132558746749656">Lokalizacja urządzenia</translation>
 <translation id="6185696379715117369">Strona do góry</translation>
-<translation id="6189273858858366896">Skonfiguruj sieciowy dostęp do plików lub nim zarządzaj.</translation>
+<translation id="6189273858858366896">Skonfiguruj sieciowe udziały plików lub nimi zarządzaj.</translation>
 <translation id="6189412234224385711">Otwórz w rozszerzeniu <ph name="EXTENSION_NAME" /></translation>
 <translation id="6196640612572343990">Blokuj pliki cookie innych firm</translation>
 <translation id="6196854373336333322">Rozszerzenie „<ph name="EXTENSION_NAME" />” przejęło kontrolę nad ustawieniami serwera proxy, co oznacza, że może zmieniać, przerywać lub podglądać wszystko, co robisz online. Jeśli nie masz pewności, skąd wzięła się ta zmiana, prawdopodobnie jej nie chcesz.</translation>
@@ -4971,7 +4972,7 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="8698464937041809063">Rysunek Google</translation>
 <translation id="869884720829132584">Menu aplikacji</translation>
 <translation id="869891660844655955">Data wygaśnięcia</translation>
-<translation id="870073306461175568">Sieciowy dostęp do plików</translation>
+<translation id="870073306461175568">Sieciowe udziały plików</translation>
 <translation id="8700934097952626751">Kliknij, by rozpocząć wyszukiwanie głosowe</translation>
 <translation id="8704521619148782536">To trwa o wiele dłużej niż zwykle. Możesz zaczekać albo anulować i spróbować ponownie później.</translation>
 <translation id="8705331520020532516">Numer seryjny</translation>
@@ -5121,7 +5122,7 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="8940081510938872932">Komputer robi teraz zbyt wiele rzeczy. Spróbuj ponownie później.</translation>
 <translation id="8941173171815156065">Cofnij uprawnienie „<ph name="PERMISSION" />”</translation>
 <translation id="8941882480823041320">Poprzednie słowo</translation>
-<translation id="8943076760234179177">URL dostępu do plików</translation>
+<translation id="8943076760234179177">URL udziału plików</translation>
 <translation id="894360074127026135">Dostęp międzynarodowy firmy Netscape</translation>
 <translation id="8944099748578356325">szybciej zużyje baterię (obecnie <ph name="BATTERY_PERCENTAGE" />%)</translation>
 <translation id="8944964446326379280"><ph name="APP_NAME" /> udostępnia okno karcie <ph name="TAB_NAME" />.</translation>
@@ -5224,6 +5225,7 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="9094982973264386462">Usuń</translation>
 <translation id="9095253524804455615">Usuń</translation>
 <translation id="9099674669267916096">Liczba stron</translation>
+<translation id="9100610230175265781">Wymagane jest hasło</translation>
 <translation id="9100765901046053179">Ustawienia zaawansowane</translation>
 <translation id="9101691533782776290">Uruchom aplikację</translation>
 <translation id="9102610709270966160">Włącz rozszerzenie</translation>

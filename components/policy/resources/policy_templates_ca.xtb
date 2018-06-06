@@ -402,6 +402,7 @@
 <translation id="2231817271680715693">Importació de l'historial de navegació des del navegador predeterminat en la primera execució</translation>
 <translation id="2236488539271255289">No permetis que cap lloc estableixi dades locals</translation>
 <translation id="2240879329269430151">Us permet definir si els llocs web poden mostrar finestres emergents. L'aparició de finestres emergents es pot autoritzar o denegar per a tots els llocs web. Si no es defineix aquesta política, s'utilitzarà el paràmetre "BlockPopups" i l'usuari podrà canviar-lo.</translation>
+<translation id="2269319728625047531">Permet mostrar el consentiment de sincronització durant l'inici de sessió</translation>
 <translation id="2274864612594831715">Amb aquesta política es configura el teclat virtual per activar-lo com a dispositiu d'introducció de text a Chrome OS. Els usuaris no poden substituir aquesta política.
 
       Si la política es defineix com a certa, el teclat virtual en pantalla sempre estarà activat.
@@ -505,6 +506,10 @@
       Si no s'estableix aquesta opció, l'usuari pot decidir si vol fer servir aquesta funció o no.
 
       Aquesta configuració s'ha suprimit a la versió 29 i versions posteriors de <ph name="PRODUCT_NAME" />.</translation>
+<translation id="2438609638493026652">Permet informar Google d'esdeveniments clau durant la instal·lació d'aplicacions per a Android. Només es capturen esdeveniments si la instal·lació d'aplicacions s'activa mitjançant la política.
+
+      Si la política s'estableix en "true", es registren esdeveniments.
+      Si la política s'estableix en "false" o no es defineix, no es registren esdeveniments.</translation>
 <translation id="244317009688098048">Activa les tecles de drecera d'ajuda per a l'inici de sessió automàtic.
 
       Si aquesta política es defineix com a vertadera i un compte local de dispositiu es configura per a l'inici de sessió sense retard, <ph name="PRODUCT_OS_NAME" /> farà cas de les tecles de drecera Ctrl + Alt + S per ometre l'inici de sessió automàtic i mostrarà la pantalla d'inici de sessió.
@@ -1139,6 +1144,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 <translation id="4309640770189628899">Si els sistemes de xifratge DHE de TLS estan activats</translation>
 <translation id="4322842393287974810">Permet que l'aplicació de quiosc d'inici automàtic sense retards controli la versió de <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Afegeix un botó de tancament de sessió a la safata del sistema</translation>
+<translation id="4332177773549877617">Registra esdeveniments d'instal·lacions d'aplicacions per a Android</translation>
 <translation id="4346674324214534449">Et permet definir si s'han de bloquejar els anuncis als llocs web amb anuncis intrusius.
 
       Si aquesta política es defineix amb el valor 2, els anuncis es bloquejaran als llocs web amb anuncis intrusius.
@@ -2609,6 +2615,9 @@ La manera recomanada de configurar la política a Windows és amb GPO, tot i que
 
       Si aquesta política no es defineix, es pressuposa que s'aplica <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Aquesta política controla si es pot mostrar el consentiment de sincronització quan s'inicia la sessió per primera vegada. Si mai no es necessitarà el consentiment de sincronització per a l'usuari, s'ha d'establir en "false".
+      Si s'estableix en "false", no es mostrarà el consentiment de sincronització.
+      Si s'estableix en "true", es podrà mostrar el consentiment de sincronització.</translation>
 <translation id="8947415621777543415">Informa de la ubicació d'un dispositiu</translation>
 <translation id="8951350807133946005">Defineix el directori de la memòria cau del disc</translation>
 <translation id="8952317565138994125">Desactiva la sincronització de dades a <ph name="PRODUCT_NAME" /> utilitzant els serveis de sincronització allotjats a Google i evita que els usuaris en modifiquin la configuració.

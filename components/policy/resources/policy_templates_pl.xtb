@@ -406,6 +406,7 @@ Jest ona uzupełnieniem konfiguracji drukarek wykonywanej przez poszczególnych 
 <translation id="2231817271680715693">Importuj historię przeglądania z przeglądarki domyślnej przy pierwszym uruchomieniu</translation>
 <translation id="2236488539271255289">Nie zezwalaj żadnej witrynie na tworzenie danych lokalnych</translation>
 <translation id="2240879329269430151">Umożliwia określenie, czy w witrynach mogą być pokazywane wyskakujące okienka. Pokazywanie wyskakujących okienek może być dozwolone lub zabronione we wszystkich witrynach. W przypadku nieskonfigurowania tej zasady będzie używane ustawienie „BlockPopups”, a użytkownik będzie mógł je zmienić.</translation>
+<translation id="2269319728625047531">Włącz wyświetlanie pytania o synchronizację podczas logowania</translation>
 <translation id="2274864612594831715">Ta zasada konfiguruje włączanie klawiatury wirtualnej jako urządzenia wejściowego w Chrome OS. Użytkownicy nie mogą jej zastąpić.
 
       Jeśli ustawisz w tej zasadzie wartość prawda, ekranowa klawiatura wirtualna będzie zawsze włączona.
@@ -510,6 +511,10 @@ Oznaczanie kont jako zagrożonych w zakresie ochrony hasłem oznacza informowani
       Jeśli pozostanie ono nieokreślone, użytkownik będzie mógł zdecydować, czy chce używać tej funkcji.
 
       Ustawienie zostało usunięte z <ph name="PRODUCT_NAME" /> 29 i nowszych wersji.</translation>
+<translation id="2438609638493026652">Włącza raportowanie do Google najważniejszych zdarzeń podczas instalowania aplikacji na Androida. Zdarzenia są rejestrowane tylko w przypadku aplikacji, których instalacja została spowodowana przez zasadę.
+
+      Jeśli zasada ma wartość prawda, zdarzenia będą rejestrowane.
+      Jeśli zasada ma wartość fałsz lub jest nieskonfigurowana, zdarzenia nie będą rejestrowane.</translation>
 <translation id="244317009688098048">Włącz automatyczne logowanie skrótem klawiszowym.
 
       Jeśli ta zasada nie jest skonfigurowana lub ma wartość Prawda, a lokalne konto na urządzeniu jest ustawione do logowania z zerowym opóźnieniem, <ph name="PRODUCT_OS_NAME" /> będzie uznawać skrót klawiszowy Ctrl+Alt+S.
@@ -1143,6 +1148,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="4309640770189628899">Czy włączone są mechanizmy szyfrowania DHE w TLS</translation>
 <translation id="4322842393287974810">Zezwalaj aplikacji kiosku uruchamianej automatycznie z zerowym opóźnieniem na kontrolowanie wersji <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Dodaj przycisk wylogowania do paska zadań</translation>
+<translation id="4332177773549877617">Rejestrowanie zdarzeń związanych z instalacją aplikacji na Androida</translation>
 <translation id="4346674324214534449">Umożliwia ustawienie blokowania reklam na stronach zawierających uciążliwe reklamy.
 
       Jeśli zasada jest ustawiona na wartość 2, reklamy na stronach zawierających uciążliwe reklamy będą blokowane.
@@ -2623,6 +2629,9 @@ Jeśli bieżąca wersja stanie się przestarzała podczas sesji użytkownika, je
 
       Jeśli ta zasada nie została skonfigurowana, domyślnie stosowana jest opcja <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
+<translation id="8942616385591203339">Ta zasada określa, czy pytanie o synchronizację jest wyświetlane podczas pierwszego logowania. Jeśli nie ma potrzeby, by użytkownicy korzystali z pytania o synchronizację, należy wybrać wartość false.
+      Jeśli wybierzesz wartość false, pytanie o synchronizację nie będzie wyświetlane.
+      Jeśli wybierzesz wartość true lub pozostawisz to ustawienie nieskonfigurowane, pytanie o synchronizację będzie wyświetlane.</translation>
 <translation id="8947415621777543415">Zgłoś lokalizację urządzenia</translation>
 <translation id="8951350807133946005">Ustaw katalog podręcznej pamięci dyskowej</translation>
 <translation id="8952317565138994125">Wyłącza synchronizację danych w <ph name="PRODUCT_NAME" /> przy użyciu usług synchronizacji obsługiwanych przez Google i uniemożliwia użytkownikom zmianę tego ustawienia.
