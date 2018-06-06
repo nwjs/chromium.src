@@ -74,10 +74,6 @@ constexpr int kTabShadowHeight = 4;
 constexpr SkColor kMdWebUIFrameColor =
     SkColorSetARGBMacro(0xff, 0x25, 0x4f, 0xae);
 
-// How long to wait before starting the titlebar animation.
-constexpr base::TimeDelta kTitlebarAnimationDelay =
-    base::TimeDelta::FromMilliseconds(750);
-
 bool IsV1AppBackButtonEnabled() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
       ash::switches::kAshEnableV1AppBackButton);
