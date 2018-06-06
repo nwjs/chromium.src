@@ -1400,8 +1400,7 @@ static LayoutRect BoundingBoxInPaginationContainer(
   DCHECK(section.IsRepeatingFooterGroup());
   // Similar to repeating header, expand bounding_box to intersect any
   // fragment containing any row first.
-  const auto* top_section = table.TopNonEmptySection();
-  if (top_section) {
+  if (const auto* top_section = table.TopNonEmptySection()) {
     bounding_box.Unite(MapLocalRectToAncestorLayer(*top_section,
                                                    top_section->BorderBoxRect(),
                                                    enclosing_pagination_layer));
@@ -1410,9 +1409,7 @@ static LayoutRect BoundingBoxInPaginationContainer(
     // total height of the first row and repeating footers from the top of
     // bounding_box to exclude the first fragment without enough space.
     auto top_exclusion = table.RowOffsetFromRepeatingFooter();
-    if (const auto* top_section = table.TopNonEmptySection()) {
-      // Otherwise the footer should not repeating.
-      DCHECK(top_section != section);
+    if (top_section != section) {
       top_exclusion +=
           top_section->FirstRow()->LogicalHeight() + table.VBorderSpacing();
     }
@@ -1817,10 +1814,10 @@ void PaintPropertyTreeBuilder::UpdateCompositedLayerPaginationOffset() {
 
 void PaintPropertyTreeBuilder::
     UpdateRepeatingTableSectionPaintOffsetAdjustment() {
-  if (!context_.is_repeating_table_section)
+  if (!context_.repeating_table_section)
     return;
 
-  if (object_.IsTableSection()) {
+  if (object_ == context_.repeating_table_section) {
     if (ToLayoutTableSection(object_).IsRepeatingHeaderGroup())
       UpdateRepeatingTableHeaderPaintOffsetAdjustment();
     else if (ToLayoutTableSection(object_).IsRepeatingFooterGroup())
@@ -2145,7 +2142,7 @@ void PaintPropertyTreeBuilder::CreateFragmentContextsInFlowThread(
   const auto& flow_thread =
       ToLayoutFlowThread(enclosing_pagination_layer->GetLayoutObject());
   LayoutRect object_bounding_box_in_flow_thread;
-  if (context_.is_repeating_table_section) {
+  if (context_.repeating_table_section) {
     // The object is a descendant of a repeating object. It should use the
     // repeating bounding box to repeat in the same fragments as its
     // repeating ancestor.
@@ -2155,7 +2152,7 @@ void PaintPropertyTreeBuilder::CreateFragmentContextsInFlowThread(
     object_bounding_box_in_flow_thread =
         BoundingBoxInPaginationContainer(object_, *enclosing_pagination_layer);
     if (IsRepeatingTableSection(object_)) {
-      context_.is_repeating_table_section = true;
+      context_.repeating_table_section = &ToLayoutTableSection(object_);
       context_.repeating_table_section_bounding_box =
           object_bounding_box_in_flow_thread;
     }
@@ -2328,7 +2325,7 @@ void PaintPropertyTreeBuilder::
 
 bool PaintPropertyTreeBuilder::IsRepeatingInPagedMedia() const {
   return context_.is_repeating_fixed_position ||
-         (context_.is_repeating_table_section &&
+         (context_.repeating_table_section &&
           !context_.painting_layer->EnclosingPaginationLayer());
 }
 
@@ -2370,7 +2367,7 @@ bool PaintPropertyTreeBuilder::UpdateFragments() {
     context_.is_repeating_fixed_position = true;
     CreateFragmentContextsForRepeatingFixedPosition();
   } else if (ObjectIsRepeatingTableSectionInPagedMedia()) {
-    context_.is_repeating_table_section = true;
+    context_.repeating_table_section = &ToLayoutTableSection(object_);
     CreateFragmentContextsForRepeatingTableSectionInPagedMedia();
   }
 
@@ -2382,7 +2379,7 @@ bool PaintPropertyTreeBuilder::UpdateFragments() {
     InitSingleFragmentFromParent(needs_paint_properties);
     UpdateCompositedLayerPaginationOffset();
     context_.is_repeating_fixed_position = false;
-    context_.is_repeating_table_section = false;
+    context_.repeating_table_section = nullptr;
   }
 
   if (object_.IsSVGHiddenContainer()) {
@@ -2415,7 +2412,7 @@ bool PaintPropertyTreeBuilder::UpdateFragments() {
 bool PaintPropertyTreeBuilder::ObjectTypeMightNeedPaintProperties() const {
   return object_.IsBoxModelObject() || object_.IsSVG() ||
          context_.painting_layer->EnclosingPaginationLayer() ||
-         context_.is_repeating_table_section ||
+         context_.repeating_table_section ||
          context_.is_repeating_fixed_position;
 }
 
