@@ -170,6 +170,7 @@
 <translation id="4527045527269911712">يريد جهاز بلوتوث "<ph name="DEVICE_NAME" />" الحصول على إذن للإقران.</translation>
 <translation id="453661520163887813">يتبقى <ph name="TIME" /> حتى الاكتمال</translation>
 <translation id="4544944664594876241">لقد تغير اختصار قفل الشاشة. يُرجى استخدام <ph name="NEW_SHORTCUT" /> بدلاً من <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">خدمة الخطوط</translation>
 <translation id="4659419629803378708">‏تم تفعيل ChromeVox</translation>
 <translation id="4776917500594043016">كلمة مرور <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="479989351350248267">بحث</translation>
@@ -205,11 +206,13 @@
 <translation id="5744083938413354016">السحب بعد النقر</translation>
 <translation id="5777841717266010279">هل ترغب في إيقاف مشاركة الشاشة؟</translation>
 <translation id="57838592816432529">كتم الصوت</translation>
+<translation id="5805697420284793859">مدير النوافذ</translation>
 <translation id="5820394555380036790">‏نظام التشغيل Chromium</translation>
 <translation id="5832805196449965646">إضافة شخص</translation>
 <translation id="5860033963881614850">إيقاف</translation>
 <translation id="5895138241574237353">إعادة التشغيل</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">عارض الاختصارات</translation>
 <translation id="5916664084637901428">تشغيل</translation>
 <translation id="5927132638760172455">إرسال إلى مستلم غير معروف</translation>
 <translation id="5947494881799873997">التراجع عن الإجراء</translation>
@@ -260,6 +263,7 @@
 <translation id="6715542151869432661">لم يتم العثور على أي أجهزة جوّال.</translation>
 <translation id="671928215901716392">قفل الشاشة</translation>
 <translation id="6723839937902243910">الطاقة</translation>
+<translation id="6725073593266469338">خدمة واجهة المستخدم</translation>
 <translation id="6785414152754474415">اكتمل شحن <ph name="PERCENTAGE" />% من البطارية ويجري شحنها.</translation>
 <translation id="6803622936009808957">تعذر إجراء النسخ المطابق للعروض نظرًا لعدم العثور على درجات دقة متوافقة. تم الدخول إلى سطح المكتب الممتد بدلاً من ذلك.</translation>
 <translation id="6820676911989879663">حان وقت الاستراحة</translation>
@@ -322,6 +326,7 @@
 <translation id="8351131234907093545">إنشاء ملاحظة</translation>
 <translation id="8392451568018454956">قائمة الخيارات لـ <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">الإعدادات</translation>
+<translation id="8431190899827883166">عرض النقرات</translation>
 <translation id="8433186206711564395">إعدادات الشبكة</translation>
 <translation id="8433977262951327081">تم تغيير اختصار عرض الفقاعة التفسيرية لقائمة خيارات الإدخال في الرف. يُرجى استخدام <ph name="NEW_SHORTCUT" /> بدلاً من <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">‏شريحة SIM مفقودة</translation>
@@ -347,6 +352,7 @@
 <translation id="8921624153894383499">‏لا يتحدث مساعد Google هذه اللغة.</translation>
 <translation id="8938800817013097409">‏جهاز USB-C (المنفذ الأيمن في الخلف)</translation>
 <translation id="8940956008527784070">طاقة البطارية منخفضة (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">التشغيل السريع</translation>
 <translation id="8995603266996330174">مدار بواسطة <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">بلوتوث</translation>
 <translation id="9079731690316798640">‏Wi-Fi:‏ <ph name="ADDRESS" /></translation>
@@ -363,4 +369,5 @@
 <translation id="923686485342484400">‏للخروج اضغط على Ctrl Shift Q مرتين.</translation>
 <translation id="945522503751344254">إرسال تعليقات</translation>
 <translation id="98515147261107953">أفقي</translation>
+<translation id="995927048686010764">النقر التلقائي</translation>
 </translationbundle>

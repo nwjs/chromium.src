@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Sertifikato tipas</translation>
 <translation id="1297175357211070620">Paskirties vieta</translation>
 <translation id="1297922636971898492">„Google“ diskas dabar nepasiekiamas. Įkėlimas bus iš naujo pradėtas automatiškai, kai „Google“ diskas bus vėl pasiekiamas.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> nori, kad „Google“ patvirtintų jūsų įrenginio tapatybę, kad būtų galima nustatyti, ar leisti patobulintą saugomo turinio atkūrimą.</translation>
 <translation id="1300806585489372370">Jei norite pakeisti šį nustatymą, pirmiausia <ph name="BEGIN_LINK" />įjunkite identifikatorius<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Leisti „JavaScript“ iš „Apple Events“</translation>
 <translation id="1303101771013849280">Žymių HTML failas</translation>
@@ -1574,7 +1575,6 @@ Nemanau, kad ši svetainė turėtų būti užblokuota!</translation>
 <translation id="3407837288045706722">Daugiau nustatymų, susijusių su privatumu, sauga ir duomenų rinkimu, žr. skiltyje <ph name="BEGIN_LINK" />„Sinchronizavimas ir suasmeninimas“<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Nukreipti į pasirinkimą</translation>
 <translation id="3413122095806433232">CA išdavėjai: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Paryškinkite tai, ką norite girdėti, tada paspauskite „Ieškoti“ + S. Arba paspauskite ir palaikykite „Ieškoti“ ar palieskite piktogramą „Teksto ištarimas“ netoli profilio vaizdo, tada pasirinkite sritį, kuri bus perskaityta balsu.</translation>
 <translation id="3414856743105198592">Formatuojant keičiamąją mediją visi duomenys bus ištrinti. Ar norite tęsti?</translation>
 <translation id="3414952576877147120">Dydis:</translation>
 <translation id="3420980393175304359">Perjungti asmenį</translation>
@@ -4899,7 +4899,6 @@ Rakto failą laikykite saugioje vietoje. Jo reikės, kai norėsite sukurti nauja
 <translation id="8535005006684281994">„Netscape“ sertifikato atnaujinimo URL</translation>
 <translation id="8539727552378197395">Ne (HttpOnly)</translation>
 <translation id="8541166929715485291">Siųskite sistemos duomenis. Automatiškai siųskite diagnostikos ir įrenginio bei programų naudojimo duomenis į sistemą „Google“. Šį nustatymą priverstinai taiko savininkas. Savininkas gali pasirinkti siųsti šio įrenginio diagnostikos ir naudojimo duomenis į sistemą „Google“. Tai galite peržiūrėti <ph name="BEGIN_LINK1" />nustatymuose<ph name="END_LINK1" />. Jei įjungėte papildomą žiniatinklio ir programų veiklą, ši informacija bus saugoma jūsų paskyroje, kad galėtumėte tvarkyti ją skiltyje „Mano veikla“. <ph name="BEGIN_LINK2" />Sužinokite daugiau<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> nori leisti apsaugotą turinį. Įrenginio tapatybę patvirtins „Google“.</translation>
 <translation id="8545107379349809705">Slėpti informaciją...</translation>
 <translation id="8545575359873600875">Apgailestaujame, nepavyko patvirtinti jūsų slaptažodžio. Galbūt šio prižiūrimo naudotojo valdytojas neseniai pakeitė slaptažodį. Jei taip, naujas slaptažodis bus pritaikytas, kai kitą kartą prisijungsite. Pabandykite naudoti seną slaptažodį.</translation>
 <translation id="8546186510985480118">Mažai vietos įrenginyje</translation>

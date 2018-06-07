@@ -1572,7 +1572,6 @@ Jeg synes ikke, dette website skal blokeres.</translation>
 <translation id="3407837288045706722">Du kan finde flere indstillinger vedrørende privatliv, sikkerhed og dataindsamling under <ph name="BEGIN_LINK" />Synkronisering og tilpasning<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Hop til valg</translation>
 <translation id="3413122095806433232">CA-udstedere: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Fremhæv det, du vil høre, og tryk på Søg+S. Du kan også holde Søg nede og derefter trykke på ikonet for tekstoplæsning i nærheden af dit profilbillede. Vælg derefter et område, der skal læses højt.</translation>
 <translation id="3414856743105198592">Formatering af de flytbare medier kommer til at slette alle data. Vil du fortsætte?</translation>
 <translation id="3414952576877147120">Størrelse:</translation>
 <translation id="3420980393175304359">Skift person</translation>
@@ -4896,7 +4895,6 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="8535005006684281994">Webadresse for fornyelse af Netscape-certifikat</translation>
 <translation id="8539727552378197395">Nej (HttpOnly)</translation>
 <translation id="8541166929715485291">Send systemdata. Send automatisk diagnostik og data om enheds- og appforbrug til Google. Denne indstilling håndhæves af ejeren. Ejeren kan vælge at sende diagnostik og forbrugsdata for denne enhed til Google. Du kan se dette i <ph name="BEGIN_LINK1" />indstillingerne<ph name="END_LINK1" />. Hvis du derudover har aktiveret Web- og app-aktivitet, gemmes disse oplysninger på din konto, så du kan administrere dem i Min aktivitet. <ph name="BEGIN_LINK2" />Få flere oplysninger<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> anmoder om at afspille beskyttet indhold. Din enheds identitet bekræftes af Google.</translation>
 <translation id="8545107379349809705">Skjul oplysninger...</translation>
 <translation id="8545575359873600875">Din adgangskode kunne desværre ikke bekræftes. Administratoren for denne administrerede bruger kan have ændret adgangskoden for nylig. Hvis det er tilfældet, gælder den nye adgangskode, næste gang du logger på. Prøv at bruge din gamle adgangskode.</translation>
 <translation id="8546186510985480118">Der er næsten ikke mere plads på enheden</translation>

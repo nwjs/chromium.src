@@ -178,6 +178,7 @@
 <translation id="2717271541250958000">tabpnl</translation>
 <translation id="2723001399770238859">音频</translation>
 <translation id="2732718972699418926">上午</translation>
+<translation id="2737520612859577214">上标的结尾</translation>
 <translation id="2749275490991666823">已选中</translation>
 <translation id="27527859628328957">跳转到下一个可设置为焦点的项</translation>
 <translation id="276402504937943375">目录</translation>
@@ -202,6 +203,7 @@
 <translation id="288178314850623291">使用跳转命令可跳转到特定类型的元素。要跳转到下一个标题，请按搜索键 + H；要跳转到前一个标题，请按搜索键 + Shift + H。</translation>
 <translation id="2894654529758326923">信息</translation>
 <translation id="2899328121302785497">{COUNT,plural, =1{1个左大括号}other{#个左大括号}}</translation>
+<translation id="2909478709401302630">上标的开头</translation>
 <translation id="2911433807131383493">打开ChromeVox教程</translation>
 <translation id="2932083475399492303">在结构线或布局线类型之间切换</translation>
 <translation id="2944762337049891859">网页加载完成后自动朗读网页内容。</translation>
@@ -383,6 +385,7 @@
 <translation id="4148180433151187540">{COUNT,plural, =1{1个右大括号}other{#个右大括号}}</translation>
 <translation id="4158704014418536539">区分大小写。</translation>
 <translation id="4161663686871496107">ChromeVox语音反馈已就绪</translation>
+<translation id="4166192625054637755">下标的结尾</translation>
 <translation id="4173994908659439270">不存在下一个可编辑的文本字段。</translation>
 <translation id="4176463684765177261">已停用</translation>
 <translation id="4188530942454211480">上一个句子</translation>
@@ -526,6 +529,7 @@
 <translation id="5330443287809544590"><ph name="NAME" />，链接</translation>
 <translation id="5336381510091010269">autoinl+lst</translation>
 <translation id="5349770431644471053">返回链接</translation>
+<translation id="5350654862897073517">下标的开头</translation>
 <translation id="536031132345979795">连续朗读时向后跳转</translation>
 <translation id="5368000168321181111">已关闭耳标</translation>
 <translation id="5374320867641260420">不存在下一个按钮。</translation>

@@ -1574,7 +1574,6 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="3407837288045706722">Gizlilik, güvenlik ve veri toplamayla ilgili daha fazla ayar için <ph name="BEGIN_LINK" />Senkronizasyon ve kişiselleştirme<ph name="END_LINK" /> konusuna bakın.</translation>
 <translation id="3412265149091626468">Seçim'e Atla</translation>
 <translation id="3413122095806433232">CA Verenler: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Dinlemek istediğiniz öğeyi vurgulayın, ardından Ara + S tuşlarına basın. İsterseniz Ara'yı basılı tutup profil resminizin yakınındaki Seç ve Dinle simgesine dokunabilir, ardından sesli okunacak bölgeyi seçebilirsiniz.</translation>
 <translation id="3414856743105198592">Çıkarılabilir medyanın biçimlendirilmesi tüm verileri silecektir. Devam etmek istiyor musunuz?</translation>
 <translation id="3414952576877147120">Boyut:</translation>
 <translation id="3420980393175304359">Kişi Değiştir</translation>
@@ -4898,7 +4897,6 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="8535005006684281994">Netscape Sertifikası Yenileme URL'si</translation>
 <translation id="8539727552378197395">Hayır (HttpOnly)</translation>
 <translation id="8541166929715485291">Sistem verilerini gönderin. Teşhis, cihaz ve uygulama kullanım verilerini Google'a otomatik olarak gönderir. Bu ayar, cihaz sahibi tarafından uygulanır. Cihaz sahibi, bu cihaza ait teşhis ve kullanım verilerini Google'a göndermeyi seçebilir. Bu seçimi <ph name="BEGIN_LINK1" />ayarlardan<ph name="END_LINK1" /> görüntüleyebilirsiniz. Ayrıca Web ve Uygulama Etkinliği'ni etkinleştirdiyseniz bu bilgi, Etkinliğim sayfasında yönetebilmeniz için hesabınızda depolanır. <ph name="BEGIN_LINK2" />Daha Fazla Bilgi<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" />, korumalı içeriği oynatmak istiyor. Cihazınızın kimliği Google tarafından doğrulanacak.</translation>
 <translation id="8545107379349809705">Bilgileri gizle...</translation>
 <translation id="8545575359873600875">Maalesef şifreniz doğrulanamadı. Bu denetlenen kullanıcının yöneticisi yakın zamanda şifreyi değiştirmiş olabilir. Bu durumda, yeni şifre bir dahaki sefere oturum açtığınızda geçerli olacaktır. Eski şifrenizi kullanmayı deneyin.</translation>
 <translation id="8546186510985480118">Cihazda boş yer az</translation>

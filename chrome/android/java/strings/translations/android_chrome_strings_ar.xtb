@@ -16,6 +16,7 @@
 <translation id="1129510026454351943">التفاصيل: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">يمكنك حذف البيانات الحالية.</translation>
 <translation id="1146678959555564648">‏إدخال VR</translation>
+<translation id="114721135501989771">‏الحصول على ميزات Google الذكية في Chrome</translation>
 <translation id="116280672541001035">المستخدَمة</translation>
 <translation id="1172593791219290334">صفحة بدء التشغيل</translation>
 <translation id="1178581264944972037">تعليق</translation>
@@ -102,6 +103,7 @@
 <translation id="1891331835972267886">‏سيتم فتح <ph name="APP_NAME" /> في Chrome. بالمتابعة، أنت توافق على <ph name="BEGIN_LINK1" />بنود الخدمة<ph name="END_LINK1" /> و<ph name="BEGIN_LINK2" />إشعار الخصوصية<ph name="END_LINK2" /> في Chrome.</translation>
 <translation id="189172778771606813">إغلاق لائحة التنقل</translation>
 <translation id="1919345977826869612">إعلانات</translation>
+<translation id="1923695749281512248"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> / <ph name="FILE_SIZE_WITH_UNITS" /></translation>
 <translation id="1933845786846280168">علامة تبويب محددة</translation>
 <translation id="1938981467853765413">تقديم تعليقات</translation>
 <translation id="194341124344773587">‏تشغيل الإذن لـ Chrome في <ph name="BEGIN_LINK" />إعدادات Android<ph name="END_LINK" /></translation>
@@ -109,6 +111,7 @@
 <translation id="1944384637046898011">‏ترميز الكل باستخدام كلمة مرور Google بدءًا من <ph name="TIME" /></translation>
 <translation id="1946005195648379376">‏يمكنك التحكم في الطريقة التي تتبعها Google عند استخدام سجل التصفح لتخصيص البحث وخدمات Google الأخرى.</translation>
 <translation id="1952172573699511566">ستعرض مواقع الويب النص بلغتك المفضلة إن أمكن.</translation>
+<translation id="195283394249132567">‏خدمات Google المخصصة</translation>
 <translation id="1966710179511230534">يُرجى تحديث تفاصيل تسجيل الدخول.</translation>
 <translation id="1974060860693918893">إعدادات متقدمة</translation>
 <translation id="1984937141057606926">مسموح باستثناء الجهات الخارجية</translation>
@@ -151,6 +154,7 @@
 <translation id="2321086116217818302">جارٍ تحضير كلمات المرور…</translation>
 <translation id="2321958826496381788">يمكنك سحب شريط التمرير حتى تتمكن من قراءة هذا النص بسهولة. يجب أن يظهر النص بهذا الحجم على الأقل بعد النقر مرتين على إحدى الفقرات.</translation>
 <translation id="2323763861024343754">سعة تخزين الموقع</translation>
+<translation id="2325181368089033281">‏يمكن لك أو لوالديك تخصيص <ph name="BEGIN_LINK1" />الإعدادات<ph name="END_LINK1" /> في أي وقت. قد تستخدم Google المحتوى على المواقع الإلكترونية التي تزورها، وتفاعلات المتصفّح ونشاطه لتخصيص Chrome وخدمات Google مثل "الترجمة" و"البحث" والإعلانات.</translation>
 <translation id="2328985652426384049">تعذر تسجيل الدخول</translation>
 <translation id="2342981853652716282">‏سجّل الدخول إلى Chrome للحصول غلى الإشارات المرجعية وكلمات المرور والمزيد على جميع أجهزتك.</translation>
 <translation id="2343328333327081434">جارٍ التثبيت...</translation>
@@ -160,9 +164,13 @@
 <translation id="2359808026110333948">المتابعة</translation>
 <translation id="2369533728426058518">علامات التبويب المفتوحة</translation>
 <translation id="2387895666653383613">تغيير حجم النص</translation>
+<translation id="2402980924095424747"><ph name="MEGABYTES" /> ميغابايت</translation>
+<translation id="2410754283952462441">اختيار حساب</translation>
 <translation id="2414886740292270097">داكن</translation>
 <translation id="2416359993254398973">‏يحتاج Chrome إلى إذن لاستخدام الكاميرا لموقع الويب هذا.</translation>
+<translation id="2426805022920575512">اختيار حساب آخر</translation>
 <translation id="2433507940547922241">المظهر</translation>
+<translation id="2434158240863470628">اكتمل التنزيل <ph name="SEPARATOR" /> <ph name="BYTES_DOWNLOADED" /></translation>
 <translation id="2440823041667407902">الدخول إلى الموقع</translation>
 <translation id="2450083983707403292">هل ترغب في بدء تنزيل <ph name="FILE_NAME" /> مرة أخرى؟</translation>
 <translation id="2476578072172137802">إعدادات الموقع</translation>
@@ -212,6 +220,7 @@
 <translation id="290376772003165898">أليست الصفحة باللغة <ph name="LANGUAGE" />؟</translation>
 <translation id="2913331724188855103">السماح للمواقع بحفظ بيانات ملفات تعريف الارتباط وقراءتها (موصى به)</translation>
 <translation id="2932150158123903946">‏سعة تخزين <ph name="APP_NAME" /> Google</translation>
+<translation id="2943166482989655199">‏تحسين Chrome وإعدادات الأمان لديه عن طريق إرسال بيانات النظام والاستخدام إلى Google</translation>
 <translation id="2956410042958133412">تتم إدارة هذا الحساب بواسطة <ph name="PARENT_NAME_1" /> و <ph name="PARENT_NAME_2" />.</translation>
 <translation id="2960796085439532066">‏حقوق الطبع والنشر لعام <ph name="YEAR" /> لصالح شركة .Google Inc. جميع الحقوق محفوظة.</translation>
 <translation id="2962095958535813455">تم التبديل إلى علامات تبويب التصفح المتخفي</translation>
@@ -254,6 +263,7 @@
 <translation id="3328801116991980348">معلومات موقع الويب</translation>
 <translation id="3341058695485821946">الاطّلاع على مقدار البيانات التي حفظتها</translation>
 <translation id="3350687908700087792">إغلاق كافة علامات تبويب التصفح المتخفي</translation>
+<translation id="3361477720586884778">‏يمكن تخصيص <ph name="BEGIN_LINK1" />الإعدادات<ph name="END_LINK1" /> في أي وقت. قد تستخدم Google المحتوى على المواقع الإلكترونية التي تزورها، وتفاعلات المتصفّح ونشاطه لتخصيص Chrome وخدمات Google مثل "الترجمة" و"البحث" والإعلانات.</translation>
 <translation id="3365671512111106261">غير متاح عند تشغيل توفير البيانات</translation>
 <translation id="3367813778245106622">تسجيل الدخول مرة أخرى لبدء المزامنة</translation>
 <translation id="3384347053049321195">مشاركة صورة</translation>
@@ -264,6 +274,7 @@
 <translation id="3414952576877147120">الحجم:</translation>
 <translation id="3443221991560634068">إعادة تحميل الصفحة الحالية</translation>
 <translation id="3452612588551937789">‏سجّل الدخول إلى حسابك في Google للحصول على الإشارات المرجعية، والسجل، وكلمات المرور، والإعدادات الأخرى على جميع أجهزتك.</translation>
+<translation id="3485359633434254965">{FILES,plural, =1{‏تم تنزيل ملف واحد (%1$d)}zero{‏تم تنزيل %1$d ملف}two{‏تم تنزيل ملفين (%1$d)}few{‏تم تنزيل %1$d ملفات}many{‏تم تنزيل %1$d ملفًا}other{‏تم تنزيل %1$d ملف}}</translation>
 <translation id="3487093336331957349">اقتراحات البحث والمواقع</translation>
 <translation id="3492207499832628349">علامة تبويب جديدة للتصفح المتخفي </translation>
 <translation id="3493531032208478708"><ph name="BEGIN_LINK" />مزيد من المعلومات<ph name="END_LINK" /> حول المحتوى المقترح</translation>
@@ -318,6 +329,7 @@
 <translation id="3987993985790029246">نسخ الرابط</translation>
 <translation id="3988213473815854515">الموقع مسموح به</translation>
 <translation id="3988466920954086464">الاطلاع على نتائج البحث الفورية في هذه اللوحة</translation>
+<translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" /> / ?</translation>
 <translation id="3997476611815694295">سعة تخزين غير مهمة</translation>
 <translation id="4002066346123236978">العنوان</translation>
 <translation id="4042870126885713738">عرض اقتراحات عند تعذر فتح عنوان ويب أو تعذر إجراء اتصال</translation>
@@ -427,6 +439,7 @@
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />الحصول على مساعدة<ph name="END_LINK" /> أثناء البحث عن الأجهزة…</translation>
 <translation id="4943872375798546930">لا نتائج</translation>
 <translation id="4958708863221495346">يشارك <ph name="URL_OF_THE_CURRENT_TAB" /> شاشتك</translation>
+<translation id="4961334780091921942">كلمات المرور والسجلّ والمزيد على كل الأجهزة</translation>
 <translation id="4961700429721424617">‏أنت بصدد الخروج من حساب تتم إدارته من خلال <ph name="MANAGED_DOMAIN" />. سيؤدي ذلك إلى حذف بيانات Chrome من هذا الجهاز، ولكن ستظل البيانات في حسابك في Google.</translation>
 <translation id="497421865427891073">انتقال للأمام</translation>
 <translation id="4988526792673242964">صفحات</translation>
@@ -520,6 +533,7 @@
           لكنك لن تكون غير مرئي، فاستخدام وضع التصفح المتخفي لا يخفي تصفحك عن صاحب العمل أو مزود خدمة الإنترنت أو مواقع الويب التي تزورها.</translation>
 <translation id="572328651809341494">علامات التبويب الأخيرة</translation>
 <translation id="5726692708398506830">تكبير كل محتويات الصفحة</translation>
+<translation id="5731185123186077399">‏خدمات Google المخصصة مثل Google Pay</translation>
 <translation id="5738816946784116349">‏تنزيلات Chrome</translation>
 <translation id="5748802427693696783">تم التبديل إلى علامات التبويب القياسية</translation>
 <translation id="5749068826913805084">‏يحتاج Chrome الوصول إلى سعة التخزين لتنزيل الملفات.</translation>
@@ -618,6 +632,7 @@
 <translation id="6583199322650523874">وضع إشارة مرجعية على الصفحة الحالية</translation>
 <translation id="6593061639179217415">العرض بإصدار سطح المكتب</translation>
 <translation id="6600954340915313787">‏تم النسخ إلى Chrome</translation>
+<translation id="6608650720463149374"><ph name="GIGABYTES" /> غيغابايت</translation>
 <translation id="6612358246767739896">محتوى محمي</translation>
 <translation id="6627583120233659107">تعديل مجلد</translation>
 <translation id="6643016212128521049">محو</translation>
@@ -683,6 +698,7 @@
 <translation id="7138678301420049075">أخرى</translation>
 <translation id="7144878232160441200">إعادة المحاولة</translation>
 <translation id="7149893636342594995">آخر 24 ساعة</translation>
+<translation id="7176368934862295254"><ph name="KILOBYTES" /> كيلوبايت</translation>
 <translation id="7177466738963138057">يمكنك تغيير ذلك لاحقًا من "الإعدادات"</translation>
 <translation id="7180611975245234373">تحديث</translation>
 <translation id="7189372733857464326">‏انتظار انتهاء تحديث خدمات Google Play</translation>

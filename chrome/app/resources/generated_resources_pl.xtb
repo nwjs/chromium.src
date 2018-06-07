@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Typ certyfikatu</translation>
 <translation id="1297175357211070620">Urządzenie docelowe</translation>
 <translation id="1297922636971898492">Dysk Google nie jest teraz dostępny. Gdy znów będzie można z niego korzystać, przesyłanie zostanie automatycznie wznowione.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> wymaga zweryfikowania tożsamości Twojego urządzenia przez Google, by ustalić, czy jest ono uprawnione do zaawansowanego odtwarzania treści chronionych.</translation>
 <translation id="1300806585489372370">Aby zmienić to ustawienie, najpierw <ph name="BEGIN_LINK" />włącz identyfikatory<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Zezwól na kod JavaScript z Apple Events</translation>
 <translation id="1303101771013849280">Plik HTML z zakładkami</translation>
@@ -1574,7 +1575,6 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="3407837288045706722">Więcej ustawień związanych z prywatnością, bezpieczeństwem i zbieraniem danych znajduje się w sekcji <ph name="BEGIN_LINK" />Synchronizacja i personalizacja<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Przejdź do zaznaczenia</translation>
 <translation id="3413122095806433232">Wystawcy urzędu certyfikacji: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Zaznacz to, co chcesz usłyszeć, a następnie naciśnij klawisz wyszukiwania + S. Możesz też nacisnąć i przytrzymać klawisz wyszukiwania lub kliknąć ikonę Przeczytaj na głos obok swojego zdjęcia profilowego, a następnie zaznaczyć obszar do odczytania.</translation>
 <translation id="3414856743105198592">Formatowanie nośnika wymiennego spowoduje usunięcie wszystkich danych. Czy chcesz kontynuować?</translation>
 <translation id="3414952576877147120">Rozmiar:</translation>
 <translation id="3420980393175304359">Przełącz osobę</translation>
@@ -4891,7 +4891,6 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="8535005006684281994">Adres URL odnowienia certyfikatu firmy Netscape</translation>
 <translation id="8539727552378197395">Nie (HttpOnly)</translation>
 <translation id="8541166929715485291">Wysyłanie danych systemowych. Automatycznie wysyłaj do Google dane diagnostyczne oraz dotyczące używania urządzenia i aplikacji. To ustawienie jest wybierane przez właściciela urządzenia. Może on wybrać, czy te dane będą wysyłane do Google. Wybraną opcję możesz zobaczyć w <ph name="BEGIN_LINK1" />ustawieniach<ph name="END_LINK1" />. Jeśli masz włączoną dodatkowo Aktywność w internecie i aplikacjach, dane te będą zapisywane na Twoim koncie, co umożliwi Ci zarządzanie nimi na stronie Moja aktywność. <ph name="BEGIN_LINK2" />Więcej informacji<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> chce odtworzyć treści chronione. Tożsamość Twojego urządzenia zostanie zweryfikowana przez Google.</translation>
 <translation id="8545107379349809705">Ukryj informacje...</translation>
 <translation id="8545575359873600875">Nie udało się zweryfikować Twojego hasła. Menedżer tego nadzorowanego użytkownika mógł ostatnio je zmienić. Jeśli tak się stało, nowe hasło zostanie zastosowane przy następnym logowaniu. Użyj swojego starego hasła.</translation>
 <translation id="8546186510985480118">Na urządzeniu jest mało miejsca</translation>

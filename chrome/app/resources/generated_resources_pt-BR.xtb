@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Tipo de certificado</translation>
 <translation id="1297175357211070620">Destino</translation>
 <translation id="1297922636971898492">O Google Drive não está disponível no momento. O upload será reiniciado automaticamente assim que o Google Drive estiver de volta.</translation>
+<translation id="1300415640239881824">O domínio <ph name="DOMAIN" /> quer que a identidade do seu dispositivo seja verificada pelo Google para determinar se ele está qualificado para reprodução aprimorada de conteúdo protegido.</translation>
 <translation id="1300806585489372370">Para alterar essa configuração, primeiro <ph name="BEGIN_LINK" />ative os identificadores<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Permitir o JavaScript do Eventos da Apple</translation>
 <translation id="1303101771013849280">Arquivo HTML com favoritos</translation>
@@ -1574,7 +1575,6 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="3407837288045706722">Para ver mais configurações relacionadas à privacidade, segurança e coleta de dados, acesse <ph name="BEGIN_LINK" />Sincronização e personalização<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Ir para a seleção</translation>
 <translation id="3413122095806433232">Emissores de autoridades de certificação: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Destaque o que você quer ouvir e pressione Pesquisar + S. Você também pode tocar na tecla de pesquisa e mantê-la pressionada ou tocar no ícone "Selecionar para ouvir", ao lado da sua imagem de perfil, e depois selecionar uma região a ser lida em voz alta.</translation>
 <translation id="3414856743105198592">A formatação da mídia removível apagará todos os dados. Quer continuar?</translation>
 <translation id="3414952576877147120">Tamanho:</translation>
 <translation id="3420980393175304359">Alterar pessoa</translation>
@@ -4902,7 +4902,6 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="8535005006684281994">URL da renovação do certificado do Netscape</translation>
 <translation id="8539727552378197395">Nenhum (HttpOnly)</translation>
 <translation id="8541166929715485291">Enviar dados do sistema. Enviar automaticamente dados de uso e diagnóstico do dispositivo e de apps para o Google. Essa configuração é aplicada pelo proprietário, que pode optar por enviar dados de uso e diagnóstico deste dispositivo para o Google. É possível ver essa opção nas <ph name="BEGIN_LINK1" />configurações<ph name="END_LINK1" />. Se você ativou a opção "Atividade na Web e de apps", essas informações serão armazenadas com sua conta para que você possa gerenciá-las em Minha atividade. <ph name="BEGIN_LINK2" />Saiba mais<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> quer reproduzir conteúdo protegido. A identidade do seu dispositivo será verificada pelo Google.</translation>
 <translation id="8545107379349809705">Ocultar informações...</translation>
 <translation id="8545575359873600875">Não foi possível confirmar a senha. O gerente desse usuário supervisionado pode ter alterado a senha recentemente. Nesse caso, a nova senha será aplicada da próxima vez que você fizer login. Tente usar a senha antiga.</translation>
 <translation id="8546186510985480118">Pouco espaço no dispositivo</translation>

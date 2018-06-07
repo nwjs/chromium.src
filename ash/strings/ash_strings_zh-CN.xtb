@@ -172,6 +172,7 @@
 <translation id="4527045527269911712">蓝牙设备“<ph name="DEVICE_NAME" />”需要配对许可。</translation>
 <translation id="453661520163887813"><ph name="TIME" /> 后充满</translation>
 <translation id="4544944664594876241">用于锁定屏幕的快捷键已更改。请使用 <ph name="NEW_SHORTCUT" />，而不是 <ph name="OLD_SHORTCUT" />。</translation>
+<translation id="4564869809620998694">字体服务</translation>
 <translation id="4570957409596482333">随选朗读按钮</translation>
 <translation id="4659419629803378708">已启用 ChromeVox</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> 的密码</translation>
@@ -208,11 +209,13 @@
 <translation id="5744083938413354016">点按拖动</translation>
 <translation id="5777841717266010279">要停止屏幕共享吗？</translation>
 <translation id="57838592816432529">静音</translation>
+<translation id="5805697420284793859">窗口管理器</translation>
 <translation id="5820394555380036790">Chromium 操作系统</translation>
 <translation id="5832805196449965646">添加用户</translation>
 <translation id="5860033963881614850">关闭</translation>
 <translation id="5895138241574237353">重新启动</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">快捷键查看器</translation>
 <translation id="5916664084637901428">启用</translation>
 <translation id="5927132638760172455">正在投射至未知接收器</translation>
 <translation id="5947494881799873997">还原</translation>
@@ -262,6 +265,7 @@
 <translation id="6715542151869432661">找不到任何移动设备。</translation>
 <translation id="671928215901716392">锁定屏幕</translation>
 <translation id="6723839937902243910">电源</translation>
+<translation id="6725073593266469338">界面服务</translation>
 <translation id="6785414152754474415">电池电量为<ph name="PERCENTAGE" />%（正在充电）。</translation>
 <translation id="6803622936009808957">找不到系统支持的分辨率，因此无法镜像显示屏。已改为进入扩展桌面。</translation>
 <translation id="6820676911989879663">休息一下！</translation>
@@ -325,6 +329,7 @@
 <translation id="8351131234907093545">创建记事</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> 的“选项”菜单</translation>
 <translation id="8428213095426709021">设置</translation>
+<translation id="8431190899827883166">显示点按操作反馈</translation>
 <translation id="8433186206711564395">网络设置</translation>
 <translation id="8433977262951327081">用于在任务栏中显示输入法选项菜单气泡的快捷键已更改。请使用<ph name="NEW_SHORTCUT" />（而不是 <ph name="OLD_SHORTCUT" />）。</translation>
 <translation id="8452135315243592079">缺少 SIM 卡</translation>
@@ -350,6 +355,7 @@
 <translation id="8921624153894383499">Google 智能助理不支持此语言。</translation>
 <translation id="8938800817013097409">USB-C 设备（背面右侧端口）</translation>
 <translation id="8940956008527784070">电池电量不足 (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">快速启动</translation>
 <translation id="8995603266996330174">由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="9074739597929991885">蓝牙</translation>
 <translation id="9079731690316798640">Wi-Fi：<ph name="ADDRESS" /></translation>
@@ -366,4 +372,5 @@
 <translation id="923686485342484400">连按两次Ctrl+Shift+Q即可退出。</translation>
 <translation id="945522503751344254">发送反馈</translation>
 <translation id="98515147261107953">横向</translation>
+<translation id="995927048686010764">自动点击</translation>
 </translationbundle>

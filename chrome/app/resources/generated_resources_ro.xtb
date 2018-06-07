@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Tip de certificat</translation>
 <translation id="1297175357211070620">Destinație</translation>
 <translation id="1297922636971898492">Google Drive nu este disponibil momentan. Încărcarea va reporni automat când Google Drive va putea fi accesat.</translation>
+<translation id="1300415640239881824">Domeniul <ph name="DOMAIN" /> dorește ca identitatea dispozitivului să fie verificată de Google, ca să determine eligibilitatea pentru redarea îmbunătățită a conținutului protejat.</translation>
 <translation id="1300806585489372370">Pentru a modifica această setare, <ph name="BEGIN_LINK" />activează identificatorii<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Permite JavaScript de la Apple Events</translation>
 <translation id="1303101771013849280">Fișier HTML cu marcaje</translation>
@@ -1574,7 +1575,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="3407837288045706722">Pentru mai multe setări privind confidențialitatea, securitatea și culegerea datelor, consultă <ph name="BEGIN_LINK" />Sincronizare și personalizare<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Accesează selecția</translation>
 <translation id="3413122095806433232">Emitenți CA: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Evidențiază ce vrei să auzi, apoi apasă tasta de căutare + S sau apasă lung tasta de căutare ori atinge pictograma Selectează și ascultă de lângă imaginea de profil și selectează o regiune care trebuie citită cu voce tare.</translation>
 <translation id="3414856743105198592">Formatarea suportului media amovibil va șterge toate datele. Doriți să continuați?</translation>
 <translation id="3414952576877147120">Dimensiune:</translation>
 <translation id="3420980393175304359">Comută la altă persoană</translation>
@@ -4898,7 +4898,6 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8535005006684281994">Adresă URL de reînnoire a certificatului Netscape</translation>
 <translation id="8539727552378197395">Nu (numai Http)</translation>
 <translation id="8541166929715485291">Trimite date de sistem. Trimite automat la Google date privind diagnosticarea și utilizarea dispozitivelor și a aplicațiilor. Această setare este impusă de proprietar. Proprietarul poate alege să trimită la Google date privind diagnosticarea și utilizarea pentru dispozitiv. Poți vedea acest lucru în <ph name="BEGIN_LINK1" />setări<ph name="END_LINK1" />. Dacă ai activat opțiunea suplimentară Activitatea de pe web și din aplicații, aceste informații vor fi stocate de contul tău, ca să le poți gestiona în Activitatea mea. <ph name="BEGIN_LINK2" />Află mai multe<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> vrea să redea conținut protejat. Google va verifica identitatea dispozitivului tău.</translation>
 <translation id="8545107379349809705">Ascundeți informațiile...</translation>
 <translation id="8545575359873600875">Ne pare rău, parola nu a putut fi confirmată. Poate că managerul acestui utilizator monitorizat a schimbat recent parola. Dacă acesta este cazul, noua parolă se va aplica data viitoare când vă conectați. Încercați să folosiți parola veche.</translation>
 <translation id="8546186510985480118">Spațiul de pe dispozitiv este redus</translation>

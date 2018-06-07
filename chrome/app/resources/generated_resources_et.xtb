@@ -1574,7 +1574,6 @@ Ma arvan, et see sait ei tohiks olla blokeeritud.</translation>
 <translation id="3407837288045706722">Privaatsuse, turvalisuse ning andmete kogumisega seotud lisaseadete nägemiseks avage jaotis <ph name="BEGIN_LINK" />Sünkroonimine ja isikupärastamine<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Hüppa valikusse</translation>
 <translation id="3413122095806433232">CA väljastajad: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Tõstke esile sisu, mida soovite kuulda, seejärel vajutage otsinguklahvi + klahvi S. Võite ka vajutada pikalt otsinguklahvi või funktsiooni Vali ja kuula ikooni oma profiilipildi kõrval. Seejärel valige osa, mis ette lugeda.</translation>
 <translation id="3414856743105198592">Irdkandja vormindamine kustutab kõik andmed. Kas soovite jätkata?</translation>
 <translation id="3414952576877147120">Suurus:</translation>
 <translation id="3420980393175304359">Isiku vahetamine</translation>
@@ -4899,7 +4898,6 @@ Inimesed, kelle ühendus on aeglane, ei pruugi teie sisu näha.</translation>
 <translation id="8535005006684281994">Netscape'i sertifikaadi uuendus-URL</translation>
 <translation id="8539727552378197395">Ei (ainult HTTP)</translation>
 <translation id="8541166929715485291">Saatke süsteemi andmeid. Saatke Google'ile automaatselt diagostikateavet ning seadme ja rakenduste kasutusandmeid. Omanik võib lubada seadme diagnostika- ja kasutusandmete saatmise Google'ile. Seda saate vaadata <ph name="BEGIN_LINK1" />seadetes<ph name="END_LINK1" />. Kui lülitasite sisse rohkem veebi- ja rakendustegevusi, salvestatakse see teave teie kontole, et saaksite seda hallata jaotises Minu tegevused. <ph name="BEGIN_LINK2" />Lisateave<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> soovib esitada kaitstud sisu. Google kontrollib teie seadme identiteeti.</translation>
 <translation id="8545107379349809705">Peida teave ...</translation>
 <translation id="8545575359873600875">Vabandust, teie parooli ei saanud kinnitada. Jälgitava kasutaja haldur on võib-olla hiljuti parooli muutnud. Kui nii, rakendatakse uut parooli järgmisel korral, kui sisse logite. Proovige kasutada oma vana parooli.</translation>
 <translation id="8546186510985480118">Seadmes on vähe salvestusruumi</translation>

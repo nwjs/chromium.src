@@ -1575,7 +1575,6 @@
 <translation id="3407837288045706722">プライバシー、セキュリティ、データ収集に関連するその他の設定については、<ph name="BEGIN_LINK" />同期とカスタマイズ<ph name="END_LINK" />をご覧ください</translation>
 <translation id="3412265149091626468">選択部分へジャンプ</translation>
 <translation id="3413122095806433232">認証局発行元: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">読み上げるコンテンツを選択して検索+S キーを押します。または、検索キーを押したままにするか、プロフィール画像の近くにある「選択して読み上げ」アイコンをタップして、読み上げる領域を選択します。</translation>
 <translation id="3414856743105198592">リムーバブル メディアをフォーマットすると、すべてのデータが消去されます。続行しますか？</translation>
 <translation id="3414952576877147120">サイズ:</translation>
 <translation id="3420980393175304359">ユーザーの切り替え</translation>
@@ -4901,7 +4900,6 @@
 <translation id="8535005006684281994">Netscape 証明書更新 URL</translation>
 <translation id="8539727552378197395">いいえ（HTTP のみ）</translation>
 <translation id="8541166929715485291">システムデータを送信します（診断データと端末およびアプリの使用状況データを Google に自動送信します）。この設定は所有者によって指定されており、所有者は、この端末の診断データと使用状況データを Google に送信することを選択している可能性があります。これは<ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />で確認できます。これに加えて [ウェブとアプリのアクティビティ] をオンにすると、この情報がアカウントに保存され、[マイ アクティビティ] で管理できるようになります。<ph name="BEGIN_LINK2" />詳細<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> から、保護されたコンテンツの再生許可を求められています。Google はデバイスの識別情報に基づき確認を行います。</translation>
 <translation id="8545107379349809705">情報を表示しない...</translation>
 <translation id="8545575359873600875">パスワードを確認できませんでした。この監視対象ユーザーの管理者によって最近パスワードが変更された可能性があります。パスワードが変更されている場合、新しいパスワードは次回のログインから適用されます。古いパスワードでログインをお試しください。</translation>
 <translation id="8546186510985480118">端末の空き領域が少なくなっています</translation>

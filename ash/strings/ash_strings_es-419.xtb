@@ -172,6 +172,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4527045527269911712">El dispositivo Bluetooth "<ph name="DEVICE_NAME" />" solicita permiso para sincronizarse.</translation>
 <translation id="453661520163887813">Tiempo restante hasta completarse la carga: <ph name="TIME" /></translation>
 <translation id="4544944664594876241">Se modificó el acceso directo para bloquear la pantalla. Utiliza <ph name="NEW_SHORTCUT" /> en vez de <ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">Servicio de fuentes</translation>
 <translation id="4570957409596482333">Botón de Seleccionar para pronunciar</translation>
 <translation id="4659419629803378708">Se habilitó ChromeVox</translation>
 <translation id="4776917500594043016">Contraseña para <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -208,11 +209,13 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="5744083938413354016">Función tocar y arrastrar</translation>
 <translation id="5777841717266010279">¿Dejar de compartir la pantalla?</translation>
 <translation id="57838592816432529">Silenciar</translation>
+<translation id="5805697420284793859">Administrador de ventanas</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Agregar un usuario</translation>
 <translation id="5860033963881614850">Desactivado</translation>
 <translation id="5895138241574237353">Reiniciar</translation>
 <translation id="5901316534475909376">Mayúscula + Esc</translation>
+<translation id="5911533659001334206">Visualizador de combinaciones de teclas</translation>
 <translation id="5916664084637901428">Activada</translation>
 <translation id="5927132638760172455">Transmitiendo a un receptor desconocido</translation>
 <translation id="5947494881799873997">Revertir</translation>
@@ -262,6 +265,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="6715542151869432661">No se encontraron dispositivos móviles.</translation>
 <translation id="671928215901716392">Bloquear pantalla</translation>
 <translation id="6723839937902243910">Alimentación</translation>
+<translation id="6725073593266469338">Servicio de IU</translation>
 <translation id="6785414152754474415">La batería tiene un <ph name="PERCENTAGE" /> % de carga y se está cargando.</translation>
 <translation id="6803622936009808957">No se pudieron reflejar las pantallas porque no se encontraron resoluciones compatibles. En su lugar, se activó el escritorio extendido.</translation>
 <translation id="6820676911989879663">Toma un descanso</translation>
@@ -325,6 +329,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="8351131234907093545">Crear nota</translation>
 <translation id="8392451568018454956">Menú de opciones para <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">Configuración</translation>
+<translation id="8431190899827883166">Mostrar presiones</translation>
 <translation id="8433186206711564395">Opciones de red</translation>
 <translation id="8433977262951327081">El acceso directo para mostrar el cuadro con el menú de opciones de entrada en la biblioteca cambió. Usa <ph name="NEW_SHORTCUT" /> en lugar de <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">Falta la tarjeta SIM</translation>
@@ -350,6 +355,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="8921624153894383499">El Asistente de Google no habla este idioma</translation>
 <translation id="8938800817013097409">Dispositivo USB-C (puerto derecho en la parte posterior)</translation>
 <translation id="8940956008527784070">Batería baja (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">Inicio rápido</translation>
 <translation id="8995603266996330174">Administrado por <ph name="DOMAIN" /></translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
@@ -366,4 +372,5 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="923686485342484400">Presiona Control Mayús Q dos veces para salir.</translation>
 <translation id="945522503751344254">Enviar comentarios</translation>
 <translation id="98515147261107953">Horizontal</translation>
+<translation id="995927048686010764">Clic automático</translation>
 </translationbundle>

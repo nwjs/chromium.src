@@ -209,6 +209,7 @@ Na následující obrazovce prosím zadejte zpětnou vazbu, která nám problém
 <translation id="1296497012903089238">Typ certifikátu</translation>
 <translation id="1297175357211070620">Cíl</translation>
 <translation id="1297922636971898492">Disk Google aktuálně není k dispozici. Jakmile bude Disk Google opět dostupný, nahrávání se automaticky obnoví.</translation>
+<translation id="1300415640239881824">Web <ph name="DOMAIN" /> vyžaduje, aby Google ověřil identitu vašeho zařízení za účelem stanovení způsobilosti pro vylepšené přehrávání chráněného obsahu.</translation>
 <translation id="1300806585489372370">Chcete-li toto nastavení změnit, nejdříve <ph name="BEGIN_LINK" />zapněte identifikátory<ph name="END_LINK" />.</translation>
 <translation id="1302227299132585524">Povolit JavaScript z událostí Apple</translation>
 <translation id="1303101771013849280">Soubor HTML záložek</translation>
@@ -1573,7 +1574,6 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="3407837288045706722">Další nastavení související s ochranou soukromí, zabezpečením a shromažďováním dat naleznete v části <ph name="BEGIN_LINK" />Synchronizace a personalizace<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Přejít na výběr</translation>
 <translation id="3413122095806433232">Vydavatelé CA: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Zvýrazněte text, který chcete přečíst, a stiskněte Hledat + S. Případně podržte tlačítko Hledat nebo vedle svého profilového obrázku klepněte na ikonu poslechu vybraného textu a vyberte oblast, jejíž obsah chcete nahlas přečíst.</translation>
 <translation id="3414856743105198592">Formátování vyměnitelného média vymaže všechna data. Chcete pokračovat?</translation>
 <translation id="3414952576877147120">Velikost:</translation>
 <translation id="3420980393175304359">Přepnout uživatele</translation>
@@ -4891,7 +4891,6 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="8535005006684281994">Adresa URL pro obnovu certifikátu Netscape</translation>
 <translation id="8539727552378197395">Ne (HttpOnly)</translation>
 <translation id="8541166929715485291">Odesílání údajů o systému. Automaticky do Googlu odesílat diagnostické údaje a údaje o využití. Toto nastavení je vynuceno vlastníkem. Vlastník může zvolit, že se diagnostické údaje a údaje o využití z tohoto zařízení mají odesílat do Googlu. Tuto možnost můžete zobrazit v <ph name="BEGIN_LINK1" />nastavení<ph name="END_LINK1" />. Pokud jste zapnuli další Aktivitu na webu a v aplikacích, budou uvedené údaje uloženy ve vašem účtu a budete je moci spravovat na stránce Moje aktivita. <ph name="BEGIN_LINK2" />Další informace<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> chce přehrát chráněný obsah. Google ověří identitu vašeho zařízení</translation>
 <translation id="8545107379349809705">Skrýt informace...</translation>
 <translation id="8545575359873600875">Litujeme, heslo se nepodařilo ověřit. Heslo pravděpodobně nedávno změnil správce tohoto dozorovaného uživatele. Pokud je tomu tak, nové heslo se použije až při příštím přihlášení. Zkuste použít původní heslo.</translation>
 <translation id="8546186510985480118">V zařízení dochází místo</translation>

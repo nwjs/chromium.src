@@ -1574,7 +1574,6 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="3407837288045706722">Pour accéder à d'autres paramètres liés à la confidentialité, à la sécurité et à la collecte de données, consultez la section <ph name="BEGIN_LINK" />Synchronisation et personnalisation<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Aller à la sélection</translation>
 <translation id="3413122095806433232">Émetteurs de l'autorité de certification : <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Mettez en surbrillance ce que vous souhaitez entendre, puis utilisez les touches Recherche+S. Vous pouvez aussi appuyer de manière prolongée sur Recherche ou appuyer sur l'icône Sélectionner pour prononcer, située à côté de votre image de profil, puis choisir une zone de l'écran pour qu'elle soit lue à voix haute.</translation>
 <translation id="3414856743105198592">Si vous formatez le périphérique amovible, toutes les données seront effacées. Voulez-vous continuer ?</translation>
 <translation id="3414952576877147120">Taille :</translation>
 <translation id="3420980393175304359">Changer de profil</translation>
@@ -4899,7 +4898,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8535005006684281994">URL de renouvellement du certificat Netscape</translation>
 <translation id="8539727552378197395">Non (HttpOnly)</translation>
 <translation id="8541166929715485291">Envoyer les données système. Cet appareil enverra automatiquement des diagnostics et des données d'utilisation à Google. Ce paramètre est appliqué par le propriétaire. Le propriétaire de l'appareil peut choisir d'envoyer à Google des données de diagnostic et d'utilisation. Cette option est visible dans les <ph name="BEGIN_LINK1" />Paramètres<ph name="END_LINK1" />. Si vous avez activé l'option "Activité sur le Web et les applications", ces informations seront enregistrées dans votre compte. Vous pourrez alors les gérer dans la section "Mon activité". <ph name="BEGIN_LINK2" />En savoir plus<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> souhaite diffuser un contenu protégé. L'identité de votre appareil sera validée par Google.</translation>
 <translation id="8545107379349809705">Masquer les informations…</translation>
 <translation id="8545575359873600875">Impossible de vérifier votre mot de passe. Il est possible que l'administrateur de cet utilisateur supervisé ait récemment modifié le mot de passe. Si c'est le cas, le nouveau mot de passe sera appliqué lors de la prochaine connexion. Essayez de vous connecter à l'aide de votre ancien mot de passe.</translation>
 <translation id="8546186510985480118">Peu d'espace disque disponible sur l'appareil</translation>

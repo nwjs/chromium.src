@@ -88,6 +88,7 @@
 <translation id="1123187597739372905">显示同步设置</translation>
 <translation id="1123316951456119629">取消您的 Google 帐号与 <ph name="PRODUCT_NAME" />之间的关联后，您的数据仍会保留在此计算机上，但是更改将不再同步到您的 Google 帐号中。已存储在您 Google 帐号中的数据仍会保留在那，直到您使用 <ph name="BEGIN_LINK" />Google 信息中心<ph name="END_LINK" />将其删除。</translation>
 <translation id="1124772482545689468">用户</translation>
+<translation id="1125550662859510761">屏幕分辨率：<ph name="WIDTH" /> x <ph name="HEIGHT" />（原生）</translation>
 <translation id="1128109161498068552">禁止任何网站使用系统专有消息访问 MIDI 设备</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">修改搜索引擎</translation>
@@ -100,6 +101,7 @@
 <translation id="1145292499998999162">插件已被拦截</translation>
 <translation id="1145532888383813076">搜索您的设备、应用和网站。</translation>
 <translation id="1146204723345436916">从 HTML 文件导入书签...</translation>
+<translation id="114721135501989771">在 Chrome 中畅享 Google 的智能技术</translation>
 <translation id="1148097584170732637">找到了 <ph name="FILE_COUNT" />。
     <ph name="LINE_BREAK1" />
     可用的本地存储空间不足。还需要 <ph name="FILE_SIZE" />。
@@ -207,6 +209,7 @@
 <translation id="1296497012903089238">证书类型</translation>
 <translation id="1297175357211070620">目标打印机</translation>
 <translation id="1297922636971898492">Google云端硬盘暂时无法使用。Google云端硬盘恢复正常后，系统将自动重新开始上传。</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> 想让 Google 验证您的设备的身份，以确定能否对受保护的内容使用增强播放功能。</translation>
 <translation id="1300806585489372370">要更改此设置，请先<ph name="BEGIN_LINK" />启用标识符<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">允许 Apple 事件中的 JavaScript</translation>
 <translation id="1303101771013849280">以前导出的书签（HTML 文件）</translation>
@@ -270,6 +273,7 @@
 <translation id="1396963298126346194">您输入的用户名和密码不匹配</translation>
 <translation id="1397854323885047133">同步和个性化</translation>
 <translation id="1398853756734560583">最大化</translation>
+<translation id="1399511500114202393">不使用任何用户证书</translation>
 <translation id="140250605646987970">已找到您的手机，但 Smart Lock 仅适用于运行 Android 5.0 或更高版本的设备。&lt;a&gt;了解详情&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" />（受监管用户）</translation>
 <translation id="1405476660552109915">您希望 <ph name="PASSWORD_MANAGER_BRAND" /> 保存您在此网站上使用的帐号吗？</translation>
@@ -353,6 +357,7 @@
 <translation id="1511388193702657997">询问是否保存您在网页上输入的密码</translation>
 <translation id="1512210426710821809">要想撤消此操作，唯一的方法是重新安装 <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
 <translation id="151501797353681931">从 Safari 中导入</translation>
+<translation id="1520605251886806589">Google 可能会根据您所访问网站中的内容、您的浏览活动和互动行为对 Chrome 以及其他 Google 服务（例如翻译、搜索和广告）进行个性化设置。您可以在“设置”中自定义此设置。</translation>
 <translation id="1521442365706402292">管理证书</translation>
 <translation id="152234381334907219">一律不保存</translation>
 <translation id="1524430321211440688">键盘</translation>
@@ -426,6 +431,7 @@
 <translation id="1637224376458524414">在您的 iPhone 上获取此书签</translation>
 <translation id="1637765355341780467">打开您的个人资料时出了点问题，部分功能可能无法使用。</translation>
 <translation id="1639239467298939599">正在加载</translation>
+<translation id="163993578339087550"><ph name="SERVICE_NAME" />想检查您使用的是否为符合条件的 Chrome 操作系统设备。</translation>
 <translation id="1640283014264083726">PKCS #1，带有 RSA 加密的 MD4</translation>
 <translation id="1642494467033190216">要启用其他调试功能，必须先取消根文件系统保护并重启设备。</translation>
 <translation id="1643050526526937107">仅开启同步</translation>
@@ -761,6 +767,7 @@
 <translation id="2151576029659734873">输入的标签页索引无效。</translation>
 <translation id="2154484045852737596">修改支付卡</translation>
 <translation id="2154710561487035718">复制网址</translation>
+<translation id="2155772377859296191">屏幕分辨率：<ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
 <translation id="215753907730220065">退出全屏模式</translation>
 <translation id="2157875535253991059">此网页现处于全屏模式。</translation>
 <translation id="216169395504480358">添加 Wi-Fi...</translation>
@@ -919,6 +926,7 @@
 <translation id="2408955596600435184">输入您的 PIN 码</translation>
 <translation id="241082044617551207">未知插件</translation>
 <translation id="2413749388954403953">更改书签界面</translation>
+<translation id="2419706071571366386">为了安全起见，当您未使用计算机时，请退出帐号。</translation>
 <translation id="2422426094670600218">&lt;未命名&gt;</translation>
 <translation id="2423578206845792524">图片另存为(&amp;V)...</translation>
 <translation id="2425665904502185219">文件总大小</translation>
@@ -1000,6 +1008,7 @@
 <translation id="253434972992662860">暂停(&amp;P)</translation>
 <translation id="2534460670861217804">安全的 HTTP 代理</translation>
 <translation id="253557089021624350">正在使用相应扩展程序的活动数</translation>
+<translation id="2538361623464451692">同步功能已停用</translation>
 <translation id="2540384386570049483">在此网站上允许显示广告</translation>
 <translation id="2541423446708352368">显示所有下载内容</translation>
 <translation id="2542049655219295786">Google 表格</translation>
@@ -1560,7 +1569,6 @@
 <translation id="3407837288045706722">要了解更多与隐私、安全和数据收集相关的设置，请参阅<ph name="BEGIN_LINK" />同步和个性化<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">跳到所选部分</translation>
 <translation id="3413122095806433232">CA 证书颁发者：<ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">突出显示您想听到的内容，然后按“搜索键 + S”组合键。您也可以先按住搜索键，或点按您的个人资料图片附近的“随选朗读”图标，然后选择要朗读的区域。</translation>
 <translation id="3414856743105198592">格式化可移动设备会删除其中的所有数据。您要继续吗？</translation>
 <translation id="3414952576877147120">大小：</translation>
 <translation id="3420980393175304359">切换用户</translation>
@@ -2245,6 +2253,7 @@
 <translation id="4508765956121923607">显示源代码(&amp;O)</translation>
 <translation id="451407183922382411">由 <ph name="COMPANY_NAME" /> 提供技术支持</translation>
 <translation id="4514542542275172126">设置新的受监管用户</translation>
+<translation id="4514610446763173167">在播放视频和暂停视频之间切换</translation>
 <translation id="451515744433878153">移除</translation>
 <translation id="4518677423782794009">Chrome 是否出现以下异常情况：崩溃、启动页或工具栏异常、您无法关闭不想看到的广告，或您的浏览设置遭到篡改？或许您可以通过运行 Chrome 清理工具来解决该问题。</translation>
 <translation id="4518928191942891293">正在启动“Termina VM”内的容器。</translation>
@@ -2464,6 +2473,7 @@
 <translation id="4858913220355269194">足球</translation>
 <translation id="4862050643946421924">添加设备…</translation>
 <translation id="4862642413395066333">签名 OCSP 响应</translation>
+<translation id="4863769717153320198">屏幕分辨率：<ph name="WIDTH" /> x <ph name="HEIGHT" />（默认）</translation>
 <translation id="4864369630010738180">正在登录…</translation>
 <translation id="486635084936119914">下载特定类型的文件后自动将其打开</translation>
 <translation id="4869142322204669043">Google 可能会根据您所访问的网站中的内容、您的浏览活动和互动行为对 <ph name="IDS_SHORT_PRODUCT_NAME" /> 以及其他 Google 服务（例如翻译、搜索和广告）进行个性化设置。您随时可在“设置”中自定义此设置。</translation>
@@ -3052,6 +3062,7 @@
 <translation id="572392919096807438">记住我的决定</translation>
 <translation id="5727728807527375859">扩展功能、应用和主题背景可能会损害您的计算机。您确定要继续吗？</translation>
 <translation id="5729712731028706266">视图(&amp;V)</translation>
+<translation id="5731185123186077399">个性化的 Google 服务（例如 Google Pay）</translation>
 <translation id="5731247495086897348">粘贴并转到(&amp;S)</translation>
 <translation id="5731409020711461763">1 张新照片</translation>
 <translation id="5734362860645681824">通讯</translation>
@@ -4105,6 +4116,7 @@
 <translation id="7366415735885268578">添加网站</translation>
 <translation id="7366909168761621528">浏览数据</translation>
 <translation id="7371006317849674875">开始时间</translation>
+<translation id="737439367876257440">通过将系统信息和使用情况信息发送给 Google 来改进 Chrome 并提高其安全性</translation>
 <translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">在移动鼠标光标时突出显示光标</translation>
 <translation id="7377169924702866686">大写锁定已打开。</translation>
@@ -4525,6 +4537,7 @@
 <translation id="7984180109798553540">为提高安全性，<ph name="PRODUCT_NAME" />会对您的数据进行加密。</translation>
 <translation id="7986295104073916105">读取和更改已保存的密码设置</translation>
 <translation id="798749371774946697">机器名称过长</translation>
+<translation id="7987764905897278458">畅享 Google 的更多智能技术</translation>
 <translation id="7988355189918024273">启用辅助功能</translation>
 <translation id="7994702968232966508">EAP 方法</translation>
 <translation id="799547531016638432">删除快捷方式</translation>
@@ -4795,6 +4808,7 @@
 <translation id="8427292751741042100">嵌入到任何主机上</translation>
 <translation id="8428213095426709021">设置</translation>
 <translation id="8428634594422941299">知道了</translation>
+<translation id="84297032718407999">您将在 <ph name="LOGOUT_TIME_LEFT" />后退出登录</translation>
 <translation id="8431909052837336408">更改 SIM 卡 PIN 码</translation>
 <translation id="8434480141477525001">NaCl调试端口</translation>
 <translation id="843760761634048214">保存信用卡</translation>
@@ -5254,6 +5268,7 @@
 <translation id="912419004897138677">编解码器</translation>
 <translation id="9125466540846359910"><ph name="LICENSE_TYPE" />（剩余 <ph name="LICENSE_COUNT" /> 项）</translation>
 <translation id="9128870381267983090">连接到网络</translation>
+<translation id="9129010913019873477"><ph name="PERCENTAGE" />（默认）</translation>
 <translation id="9130015405878219958">输入的模式无效。</translation>
 <translation id="9130775360844693113">“<ph name="DESTINATION_NAME" />”的成员将会有权访问这些内容。</translation>
 <translation id="9131487537093447019">向蓝牙设备发送消息，以及接收来自蓝牙设备的消息。</translation>
@@ -5332,6 +5347,7 @@
 <translation id="960719561871045870">运营商代码</translation>
 <translation id="960987915827980018">约剩 1 小时</translation>
 <translation id="962802172452141067">书签文件夹树</translation>
+<translation id="964286338916298286">您的 IT 管理员已禁止您的设备享用 Chrome 附赠的好礼。</translation>
 <translation id="964439421054175458">{NUM_APLLICATIONS,plural, =1{应用}other{应用}}</translation>
 <translation id="968000525894980488">开启 Google Play 服务。</translation>
 <translation id="968174221497644223">应用缓存</translation>

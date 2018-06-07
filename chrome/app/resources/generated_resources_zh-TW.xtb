@@ -1574,7 +1574,6 @@
 <translation id="3407837288045706722">如需更多與隱私權、安全性和資料收集相關的設定，請參閱<ph name="BEGIN_LINK" />同步處理和個人化<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">跳至所選範圍</translation>
 <translation id="3413122095806433232">CA 發行者：<ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">讓你要聆聽的內容醒目顯示，然後按下搜尋鍵 + S 鍵。你也可以按住搜尋鍵或輕觸靠近設定檔圖片的「隨選朗讀」圖示，然後選取要朗讀的範圍。</translation>
 <translation id="3414856743105198592">將卸除式媒體格式化會清除所有資料，你要繼續嗎？</translation>
 <translation id="3414952576877147120">空間大小：</translation>
 <translation id="3420980393175304359">切換使用者</translation>
@@ -4892,7 +4891,6 @@
 <translation id="8535005006684281994">Netscape 憑證更新網址</translation>
 <translation id="8539727552378197395">否 (限 Http)</translation>
 <translation id="8541166929715485291">傳送系統資料。自動將診斷資料、裝置與應用程式使用情形資料傳送給 Google。擁有者強制啟用了這項設定。擁有者可能會選擇將這個裝置的診斷資料和使用資料傳送給 Google。你可以在<ph name="BEGIN_LINK1" />設定<ph name="END_LINK1" />中查看這項資訊。如果你另外開啟了「網路和應用程式活動」設定，這項資訊會儲存在你的帳戶中，方便你在「我的活動」中進行管理。<ph name="BEGIN_LINK2" />瞭解詳情<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> 要求播放受保護的內容。Google 會驗證你裝置的識別資訊。</translation>
 <translation id="8545107379349809705">隱藏資訊...</translation>
 <translation id="8545575359873600875">很抱歉，系統無法驗證你的密碼。這位受監管使用者的管理員最近可能變更了密碼。如果是這樣的話，你下次登入時就必須使用新密碼。現在請嘗試使用你的舊密碼。</translation>
 <translation id="8546186510985480118">裝置空間即將用盡</translation>

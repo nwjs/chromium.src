@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Vrsta potrdila</translation>
 <translation id="1297175357211070620">Cilj</translation>
 <translation id="1297922636971898492">Google Drive trenutno ni na voljo. Ko bo spet na voljo, se bo prenos samodejno začel znova.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> zahteva, da Google preveri identiteto naprave in tako določi, ali je ustrezna za izboljšano predvajanje zaščitene vsebine.</translation>
 <translation id="1300806585489372370">Če želite spremeniti to nastavitev, najprej <ph name="BEGIN_LINK" />vklopite identifikatorje<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Dovoli JavaScript v Applovih dogodkih</translation>
 <translation id="1303101771013849280">Datoteka HTML z zaznamki</translation>
@@ -1575,7 +1576,6 @@ To spletno mesto ne sme biti blokirano.</translation>
 <translation id="3407837288045706722">Če vas zanima več nastavitev, povezanih z zasebnostjo, varnostjo in zbiranjem podatkov, si oglejte razdelek <ph name="BEGIN_LINK" />Sinhronizacija in prilagajanje<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Skoči na izbor</translation>
 <translation id="3413122095806433232">Izdajatelji overiteljev potrdil: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Označite, kar želite slišati, nato pritisnite tipko za iskanje in S. Pridržite lahko tudi tipko za iskanje ali pa se dotaknete ikone funkcije Izberite in poslušajte pri sliki profila ter nato izberete območje, ki naj se izgovori.</translation>
 <translation id="3414856743105198592">S formatiranjem izmenljivega medija boste izbrisali vse podatke. Ali želite nadaljevati?</translation>
 <translation id="3414952576877147120">Velikost:</translation>
 <translation id="3420980393175304359">Preklop osebe</translation>
@@ -4899,7 +4899,6 @@ Datoteko s ključem shranite na varnem. Potrebovali jo boste za izdelavo novih r
 <translation id="8535005006684281994">Spletni naslov podaljšanja Netscapeovega potrdila</translation>
 <translation id="8539727552378197395">Ne (samo http)</translation>
 <translation id="8541166929715485291">Pošiljanje podatkov o sistemu. Samodejno pošiljanje diagnostičnih podatkov ter podatkov o uporabi naprav in aplikacij Googlu. To nastavitev je uveljavil lastnik. Lastnik se morda odloči Googlu poslati diagnostične podatke in podatke o uporabi za to napravo. To si je mogoče ogledati v <ph name="BEGIN_LINK1" />nastavitvah<ph name="END_LINK1" />. Če ste vklopili dodatno dejavnost v spletu in aplikacijah, bodo ti podatki shranjeni v računu, tako da jih lahko upravljate v Moji dejavnosti. <ph name="BEGIN_LINK2" />Več o tem<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> želi predvajati zaščiteno vsebino. Google bo preveril identiteto vaše naprave.</translation>
 <translation id="8545107379349809705">Skrij informacije ...</translation>
 <translation id="8545575359873600875">Vašega gesla žal ni bilo mogoče preveriti. Upravitelj tega zaščitenega uporabnika je morda pred kratkim spremenil geslo. V tem primeru bo novo geslo uporabljeno ob naslednji prijavi. Poskusite uporabiti staro geslo.</translation>
 <translation id="8546186510985480118">V napravi primanjkuje prostora</translation>

@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Jenis Sijil</translation>
 <translation id="1297175357211070620">Destinasi</translation>
 <translation id="1297922636971898492">Google Drive tidak tersedia pada masa ini. Memuat naik akan dimulakan semula secara automatik sebaik sahaja Google Drive kembali.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> mahukan identiti peranti anda disahkan, oleh Google, untuk menentukan kelayakan bagi main balik yang dipertingkatkan untuk kandungan yang dilindungi.</translation>
 <translation id="1300806585489372370">Untuk menukar tetapan ini, mula-mula <ph name="BEGIN_LINK" />hidupkan pengecam<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Benarkan JavaScript daripada Apple Events</translation>
 <translation id="1303101771013849280">Menandakan Fail HTML</translation>
@@ -1575,7 +1576,6 @@ Saya tidak fikir tapak web ini perlu disekat!</translation>
 <translation id="3407837288045706722">Untuk mendapatkan lebih banyak tetapan yang berkaitan dengan privasi, keselamatan dan pengumpulan data, lihat <ph name="BEGIN_LINK" />Penyegerakan dan pemperibadian<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Lompat ke Pemilihan</translation>
 <translation id="3413122095806433232">Pengeluar CA: <ph name="LOCATION" /></translation>
-<translation id="3414791204526549759">Serlahkan perkara yang ingin anda dengar, kemudian tekan Cari + S. Atau tekan dan tahan Cari atau ketik ikon Pilih untuk Bercakap berdekatan imej profil anda, kemudian pilih rantau untuk dibaca dengan lantang.</translation>
 <translation id="3414856743105198592">Memformat media mudah alih akan memadamkan semua data. Adakah anda ingin teruskan?</translation>
 <translation id="3414952576877147120">Saiz:</translation>
 <translation id="3420980393175304359">Tukar Orang</translation>
@@ -4899,7 +4899,6 @@ perubahan ini berlaku, anda mungkin tidak mahukannya.</translation>
 <translation id="8535005006684281994">URL Pembaharuan Sijil Netscape</translation>
 <translation id="8539727552378197395">Tidak (HttpOnly)</translation>
 <translation id="8541166929715485291">Hantar data sistem. Data diagnostik dan penggunaan peranti serta apl dihantar secara automatik kepada Google. Tetapan ini dikuatkuasakan oleh pemilik. Pemilik boleh memilih untuk menghantar data diagnostik dan penggunaan peranti ini kepada Google. Anda boleh melihat pilihan ini dalam <ph name="BEGIN_LINK1" />tetapan<ph name="END_LINK1" />. Jika anda menghidupkan Aktiviti Web &amp; Apl tambahan, maklumat ini akan disimpan dengan akaun anda supaya anda dapat mengurus maklumat ini dalam Aktiviti Saya. <ph name="BEGIN_LINK2" />Ketahui Lebih Lanjut<ph name="END_LINK2" /></translation>
-<translation id="8543644275696229492"><ph name="DOMAIN" /> mahu memainkan kandungan yang dilindungi. Identiti peranti anda akan disahkan oleh Google.</translation>
 <translation id="8545107379349809705">Sembunyikan maklumat...</translation>
 <translation id="8545575359873600875">Maaf, kata laluan anda tidak dapat disahkan. Pengurus pengguna di bawah seliaan ini mungkin telah menukar kata laluan baru-baru ini. Jika demikian, kata laluan baharu akan digunakan pada kali berikutnya anda melog masuk. Cuba gunakan kata laluan lama anda.</translation>
 <translation id="8546186510985480118">Peranti kekurangan ruang</translation>

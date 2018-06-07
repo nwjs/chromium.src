@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">‏מכשיר ה-Bluetooth ‏"<ph name="DEVICE_NAME" />" מבקש הרשאה לבצע התאמה.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> עד למילוי</translation>
 <translation id="4544944664594876241">מקש הקיצור לנעילת המסך השתנה. השתמש ב-<ph name="NEW_SHORTCUT" /> במקום ב-<ph name="OLD_SHORTCUT" />.</translation>
+<translation id="4564869809620998694">שירות גופן</translation>
 <translation id="4570957409596482333">לחצן הקראה</translation>
 <translation id="4659419629803378708">‏ChromeVox הופעל</translation>
 <translation id="4776917500594043016">סיסמה עבור <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">הקשה וגרירה</translation>
 <translation id="5777841717266010279">להפסיק את שיתוף המסך?</translation>
 <translation id="57838592816432529">השתק</translation>
+<translation id="5805697420284793859">מנהל חלונות</translation>
 <translation id="5820394555380036790">‏מערכת ההפעלה של Chromium</translation>
 <translation id="5832805196449965646">הוסף משתמש</translation>
 <translation id="5860033963881614850">כבוי</translation>
 <translation id="5895138241574237353">הפעל מחדש</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">מציג קיצורי דרך</translation>
 <translation id="5916664084637901428">פועל</translation>
 <translation id="5927132638760172455">מעביר למקבל לא ידוע</translation>
 <translation id="5947494881799873997">חזרה לגרסה הקודמת</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">לא נמצאו מכשירים ניידים.</translation>
 <translation id="671928215901716392">מסך נעילה</translation>
 <translation id="6723839937902243910">חשמל</translation>
+<translation id="6725073593266469338">שירות ממשק משתמש</translation>
 <translation id="6785414152754474415">‏הסוללה טעונה ברמה של ‎<ph name="PERCENTAGE" />%‎ ומתבצעת טעינה.</translation>
 <translation id="6803622936009808957">לא ניתן היה לשקף מסכים מכיוון שלא נמצאה רזולוציה נתמכת. במקום זאת התצוגה עברה למצב שולחן עבודה מורחב.</translation>
 <translation id="6820676911989879663">הגיע הזמן להפסקה</translation>
@@ -326,6 +330,7 @@
 <translation id="8351131234907093545">יצירת הערה</translation>
 <translation id="8392451568018454956">תפריט אפשרויות עבור <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8428213095426709021">הגדרות</translation>
+<translation id="8431190899827883166">הצגת הקשות</translation>
 <translation id="8433186206711564395">הגדרות רשת</translation>
 <translation id="8433977262951327081">שינינו את קיצור הדרך להצגה של בועת התפריט של אפשרויות הקלט במדף. השתמש ב-<ph name="NEW_SHORTCUT" /> במקום ב-<ph name="OLD_SHORTCUT" />.</translation>
 <translation id="8452135315243592079">‏כרטיס SIM חסר</translation>
@@ -370,4 +375,5 @@
 <translation id="923686485342484400">‏הקש פעמיים על Control Shift Q כדי לצאת.</translation>
 <translation id="945522503751344254"> שליחת משוב</translation>
 <translation id="98515147261107953">לרוחב</translation>
+<translation id="995927048686010764">קליק אוטומטי</translation>
 </translationbundle>
