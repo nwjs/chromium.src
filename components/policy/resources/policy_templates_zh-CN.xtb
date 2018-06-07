@@ -383,6 +383,7 @@
 <translation id="2231817271680715693">首次运行时，从默认浏览器导入浏览记录</translation>
 <translation id="2236488539271255289">不允许任何网站设置本地数据</translation>
 <translation id="2240879329269430151">可让您设置是否允许网站显示弹出式窗口。可以针对所有网站允许或拒绝显示弹出式窗口。如果未设置此政策，系统将使用“BlockPopups”并允许用户更改此设置。</translation>
+<translation id="2269319728625047531">在登录期间允许显示同步同意声明</translation>
 <translation id="2274864612594831715">通过此政策，您可以启用虚拟键盘作为Chrome操作系统上的输入设备。用户无法覆盖此政策。
 
       如果此政策设为true，屏幕上的虚拟键盘将始终处于启用状态。
@@ -2566,6 +2567,9 @@
 
       如果此政策未设置，则系统将会默认使用 <ph name="PRINTERS_ALLOW_ALL" />。
       </translation>
+<translation id="8942616385591203339">此政策可控制是否可在用户首次登录时向其显示同步同意声明。如果用户从不需要查看同步同意声明，则应将此政策设为 false。
+      如果此政策设为 false，系统将不会显示同步同意声明。
+      如果此政策设为 true 或未设置，则可以显示同步同意声明。</translation>
 <translation id="8947415621777543415">报告设备位置</translation>
 <translation id="8951350807133946005">设置磁盘缓存目录</translation>
 <translation id="8952317565138994125">在使用由 Google 托管的同步服务的 <ph name="PRODUCT_NAME" /> 中停用数据同步功能，并禁止用户更改此设置。
