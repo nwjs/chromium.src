@@ -21,6 +21,8 @@ class Range;
 class Rect;
 }  // namespace gfx
 
+@class CALayer;
+
 namespace content {
 
 class RenderWidgetHostNSViewClient;
@@ -61,6 +63,9 @@ class RenderWidgetHostNSViewBridge {
 
   // Call the -[NSView setToolTipAtMousePoint] method.
   virtual void SetTooltipText(const base::string16& display_text) = 0;
+
+  // Used by g_force_cpu_draw
+  virtual CALayer* GetBackgroundLayer() = 0;
 
   // Forward the TextInputManager::TextSelection from the renderer.
   virtual void SetTextSelection(const base::string16& text,

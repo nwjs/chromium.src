@@ -25,7 +25,7 @@ declare_args() {
 assert(is_linux)
 
 packaging_files_executables = [
-  "$root_out_dir/chrome",
+  "$root_out_dir/nw",
   "$root_out_dir/chrome_sandbox",
 ]
 packaging_files_shlibs = []
@@ -159,7 +159,7 @@ action("merge_rpm_dependencies") {
 }
 
 action("strip_chrome_binary") {
-  prog_name = "$root_out_dir/chrome"
+  prog_name = "$root_out_dir/nw"
   debug_file = prog_name + ".debug"
   stripped_file = prog_name + ".stripped"
   deps = [
@@ -357,6 +357,9 @@ group("installer_deps") {
     "//chrome/browser/resources/media/mei_preload:component",
     "//sandbox/linux:chrome_sandbox",
   ]
+  if (is_linux) {
+    public_deps += [ "//chrome:xdg_mime" ]
+  }
   if (enable_nacl) {
     public_deps += [
       "//components/nacl/loader:nacl_helper",

@@ -35,7 +35,7 @@ bool IsBookmarkUndoServiceEnabled() {
   register_bookmark_undo_service_as_observer =
       base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableBookmarkUndo) ||
-      MdBookmarksUI::IsEnabled();
+      false;
 #endif  // !defined(OS_ANDROID)
   return register_bookmark_undo_service_as_observer;
 }

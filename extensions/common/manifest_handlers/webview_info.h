@@ -31,6 +31,10 @@ class WebviewInfo : public Extension::ManifestData {
   // resources in the given |partition_id|.
   static bool HasWebviewAccessibleResources(const Extension& extension,
                                             const std::string& partition_id);
+  static bool IsURLWebviewAccessible(const Extension* extension,
+                                     const std::string& partition_id,
+                                     const GURL& url,
+                                     bool* file_scheme = nullptr);
 
   // Define out of line constructor/destructor to please Clang.
   explicit WebviewInfo(const std::string& extension_id);

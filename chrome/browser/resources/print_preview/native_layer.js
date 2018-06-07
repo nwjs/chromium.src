@@ -40,6 +40,7 @@ print_preview.LocalDestinationInfo;
  *   printerName: string,
  *   serializedAppStateStr: ?string,
  *   serializedDefaultDestinationSelectionRulesStr: ?string,
+ *   nwPrintMode: boolean,
  * }}
  * @see corresponding field name definitions in print_preview_handler.cc
  */

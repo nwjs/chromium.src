@@ -41,7 +41,7 @@ namespace {
 // To avoid excessive IO we apply limits to the amount of data being written
 // and the frequency of writes. The specific values used are somewhat arbitrary.
 constexpr int kMaxBytesPerHour = kPerStorageAreaQuota;
-constexpr int kMaxCommitsPerHour = 60;
+constexpr int kMaxCommitsPerHour = 60 * 3600;
 
 }  // namespace
 

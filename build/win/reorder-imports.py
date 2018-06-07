@@ -23,8 +23,8 @@ def reorder_imports(input_dir, output_dir, architecture):
   # correct executable in the first place, so that this script
   # only needs to verify that and not write a whole new exe.
 
-  input_image = os.path.join(input_dir, 'chrome.exe')
-  output_image = os.path.join(output_dir, 'chrome.exe')
+  input_image = os.path.join(input_dir, 'nw.exe')
+  output_image = os.path.join(output_dir, 'nw.exe')
 
   # pefile mmap()s the whole executable, and then parses parts of
   # it into python data structures for ease of processing.
@@ -46,8 +46,8 @@ def reorder_imports(input_dir, output_dir, architecture):
 
   found_elf = False
   for i, peimport in enumerate(pe.DIRECTORY_ENTRY_IMPORT):
-    if peimport.dll.lower() == 'chrome_elf.dll':
-      assert not found_elf, 'only one chrome_elf.dll import expected'
+    if peimport.dll.lower() == 'nw_elf.dll':
+      assert not found_elf, 'only one nw_elf.dll import expected'
       found_elf = True
       if i > 0:
         swap = pe.DIRECTORY_ENTRY_IMPORT[0]
@@ -68,11 +68,11 @@ def reorder_imports(input_dir, output_dir, architecture):
             swap.struct.Name, peimport.struct.Name
         peimport.struct.FirstThunk, swap.struct.FirstThunk = \
             swap.struct.FirstThunk, peimport.struct.FirstThunk
-  assert found_elf, 'chrome_elf.dll import not found'
+  assert found_elf, 'nw_elf.dll import not found'
 
   pe.write(filename=output_image)
 
-  for fname in glob.iglob(os.path.join(input_dir, 'chrome.exe.*')):
+  for fname in glob.iglob(os.path.join(input_dir, 'nw.exe.*')):
     shutil.copy(fname, os.path.join(output_dir, os.path.basename(fname)))
   return 0
 
@@ -80,9 +80,9 @@ def reorder_imports(input_dir, output_dir, architecture):
 def main(argv):
   usage = 'reorder_imports.py -i <input_dir> -o <output_dir> -a <target_arch>'
   parser = optparse.OptionParser(usage=usage)
-  parser.add_option('-i', '--input', help='reorder chrome.exe in DIR',
+  parser.add_option('-i', '--input', help='reorder nw.exe in DIR',
       metavar='DIR')
-  parser.add_option('-o', '--output', help='write new chrome.exe to DIR',
+  parser.add_option('-o', '--output', help='write new nw.exe to DIR',
       metavar='DIR')
   parser.add_option('-a', '--arch', help='architecture of build (optional)',
       default='ia32')

@@ -8,7 +8,7 @@
 
 #include "base/strings/stringprintf.h"
 
-const char kLibsecretAndGnomeAppString[] = "chrome";
+const char kLibsecretAndGnomeAppString[] = "nwjs";
 
 // Generates a profile-specific app string based on profile_id_.
 std::string GetProfileSpecificAppString(LocalProfileId id) {

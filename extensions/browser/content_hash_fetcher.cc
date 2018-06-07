@@ -60,6 +60,7 @@ void ContentHashFetcher::OnURLFetchComplete(const net::URLFetcher* source) {
 }
 
 void ContentHashFetcher::Start(HashFetcherCallback hash_fetcher_callback) {
+#if 0
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
 
   hash_fetcher_callback_ = std::move(hash_fetcher_callback);
@@ -96,6 +97,7 @@ void ContentHashFetcher::Start(HashFetcherCallback hash_fetcher_callback) {
                              net::LOAD_DISABLE_CACHE);
   url_fetcher_->SetAutomaticallyRetryOnNetworkChanges(3);
   url_fetcher_->Start();
+#endif
 }
 
 ContentHashFetcher::~ContentHashFetcher() {

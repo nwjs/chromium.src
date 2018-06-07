@@ -218,7 +218,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   blink::WebNotificationManager* GetWebNotificationManager() override;
   void DidStartWorkerThread() override;
   void WillStopWorkerThread() override;
-  void WorkerContextCreated(const v8::Local<v8::Context>& worker) override;
+  void WorkerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) override;
 
   // Set the PlatformEventObserverBase in |platform_event_observers_| associated
   // with |type| to |observer|. If there was already an observer associated to

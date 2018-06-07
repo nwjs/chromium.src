@@ -384,6 +384,9 @@ class DownloadShelfContextMenuMac : public DownloadShelfContextMenu {
 
 - (bool)submitDownloadToFeedbackService:(download::DownloadItem*)download
                             withCommand:(DownloadCommands::Command)command {
+#if 1
+  return false;
+#else
   safe_browsing::SafeBrowsingService* sb_service =
       g_browser_process->safe_browsing_service();
   if (!sb_service)
@@ -405,6 +408,7 @@ class DownloadShelfContextMenuMac : public DownloadShelfContextMenu {
   download_protection_service->feedback_service()->BeginFeedbackForDownload(
       download, command);
   return true;
+#endif
 }
 
 @end

@@ -10,6 +10,7 @@
 namespace blink {
 
 GlobalScopeCreationParams::GlobalScopeCreationParams(
+    bool isNodeJS, const std::string& main_script,
     const KURL& script_url,
     const String& user_agent,
     const Vector<CSPHeaderAndType>* content_security_policy_parsed_headers,
@@ -26,6 +27,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     service_manager::mojom::blink::InterfaceProviderPtrInfo
         interface_provider_info)
     : script_url(script_url.Copy()),
+      nodejs_(isNodeJS), main_script_(main_script),
       user_agent(user_agent.IsolatedCopy()),
       referrer_policy(referrer_policy),
       starter_origin(starter_origin ? starter_origin->IsolatedCopy() : nullptr),

@@ -4,6 +4,9 @@
 
 #include "extensions/renderer/app_window_custom_bindings.h"
 
+#include "third_party/blink/public/web/blink.h"
+
+
 #include "base/command_line.h"
 #include "content/public/renderer/render_frame.h"
 #include "content/public/renderer/render_thread.h"
@@ -32,6 +35,18 @@ void AppWindowCustomBindings::AddRoutes() {
       "ResumeParser",
       base::BindRepeating(&AppWindowCustomBindings::ResumeParser,
                           base::Unretained(this)));
+  RouteHandlerFunction("FixGamePadAPI",
+                base::Bind(&AppWindowCustomBindings::FixGamePadAPI,
+                           base::Unretained(this)));
+}
+
+void AppWindowCustomBindings::FixGamePadAPI(
+    const v8::FunctionCallbackInfo<v8::Value>& args) {
+  content::RenderFrame* render_frame = context()->GetRenderFrame();
+  if (!render_frame)
+    return;
+  blink::WebLocalFrame* main_frame = render_frame->GetWebFrame();
+  blink::fix_gamepad_nw(main_frame);
 }
 
 void AppWindowCustomBindings::GetFrame(
