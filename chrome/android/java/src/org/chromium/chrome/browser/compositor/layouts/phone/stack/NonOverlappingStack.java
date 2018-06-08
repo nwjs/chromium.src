@@ -13,6 +13,7 @@ import android.support.annotation.IntDef;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimationHandler;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimator;
 import org.chromium.chrome.browser.compositor.animation.CompositorAnimator.AnimatorUpdateListener;
+import org.chromium.chrome.browser.compositor.layouts.components.LayoutTab;
 import org.chromium.chrome.browser.compositor.layouts.phone.StackLayoutBase;
 
 import java.lang.annotation.Retention;
@@ -216,6 +217,22 @@ public class NonOverlappingStack extends Stack {
     @Override
     protected float getStackLandscapeYOffsetProportion() {
         return STACK_LANDSCAPE_Y_OFFSET_PROPORTION;
+    }
+
+    @Override
+    protected void computeTabClippingVisibilityHelper() {
+        // Performance optimization: we don't need to draw any tab other than the centered one, the
+        // one immediately to the left, and the two immediately to the right (we need the second
+        // one for discard animations) since the others can't possibly be on screen.
+        int centeredTab = getCenteredTabIndex();
+        for (int i = 0; i < mStackTabs.length; i++) {
+            LayoutTab layoutTab = mStackTabs[i].getLayoutTab();
+            if (i < centeredTab - 1 || i > centeredTab + 2) {
+                layoutTab.setVisible(false);
+            } else {
+                layoutTab.setVisible(true);
+            }
+        }
     }
 
     @Override
