@@ -32,6 +32,8 @@ TEST(PrefsTest, TestIndex) {
             GetPrefName(NTP_ARTICLES_LIST_VISIBLE));
   EXPECT_EQ(dom_distiller::prefs::kReaderForAccessibility,
             GetPrefName(READER_FOR_ACCESSIBILITY_ENABLED));
+  EXPECT_EQ(payments::kCanMakePaymentEnabled,
+            GetPrefName(CAN_MAKE_PAYMENT_ENABLED));
 }
 
 }  // namespace
