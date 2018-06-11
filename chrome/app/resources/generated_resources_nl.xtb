@@ -2478,6 +2478,7 @@ Ik denk niet dat deze site moet worden geblokkeerd.</translation>
 <translation id="4856478137399998590">Je mobiele netwerk is actief en klaar voor gebruik</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Alles openen in &amp;incognitovenster}=1{Openen in &amp;incognitovenster}other{Alles (#) openen in &amp;incognitovenster}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" />: video wordt afgespeeld in de scherm-in-scherm-modus</translation>
 <translation id="4862050643946421924">Apparaat toevoegen...</translation>
 <translation id="4862642413395066333">OCSP-antwoorden ondertekenen</translation>
 <translation id="4863769717153320198">Ziet eruit als <ph name="WIDTH" /> x <ph name="HEIGHT" /> (standaardresolutie)</translation>
@@ -4458,6 +4459,7 @@ Als je <ph name="APP_NAME" /> installeert, wordt er <ph name="DOWNLOAD_SIZE" /> 
 <translation id="7839051173341654115">Media bekijken/back-up maken</translation>
 <translation id="7839192898639727867">Sleutel-ID van certificaatonderwerp</translation>
 <translation id="7839804798877833423">Voor het ophalen van deze bestanden wordt ongeveer <ph name="FILE_SIZE" /> aan mobiele data gebruikt.</translation>
+<translation id="7844553762889824470">Markeer wat je wilt horen en druk vervolgens op Zoeken + S. Je kunt ook de zoektoets ingedrukt houden of naast je profielafbeelding op het pictogram 'Selecteer om uitgesproken te worden' tikken om de gewenste optie te selecteren.</translation>
 <translation id="7844992432319478437">Diff bijwerken</translation>
 <translation id="7846076177841592234">Selectie opheffen</translation>
 <translation id="7846634333498149051">Toetsenbord</translation>
@@ -5367,6 +5369,7 @@ Bewaar je sleutelbestand op een veilige plaats. Je hebt het bestand nodig om nie
 <translation id="952992212772159698">Niet geactiveerd</translation>
 <translation id="957960681186851048">Deze site heeft geprobeerd automatisch meerdere bestanden te downloaden</translation>
 <translation id="9580706199804957">Kan geen verbinding maken met Google-services</translation>
+<translation id="958416628331784386">De video op dit tabblad wordt afgespeeld in de scherm-in-scherm-modus.</translation>
 <translation id="958515377357646513">Tik hierop om vooruit te gaan.</translation>
 <translation id="960719561871045870">Operatorcode</translation>
 <translation id="960987915827980018">Ongeveer 1 uur resterend</translation>

@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Zde se objeví záložky, které jste si uložili v ostatních zařízeních.</translation>
 <translation id="1113597929977215864">Zapnout zjednodušené zobrazení</translation>
 <translation id="1121094540300013208">Zprávy o využití a selhání</translation>
+<translation id="11221688409173367">Klepnutím na tlačítko plochy zobrazíte články vybrané speciálně pro vás</translation>
 <translation id="1129510026454351943">Podrobnosti: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Smazat existující data.</translation>
 <translation id="1146678959555564648">Zapnout VR</translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">Úprava karty</translation>
 <translation id="2154710561487035718">Kopírovat adresu URL</translation>
 <translation id="2156074688469523661">Zbývající weby (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Klepnutím v aktuální kartě otevřete stránku Nová karta</translation>
 <translation id="219985413780390209">Chránit mě i mé zařízení před nebezpečnými weby</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, webová aplikace <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Pokračovat jako uživatel <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">Obnovit stránku</translation>
 <translation id="2709516037105925701">Automatické vyplňování</translation>
 <translation id="271033894570825754">Nové</translation>
+<translation id="2736391366332017384">Klepnutím na tlačítko plochy na aktuální kartě otevřete stránku Nová karta</translation>
 <translation id="2744248271121720757">Klepnutím na slovo můžete okamžitě vyhledávat nebo zobrazit související akce</translation>
 <translation id="2762000892062317888">právě teď</translation>
 <translation id="2777555524387840389">Zbývá: <ph name="SECONDS" /> s</translation>
@@ -462,6 +465,7 @@ Na stránce <ph name="BEGIN_LINK" />history.google.com<ph name="END_LINK" /> moh
 <translation id="5152843274749979095">Nejsou nainstalovány žádné podporované aplikace</translation>
 <translation id="5161254044473106830">Je požadován název</translation>
 <translation id="5168917394043976756">Otevřít vysouvací panel navigace</translation>
+<translation id="5171365962177408781">Klepnutím načtete stránku Nová karta a zobrazíte navrhované články</translation>
 <translation id="5184329579814168207">Otevřít v Chromu</translation>
 <translation id="5199929503336119739">Pracovní profil</translation>
 <translation id="5210286577605176222">Přejít na předchozí kartu</translation>
@@ -888,6 +892,7 @@ Chcete-li získat nové licence, připojte se k internetu a přehrajte stažen
 <translation id="8912362522468806198">Účet Google</translation>
 <translation id="8920114477895755567">Čekáme na podrobnosti o rodičích.</translation>
 <translation id="8922289737868596582">Stáhněte si stránky k použití offline pomocí tlačítka Další možnosti</translation>
+<translation id="8934029156920711950">Klepnutím zobrazíte články vybrané speciálně pro vás</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Otevřít v jiném okně</translation>
 <translation id="8951232171465285730">Chrome vám ušetřil <ph name="MEGABYTES" /> MB</translation>
@@ -910,6 +915,7 @@ Chcete-li získat nové licence, připojte se k internetu a přehrajte stažen
 <translation id="9099018167121903954">Staženo: <ph name="KILOBYTES" /> kB</translation>
 <translation id="9100505651305367705">Nabízet zjednodušené zobrazení článků (pokud je podporováno)</translation>
 <translation id="9100610230175265781">Je vyžadována heslová fráze</translation>
+<translation id="9100939710791843300">Klepnutím na tlačítko plochy načtete stránku Nová karta a zobrazíte navrhované články</translation>
 <translation id="9133515669113036225">Resetovat identifikační údaje zařízení</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Pokud web bude chtít odesílat oznámení, zobrazit dotaz (doporučeno)</translation>

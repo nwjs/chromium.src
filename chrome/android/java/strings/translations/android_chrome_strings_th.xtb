@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">บุ๊กมาร์กที่บันทึกไว้ในอุปกรณ์เครื่องอื่นๆ ของคุณจะปรากฏที่นี่</translation>
 <translation id="1113597929977215864">แสดง "มุมมองอย่างง่าย"</translation>
 <translation id="1121094540300013208">รายงานการใช้งานและข้อขัดข้อง</translation>
+<translation id="11221688409173367">แตะปุ่มหน้าแรกเพื่อดูบทความที่เลือกไว้ให้คุณโดยเฉพาะ</translation>
 <translation id="1129510026454351943">รายละเอียด: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">ลบข้อมูลที่มีอยู่</translation>
 <translation id="1146678959555564648">เข้าสู่ VR</translation>
@@ -91,6 +92,7 @@
 <translation id="17513872634828108">แท็บที่เปิดอยู่</translation>
 <translation id="1756600373018374892">แตะปุ่มนี้เพื่อเข้าถึงแท็บอย่างรวดเร็ว</translation>
 <translation id="1779089405699405702">ตัวถอดรหัสรูปภาพ</translation>
+<translation id="1782483593938241562">วันที่สิ้นสุด <ph name="DATE" /></translation>
 <translation id="1792959175193046959">เปลี่ยนตำแหน่งเริ่มต้นในการดาวน์โหลดได้ทุกเมื่อ</translation>
 <translation id="1807246157184219062">สว่าง</translation>
 <translation id="1829244130665387512">ค้นหาในหน้าเว็บ</translation>
@@ -143,6 +145,7 @@
 <translation id="2154484045852737596">แก้ไขบัตร</translation>
 <translation id="2154710561487035718">คัดลอก URL</translation>
 <translation id="2156074688469523661">เว็บไซต์ที่เหลือ (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">แตะเพื่อไปที่หน้าแท็บใหม่ในแท็บปัจจุบัน</translation>
 <translation id="219985413780390209">ปกป้องคุณและอุปกรณ์ของคุณจากเว็บไซต์อันตราย</translation>
 <translation id="2206488550163399966">เว็บแอป <ph name="APP_NAME" />, <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">ดำเนินการต่อในชื่อ <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +205,8 @@
 <translation id="2707726405694321444">รีเฟรชหน้า</translation>
 <translation id="2709516037105925701">ป้อนอัตโนมัติ</translation>
 <translation id="271033894570825754">ใหม่</translation>
+<translation id="2728754400939377704">จัดเรียงตามเว็บไซต์</translation>
+<translation id="2736391366332017384">แตะปุ่มหน้าแรกเพื่อไปที่หน้าแท็บใหม่ในแท็บปัจจุบัน</translation>
 <translation id="2744248271121720757">แตะคำเพื่อค้นหาทันทีหรือดูการทำงานที่เกี่ยวข้อง</translation>
 <translation id="2762000892062317888">เมื่อสักครู่</translation>
 <translation id="2777555524387840389">เหลือ <ph name="SECONDS" /> วิ</translation>
@@ -352,6 +357,7 @@
 <translation id="4127069705158143605">{BOOKMARKS_COUNT,plural, =1{%1$d บุ๊กมาร์ก}other{%1$d บุ๊กมาร์ก}}</translation>
 <translation id="4165986682804962316">การตั้งค่าไซต์</translation>
 <translation id="4170011742729630528">บริการนี้ยังไม่สามารถใช้ได้ โปรดลองอีกครั้งในภายหลัง</translation>
+<translation id="4179980317383591987">ใช้ไปแล้ว <ph name="AMOUNT" /></translation>
 <translation id="4181841719683918333">ภาษา</translation>
 <translation id="4195643157523330669">เปิดในแท็บใหม่</translation>
 <translation id="4198423547019359126">ไม่มีตำแหน่งการดาวน์โหลดที่ใช้ได้</translation>
@@ -462,6 +468,7 @@
 <translation id="5152843274749979095">ไม่มีแอปที่รองรับติดตั้งอยู่</translation>
 <translation id="5161254044473106830">ต้องระบุชื่อ</translation>
 <translation id="5168917394043976756">เปิดลิ้นชักการนำทาง</translation>
+<translation id="5171365962177408781">แตะเพื่อโหลดหน้าแท็บใหม่และดูบทความที่แนะนำ</translation>
 <translation id="5184329579814168207">เปิดใน Chrome</translation>
 <translation id="5199929503336119739">โปรไฟล์งาน</translation>
 <translation id="5210286577605176222">ข้ามไปยังแท็บก่อนหน้า</translation>
@@ -558,6 +565,7 @@
 <translation id="5911030830365207728">Google แปลภาษา</translation>
 <translation id="5916664084637901428">เปิด</translation>
 <translation id="5919204609460789179">อัปเดต <ph name="PRODUCT_NAME" /> เพื่อเริ่มซิงค์</translation>
+<translation id="5937580074298050696">ประหยัดได้ <ph name="AMOUNT" /></translation>
 <translation id="5939518447894949180">รีเซ็ต</translation>
 <translation id="5942872142862698679">กำลังใช้ Google ในการค้นหา</translation>
 <translation id="5956665950594638604">เปิดศูนย์ช่วยเหลือของ Chrome ในแท็บใหม่</translation>
@@ -638,6 +646,7 @@
 <translation id="6612358246767739896">เนื้อหาที่ได้รับความคุ้มครอง</translation>
 <translation id="6627583120233659107">แก้ไขโฟลเดอร์</translation>
 <translation id="6643016212128521049">ล้าง</translation>
+<translation id="6643649862576733715">จัดเรียงตามปริมาณอินเทอร์เน็ตที่ประหยัดได้</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 และอีก <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> รายการ}other{<ph name="CONTACT_PREVIEW" />\u2026 และอีก <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> รายการ}}</translation>
 <translation id="6656545060687952787">Chrome ต้องมีสิทธิ์เข้าถึงตำแหน่งเพื่อสแกนหาอุปกรณ์ โปรด<ph name="BEGIN_LINK" />อัปเดตสิทธิ์<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">รหัสผ่าน</translation>
@@ -724,6 +733,7 @@
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">ประสบการณ์กับ First Run บน Chrome</translation>
 <translation id="741204030948306876">ได้สิ ตกลง</translation>
+<translation id="7413229368719586778">วันที่เริ่มต้น <ph name="DATE" /></translation>
 <translation id="7423098979219808738">ถามก่อน</translation>
 <translation id="7423538860840206698">บล็อกไม่ให้อ่านคลิปบอร์ด</translation>
 <translation id="7437998757836447326">ออกจากระบบ Chrome</translation>
@@ -829,6 +839,7 @@
 <translation id="8313455859591948645">แก้ไขหน้าเริ่มต้นใช้งาน</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> และเว็บไซต์อื่นๆ</translation>
 <translation id="8339163506404995330">ระบบจะไม่แปลหน้าเว็บภาษา<ph name="LANGUAGE" /></translation>
+<translation id="8349013245300336738">จัดเรียงตามปริมาณอินเทอร์เน็ตที่ใช้</translation>
 <translation id="8363501664269050863">แผงการนำทาง เลื่อนลงเพื่อปิด</translation>
 <translation id="8372893542064058268">อนุญาตให้ใช้การซิงค์ในแบ็กกราวด์สำหรับเว็บไซต์ที่เจาะจง</translation>
 <translation id="8374821112118309944">คุณต้องอัปเดต TalkBack เป็นเวอร์ชันใหม่</translation>
@@ -888,6 +899,7 @@
 <translation id="8912362522468806198">บัญชี Google</translation>
 <translation id="8920114477895755567">กำลังรอรายละเอียดของผู้ปกครอง</translation>
 <translation id="8922289737868596582">ดาวน์โหลดหน้าจากปุ่มตัวเลือกเพิ่มเติมเพื่อใช้งานแบบออฟไลน์</translation>
+<translation id="8934029156920711950">แตะเพื่อดูบทความที่เลือกไว้ให้คุณโดยเฉพาะ</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">เปิดในหน้าต่างอื่น</translation>
 <translation id="8951232171465285730">Chrome ได้ประหยัดพื้นที่ให้คุณไป <ph name="MEGABYTES" /> MB</translation>
@@ -910,6 +922,7 @@
 <translation id="9099018167121903954">พื้นที่ที่ใช้ไปสำหรับการดาวน์โหลด <ph name="KILOBYTES" /> KB</translation>
 <translation id="9100505651305367705">เสนอการแสดงบทความในมุมมองอย่างง่าย ในกรณีที่บทความทำได้</translation>
 <translation id="9100610230175265781">ต้องระบุรหัสผ่าน</translation>
+<translation id="9100939710791843300">แตะปุ่มหน้าแรกเพื่อโหลดหน้าแท็บใหม่และดูบทความที่แนะนำ</translation>
 <translation id="9133515669113036225">รีเซ็ตข้อมูลรับรองของอุปกรณ์</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">ถามก่อน ก่อนที่จะอนุญาตให้เว็บไซต์ส่งการแจ้งเตือน (แนะนำ)</translation>

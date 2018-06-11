@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Os marcadores guardados nos seus outros dispositivos são apresentados aqui.</translation>
 <translation id="1113597929977215864">Mostrar vista simplificada</translation>
 <translation id="1121094540300013208">Relatórios de utilização e falhas</translation>
+<translation id="11221688409173367">Toque no botão página inicial para ver artigos selecionados especificamente para si.</translation>
 <translation id="1129510026454351943">Detalhes: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Eliminar dados existentes.</translation>
 <translation id="1146678959555564648">Entrar na RV</translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">Editar cartão</translation>
 <translation id="2154710561487035718">Copiar URL</translation>
 <translation id="2156074688469523661">Sites restantes (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Toque para aceder à página novo separador no seu separador atual.</translation>
 <translation id="219985413780390209">Proteja-se e ao seu dispositivo contra sites perigosos</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, aplicação Web. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Continuar como <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">Atualizar página</translation>
 <translation id="2709516037105925701">Preenchimento automático</translation>
 <translation id="271033894570825754">Novo</translation>
+<translation id="2736391366332017384">Toque no botão página inicial para aceder à página novo separador no seu separador atual.</translation>
 <translation id="2744248271121720757">Toque numa palavra para pesquisar instantaneamente ou ver as ações relacionadas.</translation>
 <translation id="2762000892062317888">agora mesmo</translation>
 <translation id="2777555524387840389">Faltam <ph name="SECONDS" /> segundos</translation>
@@ -462,6 +465,7 @@ A sua Conta Google pode ter outras formas do histórico de navegação, como pes
 <translation id="5152843274749979095">Nenhuma aplicação compatível instalada</translation>
 <translation id="5161254044473106830">Título obrigatório</translation>
 <translation id="5168917394043976756">Abrir a gaveta de navegação</translation>
+<translation id="5171365962177408781">Toque para carregar a página novo separador e ver artigos sugeridos.</translation>
 <translation id="5184329579814168207">Abrir no Chrome</translation>
 <translation id="5199929503336119739">Perfil de trabalho</translation>
 <translation id="5210286577605176222">Ir para o separador anterior</translation>
@@ -888,6 +892,7 @@ Para obter licenças novas, ligue-se à Internet e reproduza o conteúdo transfe
 <translation id="8912362522468806198">Conta Google</translation>
 <translation id="8920114477895755567">A aguardar os detalhes dos pais.</translation>
 <translation id="8922289737868596582">Transfira páginas através do botão Mais opções para as utilizar offline.</translation>
+<translation id="8934029156920711950">Toque para ver artigos selecionados especificamente para si.</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Abrir noutra janela</translation>
 <translation id="8951232171465285730">O Chrome permitiu-lhe poupar <ph name="MEGABYTES" /> MB</translation>
@@ -910,6 +915,7 @@ Para obter licenças novas, ligue-se à Internet e reproduza o conteúdo transfe
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> KB transferido(s)</translation>
 <translation id="9100505651305367705">Sugerir a apresentação de artigos na vista simplificada, quando suportada</translation>
 <translation id="9100610230175265781">Frase de acesso obrigatória</translation>
+<translation id="9100939710791843300">Toque no botão página inicial para carregar a página novo separador e ver artigos selecionados.</translation>
 <translation id="9133515669113036225">Repor as credenciais do dispositivo</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Perguntar antes de permitir que os sites enviem notificações (recomendado)</translation>

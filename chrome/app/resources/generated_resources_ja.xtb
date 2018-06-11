@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">証明書の種類</translation>
 <translation id="1297175357211070620">送信先</translation>
 <translation id="1297922636971898492">Google ドライブは現在ご利用いただけません。Google ドライブが利用可能になったときに、自動的にアップロードを再開します。</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> では、保護されたコンテンツを高度な方法で再生できるかどうかを判定するために、Google による端末識別子の確認が求められています。</translation>
 <translation id="1300806585489372370">この設定を変更するには、最初に<ph name="BEGIN_LINK" />識別子の使用を有効<ph name="END_LINK" />にします</translation>
 <translation id="1302227299132585524">Apple Events からの JavaScript を許可</translation>
 <translation id="1303101771013849280">HTML ファイルをブックマークに登録</translation>
@@ -2478,6 +2479,7 @@
 <translation id="4856478137399998590">モバイル データ サービスがご利用いただけるようになりました</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{すべてをシークレット ウィンドウで開く(&amp;I)}=1{シークレット ウィンドウで開く(&amp;I)}other{すべて（# 件）をシークレット ウィンドウで開く(&amp;I)}}</translation>
 <translation id="4858913220355269194">フリッツ</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - ピクチャー イン ピクチャーで再生中の動画</translation>
 <translation id="4862050643946421924">デバイスを追加中...</translation>
 <translation id="4862642413395066333">OCSP 応答の署名</translation>
 <translation id="4863769717153320198">表示上のサイズ: <ph name="WIDTH" />x<ph name="HEIGHT" />（デフォルト）</translation>
@@ -3577,7 +3579,7 @@
 <translation id="6491376743066338510">認証できませんでした</translation>
 <translation id="6492313032770352219">ディスク上のサイズ:</translation>
 <translation id="6494445798847293442">認証局ではありません</translation>
-<translation id="649454645705377674">閉じる</translation>
+<translation id="649454645705377674">近い</translation>
 <translation id="6498249116389603658">選択したすべての言語(&amp;A)</translation>
 <translation id="6499143127267478107">プロキシ スクリプト内のホストを解決しています...</translation>
 <translation id="6499681088828539489">共有ネットワークのプロキシを許可しない</translation>
@@ -4460,6 +4462,7 @@
 <translation id="7839051173341654115">メディアを表示 / バックアップ</translation>
 <translation id="7839192898639727867">証明書のサブジェクトのキー ID</translation>
 <translation id="7839804798877833423">このファイルを取得すると、約 <ph name="FILE_SIZE" /> のモバイル データを使用します。</translation>
+<translation id="7844553762889824470">読み上げるコンテンツを選択して、検索+S キーを押します。または、検索キーを押したままにするか、プロフィール画像の近くにある「選択して読み上げ」アイコンをタップして、読み上げるコンテンツを選択します。</translation>
 <translation id="7844992432319478437">差分の更新中</translation>
 <translation id="7846076177841592234">選択解除</translation>
 <translation id="7846634333498149051">キーボード</translation>
@@ -5368,6 +5371,7 @@
 <translation id="952992212772159698">無効</translation>
 <translation id="957960681186851048">このサイトで複数ファイルの自動ダウンロードが試行されました</translation>
 <translation id="9580706199804957">Google サービスに接続できませんでした</translation>
+<translation id="958416628331784386">このタブではピクチャー イン ピクチャーで動画を再生しています。</translation>
 <translation id="958515377357646513">タップして次に進みます。</translation>
 <translation id="960719561871045870">事業者コード</translation>
 <translation id="960987915827980018">あと約 1 時間</translation>

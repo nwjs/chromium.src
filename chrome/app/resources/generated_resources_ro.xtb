@@ -2478,6 +2478,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="4856478137399998590">Serviciul de date mobile este activat și gata de utilizare</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Deschide-le pe toate într-o fereastră &amp;incognito}=1{Deschide într-o fereastră &amp;incognito}few{Deschide-le pe toate (#) într-o fereastră &amp;incognito}other{Deschide-le pe toate (#) într-o fereastră &amp;incognito}}</translation>
 <translation id="4858913220355269194">Jucător</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Videoclipul se redă în modul Picture-in-Picture</translation>
 <translation id="4862050643946421924">Se adaugă dispozitivul...</translation>
 <translation id="4862642413395066333">Semnarea răspunsurilor OCSP</translation>
 <translation id="4863769717153320198">Pare să aibă <ph name="WIDTH" /> x <ph name="HEIGHT" /> (Prestabilit)</translation>
@@ -4458,6 +4459,7 @@ Dacă instalezi <ph name="APP_NAME" />, se vor descărca <ph name="DOWNLOAD_SIZE
 <translation id="7839051173341654115">Vezi/fă backup conținutului media</translation>
 <translation id="7839192898639727867">ID cheie pentru subiectul certificatului</translation>
 <translation id="7839804798877833423">Preluarea acestor fișiere va utiliza aproximativ <ph name="FILE_SIZE" /> din datele mobile.</translation>
+<translation id="7844553762889824470">Evidențiază ce vrei să auzi, apoi apasă tasta de căutare + S sau apasă lung tasta de căutare ori atinge pictograma Selectează și ascultă de lângă imaginea de profil ca să faci o selecție.</translation>
 <translation id="7844992432319478437">Se actualizează diferențele</translation>
 <translation id="7846076177841592234">Anulează selecția</translation>
 <translation id="7846634333498149051">Tastatură</translation>
@@ -5366,6 +5368,7 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="952992212772159698">Neactivat</translation>
 <translation id="957960681186851048">Acest site a încercat să descarce automat mai multe fișiere</translation>
 <translation id="9580706199804957">Nu s-a putut conecta la serviciile Google</translation>
+<translation id="958416628331784386">Această filă redă un videoclip în modul Picture-in-Picture.</translation>
 <translation id="958515377357646513">Atinge pentru a naviga înainte.</translation>
 <translation id="960719561871045870">Cod operator</translation>
 <translation id="960987915827980018">A mai rămas aproape 1 oră</translation>

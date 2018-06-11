@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Typ certifikátu</translation>
 <translation id="1297175357211070620">Cieľ</translation>
 <translation id="1297922636971898492">Služba Disk Google práve teraz nie je k dispozícii. Nahrávanie sa automaticky spustí znova, keď bude služba Disk Google opäť dostupná.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> chce, aby Google overil identitu vášho zariadenia a tým určil, či má nárok na rozšírené prehrávanie chráneného obsahu.</translation>
 <translation id="1300806585489372370">Ak chcete zmeniť toto nastavenie, najprv <ph name="BEGIN_LINK" />zapnite identifikátory<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Povoliť JavaScript z udalostí Apple</translation>
 <translation id="1303101771013849280">Súbor HTML so záložkami</translation>
@@ -2477,6 +2478,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="4856478137399998590">Vaša mobilná dátová služba je aktivovaná a pripravená na použitie</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Otvoriť všetky v okne inkognito}=1{Otvoriť v okne inkognito}few{Otvoriť všetky (#) v okne inkognito}many{Otvoriť všetky (#) v okne inkognito}other{Otvoriť všetky (#) v okne inkognito}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – video sa prehráva v režime obrazu v obraze</translation>
 <translation id="4862050643946421924">Pridáva sa zariadenie...</translation>
 <translation id="4862642413395066333">Podpisovanie odpovedí protokolu OCSP</translation>
 <translation id="4863769717153320198">Vyzerá ako <ph name="WIDTH" /> x <ph name="HEIGHT" /> (predvolené)</translation>
@@ -4455,6 +4457,7 @@ Inštaláciou aplikácie <ph name="APP_NAME" /> stiahnete <ph name="DOWNLOAD_SIZ
 <translation id="7839051173341654115">Zobraziť/zálohovať médiá</translation>
 <translation id="7839192898639727867">ID kľúča subjektu certifikátu</translation>
 <translation id="7839804798877833423">Načítanie týchto súborov spotrebuje približne <ph name="FILE_SIZE" /> mobilných dát.</translation>
+<translation id="7844553762889824470">Zvýraznite, čo chcete počuť, potom stlačte tlačidlá Hľadať + S. Výber môžete tiež uskutočniť pridržaním klávesa Hľadať alebo klepnutím na ikonu počúvania vybraného textu pri profilovej fotke.</translation>
 <translation id="7844992432319478437">Súbor diff sa aktualizuje</translation>
 <translation id="7846076177841592234">Zrušiť výber</translation>
 <translation id="7846634333498149051">Klávesnica</translation>
@@ -5363,6 +5366,7 @@ Súbor kľúča uložte na bezpečné miesto. Budete ho potrebovať na vytvoreni
 <translation id="952992212772159698">Neaktivované</translation>
 <translation id="957960681186851048">Tento web sa pokúsil automaticky stiahnuť viacero súborov</translation>
 <translation id="9580706199804957">Nepodarilo sa pripojiť k službám Google</translation>
+<translation id="958416628331784386">Táto karta prehráva video v režime obrazu v obraze.</translation>
 <translation id="958515377357646513">Klepnutím prejdete dopredu.</translation>
 <translation id="960719561871045870">Kód operátora</translation>
 <translation id="960987915827980018">Zostáva približne 1 hodina</translation>

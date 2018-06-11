@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Hier werden die Lesezeichen angezeigt, die auf Ihren anderen Geräten gespeichert sind.</translation>
 <translation id="1113597929977215864">Vereinfachte Ansicht anzeigen</translation>
 <translation id="1121094540300013208">Nutzungs- und Absturzberichte</translation>
+<translation id="11221688409173367">Tippen Sie auf die Schaltfläche "Startseite", um sich speziell für Sie ausgewählte Artikel anzeigen zu lassen</translation>
 <translation id="1129510026454351943">Details: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Vorhandene Daten löschen</translation>
 <translation id="1146678959555564648">VR aktivieren</translation>
@@ -91,6 +92,7 @@
 <translation id="17513872634828108">Geöffnete Tabs</translation>
 <translation id="1756600373018374892">Tippen Sie auf diese Schaltfläche, um schnell auf Ihre Tabs zuzugreifen.</translation>
 <translation id="1779089405699405702">Bild-Decodierer</translation>
+<translation id="1782483593938241562">Enddatum: <ph name="DATE" /></translation>
 <translation id="1792959175193046959">Sie können den Standard-Downloadpfad jederzeit ändern</translation>
 <translation id="1807246157184219062">Hell</translation>
 <translation id="1829244130665387512">Auf Seite suchen</translation>
@@ -143,6 +145,7 @@
 <translation id="2154484045852737596">Karte bearbeiten</translation>
 <translation id="2154710561487035718">URL kopieren</translation>
 <translation id="2156074688469523661">Restliche Websites (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Tippen Sie, um die "Neuer Tab"-Seite auf Ihrem aktuellen Tab zu öffnen</translation>
 <translation id="219985413780390209">Mich und mein Gerät vor schädlichen Websites schützen</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, Web-App. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Als <ph name="USER_FULL_NAME" /> fortfahren</translation>
@@ -202,6 +205,8 @@
 <translation id="2707726405694321444">Seite aktualisieren</translation>
 <translation id="2709516037105925701">AutoFill</translation>
 <translation id="271033894570825754">Neu</translation>
+<translation id="2728754400939377704">Nach Website sortieren</translation>
+<translation id="2736391366332017384">Tippen Sie auf die Schaltfläche "Startseite", um die "Neuer Tab"-Seite auf Ihrem aktuellen Tab zu öffnen</translation>
 <translation id="2744248271121720757">Tippen Sie auf ein Wort, um eine Sofortsuche zu starten oder weitere Aktionen anzuzeigen</translation>
 <translation id="2762000892062317888">gerade eben</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> Sekunden übrig</translation>
@@ -352,6 +357,7 @@ Wenn Sie den Suchbegriff anpassen möchten, halten Sie den entsprechenden Begrif
 <translation id="4127069705158143605">{BOOKMARKS_COUNT,plural, =1{%1$d Lesezeichen}other{%1$d Lesezeichen}}</translation>
 <translation id="4165986682804962316">Website-Einstellungen</translation>
 <translation id="4170011742729630528">Der Dienst ist momentan nicht verfügbar. Bitte versuchen Sie es später erneut.</translation>
+<translation id="4179980317383591987"><ph name="AMOUNT" /> verwendet</translation>
 <translation id="4181841719683918333">Sprachen</translation>
 <translation id="4195643157523330669">In neuem Tab öffnen</translation>
 <translation id="4198423547019359126">Keine verfügbaren Speicherorte für Downloads</translation>
@@ -463,6 +469,7 @@ Eventuell finden Sie unter <ph name="BEGIN_LINK" />history.google.com<ph name="E
 <translation id="5152843274749979095">Keine unterstützten Apps installiert</translation>
 <translation id="5161254044473106830">Titel erforderlich</translation>
 <translation id="5168917394043976756">Navigationsleiste öffnen</translation>
+<translation id="5171365962177408781">Tippen Sie, um die "Neuer Tab"-Seite zu laden und sich vorgeschlagene Artikel anzeigen zu lassen</translation>
 <translation id="5184329579814168207">In Chrome öffnen</translation>
 <translation id="5199929503336119739">Arbeitsprofil</translation>
 <translation id="5210286577605176222">Zum vorherigen Tab wechseln</translation>
@@ -559,6 +566,7 @@ Sie sind jedoch nicht unsichtbar. Der Inkognitomodus verhindert nicht, dass Info
 <translation id="5911030830365207728">Google Übersetzer</translation>
 <translation id="5916664084637901428">An</translation>
 <translation id="5919204609460789179">Zur Synchronisierung müssen Sie <ph name="PRODUCT_NAME" /> aktualisieren</translation>
+<translation id="5937580074298050696"><ph name="AMOUNT" /> gespeichert</translation>
 <translation id="5939518447894949180">Zurücksetzen</translation>
 <translation id="5942872142862698679">Suche erfolgt mit Google</translation>
 <translation id="5956665950594638604">Chrome-Hilfe in einem neuen Tab öffnen</translation>
@@ -639,6 +647,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="6612358246767739896">Geschützte Inhalte</translation>
 <translation id="6627583120233659107">Ordner bearbeiten</translation>
 <translation id="6643016212128521049">Löschen</translation>
+<translation id="6643649862576733715">Nach der Menge der gespeicherten Daten sortieren</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 und <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> weitere}other{<ph name="CONTACT_PREVIEW" />\u2026 und <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> weitere}}</translation>
 <translation id="6656545060687952787">Chrome benötigt Zugriff auf den Standort, um nach Geräten suchen zu können. <ph name="BEGIN_LINK" />Berechtigungen aktualisieren<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">Passwort</translation>
@@ -725,6 +734,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">Eindruck beim ersten Ausführen von Chrome</translation>
 <translation id="741204030948306876">Ja, bitte</translation>
+<translation id="7413229368719586778">Startdatum: <ph name="DATE" /></translation>
 <translation id="7423098979219808738">Zuerst fragen</translation>
 <translation id="7423538860840206698">Es dürfen keine Dateien aus der Zwischenablage abgerufen werden</translation>
 <translation id="7437998757836447326">Von Chrome abmelden</translation>
@@ -830,6 +840,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="8313455859591948645">"Beim Start"-Seite bearbeiten</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> und weitere Websites</translation>
 <translation id="8339163506404995330">Seiten auf <ph name="LANGUAGE" /> werden nicht übersetzt</translation>
+<translation id="8349013245300336738">Nach der Menge der verwendeten Daten sortieren</translation>
 <translation id="8363501664269050863">Navigationsbereich. Zum Schließen nach unten wischen.</translation>
 <translation id="8372893542064058268">Lässt die Hintergrundsynchronisierung für eine bestimmte Website zu.</translation>
 <translation id="8374821112118309944">TalkBack muss auf eine neuere Version aktualisiert werden.</translation>
@@ -889,6 +900,7 @@ Um neue Lizenzen zu erwerben, stellen Sie eine Internetverbindung her und spiele
 <translation id="8912362522468806198">Google-Konto</translation>
 <translation id="8920114477895755567">Warten auf Details zu den Eltern</translation>
 <translation id="8922289737868596582">Seiten über die Schaltfläche "Weitere Optionen" zur Offline-Ansicht herunterladen</translation>
+<translation id="8934029156920711950">Tippen Sie, um sich speziell für Sie ausgewählte Artikel anzeigen zu lassen</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">In anderem Fenster öffnen</translation>
 <translation id="8951232171465285730">Dank Chrome haben Sie <ph name="MEGABYTES" /> MB eingespart</translation>
@@ -911,6 +923,7 @@ Um neue Lizenzen zu erwerben, stellen Sie eine Internetverbindung her und spiele
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> KB heruntergeladen</translation>
 <translation id="9100505651305367705">Anbieten, Artikel in vereinfachter Ansicht anzuzeigen, falls unterstützt</translation>
 <translation id="9100610230175265781">Passphrase erforderlich</translation>
+<translation id="9100939710791843300">Tippen Sie auf die Schaltfläche "Startseite", um die "Neuer Tab"-Seite zu laden und sich vorgeschlagene Artikel anzeigen zu lassen</translation>
 <translation id="9133515669113036225">Anmeldedaten des Geräts zurücksetzen</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Nachfragen, bevor Websites Benachrichtigungen senden dürfen (empfohlen)</translation>

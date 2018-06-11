@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Uri ng Certificate</translation>
 <translation id="1297175357211070620">Destinasyon</translation>
 <translation id="1297922636971898492">Hindi available sa ngayon ang Google Drive. Awtomatikong magre-restart ang pag-a-upload sa sandaling bumalik na ang Google Drive.</translation>
+<translation id="1300415640239881824">Gusto ng <ph name="DOMAIN" /> na i-verify ng Google ang pagkakakilanlan ng iyong device para malaman kung kwalipikado ba ito para sa pinahusay na pag-playback ng pinoprotektahang content.</translation>
 <translation id="1300806585489372370">Upang baguhin ang setting na ito, <ph name="BEGIN_LINK" />i-on muna ang mga identifier<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Payagan ang JavaScript mula sa Apple Events</translation>
 <translation id="1303101771013849280">HTML File ng Mga Bookmark</translation>
@@ -2477,6 +2478,7 @@ Sa palagay ko, hindi dapat i-block ang site na ito!</translation>
 <translation id="4856478137399998590">Na-activate na ang iyong serbisyo ng data ng mobile at handa nang magamit</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Buksan Lahat sa &amp;Incognito Window}=1{Buksan sa &amp;Incognito Window}one{Buksan Lahat (#) sa &amp;Incognito Window}other{Buksan Lahat (#) sa &amp;Incognito Window}}</translation>
 <translation id="4858913220355269194">Azkals</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Nagpe-play ang video sa Picture-in-Picture</translation>
 <translation id="4862050643946421924">Nagdaragdag ng device...</translation>
 <translation id="4862642413395066333">Paglagda sa Mga Pagtugon sa OCSP</translation>
 <translation id="4863769717153320198">Mukhang <ph name="WIDTH" /> x <ph name="HEIGHT" /> (Default)</translation>
@@ -4457,6 +4459,7 @@ Mada-download ang <ph name="DOWNLOAD_SIZE" /> ng data kapag na-install ang <ph n
 <translation id="7839051173341654115">Tingnan/I-backup ang media</translation>
 <translation id="7839192898639727867">Subject Key ID ng Certificate </translation>
 <translation id="7839804798877833423">Ang pagkuha sa mga file na ito ay gagamit ng humigit-kumulang <ph name="FILE_SIZE" /> (na) mobile data.</translation>
+<translation id="7844553762889824470">I-highlight kung ano ang gusto mong marinig, pagkatapos ay pindutin ang Search + S. Maaari mo ring pindutin nang matagal ang key sa Paghahanap, o i-tap ang icon ng Select-to-Speak malapit sa iyong larawan sa profile para pumili.</translation>
 <translation id="7844992432319478437">Ina-update ang diff</translation>
 <translation id="7846076177841592234">Kanselahin ang pinili</translation>
 <translation id="7846634333498149051">Keyboard</translation>
@@ -5367,6 +5370,7 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="952992212772159698">Hindi na-activate</translation>
 <translation id="957960681186851048">Sinubukan ng site na ito na awtomatikong mag-download ng maraming file</translation>
 <translation id="9580706199804957">Hindi makakonekta sa mga serbisyo ng Google</translation>
+<translation id="958416628331784386">Nagpe-play ang tab na ito ng video sa Picture-in-Picture.</translation>
 <translation id="958515377357646513">Pumindot upang pumunta sa susunod.</translation>
 <translation id="960719561871045870">Operator code</translation>
 <translation id="960987915827980018">Mga 1 oras ang natitira</translation>

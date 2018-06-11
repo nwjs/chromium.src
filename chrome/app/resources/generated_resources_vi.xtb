@@ -2479,6 +2479,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="4856478137399998590">Dịch vụ dữ liệu di động của bạn đã được kích hoạt và sẵn sàng để sử dụng</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Mở tất cả trong &amp;cửa sổ ẩn danh}=1{Mở trong &amp;cửa sổ ẩn danh}other{Mở tất cả (#) trong cửa sổ ẩn danh}}</translation>
 <translation id="4858913220355269194">Nam cầu thủ Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Phát video ở chế độ Hình trong hình</translation>
 <translation id="4862050643946421924">Đang thêm thiết bị...</translation>
 <translation id="4862642413395066333">Ký Phản hồi OCSP</translation>
 <translation id="4863769717153320198">Có vẻ như là <ph name="WIDTH" /> x <ph name="HEIGHT" /> (Mặc định)</translation>
@@ -4459,6 +4460,7 @@ Việc cài đặt <ph name="APP_NAME" /> sẽ tải xuống <ph name="DOWNLOAD_
 <translation id="7839051173341654115">Xem/Sao lưu phương tiện</translation>
 <translation id="7839192898639727867">ID Khoá Đối tượng của Chứng chỉ</translation>
 <translation id="7839804798877833423">Tìm nạp các tệp này sẽ sử dụng khoảng <ph name="FILE_SIZE" /> dữ liệu di động.</translation>
+<translation id="7844553762889824470">Đánh dấu nội dung bạn muốn nghe, sau đó nhấn tổ hợp phím Tìm kiếm + S. Bạn cũng có thể nhấn và giữ phím Tìm kiếm hoặc nhấn vào biểu tượng Chọn để nói gần ảnh hồ sơ của bạn để đưa ra lựa chọn.</translation>
 <translation id="7844992432319478437">Đang cập nhật phần khác nhau</translation>
 <translation id="7846076177841592234">Hủy chọn</translation>
 <translation id="7846634333498149051">Bàn phím</translation>
@@ -5367,6 +5369,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="952992212772159698">Chưa được kích hoạt</translation>
 <translation id="957960681186851048">Trang web này đã cố gắng tự động tải nhiều tệp xuống</translation>
 <translation id="9580706199804957">Không thể kết nối với các dịch vụ của Google</translation>
+<translation id="958416628331784386">Tab này đang phát video ở chế độ Hình trong hình.</translation>
 <translation id="958515377357646513">Chạm để tiếp tục.</translation>
 <translation id="960719561871045870">Mã của nhà mạng</translation>
 <translation id="960987915827980018">Còn khoảng 1 giờ</translation>

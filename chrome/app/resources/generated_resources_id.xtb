@@ -209,7 +209,7 @@
 <translation id="1296497012903089238">Jenis Sertifikat</translation>
 <translation id="1297175357211070620">Tujuan</translation>
 <translation id="1297922636971898492">Saat ini Google Drive tidak tersedia. Upload akan dimulai ulang secara otomatis setelah Google Drive aktif kembali.</translation>
-<translation id="1300415640239881824"><ph name="DOMAIN" /> ingin agar identitas perangkat Anda diverifikasi oleh Google, guna menentukan kelayakan untuk pemutaran konten terlindungi yang ditingkatkan.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> ingin agar identitas perangkat Anda diverifikasi oleh Google, guna menentukan kelayakan untuk pemutaran konten terlindungi yang disempurnakan.</translation>
 <translation id="1300806585489372370">Untuk mengubah setelan ini, <ph name="BEGIN_LINK" />aktifkan pengenal<ph name="END_LINK" /> terlebih dahulu</translation>
 <translation id="1302227299132585524">Izinkan JavaScript dari Apple Events</translation>
 <translation id="1303101771013849280">File HTML Bookmark</translation>
@@ -2478,6 +2478,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="4856478137399998590">Layangan data seluler Anda diaktifkan dan siap untuk digunakan</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Buka Semua di &amp;Jendela Samaran}=1{Buka di &amp;Jendela Samaran}other{Buka Semua (#) di &amp;Jendela Samaran}}</translation>
 <translation id="4858913220355269194">Ronaldo</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Video diputar dalam mode Picture-in-Picture</translation>
 <translation id="4862050643946421924">Menambahkan perangkat...</translation>
 <translation id="4862642413395066333">Tanggapan OCSP Penandatanganan</translation>
 <translation id="4863769717153320198">Sepertinya <ph name="WIDTH" /> x <ph name="HEIGHT" /> (Default)</translation>
@@ -4458,6 +4459,7 @@ Menginstal <ph name="APP_NAME" /> akan mendownload <ph name="DOWNLOAD_SIZE" /> d
 <translation id="7839051173341654115">Lihat/Cadangkan media</translation>
 <translation id="7839192898639727867">ID Kunci Subjek Sertifikat</translation>
 <translation id="7839804798877833423">Mengambil file ini akan menggunakan sekitar <ph name="FILE_SIZE" /> data seluler.</translation>
+<translation id="7844553762889824470">Tandai teks yang ingin Anda dengar, lalu tekan tombol Penelusuran + S. Anda juga dapat menekan dan menahan tombol Penelusuran, atau tap ikon Klik untuk Diucapkan dekat gambar profil, lalu pilih teks.</translation>
 <translation id="7844992432319478437">Memperbarui diff</translation>
 <translation id="7846076177841592234">Batalkan pilihan</translation>
 <translation id="7846634333498149051">Keyboard</translation>
@@ -5366,6 +5368,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="952992212772159698">Tidak diaktifkan</translation>
 <translation id="957960681186851048">Situs ini berupaya mendownload beberapa file secara otomatis</translation>
 <translation id="9580706199804957">Tidak dapat terhubung dengan layanan Google</translation>
+<translation id="958416628331784386">Tab ini diputar dalam mode Picture-in-Picture.</translation>
 <translation id="958515377357646513">Sentuh untuk maju.</translation>
 <translation id="960719561871045870">Kode operator</translation>
 <translation id="960987915827980018">Sekitar 1 jam lagi</translation>

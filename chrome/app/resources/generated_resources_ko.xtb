@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">인증서 유형</translation>
 <translation id="1297175357211070620">대상</translation>
 <translation id="1297922636971898492">현재 Google 드라이브를 사용할 수 없습니다. Google 드라이브를 다시 사용할 수 있게 되면 자동으로 업로드가 다시 시작됩니다.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" />에서 보호된 콘텐츠의 개선된 재생 기능을 사용할 수 있는지 확인하려면 Google에서 기기의 ID를 인증해야 합니다.</translation>
 <translation id="1300806585489372370">이 설정을 변경하려면 우선 <ph name="BEGIN_LINK" />식별자를 사용 설정<ph name="END_LINK" />하세요</translation>
 <translation id="1302227299132585524">Apple Events의 자바스크립트 허용</translation>
 <translation id="1303101771013849280">HTML 파일 북마크하기</translation>

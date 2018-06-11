@@ -2479,6 +2479,7 @@ To spletno mesto ne sme biti blokirano.</translation>
 <translation id="4856478137399998590">Mobilna podatkovna storitev je aktivirana in pripravljena za uporabo</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Odpiranje vseh v &amp;oknu brez beleženja zgodovine}=1{Odpiranje v &amp;oknu brez beleženja zgodovine}one{Odpiranje vseh (#) v &amp;oknu brez beleženja zgodovine}two{Odpiranje vseh (#) v &amp;oknu brez beleženja zgodovine}few{Odpiranje vseh (#) v &amp;oknu brez beleženja zgodovine}other{Odpiranje vseh (#) v &amp;oknu brez beleženja zgodovine}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – videoposnetek se predvaja v načinu slike v sliki</translation>
 <translation id="4862050643946421924">Dodajanje naprave ...</translation>
 <translation id="4862642413395066333">Podpisovanje odgovorov OCSP</translation>
 <translation id="4863769717153320198">Videti je <ph name="WIDTH" /> x <ph name="HEIGHT" /> (privzeta)</translation>
@@ -4459,6 +4460,7 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="7839051173341654115">Ogled/varnostno kopiranje predstavnosti</translation>
 <translation id="7839192898639727867">ID ključa subjekta potrdila</translation>
 <translation id="7839804798877833423">Za prenos teh datotek bo porabljenih približno <ph name="FILE_SIZE" /> MB mobilnih podatkov.</translation>
+<translation id="7844553762889824470">Označite, kar želite slišati, nato pritisnite tipko za iskanje in S. Prav tako lahko pridržite tipko za iskanje ali se dotaknete ikone funkcije Izberite in poslušajte pri sliki profila, če želite opraviti izbiro.</translation>
 <translation id="7844992432319478437">Posodabljanje razlik</translation>
 <translation id="7846076177841592234">Prekliči izbor</translation>
 <translation id="7846634333498149051">Tipkovnica</translation>
@@ -5367,6 +5369,7 @@ Datoteko s ključem shranite na varnem. Potrebovali jo boste za izdelavo novih r
 <translation id="952992212772159698">Ni aktivirano</translation>
 <translation id="957960681186851048">Spletno mesto je poskušalo samodejno prenesti več datotek</translation>
 <translation id="9580706199804957">Ni se bilo mogoče povezati z Googlovimi storitvami</translation>
+<translation id="958416628331784386">Na tem zavihku se predvaja videoposnetek v načinu slike v sliki.</translation>
 <translation id="958515377357646513">Dotaknite se za nadaljevanje.</translation>
 <translation id="960719561871045870">Koda operaterja</translation>
 <translation id="960987915827980018">Še približno ena ura</translation>

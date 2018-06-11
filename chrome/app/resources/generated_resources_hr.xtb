@@ -2478,6 +2478,7 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="4856478137399998590">Vaša mobilna podatkovna usluga aktivirana je i spremna za upotrebu</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Otvori sve u &amp;anonimnom prozoru}=1{Otvori sve u &amp;anonimnom prozoru}one{Otvori sve (#) u &amp;anonimnom prozoru}few{Otvori sve (#) u &amp;anonimnom prozoru}other{Otvori sve (#) u &amp;anonimnom prozoru}}</translation>
 <translation id="4858913220355269194">Zvone</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – reprodukcija videozapisa u načinu slika u slici</translation>
 <translation id="4862050643946421924">Dodavanje uređaja...</translation>
 <translation id="4862642413395066333">Potpisivanje OCSP odgovora</translation>
 <translation id="4863769717153320198">Izgleda kao <ph name="WIDTH" /> x <ph name="HEIGHT" /> (zadano)</translation>
@@ -4457,6 +4458,7 @@ Instaliranjem aplikacije <ph name="APP_NAME" /> preuzet će se <ph name="DOWNLOA
 <translation id="7839051173341654115">Prikaži medij/izradi sigurnosnu kopiju</translation>
 <translation id="7839192898639727867">ID ključa tijela predmeta certifikata</translation>
 <translation id="7839804798877833423">Dohvaćanje tih datoteka potrošit će približno <ph name="FILE_SIZE" /> mobilnih podataka.</translation>
+<translation id="7844553762889824470">Istaknite ono što želite čuti, zatim pritisnite tipku za pretraživanje + S. Umjesto toga možete pritisnuti i zadržati tipku za pretraživanje ili dodirnuti ikonu Odabira za govor u blizini svoje slike profila i zatim izvršiti izbor.</translation>
 <translation id="7844992432319478437">Ažuriranje razlika</translation>
 <translation id="7846076177841592234">Poništi odabir</translation>
 <translation id="7846634333498149051">Tipkovnica</translation>
@@ -5366,6 +5368,7 @@ Osobe sa sporom vezom možda neće vidjeti vaš sadržaj.</translation>
 <translation id="952992212772159698">Nije aktivirano</translation>
 <translation id="957960681186851048">Ta je web-lokacija pokušala automatski preuzeti više datoteka</translation>
 <translation id="9580706199804957">Povezivanje s Googleovim uslugama nije uspjelo</translation>
+<translation id="958416628331784386">Ova kartica prikazuje videozapis u načinu slika u slici</translation>
 <translation id="958515377357646513">Dodirnite za pomicanje prema naprijed</translation>
 <translation id="960719561871045870">Kôd operatera</translation>
 <translation id="960987915827980018">Još otprilike 1 sat</translation>

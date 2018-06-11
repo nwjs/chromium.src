@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">ประเภทใบรับรอง</translation>
 <translation id="1297175357211070620">ปลายทาง</translation>
 <translation id="1297922636971898492">Google ไดรฟ์ไม่พร้อมใช้งานในขณะนี้ การอัปโหลดจะเริ่มต้นอีกครั้งโดยอัตโนมัติเมื่อ Google ไดรฟ์ใช้งานได้</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> ต้องการข้อมูลประจำตัวของอุปกรณ์เพื่อรับการยืนยันจาก Google เพื่อระบุการมีสิทธิ์ในการเล่นที่เพิ่มประสิทธิภาพสำหรับสื่อที่มีการป้องกัน</translation>
 <translation id="1300806585489372370">หาต้องการเปลี่ยนแปลงการตั้งค่านี้ อันดับแรกให้<ph name="BEGIN_LINK" />เปิดตัวระบุ<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">อนุญาตให้เรียกใช้ JavaScript จากกิจกรรมใน Apple</translation>
 <translation id="1303101771013849280">ไฟล์ HTML บุ๊กมาร์ก</translation>
@@ -953,7 +954,7 @@
 <translation id="2453021845418314664">การตั้งค่าการซิงค์ขั้นสูง</translation>
 <translation id="2453576648990281505">มีไฟล์นี้อยู่แล้ว</translation>
 <translation id="2453860139492968684">เสร็จสิ้น</translation>
-<translation id="2454247629720664989">คำหลัก</translation>
+<translation id="2454247629720664989">คีย์เวิร์ด</translation>
 <translation id="2457246892030921239"><ph name="APP_NAME" /> ต้องการคัดลอกไฟล์จาก <ph name="VOLUME_NAME" /></translation>
 <translation id="2462724976360937186">รหัสคีย์ผู้ออกใบรับรอง</translation>
 <translation id="2462752602710430187">เพิ่ม <ph name="PRINTER_NAME" /> แล้ว</translation>
@@ -2477,6 +2478,7 @@
 <translation id="4856478137399998590">บริการดาต้าบนมือถือของคุณเปิดใช้งานและพร้อมทำงานแล้ว</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{เปิดทั้งหมดใน&amp;หน้าต่างที่ไม่ระบุตัวตน}=1{เปิดใน&amp;หน้าต่างที่ไม่ระบุตัวตน}other{เปิดทั้งหมด (#) ใน&amp;หน้าต่างที่ไม่ระบุตัวตน}}</translation>
 <translation id="4858913220355269194">ฟริทซ์</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - วิดีโอกำลังเล่นในโหมดการแสดงภาพซ้อนภาพ</translation>
 <translation id="4862050643946421924">กำลังเพิ่มอุปกรณ์...</translation>
 <translation id="4862642413395066333">การเซ็นชื่อในการตอบสนอง OCSP</translation>
 <translation id="4863769717153320198">ความละเอียดดูเหมือนจะเป็น <ph name="WIDTH" /> x <ph name="HEIGHT" /> (ค่าเริ่มต้น)</translation>
@@ -4457,6 +4459,7 @@
 <translation id="7839051173341654115">ดู/สำรองสื่อ</translation>
 <translation id="7839192898639727867">รหัสคีย์หัวเรื่องใบรับรอง</translation>
 <translation id="7839804798877833423">การดึงไฟล์เหล่านี้จะใช้ข้อมูลมือถือขนาดประมาณ <ph name="FILE_SIZE" /></translation>
+<translation id="7844553762889824470">ไฮไลต์สิ่งที่ต้องการฟังจากนั้นกด Search + S หรือจะกดแป้นค้นหาค้างไว้ หรือแตะไอคอน "เลือกเพื่อให้อ่าน" ใกล้ๆ รูปโปรไฟล์เพื่อเลือกตัวเลือกก็ได้</translation>
 <translation id="7844992432319478437">กำลังอัปเดตความต่าง</translation>
 <translation id="7846076177841592234">ยกเลิกการเลือก</translation>
 <translation id="7846634333498149051">แป้นพิมพ์</translation>
@@ -5365,6 +5368,7 @@
 <translation id="952992212772159698">ไม่ได้เปิดการใช้งาน</translation>
 <translation id="957960681186851048">เว็บไซต์นี้พยายามดาวน์โหลดไฟล์หลายไฟล์โดยอัตโนมัติ</translation>
 <translation id="9580706199804957">ไม่สามารถเชื่อมต่อกับบริการของ Google</translation>
+<translation id="958416628331784386">แท็บนี้กำลังเล่นวิดีโอในโหมดการแสดงภาพซ้อนภาพ</translation>
 <translation id="958515377357646513">แตะเพื่อไปข้างหน้า</translation>
 <translation id="960719561871045870">รหัสผู้ให้บริการ</translation>
 <translation id="960987915827980018">เหลือเวลาอีกประมาณ 1 ชั่วโมง</translation>

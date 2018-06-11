@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Aquí aparecen los marcadores que hayas guardado en otros dispositivos.</translation>
 <translation id="1113597929977215864">Mostrar vista simplificada</translation>
 <translation id="1121094540300013208">Informes de uso y sobre fallos</translation>
+<translation id="11221688409173367">Toca el botón de inicio para ver artículos seleccionados especialmente para ti</translation>
 <translation id="1129510026454351943">Detalles: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Elimina los datos actuales.</translation>
 <translation id="1146678959555564648">Iniciar RV</translation>
@@ -144,6 +145,7 @@
 <translation id="2154484045852737596">Editar tarjeta</translation>
 <translation id="2154710561487035718">Copiar URL</translation>
 <translation id="2156074688469523661">Sitios web restantes (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Toca para acceder a la página Nueva pestaña en tu pestaña actual</translation>
 <translation id="219985413780390209">Obtener protección para ti y para tu dispositivo frente a sitios web peligrosos</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, una aplicación web disponible en <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Continuar como <ph name="USER_FULL_NAME" /></translation>
@@ -204,6 +206,7 @@
 <translation id="2709516037105925701">Autocompletar</translation>
 <translation id="271033894570825754">Nuevo</translation>
 <translation id="2728754400939377704">Ordenar por sitio web</translation>
+<translation id="2736391366332017384">Toca el botón de inicio para acceder a la página Nueva pestaña en tu pestaña actual</translation>
 <translation id="2744248271121720757">Toca una palabra para buscarla de forma instantánea o ver acciones relacionadas</translation>
 <translation id="2762000892062317888">ahora mismo</translation>
 <translation id="2777555524387840389">Quedan <ph name="SECONDS" /> segundos</translation>
@@ -465,6 +468,7 @@ Es posible que tu cuenta de Google tenga otros tipos de historial de navegación
 <translation id="5152843274749979095">No hay aplicaciones compatibles instaladas</translation>
 <translation id="5161254044473106830">Título obligatorio</translation>
 <translation id="5168917394043976756">Abrir panel de navegación</translation>
+<translation id="5171365962177408781">Toca para cargar la página Nueva pestaña y ver artículos sugeridos</translation>
 <translation id="5184329579814168207">Abrir en Chrome</translation>
 <translation id="5199929503336119739">Perfil de trabajo</translation>
 <translation id="5210286577605176222">Te dirige a la pestaña anterior</translation>
@@ -895,6 +899,7 @@ Para obtener nuevas licencias, conéctate a Internet y reproduce el contenido de
 <translation id="8912362522468806198">cuenta de Google</translation>
 <translation id="8920114477895755567">Esperando detalles de los padres.</translation>
 <translation id="8922289737868596582">Descarga páginas con el botón con el botón Más opciones para usarlas sin conexión</translation>
+<translation id="8934029156920711950">Toca para ver artículos seleccionados especialmente para ti</translation>
 <translation id="8941729603749328384">www.ejemplo.com</translation>
 <translation id="8942627711005830162">Abrir en otra ventana</translation>
 <translation id="8951232171465285730">Chrome te ha permitido ahorrar <ph name="MEGABYTES" /> MB</translation>
@@ -917,6 +922,7 @@ Para obtener nuevas licencias, conéctate a Internet y reproduce el contenido de
 <translation id="9099018167121903954">kB descargados: <ph name="KILOBYTES" /></translation>
 <translation id="9100505651305367705">Pregunta si quieres que los artículos se muestren en vista simplificada, si está disponible</translation>
 <translation id="9100610230175265781">Se debe introducir una frase de contraseña</translation>
+<translation id="9100939710791843300">Toca el botón de inicio para cargar la página Nueva pestaña y ver artículos sugeridos</translation>
 <translation id="9133515669113036225">Restablecer credenciales del dispositivo</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Preguntar antes de permitir que los sitios web envíen notificaciones (recomendado)</translation>

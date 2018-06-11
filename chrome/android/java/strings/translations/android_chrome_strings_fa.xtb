@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">نشانک‌های ذخیره‌شده در سایر دستگاه‌های شما در اینجا نشان داده می‌شوند.</translation>
 <translation id="1113597929977215864">نمایش نمای ساده‌شده</translation>
 <translation id="1121094540300013208">آمار استفاده و گزارش‌های خرابی</translation>
+<translation id="11221688409173367">برای مشاهده مقاله‌هایی که به‌طور خاص برای شما انتخاب شده است روی دکمه صفحه اصلی ضربه بزنید</translation>
 <translation id="1129510026454351943">جزئیات: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">حذف داده‌های موجود.</translation>
 <translation id="1146678959555564648">‏VR را وارد کنید</translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">ویرایش کارت</translation>
 <translation id="2154710561487035718">کپی نشانی وب</translation>
 <translation id="2156074688469523661">سایت‌های باقی‌مانده (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">برای رفتن به صفحه برگه جدید در برگه کنونی، ضربه بزنید</translation>
 <translation id="219985413780390209">محافظت از شما و دستگاهتان دربرابر سایت‌های خطرناک</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />، برنامه وب. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">ادامه دادن به‌عنوان <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">بازخوانی صفحه</translation>
 <translation id="2709516037105925701">تکمیل خودکار</translation>
 <translation id="271033894570825754">جدید</translation>
+<translation id="2736391366332017384">برای رفتن به صفحه برگه جدید در برگه کنونی، روی دکمه صفحه اصلی ضربه بزنید</translation>
 <translation id="2744248271121720757">برای جستجوی فوری، روی کلمه‌ای ضربه بزنید یا اقدام‌های مرتبط را ببینید</translation>
 <translation id="2762000892062317888">هم‌اکنون</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> ثانیه باقی‌مانده است</translation>
@@ -462,6 +465,7 @@
 <translation id="5152843274749979095">هیچ برنامه پشتیبانی‌شده‌ای نصب نشده است</translation>
 <translation id="5161254044473106830">عنوان مورد نیاز است</translation>
 <translation id="5168917394043976756">بازکردن کشوی پیمایش</translation>
+<translation id="5171365962177408781">برای بارگیری صفحه برگه جدید و مشاهده مقاله‌های پیشنهادی ضربه بزنید</translation>
 <translation id="5184329579814168207">‏باز کردن در Chrome</translation>
 <translation id="5199929503336119739">نمایه کاری</translation>
 <translation id="5210286577605176222">رفتن به برگه قبلی</translation>
@@ -887,6 +891,7 @@
 <translation id="8912362522468806198">‏حساب Google</translation>
 <translation id="8920114477895755567">در انتظار اطلاعات والدین.</translation>
 <translation id="8922289737868596582">برای استفاده از صفحه‌ها در حالت آفلاین، آن‌ها را با دکمه «گزینه‌های بیشتر» بارگیری کنید</translation>
+<translation id="8934029156920711950">برای مشاهده مقاله‌هایی که به‌طور خاص برای شما انتخاب شده است ضربه بزنید</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">باز کردن در پنجره دیگر</translation>
 <translation id="8951232171465285730">‏Chrome ‏<ph name="MEGABYTES" /> مگابایت از داده‌های شما را ذخیره کرده است</translation>
@@ -909,6 +914,7 @@
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> کیلوبایت بارگیری شد</translation>
 <translation id="9100505651305367705">پیشنهاد نمایش مقالات در نمای ساده‌شده، درصورت پشتیبانی</translation>
 <translation id="9100610230175265781">عبارت عبور لازم است</translation>
+<translation id="9100939710791843300">برای بارگیری صفحه برگه جدید و مشاهده مقاله‌های پیشنهادی، روی دکمه صفحه اصلی ضربه بزنید</translation>
 <translation id="9133515669113036225">بازنشانی اعتبارنامه‌های دستگاه</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">قبل از اجازه به سایت‌ها برای ارسال اعلان ابتدا سؤال شود (توصیه می‌شود)</translation>

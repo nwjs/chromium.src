@@ -2478,6 +2478,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="4856478137399998590">Komórkowa usługa transmisji danych została aktywowana i jest gotowa do użycia</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Otwórz wszystkie w oknie &amp;incognito}=1{Otwórz w oknie &amp;incognito}few{Otwórz wszystkie (#) w oknie &amp;incognito}many{Otwórz wszystkie (#) w oknie &amp;incognito}other{Otwórz wszystkie (#) w oknie &amp;incognito}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – odtwarzanie filmu w trybie obrazu w obrazie</translation>
 <translation id="4862050643946421924">Dodaję urządzenie...</translation>
 <translation id="4862642413395066333">Podpisywanie odpowiedzi protokołu OCSP</translation>
 <translation id="4863769717153320198">Wygląda na <ph name="WIDTH" /> × <ph name="HEIGHT" /> (domyślna)</translation>
@@ -4450,6 +4451,7 @@ Zainstalowanie aplikacji <ph name="APP_NAME" /> wymaga pobrania <ph name="DOWNLO
 <translation id="7839051173341654115">Wyświetl multimedia lub zrób ich kopię zapasową</translation>
 <translation id="7839192898639727867">Identyfikator klucza podmiotu certyfikatu</translation>
 <translation id="7839804798877833423">Pobranie tych plików spowoduje przesłanie <ph name="FILE_SIZE" /> przy użyciu komórkowej transmisji danych.</translation>
+<translation id="7844553762889824470">Zaznacz to, co chcesz usłyszeć, a następnie naciśnij klawisz wyszukiwania + S. Możesz też nacisnąć i przytrzymać klawisz wyszukiwania lub kliknąć ikonę Przeczytaj na głos obok swojego zdjęcia profilowego, a następnie zaznaczyć tekst.</translation>
 <translation id="7844992432319478437">Aktualizowanie zmian</translation>
 <translation id="7846076177841592234">Anuluj wybór</translation>
 <translation id="7846634333498149051">Klawiatura</translation>
@@ -5359,6 +5361,7 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="952992212772159698">Nie aktywowano</translation>
 <translation id="957960681186851048">Ta strona próbowała pobrać automatycznie wiele plików</translation>
 <translation id="9580706199804957">Nie udało się połączyć z usługami Google</translation>
+<translation id="958416628331784386">Na tej karcie jest odtwarzany film w trybie obrazu w obrazie.</translation>
 <translation id="958515377357646513">Kliknij, by przejść dalej.</translation>
 <translation id="960719561871045870">Kod operatora</translation>
 <translation id="960987915827980018">Zostało około 1 godziny</translation>

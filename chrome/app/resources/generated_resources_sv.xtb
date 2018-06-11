@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Certifikattyp</translation>
 <translation id="1297175357211070620">Destination</translation>
 <translation id="1297922636971898492">Google Drive är inte tillgängligt för närvarande. Överföringen fortsätter automatiskt när Google Drive är tillgängligt igen.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> kräver att enhetens identitet verifieras av Google för att avgöra om enheten är kvalificerad för förbättrad uppspelning av skyddat innehåll.</translation>
 <translation id="1300806585489372370"><ph name="BEGIN_LINK" />Aktivera identifierare<ph name="END_LINK" /> om du vill ändra den här inställningen</translation>
 <translation id="1302227299132585524">Tillåt JavaScript från Apple Events</translation>
 <translation id="1303101771013849280">HTML-fil med bokmärken</translation>

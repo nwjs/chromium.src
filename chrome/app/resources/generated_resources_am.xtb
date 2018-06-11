@@ -2451,7 +2451,7 @@
 <translation id="4821935166599369261">&amp;መገለጫ መስራት ነቅቷል</translation>
 <translation id="4823484602432206655">የተጠቃሚ እና የመሣሪያ ቅንብሮችን ያንብቡ እና ይለውጡ</translation>
 <translation id="4823651846660089135">መሣሪያው ተነባቢ-ብቻ ነው</translation>
-<translation id="4828937774870308359">አውስትራሊያዊ</translation>
+<translation id="4828937774870308359">የአውስትራሊያ</translation>
 <translation id="4829768588131278040">ፒን ያዋቅሩ</translation>
 <translation id="4830502475412647084">የስርዓተ ክወና ዝማኔን በመጫን ላይ</translation>
 <translation id="4830573902900904548">የእርስዎ <ph name="DEVICE_TYPE" /> <ph name="NETWORK_NAME" />ን ተጠቅሞ ከበይነመረብ ጋር መገናኘት አልቻልም። እባክዎ ሌላ አውታረ መረብ ይምረጡ። <ph name="LEARN_MORE_LINK_START" />ተጨማሪ ለመረዳት<ph name="LEARN_MORE_LINK_END" /></translation>
@@ -2476,6 +2476,7 @@
 <translation id="4856478137399998590">የተንቀሳቃሽ ስልክ ውሂብ አገልግሎትዎ የገበረና ስራ ላይ ለመዋል ዝግጁ ነው</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{ሁሉንም በ&amp;ማንነት የማያሳውቅ መስኮት ውስጥ ክፈት}=1{በ&amp;ማንነት የማያሳውቅ መስኮት ውስጥ ክፈት}one{ሁሉንም (#) በ&amp;ማንነት የማያሳውቅ መስኮት ውስጥ ክፈት}other{ሁሉንም (#) በ&amp;ማንነት የማያሳውቅ መስኮት ውስጥ ክፈት}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - ቪዲዮ በስዕል-ውስጥ-ስዕል ሁነታ በመጫወት ላይ</translation>
 <translation id="4862050643946421924">መሣሪያን በማከል ላይ...</translation>
 <translation id="4862642413395066333">OCSP ምላሾችን መፈረም</translation>
 <translation id="4863769717153320198"><ph name="WIDTH" /> x <ph name="HEIGHT" /> ይመስላል (ነባሪ)</translation>
@@ -4455,6 +4456,7 @@
 <translation id="7839051173341654115">ማህደረመረጃን ይመልከቱ/ምትኬ ያስቀምጡ</translation>
 <translation id="7839192898639727867">የሰርቲፊኬት ርዕስ ቁልፍ አይዲ</translation>
 <translation id="7839804798877833423">እነዚህን ፋይሎች ማምጣት <ph name="FILE_SIZE" /> ገደማ የተንቀሳቃሽ ስልክ ውሂብ ይጠቀማል።</translation>
+<translation id="7844553762889824470">ለመስማት የሚፈልጉትን ነገር ያድምቁ፣ ከዚያ ፍለጋ + S ይጫኑ። እንዲሁም ለመምረጥ የፍለጋ ቁልፉን ተጭነው መያዝ፣ ወይም ደግሞ ከመገለጫ ምስልዎ አጠገብ ያለውን ለመናገር-ይምረጡ አዶ መታ ያድርጉ።</translation>
 <translation id="7844992432319478437">የማዘመን ችግር</translation>
 <translation id="7846076177841592234">ምርጫ ሰርዝ</translation>
 <translation id="7846634333498149051">የቁልፍ ሰሌዳ</translation>
@@ -5368,6 +5370,7 @@ nil</translation>
 <translation id="952992212772159698">አልገበረም</translation>
 <translation id="957960681186851048">ይህ ጣቢያ በርካታ ፋይሎችን በራስ-ሰር ለማውረድ ሞክሯል</translation>
 <translation id="9580706199804957">ከGoogle አገልግሎቶች ጋር መገናኘት አልተቻለም</translation>
+<translation id="958416628331784386">ይህ ትር አንድ ቪዲዮ በስዕል-ውስጥ-ስዕል ሁነታ እያጫወተ ነው።</translation>
 <translation id="958515377357646513">ወደ ፊት ለመሄድ መታ ያድርጉ።</translation>
 <translation id="960719561871045870">የከዋኝ ኮድ</translation>
 <translation id="960987915827980018">1 ሰዓት አካባቢ ቀርቷል</translation>

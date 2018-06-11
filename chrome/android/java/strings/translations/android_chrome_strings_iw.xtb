@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">סימניות שנשמרו במכשירים האחרים שלך יופיעו כאן.</translation>
 <translation id="1113597929977215864">צפייה בתצוגה נקייה</translation>
 <translation id="1121094540300013208">דוחות קריסה ושימוש</translation>
+<translation id="11221688409173367">הקשה על הלחצן הראשי תציג מאמרים שנבחרו במיוחד בשבילך</translation>
 <translation id="1129510026454351943">פרטים: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">מחק נתונים קיימים.</translation>
 <translation id="1146678959555564648">‏כניסה למצב VR</translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">עריכת כרטיס</translation>
 <translation id="2154710561487035718">העתק כתובת אתר</translation>
 <translation id="2156074688469523661">אתרים שנותרו (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">הקשה תעביר אותך אל דף הכרטיסייה החדשה בכרטיסייה הנוכחית</translation>
 <translation id="219985413780390209">הגן על עצמך ועל המכשיר מפני אתרים מסוכנים</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, אפליקציית אינטרנט. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">המשך בשם <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">רענן את הדף</translation>
 <translation id="2709516037105925701">מילוי אוטומטי</translation>
 <translation id="271033894570825754">חדש</translation>
+<translation id="2736391366332017384">הקשה על הלחצן הראשי תעביר אותך אל דף הכרטיסייה החדשה בכרטיסייה הנוכחית</translation>
 <translation id="2744248271121720757">כדי לחפש באופן מיידי או לראות פעולות קשורות, צריך להקיש על מילה</translation>
 <translation id="2762000892062317888">ברגע זה</translation>
 <translation id="2777555524387840389">נותרו <ph name="SECONDS" /> שניות</translation>
@@ -462,6 +465,7 @@
 <translation id="5152843274749979095">לא מותקנות אפליקציות נתמכות</translation>
 <translation id="5161254044473106830">יש להזין כותרת</translation>
 <translation id="5168917394043976756">פתח את חלונית ההזזה לניווט</translation>
+<translation id="5171365962177408781">הקשה תטען את דף הכרטיסייה החדשה ותציג הצעות למאמרים</translation>
 <translation id="5184329579814168207">‏פתח ב-Chrome</translation>
 <translation id="5199929503336119739">פרופיל עבודה</translation>
 <translation id="5210286577605176222">חזור לכרטיסייה הקודמת</translation>
@@ -886,6 +890,7 @@
 <translation id="8912362522468806198">‏חשבון Google</translation>
 <translation id="8920114477895755567">ממתין לפרטי ההורים.</translation>
 <translation id="8922289737868596582">כדי להשתמש בדפים במצב לא מקוון, אפשר להוריד אותם דרך הלחצן 'אפשרויות נוספות'</translation>
+<translation id="8934029156920711950">הקשה תציג מאמרים שנבחרו במיוחד בשבילך</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">פתח בחלון האחר</translation>
 <translation id="8951232171465285730">‏Chrome חסך לך ‎<ph name="MEGABYTES" /> MB</translation>
@@ -908,6 +913,7 @@
 <translation id="9099018167121903954">‏‎<ph name="KILOBYTES" /> KB להורדות</translation>
 <translation id="9100505651305367705">יש להציע הצגת מאמרים בתצוגה פשוטה, כשהאפשרות נתמכת</translation>
 <translation id="9100610230175265781">יש להזין ביטוי סיסמה</translation>
+<translation id="9100939710791843300">הקשה על הלחצן הראשי תטען את דף הכרטיסייה החדשה ותציג הצעות למאמרים</translation>
 <translation id="9133515669113036225">אפס את פרטי הכניסה של המכשיר</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">שאל לפני שתאפשר לאתרים לשלוח הודעות (מומלץ)</translation>

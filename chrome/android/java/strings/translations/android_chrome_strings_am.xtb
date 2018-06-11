@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">በሌሎች መሣሪያዎችዎ ላይ የተቀመጡ ዕልባቶችዎ እዚህ ብቅ ይላሉ።</translation>
 <translation id="1113597929977215864">የተቃለለ እይታን አሳይ</translation>
 <translation id="1121094540300013208">የአጠቃቀም እና የብልሽት ሪፖርቶች</translation>
+<translation id="11221688409173367">ለእርስዎ በተለይ የተመረጡ ጽሑፎችን ለማየት የመነሻ አዝራሩን መታ ያድርጉ</translation>
 <translation id="1129510026454351943">ዝርዝሮች፦ <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">ነባሩን ውሂብ ይሰርዙ።</translation>
 <translation id="1146678959555564648">ምናባዊ ዕውነታ አስገባ</translation>
@@ -91,6 +92,7 @@
 <translation id="17513872634828108">ትሮችን ክፈት</translation>
 <translation id="1756600373018374892">ፈጣን የትሮችዎን መዳረሻ ለማግኘት ይህን አዝራር ነካ ያድርጉ።</translation>
 <translation id="1779089405699405702">ስውር ምስል መፍቻ</translation>
+<translation id="1782483593938241562">ማብቂያ ቀን <ph name="DATE" /></translation>
 <translation id="1792959175193046959">በማንኛውም ጊዜ ነባሪውን የማውረጃ ቦታ ይቀይሩ</translation>
 <translation id="1807246157184219062">ብርሃን</translation>
 <translation id="1829244130665387512">በዚህ ገጽ ውስጥ የተገኘ</translation>
@@ -143,6 +145,7 @@
 <translation id="2154484045852737596">ካርትን ያርትዑ</translation>
 <translation id="2154710561487035718">URL ቅዳ</translation>
 <translation id="2156074688469523661">ቀሪ ጣቢያዎች (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">በአሁኑ ትርዎ ላይ ወደ አዲስ ትር ገጽ ለመድረስ መታ ያድርጉ</translation>
 <translation id="219985413780390209">እርስዎን እና መሣሪያዎን ከአደገኛ ጣቢያዎች ይጠብቃል</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />፣ የድር መተግበሪያ። <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">እንደ <ph name="USER_FULL_NAME" /> ሆነው ይቀጥሉ</translation>
@@ -202,6 +205,8 @@
 <translation id="2707726405694321444">ገጹን አድስ</translation>
 <translation id="2709516037105925701">ራስ-ሙላ</translation>
 <translation id="271033894570825754">አዲስ</translation>
+<translation id="2728754400939377704">በጣቢያ ደርድር</translation>
+<translation id="2736391366332017384">በአሁኑ ትርዎ ላይ ወደ አዲስ ትር ገጽ ለመድረስ የመነሻ አዝራሩን መታ ያድርጉ</translation>
 <translation id="2744248271121720757">አንድ ቃል በቅጽበት ለመፈለግ ወይም ተዛማጅ እርምጃዎችን ለመመልከት አንድ ቃል መታ ያድርጉ</translation>
 <translation id="2762000892062317888">አሁን</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> ሰከንዶች ይቀራሉ</translation>
@@ -352,6 +357,7 @@
 <translation id="4127069705158143605">{BOOKMARKS_COUNT,plural, =1{%1$d ዕልባት}one{%1$d ዕልባቶች}other{%1$d ዕልባቶች}}</translation>
 <translation id="4165986682804962316">የጣቢያ ቅንብሮች</translation>
 <translation id="4170011742729630528">አገልግሎቱ አይገኝም፤ ቆይተው እንደገና ይሞክሩ።</translation>
+<translation id="4179980317383591987"><ph name="AMOUNT" /> ጥቅም ላይ ውሏል</translation>
 <translation id="4181841719683918333">ቋንቋዎች</translation>
 <translation id="4195643157523330669">በአዲስ ትር ክፈት</translation>
 <translation id="4198423547019359126">ምንም የማውረጃ አካባቢዎች የሉም</translation>
@@ -462,6 +468,7 @@
 <translation id="5152843274749979095">ምንም የሚደገፉ መተግበሪያዎች አልተጫኑም</translation>
 <translation id="5161254044473106830">ርዕስ ያስፈልጋል</translation>
 <translation id="5168917394043976756">የአሰሳ መሳቢያ ክፈት</translation>
+<translation id="5171365962177408781">አዲሱን የትር ገጽ ለመጫን እና የተጠቆሙትን ጽሑፎች ለመመልከት መታ ያድርጉ</translation>
 <translation id="5184329579814168207">በChrome ውስጥ ክፈት</translation>
 <translation id="5199929503336119739">የሥራ መገለጫ</translation>
 <translation id="5210286577605176222">ወደ ቀዳሚው ትር ዝለል</translation>
@@ -558,6 +565,7 @@
 <translation id="5911030830365207728">Google ትርጉም</translation>
 <translation id="5916664084637901428">በርቷል</translation>
 <translation id="5919204609460789179">ስምረትን ለመጀመር <ph name="PRODUCT_NAME" />ን ያዘምኑ</translation>
+<translation id="5937580074298050696"><ph name="AMOUNT" /> ተቀምጧል</translation>
 <translation id="5939518447894949180">ዳግም አስጀምር</translation>
 <translation id="5942872142862698679">ለፍለጋ Googleን መጠቀም</translation>
 <translation id="5956665950594638604">የChrome እገዛ ማዕከልን በአዲስ ትር ውስጥ ክፈት</translation>
@@ -638,6 +646,7 @@
 <translation id="6612358246767739896">ጥበቃ የሚደረግለት ይዘት</translation>
 <translation id="6627583120233659107">አቃፊ አርትዕ</translation>
 <translation id="6643016212128521049">አጽዳ</translation>
+<translation id="6643649862576733715">በተቆጠበው የውሂብ መጠን ደርድር</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 እና <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> ተጨማሪ}one{<ph name="CONTACT_PREVIEW" />\u2026 እና <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> ተጨማሪ}other{<ph name="CONTACT_PREVIEW" />\u2026 እና <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> ተጨማሪ}}</translation>
 <translation id="6656545060687952787">Chrome መሣሪያዎችን ለመቃኘት የአካባቢ መዳረሻ ያስፈልገዋል። <ph name="BEGIN_LINK" />ፍቃዶችን ያዘምኑ<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">የይለፍ ቃል፦</translation>
@@ -724,6 +733,7 @@
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">Chrome የመጀመሪያ አሂድ ተሞክሮ</translation>
 <translation id="741204030948306876">አዎ፣ ገብቼያለሁ</translation>
+<translation id="7413229368719586778">መጀመሪያ ቀን <ph name="DATE" /></translation>
 <translation id="7423098979219808738">መጀመሪያ ጠይቅ</translation>
 <translation id="7423538860840206698">ቅንጥብ ሰሌዳን ከማንበብ ታግዷል</translation>
 <translation id="7437998757836447326">ዘግተው ከChrome ይውጡ</translation>
@@ -829,6 +839,7 @@
 <translation id="8313455859591948645">የጅምር መነሻ ገጽን ያርትዑ</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> እና ተጨማሪ ጣቢያዎች</translation>
 <translation id="8339163506404995330">በ<ph name="LANGUAGE" /> ያሉ ገጾች አይተረጎሙም</translation>
+<translation id="8349013245300336738">ጥቅም ላይ በዋለው የውሂብ መጠን ደርድር</translation>
 <translation id="8363501664269050863">የአሰሳ ፓነል። ለመዝጋት ወደ ታች ያንሸራትቱ።</translation>
 <translation id="8372893542064058268">ለአንድ የተወሰነ ጣቢያ የጀርባ ስምረትን ይፍቀዱ።</translation>
 <translation id="8374821112118309944">TalkBackን ወደ አዲስ ስሪት ማዘመን አለብዎት።</translation>
@@ -888,6 +899,7 @@
 <translation id="8912362522468806198">የGoogle መለያ</translation>
 <translation id="8920114477895755567">የወላጆች ዝርዝሮችን በመጠበቅ ላይ።</translation>
 <translation id="8922289737868596582">ገጾችን ከመስመር ውጭ ለመጠቀም ከተጨማሪ አማራጮች አዝራሩ ላይ ያውርዱ</translation>
+<translation id="8934029156920711950">ለእርስዎ በተለየ የተመረጡትን ጽሑፎች ለማየት መታ ያድርጉ</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">በሌላ መስኮት ውስጥ ክፈት</translation>
 <translation id="8951232171465285730">Chrome <ph name="MEGABYTES" /> ሜባ ቆጥቦልዎታል</translation>
@@ -910,6 +922,7 @@
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> ኪባ ወርዷል</translation>
 <translation id="9100505651305367705">የሚደገፍ ሲሆን ጽሑፎችን በተቃለለ እይታ ለማሳየት ጠይቅ</translation>
 <translation id="9100610230175265781">የይለፍ ሐረግ ያስፈልጋል</translation>
+<translation id="9100939710791843300">አዲሱን የትር ገጽ ለመጫን እና እንዲነበቡ የተጠቆሙትን ጽሑፎች ለመመልከት መነሻ አዝራሩን መታ ያድርጉ</translation>
 <translation id="9133515669113036225">የመሣሪያ ምስክርነቶችን ዳግም ያስጀምሩ</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">ጣቢያዎች ማሳወቂያዎችን እንዲልኩ ከመፍቀድ በፊት ይጠይቅ (የሚመከር)</translation>

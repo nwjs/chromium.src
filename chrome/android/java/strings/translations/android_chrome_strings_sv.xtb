@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Här visas bokmärken som du har sparat på andra enheter.</translation>
 <translation id="1113597929977215864">Använd förenklad visning</translation>
 <translation id="1121094540300013208">Användning och felrapporter</translation>
+<translation id="11221688409173367">Tryck på hemknappen om du vill se artiklar som valts ut för dig</translation>
 <translation id="1129510026454351943">Mer information: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Radera befintlig data.</translation>
 <translation id="1146678959555564648">Kliv in i VR</translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">Redigera kortet</translation>
 <translation id="2154710561487035718">Kopiera webbadress</translation>
 <translation id="2156074688469523661">Återstående webbplatser (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Tryck här om du vill öppna sidan Ny flik på den aktuella fliken</translation>
 <translation id="219985413780390209">Skydda dig själv och enheten från farliga webbplatser</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, webbapp. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Fortsätt som <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">Uppdatera sidan</translation>
 <translation id="2709516037105925701">Autofyll</translation>
 <translation id="271033894570825754">Ny</translation>
+<translation id="2736391366332017384">Tryck på hemknappen om du vill öppna sidan Ny flik på den aktuella fliken</translation>
 <translation id="2744248271121720757">Tryck på ett ord om du vill söka direkt eller visa relaterade åtgärder</translation>
 <translation id="2762000892062317888">nyss</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> sekunder kvar</translation>
@@ -462,6 +465,7 @@ Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_
 <translation id="5152843274749979095">Inga appar som stöds finns installerade</translation>
 <translation id="5161254044473106830">Titel krävs</translation>
 <translation id="5168917394043976756">Öppna navigeringspanelen</translation>
+<translation id="5171365962177408781">Tryck här om du vill läsa in sidan Ny flik och se artikelförslag</translation>
 <translation id="5184329579814168207">Öppna i Chrome</translation>
 <translation id="5199929503336119739">Jobbprofil</translation>
 <translation id="5210286577605176222">Hoppa till föregående flik</translation>
@@ -888,6 +892,7 @@ Du hämtar nya licenser genom att ansluta till internet och spela upp det nedlad
 <translation id="8912362522468806198">Google-konto</translation>
 <translation id="8920114477895755567">Väntar på föräldrauppgifter.</translation>
 <translation id="8922289737868596582">Ladda ned sidor via knappen Fler alternativ så att du kan använda dem offline</translation>
+<translation id="8934029156920711950">Tryck här om du vill se artiklar som valts ut för dig</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Öppna i ett annat fönster</translation>
 <translation id="8951232171465285730">Du har sparat <ph name="MEGABYTES" /> MB med Chrome</translation>
@@ -910,6 +915,7 @@ Du hämtar nya licenser genom att ansluta till internet och spela upp det nedlad
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> kB används av nedladdningar</translation>
 <translation id="9100505651305367705">Fråga om artiklarna ska visas i en förenklad vy när detta stöds</translation>
 <translation id="9100610230175265781">Lösenfras krävs</translation>
+<translation id="9100939710791843300">Tryck på hemknappen om du vill läsa in sidan Ny flik och se artikelförslag</translation>
 <translation id="9133515669113036225">Återställ användaruppgifter för enheten</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Fråga innan webbplatser tillåts att skicka aviseringar (rekommenderas)</translation>

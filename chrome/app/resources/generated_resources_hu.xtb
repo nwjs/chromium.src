@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Tanúsítvány típusa</translation>
 <translation id="1297175357211070620">Cél</translation>
 <translation id="1297922636971898492">A Google Drive jelenleg nem érhető el. A feltöltés automatikusan újrakezdődik, amint a Google Drive elérhetővé válik.</translation>
+<translation id="1300415640239881824">A védett tartalom bővített lejátszására vonatkozó jogosultság megállapításához a(z) <ph name="DOMAIN" /> azt szeretné, hogy a Google ellenőrizze az eszköz azonosságát.</translation>
 <translation id="1300806585489372370">A beállítás módosításához előbb <ph name="BEGIN_LINK" />kapcsolja be az azonosítókat<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">A JavaScript engedélyezése Apple-eseményekből</translation>
 <translation id="1303101771013849280">Könyvjelzők HTML-fájlja</translation>
@@ -2477,6 +2478,7 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="4856478137399998590">Adatszolgáltatását aktiválta, és az használatra kész</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Összes megnyitása &amp;inkognitóablakban}=1{Megnyitás &amp;inkognitóablakban}other{Összes (#) megnyitása &amp;inkognitóablakban}}</translation>
 <translation id="4858913220355269194">Foci</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – A videó lejátszása kép a képben módban történik</translation>
 <translation id="4862050643946421924">Eszköz hozzáadása…</translation>
 <translation id="4862642413395066333">OCSP (valós idejű tanúsítványlekérdezés) válaszok aláírása</translation>
 <translation id="4863769717153320198">Megjelenés: <ph name="WIDTH" /> × <ph name="HEIGHT" /> (alapértelmezett)</translation>
@@ -4459,6 +4461,7 @@ A(z) <ph name="APP_NAME" /> telepítésével <ph name="DOWNLOAD_SIZE" /> adatot 
 <translation id="7839051173341654115">Média megtekintése/biztonsági másolat készítése</translation>
 <translation id="7839192898639727867">Tanúsítványtulajdonos kulcsazonosítója</translation>
 <translation id="7839804798877833423">E fájlok lekérése mintegy <ph name="FILE_SIZE" />-nyi mobiladat-forgalmat fog generálni.</translation>
+<translation id="7844553762889824470">Jelölje ki, amit meg szeretne hallgatni, majd nyomja meg a Keresés+S billentyűkombinációt. Vagy pedig tartsa lenyomva a Keresés gombot – vagy koppintson a profilképe melletti Felolvasás ikonra a kiválasztáshoz.</translation>
 <translation id="7844992432319478437">Diff frissítése</translation>
 <translation id="7846076177841592234">Kijelölés törlése</translation>
 <translation id="7846634333498149051">Billentyűzet</translation>
@@ -5367,6 +5370,7 @@ A kulcsfájlt tartsa biztonságos helyen. Szüksége lesz rá ahhoz, hogy új ve
 <translation id="952992212772159698">Nincs aktiválva</translation>
 <translation id="957960681186851048">Ez a webhely megpróbált automatikusan letölteni több fájlt</translation>
 <translation id="9580706199804957">Nem sikerült csatlakozni a Google-szolgáltatásokhoz</translation>
+<translation id="958416628331784386">A videó lejátszása a lapon kép a képben módban történik</translation>
 <translation id="958515377357646513">Érintse meg a továbblépéshez.</translation>
 <translation id="960719561871045870">Operátorkód</translation>
 <translation id="960987915827980018">Körülbelül 1 óra van hátra</translation>

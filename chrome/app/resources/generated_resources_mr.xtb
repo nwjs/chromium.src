@@ -88,6 +88,7 @@
 <translation id="1123187597739372905">सिंक सेटिंग्ज दाखवा</translation>
 <translation id="1123316951456119629">आपले Google खाते <ph name="PRODUCT_NAME" /> वरून डिस्कनेक्ट केल्याने, या संगणकावर आपला डेटा तसाच राहील परंतु बदल आपल्या Google खात्यामध्ये अधिक संंकालित केले जाणार नाहीत. आपल्या Google खात्यात आधीपासून संचयित केलेला डेटा <ph name="BEGIN_LINK" />Google डॅशबोर्ड<ph name="END_LINK" /> वापरून जोपर्यंत काढत नाही तोपर्यंत तो तेथे राहील.</translation>
 <translation id="1124772482545689468">वापरकर्ता</translation>
+<translation id="1125550662859510761"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (नेटिव्ह) सारखे दिसते</translation>
 <translation id="1128109161498068552">MIDI डिव्हाइसवर प्रवेश करण्यासाठी सिस्टम विशेष संदेश वापरण्याकरिता कोणत्याही साइटला अनुमती देऊ नका</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">शोध इंजिन संपादित करा</translation>
@@ -100,6 +101,7 @@
 <translation id="1145292499998999162">प्लगिन अवरोधित</translation>
 <translation id="1145532888383813076">तुमच्या डिव्हाइस, अॅप्स आणि वेबवर शोधा.</translation>
 <translation id="1146204723345436916">HTML फायलीवरुन बुकमार्क आयात करा...</translation>
+<translation id="114721135501989771">Chrome मध्ये Google स्मार्ट मिळवा</translation>
 <translation id="1148097584170732637"><ph name="FILE_COUNT" /> आढळले.
     <ph name="LINE_BREAK1" />
     स्थानिक स्टोरेजमध्ये पुरेशी जागा उपलब्ध नाही. अतिरिक्त <ph name="FILE_SIZE" /> आवश्यक आहे.
@@ -207,6 +209,7 @@
 <translation id="1296497012903089238">प्रमाणपत्र प्रकार</translation>
 <translation id="1297175357211070620">गंतव्य</translation>
 <translation id="1297922636971898492">Google ड्राइव्ह आत्ता उपलब्ध नाही. Google ड्राइव्ह एकदा परत आल्यानंतर अपलोड करणे स्वयंचलितपणे रीस्टार्ट होईल.</translation>
+<translation id="1300415640239881824">संरक्षित आशयाची अधिक चांगल्या प्लेबॅकसाठी पात्रता निर्धारित करण्यासाठी <ph name="DOMAIN" /> ला तुमच्या डिव्हाइसची Google कडून ओळख पडताळणी करून हवी आहे.</translation>
 <translation id="1300806585489372370">हे सेटिंग बदलण्यासाठी, प्रथम <ph name="BEGIN_LINK" />आयडेंटिफायर चालू करा<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Apple इव्हेंट वरून JavaScript ला अनुमती द्या</translation>
 <translation id="1303101771013849280">HTML फाईल बुकमार्क करते</translation>
@@ -270,6 +273,7 @@
 <translation id="1396963298126346194">आपण प्रविष्‍ट केलेले वापरकर्तानाव आणि पासवर्ड जुळत नाही</translation>
 <translation id="1397854323885047133">सिंक आणि पर्सनलायझेयन</translation>
 <translation id="1398853756734560583">वाढवा</translation>
+<translation id="1399511500114202393">वापरकर्ता सर्टिफिकेट नाही</translation>
 <translation id="140250605646987970">आपला फोन सापडला. परंतु Smart Lock केवळ Android 5.0 आणि वरील डिव्हाइसेसवर कार्य करते. &lt;a&gt;अधिक जाणून घ्या&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (पर्यवेक्षी)</translation>
 <translation id="1405476660552109915">या साइटसाठी <ph name="PASSWORD_MANAGER_BRAND" /> ने आपले खाते सेव्ह करावे असे आपण इच्छिता?</translation>
@@ -356,6 +360,7 @@
 <translation id="1511388193702657997">आपले वेब पासवर्ड सेव्ह करण्याचा ऑफर देते</translation>
 <translation id="1512210426710821809">हे पहिल्यासारखे करण्‍याचा एकमेव मार्ग म्‍हणजे <ph name="IDS_SHORT_PRODUCT_OS_NAME" /> पुन्हा इन्‍स्‍टॉल करणे.</translation>
 <translation id="151501797353681931">Safari मधून आयात केलेले</translation>
+<translation id="1520605251886806589">Chrome आणि भाषांतर, शोध आणि जाहिरातींसारख्या इतर Google सेवा पर्सनलाइझ करण्यासाठी Google तुम्ही भेट देत असलेल्या साइटवरील आशय आणि ब्राउझिंग अॅक्टिव्हिटी तसेच परस्परसंवाद वापरू शकते. तुम्ही हे सेटिंग्जमध्ये कस्टमाइझ करू शकता.</translation>
 <translation id="1521442365706402292">प्रमाणपत्रे व्यवस्थापित करा</translation>
 <translation id="152234381334907219">कधीही सेव्ह न केलेले</translation>
 <translation id="1524430321211440688">कीबोर्ड</translation>
@@ -428,6 +433,7 @@
 <translation id="1637224376458524414">आपल्या iPhone वर हा बुकमार्क मिळवा</translation>
 <translation id="1637765355341780467">आपले प्रोफाइल उघडताना काहीतरी चूक झाली. काही वैशिष्ट्ये अनुपलब्ध असू शकतात.</translation>
 <translation id="1639239467298939599">लोड करीत आहे</translation>
+<translation id="163993578339087550"><ph name="SERVICE_NAME" /> ला तुम्ही पात्र Chrome OS डिव्हाइस वापरता आहात का हे तपासायचे आहे.</translation>
 <translation id="1640283014264083726">PKCS #1 RSA कूटबद्धीकरणासह MD4</translation>
 <translation id="1642494467033190216">इतर डीबगिंग वैशिष्‍ट्ये सक्षम करण्‍यापूर्वी rootfs संरक्षण काढणे आणि रीस्‍टार्ट करणे आवश्‍यक आहे.</translation>
 <translation id="1643050526526937107">फक्त सिंक करा</translation>
@@ -763,6 +769,7 @@
 <translation id="2151576029659734873">अवैध टॅब अनुक्रमणिका एंटर केली.</translation>
 <translation id="2154484045852737596">कार्ड संपादित करा</translation>
 <translation id="2154710561487035718">URL कॉपी करा</translation>
+<translation id="2155772377859296191"><ph name="WIDTH" /> x <ph name="HEIGHT" /> सारखे दिसते</translation>
 <translation id="215753907730220065">पूर्ण स्क्रीनमधून निर्गमन करा</translation>
 <translation id="2157875535253991059">हे पृष्ठ आता फुल स्‍क्रीन असेल.</translation>
 <translation id="216169395504480358">वाय-फाय जोडा...</translation>
@@ -921,6 +928,7 @@
 <translation id="2408955596600435184">आपला पिन प्रविष्‍ट करा</translation>
 <translation id="241082044617551207">अज्ञात प्लगिन</translation>
 <translation id="2413749388954403953">बुकमार्क वापरकर्ता इंटरफेस बदला</translation>
+<translation id="2419706071571366386">सुरक्षिततेसाठी, तुमचा काँप्युटर वापरला जात नसताना साइन आउट करा.</translation>
 <translation id="2422426094670600218">&lt;अनामित&gt;</translation>
 <translation id="2423578206845792524">म्हणून इमेज ज&amp;तन करा...</translation>
 <translation id="2425665904502185219">एकूण फाइल आकार</translation>
@@ -1002,6 +1010,7 @@
 <translation id="253434972992662860">&amp;विराम द्या</translation>
 <translation id="2534460670861217804">सुरक्षित HTTP प्रॉक्सी</translation>
 <translation id="253557089021624350">Keepalive गणना</translation>
+<translation id="2538361623464451692">सिंक बंद केले आहे</translation>
 <translation id="2540384386570049483">या साइटवर जाहिरातींना अनुमती द्या</translation>
 <translation id="2541423446708352368">सर्व डाउनलोड दर्शवा</translation>
 <translation id="2542049655219295786">Google सारणी</translation>
@@ -2250,6 +2259,7 @@
 <translation id="4508765956121923607">स्त्रो&amp;त पाहा</translation>
 <translation id="451407183922382411"><ph name="COMPANY_NAME" />ने समर्थित करा</translation>
 <translation id="4514542542275172126">नवीन पर्यवेक्षी वापरकर्ता सेट अप करा</translation>
+<translation id="4514610446763173167">प्ले करण्यासाठी किंवा थांबवण्यासाठी व्हिडिओ टॉगल करा</translation>
 <translation id="451515744433878153">काढा</translation>
 <translation id="4518677423782794009">Chrome क्रॅश होत आहे का, असामान्य प्रारंभ पृष्‍ठे, टूलबार किंवा आपण ज्यापासून सुटका करून घेऊ शकत नाहीत त्या अनपेक्षित जाहिराती दाखवत आहे किंवा अन्यथा आपला ब्राउझिंग अनुभव बदलत आहे? आपण Chrome क्लीनअप साधन चालवून समस्येचे निराकरण करण्‍यात सक्षम  असाल.</translation>
 <translation id="4518928191942891293">Termina VM मधील कंटेनर सुरू करत आहे.</translation>
@@ -2467,8 +2477,10 @@
 <translation id="4856478137399998590">तुमची मोबाइल सेवा सक्रिय झाली आणि वापरण्यासाठी तयार आहे</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{सर्व गुप्त विंडोमध्ये उघडा}=1{गुप्त विंडोमध्ये उघडा}one{सर्व (#) गुप्त विंडोमध्ये उघडा}other{सर्व (#) गुप्त विंडोमध्ये उघडा}}</translation>
 <translation id="4858913220355269194">फ्रिटझ</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - व्हिडिओ चित्रात-चित्र मध्ये प्ले होत आहे</translation>
 <translation id="4862050643946421924">डिव्हाइस जोडणे...</translation>
 <translation id="4862642413395066333">OCSP प्रतिसाद साइन करत आहे</translation>
+<translation id="4863769717153320198"><ph name="WIDTH" /> x <ph name="HEIGHT" /> (डीफॉल्ट) सारखे दिसते</translation>
 <translation id="4864369630010738180">साइन इन करत आहे...</translation>
 <translation id="486635084936119914">डाउनलोड केल्यानंतर काही फाईल प्रकार स्वयंचलितपणे उघडा</translation>
 <translation id="4869142322204669043">Google, <ph name="IDS_SHORT_PRODUCT_NAME" /> आणि भाषांतर, शोध आणि जाहिरातींसारख्‍या इतर Google सेवा पर्सनलाइझ करण्यासाठी तुम्ही भेट देत असलेल्या साइटवरील आशय आणि ब्राउझिंग अॅक्टिव्हिटी आणि संवादाचा वापर करू शकते. तुम्ही हे सेटिंग्जमध्ये कधीही कस्टमाइझ करू शकता.</translation>
@@ -3064,6 +3076,7 @@
 <translation id="572392919096807438">माझा निर्णय लक्षात ठेवा</translation>
 <translation id="5727728807527375859">विस्तार, अॅप्लिकेशन आणि थीम आपल्या संगणकास हानी पोहोचवू शकतात. तुमची खात्री आहे की आपण सुरू ठेवू इच्छिता?</translation>
 <translation id="5729712731028706266">&amp;दृश्य</translation>
+<translation id="5731185123186077399">Google Pay सारख्या पर्सनलाइझ केलेल्या Google सेवा</translation>
 <translation id="5731247495086897348">पे&amp;स्ट करा आणि जा</translation>
 <translation id="5731409020711461763">1 नवीन फोटो</translation>
 <translation id="5734362860645681824">संप्रेषणे</translation>
@@ -4119,6 +4132,7 @@
 <translation id="7366415735885268578">एक साइट जोडा</translation>
 <translation id="7366909168761621528">ब्राउझिंग डेटा</translation>
 <translation id="7371006317849674875">सुरू होण्‍याची वेळ</translation>
+<translation id="737439367876257440">Google ला सिस्टम आणि वापर माहिती पाठवून Chrome आणि त्याच्या सुरक्षिततेत सुधारणा करा</translation>
 <translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">माऊस कर्सर हलताना हायलाइट करा</translation>
 <translation id="7377169924702866686">Caps Lock सुरू आहे.</translation>
@@ -4443,6 +4457,7 @@
 <translation id="7839051173341654115">पहा/बॅकअप घ्‍या मीडिया</translation>
 <translation id="7839192898639727867">प्रमाणपत्र विषय की आयडी</translation>
 <translation id="7839804798877833423">या फायली प्राप्त करताना अंदाजे <ph name="FILE_SIZE" /> मोबाइल डेटा वापरला जाईल.</translation>
+<translation id="7844553762889824470">तुम्हाला जे ऐकायचे आहे ते हायलाइट करा, त्यानंतर शोध + S दाबा. निवड करण्यासाठी तुम्ही शोध कीदेखील दाबून आणि धरून ठेवू शकता किंवा तुमच्या प्रोफाइल इमेजजवळच्या बोलण्यासाठी निवडा आयकनवर टॅप करू शकता.</translation>
 <translation id="7844992432319478437">फरक अपडेट करत आहे</translation>
 <translation id="7846076177841592234">निवड रद्द करा</translation>
 <translation id="7846634333498149051">कीबोर्ड</translation>
@@ -4545,6 +4560,7 @@
 <translation id="7984180109798553540">जोडलेल्या सुरक्षिततेसाठी, <ph name="PRODUCT_NAME" /> आपला डेटा कूटबद्ध करेल.</translation>
 <translation id="7986295104073916105">सेव्ह केलेल्या पासवर्ड सेटिंग्ज वाचा आणि बदला</translation>
 <translation id="798749371774946697">मशीन नाव खूप मोठे आहे</translation>
+<translation id="7987764905897278458">Google स्मार्टकडून बरेच काही मिळवा</translation>
 <translation id="7988355189918024273">प्रवेश वैशिष्ट्ये सक्षम करा</translation>
 <translation id="7994702968232966508">EAP पद्धत</translation>
 <translation id="799547531016638432">शॉर्टकट काढा</translation>
@@ -4815,6 +4831,7 @@
 <translation id="8427292751741042100">कोणत्याही होस्टवर एंबेड होण्यासारखे आहे</translation>
 <translation id="8428213095426709021">सेटिंग्ज</translation>
 <translation id="8428634594422941299">समजले</translation>
+<translation id="84297032718407999">तुम्हाला <ph name="LOGOUT_TIME_LEFT" /> मध्ये साइन आउट केले जाईल</translation>
 <translation id="8431909052837336408">सिम पिन बदला</translation>
 <translation id="8434480141477525001">NaCl  डीबग पोर्ट</translation>
 <translation id="843760761634048214">क्रेडिट कार्ड सेव्ह करा</translation>
@@ -5275,6 +5292,7 @@
 <translation id="912419004897138677">कोडेक</translation>
 <translation id="9125466540846359910"><ph name="LICENSE_TYPE" /> (<ph name="LICENSE_COUNT" /> शि.)</translation>
 <translation id="9128870381267983090">नेटवर्कशी कनेक्ट करा</translation>
+<translation id="9129010913019873477"><ph name="PERCENTAGE" /> (डीफॉल्ट)</translation>
 <translation id="9130015405878219958">अवैध मोड एंटर केले.</translation>
 <translation id="9130775360844693113">'<ph name="DESTINATION_NAME" />' चे सदस्य या आयटमचा अॅक्सेस मिळवतील.</translation>
 <translation id="9131487537093447019">Bluetooth डिव्हाइसेस वर संदेश पाठवा आणि त्यावरून प्राप्त करा.</translation>
@@ -5349,10 +5367,12 @@
 <translation id="952992212772159698">सक्रिय नाही</translation>
 <translation id="957960681186851048">या साइटने एकाहून अधिक फायली आपोआप डाउनलोड करण्याचा प्रयत्न केला</translation>
 <translation id="9580706199804957">Google सेवांशी कनेक्ट करता आले नाही</translation>
+<translation id="958416628331784386">हा टॅब व्हिडिओ चित्रात-चित्र मध्ये प्ले करत आहे.</translation>
 <translation id="958515377357646513">पुढे जाण्यासाठी स्पर्श करा.</translation>
 <translation id="960719561871045870">ऑपरेटर कोड</translation>
 <translation id="960987915827980018">सुमारे 1 तास बाकी</translation>
 <translation id="962802172452141067">फोल्डर ट्री बुकमार्क करा</translation>
+<translation id="964286338916298286">तुमच्या IT अॅडमिनिस्ट्रेटरने तुमच्या डिव्हाइससाठी Chrome Goodies बंद केले आहे.</translation>
 <translation id="964439421054175458">{NUM_APLLICATIONS,plural, =1{अॅप्लिकेशन}one{अॅप्लिकेशन}other{अॅप्लिकेशन}}</translation>
 <translation id="968000525894980488">Google Play सेवा चालू करा.</translation>
 <translation id="968174221497644223">अॅप्लिकेशन कॅश  </translation>

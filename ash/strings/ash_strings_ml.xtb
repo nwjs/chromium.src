@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">"<ph name="DEVICE_NAME" />" എന്ന Bluetooth ഉപകരണം ജോടിയാക്കുന്നതിനുള്ള അനുമതി ആവശ്യപ്പെടുന്നു.</translation>
 <translation id="453661520163887813">പൂർത്തിയാകാൻ ശേഷിക്കുന്ന സമയം <ph name="TIME" /></translation>
 <translation id="4544944664594876241">സ്‌ക്രീൻ ലോക്കുചെയ്യുന്നതിനുള്ള കുറുക്കുവഴി മാറ്റി. <ph name="OLD_SHORTCUT" /> എന്നതിന് പകരം <ph name="NEW_SHORTCUT" /> ഉപയോഗിക്കുക.</translation>
+<translation id="4564869809620998694">ഫോണ്ട് സേവനം</translation>
 <translation id="4570957409596482333">വായിച്ചുകേൾക്കാൻ തിരഞ്ഞെടുക്കുക ബട്ടൺ</translation>
 <translation id="4659419629803378708">ChromeVox പ്രവർത്തനക്ഷമമാക്കി</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> എന്നതിനായുള്ള പാസ്‌വേഡ്</translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">ടാപ്പുചെയ്‌ത് വലിച്ചിടൽ</translation>
 <translation id="5777841717266010279">സ്‌ക്രീൻ പങ്കിടൽ നിർത്തണോ?</translation>
 <translation id="57838592816432529">മ്യൂട്ടുചെയ്യുക</translation>
+<translation id="5805697420284793859">വിൻഡോ മാനേജർ</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">വ്യക്തിയെ ചേർക്കുക</translation>
 <translation id="5860033963881614850">ഓഫാക്കുക</translation>
 <translation id="5895138241574237353">പുനരാരംഭിക്കുക</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">ഷോട്ട്കട്ട് വ്യൂവർ</translation>
 <translation id="5916664084637901428">ഓൺ ചെയ്യുക</translation>
 <translation id="5927132638760172455">ഒരു അജ്ഞാത റിസീവറിലേക്ക് കാസ്റ്റുചെയ്യുന്നു</translation>
 <translation id="5947494881799873997">പഴയപടിയാക്കുക</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">മൊബൈലുകളൊന്നും കണ്ടെത്തിയില്ല.</translation>
 <translation id="671928215901716392">സ്‌ക്രീൻ ലോക്കുചെയ്യുക</translation>
 <translation id="6723839937902243910">പവർ</translation>
+<translation id="6725073593266469338">UI സേവനം</translation>
 <translation id="6785414152754474415">ബാറ്ററി <ph name="PERCENTAGE" />% നിറഞ്ഞിരിക്കുന്നു, ചാർജുചെയ്യൽ തുടരുന്നു.</translation>
 <translation id="6803622936009808957">പിന്തുണയ്‌ക്കുന്ന മിഴിവുകൾ കണ്ടെത്താത്തതിനാൽ പ്രദർശനങ്ങൾ പ്രതിഫലിപ്പിക്കാനായില്ല. പകരം വിപുലീകൃത ഡെസ്‌ക്‌ടോപ്പ് നൽകി.</translation>
 <translation id="6820676911989879663">ഒരു ഇടവേള എടുക്കൂ!</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">കുറിപ്പ് സൃഷ്‌ടിക്കുക</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> എന്നതിനുള്ള ഓപ്‌ഷനുകൾ മെനു</translation>
 <translation id="8428213095426709021">ക്രമീകരണങ്ങള്‍</translation>
+<translation id="8431190899827883166">ഷോ ടാപ്‌സ്</translation>
 <translation id="8433186206711564395">നെറ്റ്‍വര്‍ക്ക് ക്രമീകരണങ്ങള്‍</translation>
 <translation id="8433977262951327081">ഷെൽഫിലെ ഇൻപുട്ട് ഓപ്ഷൻ മെനു ബബിൾ കാണുന്നതിനുള്ള കുറുക്കുവഴി മാറ്റി. <ph name="OLD_SHORTCUT" /> എന്നതിന് പകരം <ph name="NEW_SHORTCUT" /> ഉപയോഗിക്കുക.</translation>
 <translation id="8452135315243592079">സിം കാർഡ് കാണുന്നില്ല</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">Google അസിസ്‌റ്റന്‍റ് ഈ ഭാഷ സംസാരിക്കില്ല.</translation>
 <translation id="8938800817013097409">USB-C ഉപകരണം (പുറകിൽ വലതുവശത്തെ പോർട്ട്)</translation>
 <translation id="8940956008527784070">ബാറ്ററി കുറവാണ് (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">ക്വിക്ക് ലോഞ്ച്</translation>
 <translation id="8995603266996330174"><ph name="DOMAIN" /> എന്നത് കൈകാര്യം ചെയ്യുന്നു</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">സൈൻ ഔട്ട് ചെയ്യുന്നതിന് രണ്ടു‌തവണ Control Shift Q അമർത്തുക.</translation>
 <translation id="945522503751344254">ഫീഡ്ബാക്ക് അയയ്ക്കുക</translation>
 <translation id="98515147261107953">ലാന്‍ഡ്സ്കേപ്പ്</translation>
+<translation id="995927048686010764">ഓട്ടോക്ലിക്ക്</translation>
 </translationbundle>

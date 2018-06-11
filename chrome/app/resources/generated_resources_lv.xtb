@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Sertifikāta veids</translation>
 <translation id="1297175357211070620">Printeris</translation>
 <translation id="1297922636971898492">Google disks pašlaik nav pieejams. Augšupielāde tiks automātiski atsākta, tiklīdz Google disks atkal būs pieejams.</translation>
+<translation id="1300415640239881824">Domēns <ph name="DOMAIN" /> vēlas jūsu ierīces identitātes verifikāciju, ko veic Google, lai noteiktu, vai ierīce ir piemērota aizsargāta satura uzlabotai atskaņošanai.</translation>
 <translation id="1300806585489372370">Lai mainītu šo iestatījumu, vispirms <ph name="BEGIN_LINK" />ieslēdziet identifikatoru izmantošanu<ph name="END_LINK" />.</translation>
 <translation id="1302227299132585524">Atļaut izmantot JavaScript no Apple Events</translation>
 <translation id="1303101771013849280">Grāmatzīmju HTML fails</translation>
@@ -2477,6 +2478,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="4856478137399998590">Jūsu mobilo datu pakalpojums ir aktivizēts un gatavs lietošanai</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Atvērt visas inkognito režīma logā}=1{Atvērt inkognito režīma logā}zero{Atvērt visas (#) inkognito režīma logā}one{Atvērt visas (#) inkognito režīma logā}other{Atvērt visas (#) inkognito režīma logā}}</translation>
 <translation id="4858913220355269194">Futbolbumba</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> — videoklips tiek atskaņots režīmā “Attēls attēlā”</translation>
 <translation id="4862050643946421924">Ierīces pievienošana...</translation>
 <translation id="4862642413395066333">OCSP atbilžu parakstīšana</translation>
 <translation id="4863769717153320198">Noteiktā izšķirtspēja: <ph name="WIDTH" /> x <ph name="HEIGHT" /> (noklusējuma)</translation>
@@ -4456,6 +4458,7 @@ Lietotnes <ph name="APP_NAME" /> instalēšana patērēs <ph name="DOWNLOAD_SIZE
 <translation id="7839051173341654115">Skatīt/dublēt multivides saturu</translation>
 <translation id="7839192898639727867">Sertifikāta subjekta atslēgas ID</translation>
 <translation id="7839804798877833423">Izgūstot šos failus, tiks izmantoti aptuveni <ph name="FILE_SIZE" /> mobilo datu.</translation>
+<translation id="7844553762889824470">Izceliet saturu, ko vēlaties noklausīties, pēc tam nospiediet meklēšanas taustiņu un taustiņu S. Varat arī nospiest meklēšanas taustiņu un turēt to nospiestu vai pieskarties ikonai “Atlasīt, lai izrunātu” blakus sava profila attēlam, lai atlasītu saturu.</translation>
 <translation id="7844992432319478437">Tiek augšupielādētas atšķirības</translation>
 <translation id="7846076177841592234">Atcelt atlasi</translation>
 <translation id="7846634333498149051">Tastatūra</translation>
@@ -5365,6 +5368,7 @@ Citas personas ar lēnu savienojumu, iespējams, neredzēs jūsu saturu.</transl
 <translation id="952992212772159698">Neaktivizēts</translation>
 <translation id="957960681186851048">Šī vietne mēģināja automātiski lejupielādēt vairākus failus</translation>
 <translation id="9580706199804957">Nevarēja izveidot savienojumu ar Google pakalpojumiem.</translation>
+<translation id="958416628331784386">Šajā cilnē videoklips tiek atskaņots režīmā “Attēls attēlā”.</translation>
 <translation id="958515377357646513">Pieskarieties, lai pārietu uz priekšu.</translation>
 <translation id="960719561871045870">Operatora kods</translation>
 <translation id="960987915827980018">Atlikusi apmēram 1 stunda</translation>

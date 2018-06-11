@@ -3974,7 +3974,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7119389851461848805">encendido</translation>
 <translation id="7120865473764644444">No se ha podido conectar con el servidor de sincronización. Reintentando...</translation>
 <translation id="7121362699166175603">Borra el historial y los autocompletados de la barra de direcciones. Es posible que tu cuenta de Google tenga otros tipos de historial de navegación en <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
-<translation id="7123360114020465152">Ya no se admite</translation>
+<translation id="7123360114020465152">Ya no es compatible</translation>
 <translation id="71243390042171582">Actualizada hace <ph name="MINUTES" /> minutos</translation>
 <translation id="7124929488592184705">Error al imprimir <ph name="DOCUMENT_NAME" /></translation>
 <translation id="7126604456862387217">&lt;b&gt;<ph name="SEARCH_STRING" />&lt;/b&gt; - &lt;em&gt;búsqueda en Drive&lt;/em&gt;</translation>

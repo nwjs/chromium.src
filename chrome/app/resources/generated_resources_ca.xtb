@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Tipus de certificat</translation>
 <translation id="1297175357211070620">Destinació</translation>
 <translation id="1297922636971898492">En aquest moment Google Drive no està disponible. La pujada es reiniciarà automàticament quan Google Drive torni a estar actiu.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> vol que Google verifiqui la identitat del dispositiu per determinar si s'hi pot utilitzar la reproducció millorada de contingut protegit.</translation>
 <translation id="1300806585489372370">Per canviar aquesta opció de configuració, primer <ph name="BEGIN_LINK" />activa els identificadors<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Permet JavaScript des d'Apple Events</translation>
 <translation id="1303101771013849280">Fitxer HTML d'adreces d'interès</translation>
@@ -2475,6 +2476,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="4856478137399998590">El servei de dades mòbils està activat i a punt per fer servir</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Obre-les totes en una &amp;finestra d'incògnit}=1{Obre en una &amp;finestra d'incògnit}other{Obre-les totes (#) en una &amp;finestra d'incògnit}}</translation>
 <translation id="4858913220355269194">Pilota</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" />: s'està reproduint el vídeo en mode de pantalla en pantalla</translation>
 <translation id="4862050643946421924">S'està afegint el dispositiu...</translation>
 <translation id="4862642413395066333">Signatura de respostes OCSP</translation>
 <translation id="4863769717153320198">Sembla que és <ph name="WIDTH" /> x <ph name="HEIGHT" /> (resolució predeterminada)</translation>
@@ -4448,6 +4450,7 @@ En instal·lar <ph name="APP_NAME" />, s'utilitzaran <ph name="DOWNLOAD_SIZE" />
 <translation id="7839051173341654115">Mostra els fitxers multimèdia o fes-ne una còpia de seguretat</translation>
 <translation id="7839192898639727867">Identificador de clau del subjecte del certificat</translation>
 <translation id="7839804798877833423">Per obtenir aquests fitxers s'utilitzaran aproximadament <ph name="FILE_SIZE" /> de dades mòbils.</translation>
+<translation id="7844553762889824470">Destaca el que vulguis escoltar i, a continuació, prem Cerca+S. També pots mantenir premuda la tecla Cerca o tocar la icona d'Escolta la selecció que hi ha a prop de la teva imatge de perfil per fer una selecció.</translation>
 <translation id="7844992432319478437">S'està actualitzant la diferència.</translation>
 <translation id="7846076177841592234">Cancel·la la selecció</translation>
 <translation id="7846634333498149051">Teclat</translation>
@@ -5356,6 +5359,7 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="952992212772159698">No activat</translation>
 <translation id="957960681186851048">Aquest lloc web ha provat de baixar diversos fitxers automàticament</translation>
 <translation id="9580706199804957">No s'ha pogut establir la connexió amb els serveis de Google</translation>
+<translation id="958416628331784386">En aquesta pestanya s'està reproduint un vídeo en mode de pantalla en pantalla.</translation>
 <translation id="958515377357646513">Toca per anar endavant</translation>
 <translation id="960719561871045870">Codi d'operador</translation>
 <translation id="960987915827980018">Queda cosa d'una hora</translation>

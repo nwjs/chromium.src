@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Dấu trang được lưu trên thiết bị khác của bạn sẽ xuất hiện tại đây.</translation>
 <translation id="1113597929977215864">Hiển thị chế độ xem đơn giản</translation>
 <translation id="1121094540300013208">Báo cáo sử dụng và sự cố</translation>
+<translation id="11221688409173367">Chạm vào nút màn hình chính để xem các bài viết chọn lọc dành riêng cho bạn</translation>
 <translation id="1129510026454351943">Chi tiết: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Xóa dữ liệu hiện có.</translation>
 <translation id="1146678959555564648">Nhập VR</translation>
@@ -91,6 +92,7 @@
 <translation id="17513872634828108">Tab đang mở</translation>
 <translation id="1756600373018374892">Nhấn nút này để truy cập nhanh vào các tab của bạn.</translation>
 <translation id="1779089405699405702">Bộ giải mã hình ảnh</translation>
+<translation id="1782483593938241562">Ngày kết thúc <ph name="DATE" /></translation>
 <translation id="1792959175193046959">Thay đổi vị trí tải xuống mặc định bất cứ lúc nào</translation>
 <translation id="1807246157184219062">Sáng</translation>
 <translation id="1829244130665387512">Tìm trong trang</translation>
@@ -143,6 +145,7 @@
 <translation id="2154484045852737596">Chỉnh sửa thẻ</translation>
 <translation id="2154710561487035718">Sao chép URL</translation>
 <translation id="2156074688469523661">Số trang web còn lại (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Chạm để truy cập vào trang tab mới trong tab hiện tại của bạn</translation>
 <translation id="219985413780390209">Bảo vệ bạn và thiết bị của bạn khỏi các trang web nguy hiểm</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, ứng dụng web. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Tiếp tục bằng <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +205,8 @@
 <translation id="2707726405694321444">Làm mới trang</translation>
 <translation id="2709516037105925701">Tự động điền</translation>
 <translation id="271033894570825754">Mới</translation>
+<translation id="2728754400939377704">Sắp xếp theo trang web</translation>
+<translation id="2736391366332017384">Chạm vào nút màn hình chính để truy cập vào trang tab mới trong tab hiện tại của bạn</translation>
 <translation id="2744248271121720757">Hãy nhấn vào một từ để tìm kiếm ngay hoặc xem các hành động có liên quan</translation>
 <translation id="2762000892062317888">vừa xong</translation>
 <translation id="2777555524387840389">Còn <ph name="SECONDS" /> giây</translation>
@@ -352,6 +357,7 @@
 <translation id="4127069705158143605">{BOOKMARKS_COUNT,plural, =1{%1$d dấu trang}other{%1$d dấu trang}}</translation>
 <translation id="4165986682804962316">Cài đặt trang web</translation>
 <translation id="4170011742729630528">Dịch vụ không khả dụng; thử lại sau.</translation>
+<translation id="4179980317383591987">Đã dùng <ph name="AMOUNT" /></translation>
 <translation id="4181841719683918333">Ngôn ngữ</translation>
 <translation id="4195643157523330669">Mở bằng tab mới</translation>
 <translation id="4198423547019359126">Không có vị trí tải xuống</translation>
@@ -462,6 +468,7 @@ Tài khoản Google của bạn có thể có các dạng lịch sử duyệt we
 <translation id="5152843274749979095">Chưa cài đặt ứng dụng được hỗ trợ nào</translation>
 <translation id="5161254044473106830">Cần có tiêu đề</translation>
 <translation id="5168917394043976756">Mở ngăn điều hướng</translation>
+<translation id="5171365962177408781">Chạm để tải trang tab mới và xem các bài viết đề xuất</translation>
 <translation id="5184329579814168207">Mở trong Chrome</translation>
 <translation id="5199929503336119739">Hồ sơ công việc</translation>
 <translation id="5210286577605176222">Quay về tab trước</translation>
@@ -558,6 +565,7 @@ Tuy nhiên, bạn vẫn hiển thị. Truy cập ẩn danh sẽ không ẩn 
 <translation id="5911030830365207728">Google Dịch</translation>
 <translation id="5916664084637901428">Bật</translation>
 <translation id="5919204609460789179">Cập nhật <ph name="PRODUCT_NAME" /> để bắt đầu đồng bộ hóa</translation>
+<translation id="5937580074298050696">Tiết kiệm được <ph name="AMOUNT" /></translation>
 <translation id="5939518447894949180">Đặt lại</translation>
 <translation id="5942872142862698679">Sử dụng Google để tìm kiếm</translation>
 <translation id="5956665950594638604">Mở Trung tâm trợ giúp Chrome trong tab mới</translation>
@@ -638,6 +646,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="6612358246767739896">Nội dung được bảo vệ</translation>
 <translation id="6627583120233659107">Chỉnh sửa thư mục</translation>
 <translation id="6643016212128521049">Xóa</translation>
+<translation id="6643649862576733715">Sắp xếp theo lượng dữ liệu tiết kiệm được</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 và <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> tùy chọn khác}other{<ph name="CONTACT_PREVIEW" />\u2026 và <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> tùy chọn khác}}</translation>
 <translation id="6656545060687952787">Chrome cần có quyền truy cập vị trí để quét tìm thiết bị. <ph name="BEGIN_LINK" />Cập nhật quyền<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">Mật khẩu</translation>
@@ -724,6 +733,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">Trải nghiệm lần chạy đầu tiên của Chrome</translation>
 <translation id="741204030948306876">Có, tôi đồng ý</translation>
+<translation id="7413229368719586778">Ngày bắt đầu <ph name="DATE" /></translation>
 <translation id="7423098979219808738">Hỏi trước</translation>
 <translation id="7423538860840206698">Đã chặn quyền đọc khay nhớ tạm</translation>
 <translation id="7437998757836447326">Đăng xuất khỏi Chrome</translation>
@@ -829,6 +839,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="8313455859591948645">Chỉnh sửa trang khởi động</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> và các trang web khác</translation>
 <translation id="8339163506404995330">Các trang viết bằng <ph name="LANGUAGE" /> sẽ không được dịch</translation>
+<translation id="8349013245300336738">Sắp xếp theo lượng dữ liệu đã sử dụng</translation>
 <translation id="8363501664269050863">Bảng điều hướng. Vuốt xuống để đóng.</translation>
 <translation id="8372893542064058268">Cho phép Đồng bộ hóa dưới nền cho trang web cụ thể.</translation>
 <translation id="8374821112118309944">Bạn cần phải cập nhật TalkBack lên phiên bản mới hơn.</translation>
@@ -888,6 +899,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="8912362522468806198">Tài khoản Google</translation>
 <translation id="8920114477895755567">Đang đợi thông tin chi tiết của phụ huynh.</translation>
 <translation id="8922289737868596582">Tải trang xuống từ nút Thêm tùy chọn để sử dụng ngoại tuyến</translation>
+<translation id="8934029156920711950">Chạm để xem các bài viết chọn lọc dành riêng cho bạn</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Mở trong cửa sổ khác</translation>
 <translation id="8951232171465285730">Chrome đã tiết kiệm <ph name="MEGABYTES" /> MB cho bạn</translation>
@@ -910,6 +922,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="9099018167121903954">Đã tải xuống <ph name="KILOBYTES" /> KB</translation>
 <translation id="9100505651305367705">Đề xuất hiển thị các bài viết ở chế độ xem đơn giản khi được hỗ trợ</translation>
 <translation id="9100610230175265781">Yêu cầu cụm mật khẩu</translation>
+<translation id="9100939710791843300">Chạm vào nút màn hình chính để tải trang tab mới và xem các bài viết đề xuất</translation>
 <translation id="9133515669113036225">Đặt lại thông tin đăng nhập thiết bị</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Hỏi trước khi cho phép trang web gửi thông báo (được đề xuất)</translation>

@@ -2475,6 +2475,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4856478137399998590">Il servizio dati mobile è attivo e pronto all'uso</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Apri tutti in finestra di navigazione in &amp;incognito}=1{Apri in finestra di navigazione in &amp;incognito}other{Apri tutti (#) in finestra di navigazione in &amp;incognito}}</translation>
 <translation id="4858913220355269194">Holly</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Video riprodotto in modalità Picture in picture</translation>
 <translation id="4862050643946421924">Aggiunta del dispositivo...</translation>
 <translation id="4862642413395066333">Firma risposte OCSP</translation>
 <translation id="4863769717153320198">Sembra <ph name="WIDTH" /> x <ph name="HEIGHT" /> (Valore predefinito)</translation>
@@ -4445,6 +4446,7 @@ L'installazione dell'app <ph name="APP_NAME" /> scaricherà <ph name="DOWNLOAD_S
 <translation id="7839051173341654115">Visualizza/esegui backup contenuti multimediali</translation>
 <translation id="7839192898639727867">ID chiave soggetto certificato</translation>
 <translation id="7839804798877833423">Per il recupero di questi file verranno utilizzati circa <ph name="FILE_SIZE" /> di dati mobili.</translation>
+<translation id="7844553762889824470">Evidenzia il testo che vuoi farti leggere, poi premi il tasto per la ricerca + S. In alternativa, tieni premuto il tasto per la ricerca o tocca l'icona di Seleziona per ascoltare accanto alla tua immagine del profilo per effettuare una selezione.</translation>
 <translation id="7844992432319478437">Aggiornamento differenze in corso...</translation>
 <translation id="7846076177841592234">Annulla selezione</translation>
 <translation id="7846634333498149051">Tastiera</translation>
@@ -5353,6 +5355,7 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="952992212772159698">Non attivo</translation>
 <translation id="957960681186851048">Questo sito ha tentato di scaricare automaticamente più file</translation>
 <translation id="9580706199804957">Impossibile connettersi ai servizi Google</translation>
+<translation id="958416628331784386">In questa scheda è in corso la riproduzione di un video in modalità Picture in picture.</translation>
 <translation id="958515377357646513">Tocca per andare avanti.</translation>
 <translation id="960719561871045870">Codice operatore</translation>
 <translation id="960987915827980018">Circa un'ora rimanente</translation>

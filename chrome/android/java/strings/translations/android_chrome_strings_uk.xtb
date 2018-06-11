@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Тут відображатимуться закладки, збережені на інших ваших пристроях.</translation>
 <translation id="1113597929977215864">Показати в режимі спрощеного перегляду</translation>
 <translation id="1121094540300013208">Звіти про використання й аварійне завершення роботи</translation>
+<translation id="11221688409173367">Торкніться кнопки головного екрана, щоб переглянути статті, підібрані спеціально для вас</translation>
 <translation id="1129510026454351943">Деталі. <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Видалити наявні дані.</translation>
 <translation id="1146678959555564648">Увійти у VR-режим</translation>
@@ -91,6 +92,7 @@
 <translation id="17513872634828108">Відкриті вкладки</translation>
 <translation id="1756600373018374892">Торкніться цієї кнопки, щоб отримати швидкий доступ до вкладок.</translation>
 <translation id="1779089405699405702">Декодер зображень</translation>
+<translation id="1782483593938241562">Дата завершення: <ph name="DATE" /></translation>
 <translation id="1792959175193046959">Будь-коли змінюйте папку для завантажень за умовчанням</translation>
 <translation id="1807246157184219062">Світла</translation>
 <translation id="1829244130665387512">Знайти на сторінці</translation>
@@ -143,6 +145,7 @@
 <translation id="2154484045852737596">Редагувати картку</translation>
 <translation id="2154710561487035718">Копіювати URL-адресу</translation>
 <translation id="2156074688469523661">Інші сайти (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Торкніться, щоб перейти на сторінку нової вкладки в поточній вкладці</translation>
 <translation id="219985413780390209">Захистіть себе та свій пристрій від небезпечних сайтів</translation>
 <translation id="2206488550163399966">Веб-додаток <ph name="APP_NAME" />: <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Продовжити як <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +205,8 @@
 <translation id="2707726405694321444">Оновити сторінку</translation>
 <translation id="2709516037105925701">Автозаповнення</translation>
 <translation id="271033894570825754">Новий</translation>
+<translation id="2728754400939377704">Сортувати за сайтом</translation>
+<translation id="2736391366332017384">Торкніться кнопки головного екрана, щоб перейти на нову вкладку в поточній вкладці</translation>
 <translation id="2744248271121720757">Торкніться слова для миттєвого пошуку або перегляду схожих дій</translation>
 <translation id="2762000892062317888">щойно</translation>
 <translation id="2777555524387840389">Залишилося <ph name="SECONDS" /> с</translation>
@@ -352,6 +357,7 @@
 <translation id="4127069705158143605">{BOOKMARKS_COUNT,plural, =1{%1$d закладка}one{%1$d закладка}few{%1$d закладки}many{%1$d закладок}other{%1$d закладки}}</translation>
 <translation id="4165986682804962316">Налаштування сайту</translation>
 <translation id="4170011742729630528">Служба не доступна. Повторіть спробу пізніше.</translation>
+<translation id="4179980317383591987">Використано <ph name="AMOUNT" /></translation>
 <translation id="4181841719683918333">Мови</translation>
 <translation id="4195643157523330669">Відкрити в новій вкладці</translation>
 <translation id="4198423547019359126">Немає доступних місць для завантаження</translation>
@@ -462,6 +468,7 @@
 <translation id="5152843274749979095">Немає підтримуваних додатків</translation>
 <translation id="5161254044473106830">Введіть назву</translation>
 <translation id="5168917394043976756">Відкрити панель навігації</translation>
+<translation id="5171365962177408781">Торкніться, щоб завантажити сторінку нової вкладки та переглянути пропоновані статті</translation>
 <translation id="5184329579814168207">Відкрити в Chrome</translation>
 <translation id="5199929503336119739">Робочий профіль</translation>
 <translation id="5210286577605176222">Перейти до попередньої вкладки</translation>
@@ -558,6 +565,7 @@
 <translation id="5911030830365207728">Google Перекладач</translation>
 <translation id="5916664084637901428">Увімкнути</translation>
 <translation id="5919204609460789179">Оновіть <ph name="PRODUCT_NAME" />, щоб почати синхронізацію</translation>
+<translation id="5937580074298050696">Заощаджено <ph name="AMOUNT" /></translation>
 <translation id="5939518447894949180">Скинути</translation>
 <translation id="5942872142862698679">Пошук за допомогою Google</translation>
 <translation id="5956665950594638604">Відкрити Довідковий центр Chrome у новій вкладці</translation>
@@ -638,6 +646,7 @@
 <translation id="6612358246767739896">Захищений вміст</translation>
 <translation id="6627583120233659107">Редагувати папку</translation>
 <translation id="6643016212128521049">Очистити</translation>
+<translation id="6643649862576733715">Сортувати за кількістю заощадженого трафіку</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 і ще <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}one{<ph name="CONTACT_PREVIEW" />\u2026 і ще <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}few{<ph name="CONTACT_PREVIEW" />\u2026 і ще <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}many{<ph name="CONTACT_PREVIEW" />\u2026 і ще <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}other{<ph name="CONTACT_PREVIEW" />\u2026 і ще <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" />}}</translation>
 <translation id="6656545060687952787">Щоб знаходити пристрої, Chrome потрібний доступ до геоданих. <ph name="BEGIN_LINK" />Оновлити дозволи<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">Пароль</translation>
@@ -724,6 +733,7 @@
 <translation id="7400418766976504921">URL-адреса</translation>
 <translation id="7403691278183511381">Перший запуск Chrome</translation>
 <translation id="741204030948306876">Увімкнути</translation>
+<translation id="7413229368719586778">Дата початку: <ph name="DATE" /></translation>
 <translation id="7423098979219808738">Спершу запитувати</translation>
 <translation id="7423538860840206698">Заборонено переглядати буфер обміну</translation>
 <translation id="7437998757836447326">Вихід із Chrome</translation>
@@ -829,6 +839,7 @@
 <translation id="8313455859591948645">Редагувати стартову сторінку</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> та інші сайти</translation>
 <translation id="8339163506404995330">Сторінки цією мовою (<ph name="LANGUAGE" />) не перекладатимуться</translation>
+<translation id="8349013245300336738">Сортувати за кількістю використаного трафіку</translation>
 <translation id="8363501664269050863">Панель навігації. Проведіть пальцем униз, щоб закрити.</translation>
 <translation id="8372893542064058268">сайті.</translation>
 <translation id="8374821112118309944">Потрібно оновити додаток TalkBack до новішої версії.</translation>
@@ -888,6 +899,7 @@
 <translation id="8912362522468806198">Обліковий запис Google</translation>
 <translation id="8920114477895755567">Очікування даних батьків.</translation>
 <translation id="8922289737868596582">Щоб переглядати сторінки офлайн, завантажуйте їх, натиснувши кнопку "Більше опцій"</translation>
+<translation id="8934029156920711950">Торкніться, щоб переглянути статті, підібрані спеціально для вас</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Відкрити в іншому вікні</translation>
 <translation id="8951232171465285730">Chrome заощадив <ph name="MEGABYTES" /> МБ</translation>
@@ -910,6 +922,7 @@
 <translation id="9099018167121903954">Завантажено <ph name="KILOBYTES" /> КБ</translation>
 <translation id="9100505651305367705">Пропонувати статті в режимі спрощеного перегляду, якщо він підтримується</translation>
 <translation id="9100610230175265781">Потрібно вказати парольну фразу</translation>
+<translation id="9100939710791843300">Торкніться кнопки головного екрана, щоб завантажити сторінку нової вкладки та переглянути пропоновані статті</translation>
 <translation id="9133515669113036225">Скинути облікові дані пристрою</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Запитувати, перш ніж дозволити сайтам надсилати сповіщення (рекомендується)</translation>

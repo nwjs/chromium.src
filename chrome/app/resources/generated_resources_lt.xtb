@@ -2478,6 +2478,7 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="4856478137399998590">Duomenų mobiliesiems paslauga suaktyvinta ir paruošta naudoti</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Atidaryti viską &amp;inkognito lange}=1{Atidaryti &amp;inkognito lange}one{Atidaryti viską (#) &amp;inkognito lange}few{Atidaryti viską (#) &amp;inkognito lange}many{Atidaryti viską (#) &amp;inkognito lange}other{Atidaryti viską (#) &amp;inkognito lange}}</translation>
 <translation id="4858913220355269194">Šemberas</translation>
+<translation id="4862042298115071399">„<ph name="WINDOW_TITLE" />“ – vaizdo įrašas leidžiamas kaip vaizdas vaizde</translation>
 <translation id="4862050643946421924">Pridedamas įrenginys...</translation>
 <translation id="4862642413395066333">OCSP atsakų pasirašymas</translation>
 <translation id="4863769717153320198">Atrodo kaip <ph name="WIDTH" /> × <ph name="HEIGHT" /> (numatytasis)</translation>
@@ -4459,6 +4460,7 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="7839051173341654115">Peržiūrėti mediją / kurti jos atsarginę kopiją</translation>
 <translation id="7839192898639727867">Sertifikato subjekto rakto ID</translation>
 <translation id="7839804798877833423">Šiems failams gauti reikės apytiksliai <ph name="FILE_SIZE" /> duomenų mobiliesiems.</translation>
+<translation id="7844553762889824470">Paryškinkite tai, ką norite girdėti, tada paspauskite „Ieškoti“ + S. Arba norėdami pasirinkti paspauskite ir palaikykite paieškos klavišą ar palieskite piktogramą „Teksto ištarimas“ netoli profilio vaizdo.</translation>
 <translation id="7844992432319478437">Atnaujinamas skirt.</translation>
 <translation id="7846076177841592234">Atšaukti pasirinkimą</translation>
 <translation id="7846634333498149051">Klaviatūra</translation>
@@ -5367,6 +5369,7 @@ Rakto failą laikykite saugioje vietoje. Jo reikės, kai norėsite sukurti nauja
 <translation id="952992212772159698">Nesuaktyvinta</translation>
 <translation id="957960681186851048">Ši svetainė bandė automatiškai atsisiųsti kelis failus</translation>
 <translation id="9580706199804957">Nepavyko prisijungti prie „Google“ paslaugų</translation>
+<translation id="958416628331784386">Šiame skirtuke leidžiamas vaizdo įrašas, naudojant vaizdo vaizde funkciją</translation>
 <translation id="958515377357646513">Palieskite, kad eitumėte pirmyn.</translation>
 <translation id="960719561871045870">Operacijos ženklo kodas</translation>
 <translation id="960987915827980018">Liko apie 1 val.</translation>

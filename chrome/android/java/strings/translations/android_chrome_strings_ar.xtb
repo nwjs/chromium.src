@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">ستظهر هنا الإشارات التي تم حفظها على أجهزتك الأخرى.</translation>
 <translation id="1113597929977215864">إظهار العرض المبسَّط</translation>
 <translation id="1121094540300013208">تقارير الاستخدام والأعطال</translation>
+<translation id="11221688409173367">انقر على زر "الصفحة الرئيسية" لعرض المقالات المُختارة خصيصًا لك.</translation>
 <translation id="1129510026454351943">التفاصيل: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">يمكنك حذف البيانات الحالية.</translation>
 <translation id="1146678959555564648">‏إدخال VR</translation>
@@ -63,7 +64,7 @@
 <translation id="1513352483775369820">الإشارات المرجعية وسجل بحث الويب</translation>
 <translation id="1513858653616922153">حذف كلمة المرور</translation>
 <translation id="1516229014686355813">‏تعمل ميزة "البحث بالنقر" على إرسال الكلمة المُحدَّدة والصفحة الحالية كسياق إلى بحث Google. يمكنك إيقافها في <ph name="BEGIN_LINK" />الإعدادات<ph name="END_LINK" />.</translation>
-<translation id="1521008027388393450">المحتوى الشائع</translation>
+<translation id="1521008027388393450">المحتوى الرائج</translation>
 <translation id="1539064842193522527">‏تم فتح الرابط في Chrome</translation>
 <translation id="1549000191223877751">الانتقال إلى نافذة أخرى</translation>
 <translation id="1553358976309200471">‏تحديث Chrome‏</translation>
@@ -124,7 +125,7 @@
 <translation id="2038563949887743358">تشغيل طلب موقع الويب لسطح المكتب</translation>
 <translation id="2045104531052923016">تطبيقات أخرى بحجم <ph name="GIGABYTES" /> غيغابايت</translation>
 <translation id="2063713494490388661">انقر للبحث</translation>
-<translation id="2065944887543506430">{FILE_COUNT,plural, =1{أخفق تنزيل واحد}zero{أخفق # تنزيل}two{أخفق تنزيلين (#)}few{أخفق # تنزيلات}many{أخفق # تنزيلاً}other{أخفق # تنزيل}}</translation>
+<translation id="2065944887543506430">{FILE_COUNT,plural, =1{أخفق تنزيل واحد}zero{أخفق # تنزيل}two{أخفق تنزيلان (#)}few{أخفقت # تنزيلات}many{أخفق # تنزيلاً}other{أخفق # تنزيل}}</translation>
 <translation id="2074837478271106772">جارٍ تنزيل <ph name="COUNT" /> من الملفات (<ph name="MEGABYTES" />)</translation>
 <translation id="2079545284768500474">تراجع</translation>
 <translation id="2082238445998314030">النتيجة <ph name="RESULT_NUMBER" /> من <ph name="TOTAL_RESULTS" /></translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">تعديل البطاقة</translation>
 <translation id="2154710561487035718">‏نسخ عنوان URL</translation>
 <translation id="2156074688469523661">المواقع المتبقية (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">انقر للوصول إلى صفحة علامة التبويب الجديدة في علامة التبويب الحالية.</translation>
 <translation id="219985413780390209">حمايتك وحماية جهازك من المواقع الخطرة</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />، تطبيق ويب. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">متابعة باسم <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">تحديث الصفحة</translation>
 <translation id="2709516037105925701">الملء التلقائي</translation>
 <translation id="271033894570825754">جديدة</translation>
+<translation id="2736391366332017384">انقر على زر "الصفحة الرئيسية" للوصول إلى صفحة علامة التبويب الجديدة في علامة التبويب الحالية.</translation>
 <translation id="2744248271121720757">النقر على الكلمة للبحث عنها فورًا أو الاطلاع على الإجراءات ذات الصلة</translation>
 <translation id="2762000892062317888">الآن</translation>
 <translation id="2777555524387840389">عدد الثواني المتبقية: <ph name="SECONDS" /></translation>
@@ -462,6 +465,7 @@
 <translation id="5152843274749979095">ليس هناك أي تطبيق مثبّت متوافق</translation>
 <translation id="5161254044473106830">العنوان مطلوب</translation>
 <translation id="5168917394043976756">فتح لائحة التنقل</translation>
+<translation id="5171365962177408781">انقر لتحميل صفحة علامة التبويب الجديدة وعرض المقالات المقترحة.</translation>
 <translation id="5184329579814168207">‏فتح في Chrome</translation>
 <translation id="5199929503336119739">الملف الشخصي للعمل</translation>
 <translation id="5210286577605176222">الانتقال السريع إلى علامة التبويب السابقة</translation>
@@ -779,7 +783,7 @@
 <translation id="7882131421121961860">لم يتم العثور على أي سجلّ</translation>
 <translation id="7882806643839505685">السماح بتشغيل الصوت لموقع معين.</translation>
 <translation id="7929962904089429003">فتح القائمة</translation>
-<translation id="7939459033526903956">{FILE_COUNT,plural, =1{اكتمل تنزيل واحد}zero{اكتمل # تنزيل}two{اكتمل تنزيلان (#)}few{اكتمل # تنزيلات}many{اكتمل # تنزيلاً}other{اكتمل # تنزيل}}</translation>
+<translation id="7939459033526903956">{FILE_COUNT,plural, =1{اكتمل تنزيل واحد}zero{اكتمل # تنزيل}two{اكتمل تنزيلان (#)}few{اكتملت # تنزيلات}many{اكتمل # تنزيلاً}other{اكتمل # تنزيل}}</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> قديم.</translation>
 <translation id="7947953824732555851">قبول وتسجيل الدخول</translation>
 <translation id="7963646190083259054">المورّد:</translation>
@@ -884,6 +888,7 @@
 <translation id="8912362522468806198">‏حساب Google‏</translation>
 <translation id="8920114477895755567">الانتظار للحصول على تفاصيل الآباء</translation>
 <translation id="8922289737868596582">تنزيل الصفحات من الزر "مزيد من الخيارات" لاستخدامها بلا اتصال بالإنترنت</translation>
+<translation id="8934029156920711950">انقر لعرض المقالات المُختارة خصيصًا لك.</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">فتح في نافذة أخرى</translation>
 <translation id="8951232171465285730">‏لقد وفر Chrome لك <ph name="MEGABYTES" /> ميغابايت</translation>
@@ -906,6 +911,7 @@
 <translation id="9099018167121903954">تم تنزيل <ph name="KILOBYTES" /> كيلوبايت</translation>
 <translation id="9100505651305367705">اقتراح مشاهدة المقالات في العرض المبسَّط إذا كان ذلك متاحًا</translation>
 <translation id="9100610230175265781">عبارة المرور مطلوبة</translation>
+<translation id="9100939710791843300">انقر على زر "الصفحة الرئيسية" لتحميل صفحة علامة التبويب الجديدة وعرض المقالات المقترحة.</translation>
 <translation id="9133515669113036225">إعادة تعيين بيانات اعتماد الجهاز</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">السؤال قبل السماح للمواقع بإرسال الإشعارات (موصى به)</translation>

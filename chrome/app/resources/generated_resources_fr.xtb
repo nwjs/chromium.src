@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Type de certificat</translation>
 <translation id="1297175357211070620">Destination</translation>
 <translation id="1297922636971898492">Google Drive n'est pas disponible pour le moment. L'importation reprendra lorsque Google Drive sera à nouveau disponible.</translation>
+<translation id="1300415640239881824">La validation de l'identité de votre appareil est requise pour le site <ph name="DOMAIN" /> afin que Google puisse déterminer si vous pouvez bénéficier d'une lecture améliorée des contenus protégés.</translation>
 <translation id="1300806585489372370">Pour modifier ce paramètre, commencez par <ph name="BEGIN_LINK" />activer les identifiants<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Autoriser JavaScript dans les événements AppleScript</translation>
 <translation id="1303101771013849280">Ajouter le fichier HTML aux favoris</translation>

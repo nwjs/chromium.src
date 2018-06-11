@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Sertifikaadi tüüp</translation>
 <translation id="1297175357211070620">Sihtkoht</translation>
 <translation id="1297922636971898492">Google Drive pole praegu saadaval. Kui Google Drive on tagasi, algab üleslaadimine automaatselt uuesti.</translation>
+<translation id="1300415640239881824">Domeen <ph name="DOMAIN" /> soovib, et Google kinnitaks seadme identiteedi, et tuvastada sobilikkus kaitstud sisu täiustatud taasesitamiseks.</translation>
 <translation id="1300806585489372370">Selle seade muutmiseks <ph name="BEGIN_LINK" />lülitage esmalt sisse identifikaatorid<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Luba JavaScript Apple'i sündmustest</translation>
 <translation id="1303101771013849280">Järjehoidjate HTML-fail</translation>
@@ -2477,6 +2478,7 @@ kasutades juhtpaneeli funktsiooni <ph name="CONTROL_PANEL_APPLET_NAME" />.
 <translation id="4856478137399998590">Teie mobiilne andmesideteenus on aktiveeritud ja kasutamiseks valmis</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Ava kõik &amp;inkognito aknas}=1{Ava &amp;inkognito aknas}other{Ava kõik (#) &amp;inkognito aknas}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – videot esitatakse režiimis Pilt pildis</translation>
 <translation id="4862050643946421924">Seadme lisamine ...</translation>
 <translation id="4862642413395066333">Signeerimise OCSP vastused</translation>
 <translation id="4863769717153320198">Näib kui <ph name="WIDTH" /> × <ph name="HEIGHT" /> (vaikeseade)</translation>
@@ -4457,6 +4459,7 @@ Rakenduse <ph name="APP_NAME" /> installimisel laaditakse alla <ph name="DOWNLOA
 <translation id="7839051173341654115">Kuva/varunda meedium</translation>
 <translation id="7839192898639727867">Sertifikaadi subjekti võtme ID</translation>
 <translation id="7839804798877833423">Failide toomine kasutab umbes <ph name="FILE_SIZE" /> mobiilsideandmeid.</translation>
+<translation id="7844553762889824470">Tõstke esile sisu, mida soovite kuulda, seejärel vajutage otsinguklahvi + klahvi S. Valiku tegemiseks võite ka vajutada pikalt otsinguklahvi või puudutada funktsiooni Vali ja kuula ikooni oma profiilipildi kõrval.</translation>
 <translation id="7844992432319478437">Erinevuste värskendamine</translation>
 <translation id="7846076177841592234">Tühista valik</translation>
 <translation id="7846634333498149051">Klaviatuur</translation>
@@ -5366,6 +5369,7 @@ Inimesed, kelle ühendus on aeglane, ei pruugi teie sisu näha.</translation>
 <translation id="952992212772159698">Aktiveerimata</translation>
 <translation id="957960681186851048">Sait püüdis automaatselt mitut faili alla laadida</translation>
 <translation id="9580706199804957">Google'i teenustega ei õnnestunud ühendust luua</translation>
+<translation id="958416628331784386">Vahelehel esitatakse videot režiimis Pilt pildis.</translation>
 <translation id="958515377357646513">Puudutage edasiminemiseks.</translation>
 <translation id="960719561871045870">Operaatori kood</translation>
 <translation id="960987915827980018">Jäänud on umbes 1 tund</translation>

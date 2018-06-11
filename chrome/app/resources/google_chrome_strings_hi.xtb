@@ -33,7 +33,7 @@
 <translation id="174539241580958092">प्रवेश करने में गड़बड़ी के कारण Google Chrome आपका डेटा समन्‍वयित नहीं कर सका.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Chrome OS का उपयोग करने के बारे में सहायता प्राप्त करें</translation>
-<translation id="1795405610103747296">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके फ़ोन पर एक SMS भेजेंगे: <ph name="PHONE_NUMBER" /></translation>
+<translation id="1795405610103747296">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके फ़ोन पर एक मैसेज (एसएमएस) भेजेंगे: <ph name="PHONE_NUMBER" /></translation>
 <translation id="1860536484129686729">Chrome को इस साइट के लिए आपका कैमरा एक्सेस करने की अनुमति चाहिए</translation>
 <translation id="1873233029667955273">Google Chrome आपका डिफ़ॉल्ट ब्राउज़र नहीं है</translation>
 <translation id="1874309113135274312">Google Chrome बीटा (mDNS-In)</translation>
@@ -45,8 +45,8 @@
 <translation id="210890598424854131">{0,plural, =0{अब Chrome फिर से लॉन्च होगा}=1{Chrome 1 सेकंड में फिर से लॉन्च होगा}one{Chrome # सेकंड में फिर से लॉन्च होगा}other{Chrome # सेकंड में फिर से लॉन्च होगा}}</translation>
 <translation id="2120620239521071941">ऐसा करने से इस डिवाइस से <ph name="ITEMS_COUNT" /> आइटम हट जाएंगे. बाद में अपना डेटा पाने के लिए, Chrome में <ph name="USER_EMAIL" /> के रूप में प्रवेश करें.</translation>
 <translation id="2123055963409958220"><ph name="BEGIN_LINK" />अभी वाली सेटिंग<ph name="END_LINK" /> की रिपोर्ट करके Chrome को बेहतर बनाने में सहायता करें</translation>
-<translation id="216054706567564023">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके खाता पुनर्प्राप्ति फ़ोन नंबर पर एक SMS भेजेंगे.</translation>
-<translation id="2246246234298806438">अंतर्निहित PDF दिखाने का साधन गुम होने पर Google Chrome प्रिंट पूर्वावलोकन नहीं दिखा सकता.</translation>
+<translation id="216054706567564023">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके उस फ़ोन नंबर पर एक मैसेज (एसएमएस) भेजेंगे, जिसे आपने अपना खाता वापस पाने के लिए सेट किया है.</translation>
+<translation id="2246246234298806438">अगर Google Chrome के साथ ही आने वाला PDF व्यूअर मौजूद नहीं होगा तो, Google Chrome प्रिंट करने से पहले की झलक नहीं दिखा पाएगा.</translation>
 <translation id="2252923619938421629">वर्तमान सेटिंग की रिपोर्ट करके Google Chrome को बेहतर बनाने में सहायता करें</translation>
 <translation id="2286950485307333924">अब आपने Chrome में प्रवेश कर लिया है</translation>
 <translation id="2290014774651636340">Google API (एपीआई) कुंजियां मौजूद नहीं हैं. Google Chrome के कुछ फ़ंक्शन बंद कर दिए जाएंगे.</translation>
@@ -246,7 +246,7 @@
 <translation id="8030318113982266900">आपके डिवाइस को <ph name="CHANNEL_NAME" /> चैनल पर अपडेट किया जा रहा है...</translation>
 <translation id="8032142183999901390">Chrome से अपना खाता निकालने के बाद, आपको अपने खुले टैब पुन: लोड करने की आवश्‍यकता हो सकती है, ताकि वे प्रभावी हो सकें.</translation>
 <translation id="8129812357326543296">&amp;Google Chrome के बारे में</translation>
-<translation id="8179874765710681175">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके फ़ोन पर एक SMS भेजेंगे.</translation>
+<translation id="8179874765710681175">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके फ़ोन पर एक मैसेज (एसएमएस) भेजेंगे.</translation>
 <translation id="8183957050892517584">Chrome आपके व्यक्तिगत विवरण को सुरक्षित रूप से संग्रहित करेगा, इसलिए आपको इन्हें पुनः लिखने की आवश्यकता नहीं है.</translation>
 <translation id="8255190535488645436">Google Chrome आपके कैमरे और माइक्रोफ़ोन का उपयोग कर रहा है.</translation>
 <translation id="8286862437124483331">Google Chrome पासवर्ड दिखाने का प्रयास कर रहा है. इसकी अनुमति देने के लिए अपना Windows पासवर्ड लिखें.</translation>
@@ -256,7 +256,7 @@
 <translation id="8406086379114794905">Chrome को बेहतर बनाने में सहायता करें</translation>
 <translation id="8439301513305169426">Chrome इस पासवर्ड को <ph name="SAVED_PASSWORD_LINK" /> से सहेज लेगा. आपके इसे याद रखने की ज़रूरत नहीं है.</translation>
 <translation id="8455999171311319804">वैकल्पिक: Google को गड़बड़ी और उपयोग का डेटा अपने आप भेजकर Chrome OS को बेहतर बनाने में सहायता करें.</translation>
-<translation id="8478823064122749032">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके खाता पुनर्प्राप्ति फ़ोन नंबर पर एक SMS भेजेंगे: <ph name="PHONE_NUMBER" /></translation>
+<translation id="8478823064122749032">अपने फ़ोन पर Chrome इंस्टॉल करें. हम आपके उस फ़ोन नंबर पर एक मैसेज (एसएमएस) भेजेंगे, जिसे आपने अपना खाता वापस पाने के लिए सेट किया है: <ph name="PHONE_NUMBER" /></translation>
 <translation id="8521348052903287641">mDNS ट्रैफ़िक की अनुमति देने के लिए Google Chrome का इनबाउंड नियम.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Chrome में ऐप चलाने का साधन Canary</translation>

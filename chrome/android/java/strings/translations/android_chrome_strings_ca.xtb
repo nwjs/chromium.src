@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Les adreces d'interès desades als altres dispositius es mostraran aquí.</translation>
 <translation id="1113597929977215864">Mostra la visualització simplificada</translation>
 <translation id="1121094540300013208">Informes d'ús i d'error</translation>
+<translation id="11221688409173367">Toca el botó d'inici per veure els articles seleccionats expressament per a tu</translation>
 <translation id="1129510026454351943">Detalls: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Suprimeix les dades existents.</translation>
 <translation id="1146678959555564648">Activa el mode RV</translation>
@@ -91,6 +92,7 @@
 <translation id="17513872634828108">Pestanyes obertes</translation>
 <translation id="1756600373018374892">Toqueu aquest botó per accedir ràpidament a les vostres pestanyes.</translation>
 <translation id="1779089405699405702">Descodificador d'imatges</translation>
+<translation id="1782483593938241562">Data de finalització: <ph name="DATE" /></translation>
 <translation id="1792959175193046959">Canvia la ubicació predeterminada de baixada en qualsevol moment</translation>
 <translation id="1807246157184219062">Clar</translation>
 <translation id="1829244130665387512">Cerca a la pàgina</translation>
@@ -143,6 +145,7 @@
 <translation id="2154484045852737596">Edita la targeta</translation>
 <translation id="2154710561487035718">Copia l'URL</translation>
 <translation id="2156074688469523661">Llocs restants (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Toca per anar a la pàgina Pestanya nova a la pestanya actual</translation>
 <translation id="219985413780390209">Protegeix-me a mi i al meu dispositiu de llocs web perillosos</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, aplicació web. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Continua com a <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +205,8 @@
 <translation id="2707726405694321444">Actualitza la pàgina</translation>
 <translation id="2709516037105925701">Emplenament autom.</translation>
 <translation id="271033894570825754">Nou</translation>
+<translation id="2728754400939377704">Ordena per lloc web</translation>
+<translation id="2736391366332017384">Toca el botó d'inici per anar a la pàgina Pestanya nova a la pestanya actual</translation>
 <translation id="2744248271121720757">Toca una paraula per fer una cerca a l'instant o per veure accions relacionades</translation>
 <translation id="2762000892062317888">ara mateix</translation>
 <translation id="2777555524387840389">Queden <ph name="SECONDS" /> segons</translation>
@@ -352,6 +357,7 @@ Per ajustar el terme de cerca, mantén-lo premut per seleccionar-lo. Per definir
 <translation id="4127069705158143605">{BOOKMARKS_COUNT,plural, =1{%1$d adreça d'interès}other{%1$d adreces d'interès}}</translation>
 <translation id="4165986682804962316">Configuració del lloc web</translation>
 <translation id="4170011742729630528">El servei no està disponible. Torneu-ho a provar més tard.</translation>
+<translation id="4179980317383591987">Dades utilitzades: <ph name="AMOUNT" /></translation>
 <translation id="4181841719683918333">Idiomes</translation>
 <translation id="4195643157523330669">Obre en una pestanya nova</translation>
 <translation id="4198423547019359126">No hi ha cap ubicació de baixada disponible</translation>
@@ -462,6 +468,7 @@ Per ajustar el terme de cerca, mantén-lo premut per seleccionar-lo. Per definir
 <translation id="5152843274749979095">No hi ha cap aplicació admesa instal·lada</translation>
 <translation id="5161254044473106830">Cal indicar un títol</translation>
 <translation id="5168917394043976756">Obre el tauler de navegació</translation>
+<translation id="5171365962177408781">Toca per carregar la pàgina Pestanya nova i veure els articles suggerits</translation>
 <translation id="5184329579814168207">Obre a Chrome</translation>
 <translation id="5199929503336119739">Perfil professional</translation>
 <translation id="5210286577605176222">Ves a la pestanya anterior</translation>
@@ -558,6 +565,7 @@ Tanmateix, no sou invisible. El vostre cap, el vostre proveïdor de serveis d'In
 <translation id="5911030830365207728">Traductor de Google</translation>
 <translation id="5916664084637901428">Activat</translation>
 <translation id="5919204609460789179">Actualitza <ph name="PRODUCT_NAME" /> per iniciar la sincronització</translation>
+<translation id="5937580074298050696">Dades estalviades: <ph name="AMOUNT" /></translation>
 <translation id="5939518447894949180">Restableix</translation>
 <translation id="5942872142862698679">S'utilitza Google per a la cerca</translation>
 <translation id="5956665950594638604">Obre Centre d'ajuda de Chrome en una pestanya nova</translation>
@@ -638,6 +646,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="6612358246767739896">Contingut protegit</translation>
 <translation id="6627583120233659107">Edita la carpeta</translation>
 <translation id="6643016212128521049">Esborra</translation>
+<translation id="6643649862576733715">Ordena per quantitat de dades estalviades</translation>
 <translation id="6648977384226967773">{CONTACT,plural, =1{<ph name="CONTACT_PREVIEW" />\u2026 i <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> més}other{<ph name="CONTACT_PREVIEW" />\u2026 i <ph name="NUMBER_OF_ADDITIONAL_CONTACTS" /> més}}</translation>
 <translation id="6656545060687952787">Chrome necessita accedir a la ubicació per poder cercar dispositius. <ph name="BEGIN_LINK" />Actualitza els permisos<ph name="END_LINK" /></translation>
 <translation id="6657585470893396449">Contrasenya</translation>
@@ -724,6 +733,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">Experiència de primera execució de Chrome</translation>
 <translation id="741204030948306876">Sí, ho accepto</translation>
+<translation id="7413229368719586778">Data d'inici: <ph name="DATE" /></translation>
 <translation id="7423098979219808738">Pregunta-m'ho abans</translation>
 <translation id="7423538860840206698">L'accés de lectura al porta-retalls està bloquejat</translation>
 <translation id="7437998757836447326">Tanca la sessió de Chrome</translation>
@@ -829,6 +839,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="8313455859591948645">Edita la pàgina d'inici</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> i més llocs web</translation>
 <translation id="8339163506404995330">Les pàgines en <ph name="LANGUAGE" /> no es traduiran</translation>
+<translation id="8349013245300336738">Ordena per quantitat de dades utilitzades</translation>
 <translation id="8363501664269050863">Tauler de navegació. Fes-lo lliscar cap avall per tancar-lo.</translation>
 <translation id="8372893542064058268">Permet la sincronització en segon pla en un lloc concret.</translation>
 <translation id="8374821112118309944">Heu de fer l'actualització de TalkBack a una versió més recent</translation>
@@ -888,6 +899,7 @@ Per obtenir llicències noves, connecteu-vos a Internet i reproduïu el contingu
 <translation id="8912362522468806198">Compte de Google</translation>
 <translation id="8920114477895755567">S'està esperant la informació parental.</translation>
 <translation id="8922289737868596582">Baixa pàgines amb el botó Més opcions per utilitzar-les sense connexió</translation>
+<translation id="8934029156920711950">Toca el botó d'inici per veure els articles seleccionats expressament per a tu</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Obre en una altra finestra</translation>
 <translation id="8951232171465285730">Chrome t'ha estalviat <ph name="MEGABYTES" /> MB</translation>
@@ -910,6 +922,7 @@ Per obtenir llicències noves, connecteu-vos a Internet i reproduïu el contingu
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> kB en baixades</translation>
 <translation id="9100505651305367705">Proposa mostrar articles en visualització simplificada, quan s'admeti</translation>
 <translation id="9100610230175265781">S'ha d'introduir una frase de contrasenya </translation>
+<translation id="9100939710791843300">Toca el botó d'inici per carregar la pàgina Pestanya nova i veure els articles suggerits</translation>
 <translation id="9133515669113036225">Restableix les credencials del dispositiu</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Pregunta abans de permetre que els llocs enviïn notificacions (opció recomanada)</translation>

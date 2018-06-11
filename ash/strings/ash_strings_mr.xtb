@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">"<ph name="DEVICE_NAME" />" Bluetooth डिव्हाइस जोडण्यासाठी परवानगी घेऊ इच्छिते.</translation>
 <translation id="453661520163887813">पूर्ण होण्यात <ph name="TIME" /></translation>
 <translation id="4544944664594876241">स्क्रीन लॉक करण्‍याचा शॉर्टकट बदलला आहे. कृपया <ph name="OLD_SHORTCUT" /> ऐवजी <ph name="NEW_SHORTCUT" /> वापरा.</translation>
+<translation id="4564869809620998694">फॉन्ट सेवा</translation>
 <translation id="4570957409596482333">बोलण्यासाठी निवडा बटण</translation>
 <translation id="4659419629803378708">ChromeVox चालू केले</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> साठी पासवर्ड</translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">टॅप ड्रॅगिंग</translation>
 <translation id="5777841717266010279">स्क्रीन सामायिकरण थांबवायचे?</translation>
 <translation id="57838592816432529">निःशब्द करा</translation>
+<translation id="5805697420284793859">विंडो व्यवस्थापक</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">व्यक्ती जोडा</translation>
 <translation id="5860033963881614850">बंद</translation>
 <translation id="5895138241574237353">रीस्टार्ट करा</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">शॉर्टकट दर्शक</translation>
 <translation id="5916664084637901428">चालू</translation>
 <translation id="5927132638760172455">एका अज्ञात प्राप्तकर्त्यावर कास्ट करीत आहे</translation>
 <translation id="5947494881799873997">परत करा</translation>
@@ -261,6 +264,7 @@
 <translation id="6715542151869432661">कोणतेही मोबाइल डिव्हाइस आढळले नाहीत.</translation>
 <translation id="671928215901716392">लॉक स्क्रीन</translation>
 <translation id="6723839937902243910">सामर्थ्य</translation>
+<translation id="6725073593266469338">UI सेवा</translation>
 <translation id="6785414152754474415">बॅटरी <ph name="PERCENTAGE" />% भरली आहे आणि चार्ज होत आहे.</translation>
 <translation id="6803622936009808957">समर्थित रिजोल्यूशन न आढळल्यामुळे प्रदर्शने मिरर करू शकली नाहीत. त्याऐवजी विस्तारित डेस्कटॉप एंटर केला.</translation>
 <translation id="6820676911989879663">ब्रेक घ्या!</translation>
@@ -324,6 +328,7 @@
 <translation id="8351131234907093545">टीप तयार करा</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> साठी पर्याय मेनू</translation>
 <translation id="8428213095426709021">सेटिंग्ज</translation>
+<translation id="8431190899827883166">टॅप दाखवा</translation>
 <translation id="8433186206711564395">नेटवर्क सेटिंग्ज</translation>
 <translation id="8433977262951327081">शेल्फमधील इनपुट पर्याय मेनू दर्शविण्यासाठीचा शॉर्टकट बदलला आहे. कृपया <ph name="OLD_SHORTCUT" /> ऐवजी <ph name="NEW_SHORTCUT" /> वापरा.</translation>
 <translation id="8452135315243592079">गहाळ सिम कार्ड</translation>
@@ -349,6 +354,7 @@
 <translation id="8921624153894383499">Google साहाय्यक ही भाषा बोलत नाही.</translation>
 <translation id="8938800817013097409">USB-C डिव्‍हाइस (मागील बाजूचे उजवे पोर्ट)</translation>
 <translation id="8940956008527784070">बॅटरी कमी झाली (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">त्वरित लाँच</translation>
 <translation id="8995603266996330174"><ph name="DOMAIN" /> द्वारे व्यवस्थापित</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">वाय-फाय: <ph name="ADDRESS" /></translation>
@@ -365,4 +371,5 @@
 <translation id="923686485342484400">दोनदा साइन आउट करण्यासाठी Control Shift Q दोनदा दाबा.</translation>
 <translation id="945522503751344254">अभिप्राय पाठवा</translation>
 <translation id="98515147261107953">लँडस्केप</translation>
+<translation id="995927048686010764">ऑटोक्लिक</translation>
 </translationbundle>

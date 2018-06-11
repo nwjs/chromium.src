@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">儲存在您其他裝置上的書籤會顯示在這裡。</translation>
 <translation id="1113597929977215864">顯示「簡易檢視」模式</translation>
 <translation id="1121094540300013208">使用資料和當機報告</translation>
+<translation id="11221688409173367">輕觸主螢幕按鈕即可查看精選文章</translation>
 <translation id="1129510026454351943">詳細資料：<ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">刪除現有資料。</translation>
 <translation id="1146678959555564648">進入 VR</translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">編輯卡片資訊</translation>
 <translation id="2154710561487035718">複製網址</translation>
 <translation id="2156074688469523661">其餘網站 (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">輕觸即可在目前的分頁中前往新分頁頁面</translation>
 <translation id="219985413780390209">保護您和您的裝置不受危險網站攻擊</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />，網路應用程式。<ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">以<ph name="USER_FULL_NAME" />的身分繼續使用</translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">重新整理頁面</translation>
 <translation id="2709516037105925701">自動填入</translation>
 <translation id="271033894570825754">新</translation>
+<translation id="2736391366332017384">輕觸主螢幕按鈕即可在目前的分頁中前往新分頁頁面</translation>
 <translation id="2744248271121720757">只要輕觸字詞就能立即展開搜尋或查看相關的動作</translation>
 <translation id="2762000892062317888">剛剛</translation>
 <translation id="2777555524387840389">還剩 <ph name="SECONDS" /> 秒</translation>
@@ -462,6 +465,7 @@
 <translation id="5152843274749979095">尚未安裝系統支援的應用程式</translation>
 <translation id="5161254044473106830">請輸入標題</translation>
 <translation id="5168917394043976756">開啟導覽匣</translation>
+<translation id="5171365962177408781">輕觸即可載入新分頁頁面並查看推薦文章</translation>
 <translation id="5184329579814168207">在 Chrome 中開啟</translation>
 <translation id="5199929503336119739">工作資料夾</translation>
 <translation id="5210286577605176222">跳至上一個分頁</translation>
@@ -888,6 +892,7 @@
 <translation id="8912362522468806198">Google 帳戶</translation>
 <translation id="8920114477895755567">尚未取得家長詳細資料。</translation>
 <translation id="8922289737868596582">透過「更多選項」按鈕下載網頁，以便離線存取</translation>
+<translation id="8934029156920711950">輕觸即可查看精選文章</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">在其他視窗中開啟</translation>
 <translation id="8951232171465285730">Chrome 為你節省了 <ph name="MEGABYTES" /> MB</translation>
@@ -910,6 +915,7 @@
 <translation id="9099018167121903954">下載內容佔 <ph name="KILOBYTES" /> KB</translation>
 <translation id="9100505651305367705">詢問是否以簡易模式顯示支援這項功能的文章</translation>
 <translation id="9100610230175265781">請提供通關密語</translation>
+<translation id="9100939710791843300">輕觸主螢幕按鈕即可載入新分頁頁面並查看推薦文章</translation>
 <translation id="9133515669113036225">重設裝置憑證</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">允許網站傳送通知前，必須先詢問您 (建議)</translation>

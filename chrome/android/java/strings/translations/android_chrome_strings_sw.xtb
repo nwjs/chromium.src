@@ -13,6 +13,7 @@
 <translation id="1111673857033749125">Alamisho zilizohifadhiwa katika vifaa vyako vingine zitaonekana hapa.</translation>
 <translation id="1113597929977215864">Onyesha mwonekano rahisi</translation>
 <translation id="1121094540300013208">Ripoti za matumizi na za kuacha kufanya kazi</translation>
+<translation id="11221688409173367">Gusa kitufe cha ukurasa wa mwanzo ili uone makala yaliyochaguliwa mahususi kwa ajili yako</translation>
 <translation id="1129510026454351943">Maelezo: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Futa data iliyopo.</translation>
 <translation id="1146678959555564648">Tumia hali ya VR</translation>
@@ -143,6 +144,7 @@
 <translation id="2154484045852737596">Badilisha kadi</translation>
 <translation id="2154710561487035718">Nakili UR:</translation>
 <translation id="2156074688469523661">Tovuti zilizosalia (<ph name="NUMBER_OF_SITES" />)</translation>
+<translation id="2184766556418880456">Gusa ili upate ukurasa wa kichupo kipya kwenye kichupo chako cha sasa</translation>
 <translation id="219985413780390209">Jilinde na ulinde vifaa vyako dhidi ya tovuti hatari</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, programu ya wavuti. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Endelea ukitumia <ph name="USER_FULL_NAME" /></translation>
@@ -202,6 +204,7 @@
 <translation id="2707726405694321444">Onyesha upya ukurasa</translation>
 <translation id="2709516037105925701">Kujaza Kiotomatiki</translation>
 <translation id="271033894570825754">Mpya</translation>
+<translation id="2736391366332017384">Gusa kitufe cha ukurasa wa mwanzo ili upate ukurasa wa kichupo kipya kwenye kichupo chako cha sasa</translation>
 <translation id="2744248271121720757">Gusa neno ili utafute papo hapo au uone vitendo vinavyohusiana</translation>
 <translation id="2762000892062317888">sasa hivi tu</translation>
 <translation id="2777555524387840389">Zimesalia sekunde <ph name="SECONDS" /></translation>
@@ -462,6 +465,7 @@ Huenda akaunti yako ya Google ina aina nyingine za historia ya kuvinjari kama vi
 <translation id="5152843274749979095">Hakuna programu zinazotumika zimesakinishwa</translation>
 <translation id="5161254044473106830">Kichwa kinahitajika</translation>
 <translation id="5168917394043976756">Fungua droo ya kusogeza</translation>
+<translation id="5171365962177408781">Gusa ili upakie ukurasa wa kichupo kipya na uone makala yaliyopendekezwa</translation>
 <translation id="5184329579814168207">Fungulia katika Chrome</translation>
 <translation id="5199929503336119739">Wasifu wa kazini</translation>
 <translation id="5210286577605176222">Rudi kwenye kichupo cha awali</translation>
@@ -888,6 +892,7 @@ Ili kupata leseni mpya, unganisha kwenye intaneti na ucheze maudhui yako yaliyop
 <translation id="8912362522468806198">Akaunti ya Google</translation>
 <translation id="8920114477895755567">Tunasubiri maelezo ya wazazi.</translation>
 <translation id="8922289737868596582">Pakua kurasa kwenye kitufe cha Chaguo zaidi ili uzitumie nje ya mtandao</translation>
+<translation id="8934029156920711950">Gusa ili uone makala yaliyochaguliwa mahususi kwa ajili yako</translation>
 <translation id="8941729603749328384">www.mfano.com</translation>
 <translation id="8942627711005830162">Fungua katika dirisha jingine</translation>
 <translation id="8951232171465285730">Chrome imekuokolea MB <ph name="MEGABYTES" /></translation>
@@ -910,6 +915,7 @@ Ili kupata leseni mpya, unganisha kwenye intaneti na ucheze maudhui yako yaliyop
 <translation id="9099018167121903954">Imepakua KB <ph name="KILOBYTES" /></translation>
 <translation id="9100505651305367705">Onyesha makala katika mwonekano rahisi, ikiwa yanatumika</translation>
 <translation id="9100610230175265781">Kaulisiri inahitajika</translation>
+<translation id="9100939710791843300">Gusa kitufe cha ukurasa wa mwanzo ili upakie ukurasa wa kichupo kipya na uone makala yaliyopendekezwa</translation>
 <translation id="9133515669113036225">Weka upya kitambulisho cha kifaa</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Uliza kabla ya kuruhusu tovuti zitumie arifa (inapendekezwa)</translation>

@@ -209,6 +209,7 @@
 <translation id="1296497012903089238">Zertifikatstyp</translation>
 <translation id="1297175357211070620">Ziel</translation>
 <translation id="1297922636971898492">Google Drive ist momentan nicht verfügbar. Das Hochladen Ihrer Dateien wird automatisch fortgesetzt, sobald Google Drive wieder verfügbar ist.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> setzt eine Identitätsprüfung durch Google voraus, um festzustellen, ob Ihr Gerät zur erweiterten Wiedergabe von geschützten Inhalten berechtigt ist.</translation>
 <translation id="1300806585489372370">Um diese Einstellung zu ändern, <ph name="BEGIN_LINK" />aktivieren Sie zuerst die Kennzeichnungen<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">JavaScript von Apple Events erlauben</translation>
 <translation id="1303101771013849280">Lesezeichen-HTML-Datei</translation>
@@ -2473,6 +2474,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="4856478137399998590">Ihr mobiler Datendienst ist aktiviert und einsatzbereit.</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Alle in &amp;Inkognitofenster öffnen}=1{In &amp;Inkognitofenster öffnen}other{Alle (#) in &amp;Inkognitofenster öffnen}}</translation>
 <translation id="4858913220355269194">Fußball</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – Video wird im Bild-in-Bild-Modus abgespielt</translation>
 <translation id="4862050643946421924">Gerät hinzufügen...</translation>
 <translation id="4862642413395066333">Signatur von OCSP-Antworten</translation>
 <translation id="4863769717153320198">Sieht nach <ph name="WIDTH" /> x <ph name="HEIGHT" /> aus (Standard)</translation>
@@ -4456,6 +4458,7 @@ Bei der Installation von "<ph name="APP_NAME" />" werden <ph name="DOWNLOAD_SIZE
 <translation id="7839051173341654115">Medien anzeigen/sichern</translation>
 <translation id="7839192898639727867">Schlüssel-ID des Zertifikatsinhabers</translation>
 <translation id="7839804798877833423">Zum Abrufen dieser Dateien werden etwa <ph name="FILE_SIZE" /> mobile Daten benötigt.</translation>
+<translation id="7844553762889824470">Markieren Sie, was Sie sich vorlesen lassen möchten, und drücken Sie dann die Suchtaste + S. Alternativ können Sie die Suchtaste gedrückt halten oder das Symbol "Vorlesen" in der Nähe Ihres Profilbilds antippen und einen Bereich zum Vorlesen auswählen.</translation>
 <translation id="7844992432319478437">DIFF-Datei wird aktualisiert.</translation>
 <translation id="7846076177841592234">Auswahl aufheben</translation>
 <translation id="7846634333498149051">Tastatur</translation>
@@ -5366,6 +5369,7 @@ Andere Personen mit langsamen Verbindungen sehen Ihre Inhalte möglicherweise ni
 <translation id="952992212772159698">Nicht aktiviert</translation>
 <translation id="957960681186851048">Diese Website hat versucht, automatisch mehrere Dateien herunterzuladen</translation>
 <translation id="9580706199804957">Keine Verbindung mit Google-Diensten möglich</translation>
+<translation id="958416628331784386">Auf diesem Tab wird ein Video im Bild-in-Bild-Modus abgespielt.</translation>
 <translation id="958515377357646513">Zum Weitergehen tippen.</translation>
 <translation id="960719561871045870">Betreibercode</translation>
 <translation id="960987915827980018">Noch etwa 1 Stunde</translation>
