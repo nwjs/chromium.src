@@ -194,8 +194,6 @@ public abstract class Stack {
     // involve a jni call. Instead, mDiscardDirection will be initialized in Show().
     private float mDiscardDirection = Float.NaN;
 
-    private boolean mRecomputePosition = true;
-
     private int mReferenceOrderIndex = -1;
 
     // Orientation Variables
@@ -543,7 +541,7 @@ public abstract class Stack {
             }
         }
 
-        requestUpdate();
+        mLayout.requestUpdate();
     }
 
     /**
@@ -816,7 +814,7 @@ public abstract class Stack {
             }
             scroll(x, y, LocalizationUtils.isLayoutRtl() ? -amountX : amountX, amountY, false);
         }
-        requestUpdate();
+        mLayout.requestUpdate();
     }
 
     /**
@@ -1057,7 +1055,7 @@ public abstract class Stack {
             startAnimation(time, OverviewAnimationType.UNDISCARD);
         }
         mDiscardingTab = null;
-        requestUpdate();
+        mLayout.requestUpdate();
     }
 
     /**
@@ -1550,9 +1548,6 @@ public abstract class Stack {
     public void computeTabPosition(long time, RectF stackRect) {
         if (mStackTabs == null || mStackTabs.length == 0) return;
 
-        if (!mRecomputePosition) return;
-        mRecomputePosition = false;
-
         // Step 1: Updates the {@link LayoutTab} scale, alpha and depth values.
         computeTabScaleAlphaDepthHelper(stackRect);
 
@@ -1825,7 +1820,7 @@ public abstract class Stack {
                 // exposed by the touch event rate.
                 mScrollOffset = smoothInput(mScrollOffset, mScrollTarget);
             }
-            requestUpdate();
+            mLayout.requestUpdate();
         } else {
             // Make sure that the scroller is marked as finished when the destination is reached.
             mScroller.forceFinished(true);
@@ -1965,14 +1960,6 @@ public abstract class Stack {
         mScrollingTab = null;
         mDiscardingTab = null;
         mLongPressSelected = -1;
-    }
-
-    /**
-     * Invalidates the current graphics and force to recomputes tab placements.
-     */
-    public void requestUpdate() {
-        mRecomputePosition = true;
-        mLayout.requestUpdate();
     }
 
     /**
