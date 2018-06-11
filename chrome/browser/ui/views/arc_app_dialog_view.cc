@@ -33,7 +33,6 @@ namespace arc {
 
 namespace {
 
-const int kRightColumnWidth = 210;
 const int kIconSize = 64;
 // Currenty ARC apps only support 48*48 native icon.
 const int kIconSourceSize = 48;
@@ -62,11 +61,15 @@ class ArcAppDialogView : public views::DialogDelegateView,
   base::string16 GetWindowTitle() const override;
   void DeleteDelegate() override;
   ui::ModalType GetModalType() const override;
+  bool ShouldShowCloseButton() const override;
 
   // views::DialogDelegate:
   base::string16 GetDialogButtonLabel(ui::DialogButton button) const override;
   bool Accept() override;
   bool Cancel() override;
+
+  // views::View:
+  gfx::Size CalculatePreferredSize() const override;
 
   // AppIconLoaderDelegate:
   void OnAppImageUpdated(const std::string& app_id,
@@ -158,7 +161,6 @@ void ArcAppDialogView::AddMultiLineLabel(views::View* parent,
   label->SetMultiLine(true);
   label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   label->SetAllowCharacterBreak(true);
-  label->SizeToFit(kRightColumnWidth);
   parent->AddChildView(label);
 }
 
@@ -184,6 +186,10 @@ ui::ModalType ArcAppDialogView::GetModalType() const {
   return ui::MODAL_TYPE_WINDOW;
 }
 
+bool ArcAppDialogView::ShouldShowCloseButton() const {
+  return false;
+}
+
 base::string16 ArcAppDialogView::GetDialogButtonLabel(
     ui::DialogButton button) const {
   return button == ui::DIALOG_BUTTON_CANCEL ? cancel_button_text_
@@ -200,6 +206,12 @@ bool ArcAppDialogView::Cancel() {
   if (confirm_callback_)
     std::move(confirm_callback_).Run(false);
   return true;
+}
+
+gfx::Size ArcAppDialogView::CalculatePreferredSize() const {
+  const int default_width = views::LayoutProvider::Get()->GetDistanceMetric(
+      DISTANCE_MODAL_DIALOG_PREFERRED_WIDTH);
+  return gfx::Size(default_width, GetHeightForWidth(default_width));
 }
 
 void ArcAppDialogView::OnAppImageUpdated(const std::string& app_id,
