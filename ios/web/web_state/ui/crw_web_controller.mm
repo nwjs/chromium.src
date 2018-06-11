@@ -3014,6 +3014,13 @@ registerLoadRequestForURL:(const GURL&)requestURL
     if ([_openedApplicationURL containsObject:errorURL])
       return;
 
+    if (!navigationContext->IsDownload()) {
+      // Non-download navigation was cancelled because WKWebView has opened a
+      // Universal Link and called webView:didFailProvisionalNavigation:.
+      self.navigationManagerImpl->DiscardNonCommittedItems();
+    }
+
+
     // This navigation was a download navigation and embedder now has a chance
     // to start the download task.
     _webStateImpl->SetIsLoading(false);
