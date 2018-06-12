@@ -21,6 +21,12 @@ const base::Feature kAutofillCacheQueryResponses{
 const base::Feature kAutofillDynamicForms{"AutofillDynamicForms",
                                           base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Controls whether the server credit cards are offered to be filled and
+// uploaded to Google Pay if the sync service is in auth error.
+const base::Feature kAutofillEnablePaymentsInteractionsOnAuthError{
+    "AutofillDontOfferServerCardsOnAuthError",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Controls whether or not a minimum number of fields is required before
 // heuristic field type prediction is run for a form.
 const base::Feature kAutofillEnforceMinRequiredFieldsForHeuristics{
@@ -42,6 +48,12 @@ const base::Feature kAutofillEnforceMinRequiredFieldsForUpload{
 // Controls whether credit card suggestions are made on insecure pages.
 const base::Feature kAutofillRequireSecureCreditCardContext{
     "AutofillRequireSecureCreditCardContext", base::FEATURE_ENABLED_BY_DEFAULT};
+
+// Controls whether Full Server credit cards should be reset when the sync
+// service is in an auth error state.
+const base::Feature kAutofillResetFullServerCardsOnAuthError{
+    "AutofillResetFullServerCardsOnAuthError",
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Controls whether or not a group of fields not enclosed in a form can be
 // considered a form. If this is enabled, unowned fields will only constitute
