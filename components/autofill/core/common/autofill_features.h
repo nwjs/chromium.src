@@ -14,9 +14,11 @@ namespace features {
 extern const base::Feature kAutofillAddressNormalizer;
 extern const base::Feature kAutofillRequireSecureCreditCardContext;
 extern const base::Feature kAutofillDynamicForms;
+extern const base::Feature kAutofillEnablePaymentsInteractionsOnAuthError;
 extern const base::Feature kAutofillEnforceMinRequiredFieldsForHeuristics;
 extern const base::Feature kAutofillEnforceMinRequiredFieldsForQuery;
 extern const base::Feature kAutofillEnforceMinRequiredFieldsForUpload;
+extern const base::Feature kAutofillResetFullServerCardsOnAuthError;
 extern const base::Feature kAutofillRestrictUnownedFieldsToFormlessCheckout;
 extern const base::Feature kAutofillShowTypePredictions;
 extern const base::Feature kAutofillSkipComparingInferredLabels;
