@@ -106,7 +106,7 @@ public class DownloadUtils {
 
     private static final String DEFAULT_MIME_TYPE = "*/*";
     private static final String MIME_TYPE_DELIMITER = "/";
-    private static final String MIME_TYPE_VIDEO = "video";
+    private static final String MIME_TYPE_SHARING_URL = "text/plain";
 
     private static final String EXTRA_IS_OFF_THE_RECORD =
             "org.chromium.chrome.browser.download.IS_OFF_THE_RECORD";
@@ -388,7 +388,12 @@ public class DownloadUtils {
                         DownloadHistoryItemWrapper.FILE_EXTENSION_BOUNDARY);
             }
 
-            String mimeType = Intent.normalizeMimeType(wrappedItem.getMimeType());
+            String mimeType;
+            if (shareUrl) {
+                mimeType = MIME_TYPE_SHARING_URL;
+            } else {
+                mimeType = Intent.normalizeMimeType(wrappedItem.getMimeType());
+            }
 
             // If a mime type was not retrieved from the backend or could not be normalized,
             // set the mime type to the default.
@@ -432,10 +437,10 @@ public class DownloadUtils {
             intentAction = Intent.ACTION_SEND_MULTIPLE;
         }
 
-        if (itemUris.size() == 1 && offlinePagesString.length() == 0) {
+        if (itemUris.size() == 1) {
             // Sharing a downloaded item or an offline page.
             shareIntent.putExtra(Intent.EXTRA_STREAM, itemUris.get(0));
-        } else {
+        } else if (itemUris.size() > 1) {
             shareIntent.putParcelableArrayListExtra(Intent.EXTRA_STREAM, itemUris);
         }
 
