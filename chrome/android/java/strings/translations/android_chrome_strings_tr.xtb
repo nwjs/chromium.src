@@ -17,7 +17,7 @@
 <translation id="1129510026454351943">Ayrıntılar: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Mevcut verileri silin.</translation>
 <translation id="1146678959555564648">VR'ye Gir</translation>
-<translation id="114721135501989771">Chrome'da Google Smarts'ı alın</translation>
+<translation id="114721135501989771">Chrome'da Google'ın akıllı yaklaşımını elde edin</translation>
 <translation id="116280672541001035">Kullanılan</translation>
 <translation id="1172593791219290334">Başlangıç Sayfası</translation>
 <translation id="1178581264944972037">Duraklat</translation>
@@ -157,7 +157,7 @@
 <translation id="2321086116217818302">Şifreler hazırlanıyor…</translation>
 <translation id="2321958826496381788">Bu yazıyı rahatça okuyana kadar kaydırma çubuğunu sürükleyin. Bir paragrafa iki kez hafifçe dokunduğunuzda metin en az bunun kadar büyük görünmelidir.</translation>
 <translation id="2323763861024343754">Site depolama alanı</translation>
-<translation id="2325181368089033281">Siz veya ebeveynleriniz <ph name="BEGIN_LINK1" />Ayarlar<ph name="END_LINK1" />'ı istediğiniz zaman özelleştirebilirsiniz. ; Chrome'u ve diğer Google hizmetlerini (Çeviri, Arama, reklamlar gibi) kişiselleştirmek için Google, ziyaret ettiğiniz sitelerdeki içeriği, tarayıcı etkileşimlerini ve etkinlikleri kullanabilir.</translation>
+<translation id="2325181368089033281">Siz veya ebeveynleriniz <ph name="BEGIN_LINK1" />Ayarlar<ph name="END_LINK1" />'ı istediğiniz zaman özelleştirebilirsiniz. Chrome'u ve diğer Google hizmetlerini (Çeviri, Arama, reklamlar gibi) kişiselleştirmek için Google, ziyaret ettiğiniz sitelerdeki içeriği, tarayıcı etkileşimlerini ve etkinlikleri kullanabilir.</translation>
 <translation id="2328985652426384049">Oturum açılamıyor</translation>
 <translation id="2342981853652716282">Tüm cihazlarınızda yer işaretlerinizi, şifrelerinizi almak ve daha pek çok şey yapmak için Chrome'da oturum açın.</translation>
 <translation id="2343328333327081434">Yükleniyor…</translation>
@@ -899,7 +899,7 @@ Yeni lisansları edinmek için İnternet'e bağlanın ve indirdiğiniz içeriği
 <translation id="8912362522468806198">Google Hesabı</translation>
 <translation id="8920114477895755567">Ebeveyn ayrıntıları bekleniyor.</translation>
 <translation id="8922289737868596582">Çevrimdışı olarak kullanmak istediğiniz sayfaları Diğer seçenekler düğmesini kullanarak indirin</translation>
-<translation id="8934029156920711950">Özellikle sizin özel seçilen makaleleri görüntülemek için dokunun</translation>
+<translation id="8934029156920711950">Özellikle size özel seçilen makaleleri görüntülemek için dokunun</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Yeni pencerede aç</translation>
 <translation id="8951232171465285730">Chrome <ph name="MEGABYTES" /> MB tasarruf sağladı</translation>

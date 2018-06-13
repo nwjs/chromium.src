@@ -423,7 +423,7 @@
 <translation id="2240879329269430151">Cho phép bạn đặt liệu các trang web có được phép hiển thị cửa sổ bật lên hay không. Bạn có thể cho phép hoặc từ chối hiển thị cửa sổ bật lên đối với tất cả các trang web.
 
           Nếu không thiết lập chính sách này, 'BlockPopups' sẽ được sử dụng và người dùng có thể thay đổi cài đặt này.</translation>
-<translation id="2269319728625047531">Cho phép hiển thị mục Chấp thuận đồng bộ hóa trong khi đăng nhập</translation>
+<translation id="2269319728625047531">Cho phép hiển thị màn hình Đồng ý đồng bộ hóa trong khi đăng nhập</translation>
 <translation id="2274864612594831715">Chính sách này định cấu hình bật bàn phím ảo làm thiết bị nhập liệu trên ChromeOS. Người dùng không thể ghi đè chính sách này.
 
       Nếu chính sách này được đặt thành true, bàn phím ảo trên màn hình sẽ luôn được bật.
@@ -1300,7 +1300,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="4604931264910482931">Định cấu hình danh sách cấm nhắn tin gốc</translation>
 <translation id="4613261833393532156">Cho phép bạn khóa phiên của người dùng dựa vào thời gian của ứng dụng khách hoặc hạn mức sử dụng trong ngày.
 
-          |time_window_limit| chỉ định một khoảng thời gian hàng ngày mà phiên của người dùng sẽ bị khóa. Chúng tôi chỉ hỗ trợ mỗi ngày trong tuần một quy tắc, do đó mảng |entries| có thể có kích thước khác nhau từ 0-7. |starts_at| và |ends_at| là thời gian bắt đầu và thời gian kết thúc của giới hạn thời gian, khi |ends_at| sớm hơn |starts_at| thì điều đó có nghĩa là |time_limit_window| sẽ kết thúc vào ngày tiếp theo. |last_updated_millis| là dấu thời gian UTC cho thời gian gần đây nhất mục này được cập nhật, dấu thời gian này được gửi dưới dạng chuỗi vì số nguyên sẽ không phù hợp.
+          |time_window_limit| chỉ định một khoảng thời gian hàng ngày mà phiên của người dùng sẽ bị khóa. Chúng tôi chỉ hỗ trợ một quy tắc cho mỗi một ngày trong tuần, do đó mảng |entries| có thể có kích thước khác nhau từ 0-7. |starts_at| và |ends_at| là thời gian bắt đầu và thời gian kết thúc của giới hạn thời gian, khi |ends_at| sớm hơn |starts_at| thì điều đó có nghĩa là |time_limit_window| sẽ kết thúc vào ngày tiếp theo. |last_updated_millis| là dấu thời gian UTC cho thời gian gần đây nhất mục này được cập nhật, dấu thời gian này được gửi dưới dạng chuỗi vì số nguyên sẽ không phù hợp.
 
           |time_usage_limit| chỉ định hạn mức sử dụng màn hình hàng ngày, do vậy khi người dùng đạt đến giới hạn này, phiên của người dùng sẽ bị khóa. Có một khoảng thời gian cho mỗi ngày trong tuần và chỉ nên đặt khoảng thời gian này nếu có hạn mức hoạt động cho ngày đó. |usage_quota_mins| là khoảng thời gian có thể sử dụng thiết bị được quản lý trong một ngày và |reset_at| là thời gian khi hạn mức sử dụng được gia hạn. Giá trị mặc định cho |reset_at| là nửa đêm ({'hour': 0, 'minute': 0}). |last_updated_millis| là dấu thời gian UTC cho lần gần đây nhất cập nhật mục này, dấu thời gian này được gửi dưới dạng chuỗi vì số nguyên sẽ không phù hợp.
 
@@ -2063,7 +2063,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
           Nếu không đặt chính sách này, phản hồi bằng giọng nói bị tắt ngay từ đầu nhưng người dùng có thể bật tính năng này bất cứ lúc nào.</translation>
 <translation id="6916507170737609563">
-      Bạn nên xem xét tùy chọn cài đặt chính sách IsolateOriginsAndroid để khai thác tối đa cả hai khía cạnh, cách cô lập và cách hạn chế tác động đến người dùng, bằng việc sử dụng IsolateOriginsAndroid cùng với danh sách các trang web mà bạn muốn cô lập. Tùy chọn cài đặt này, SitePerProcessAndroid, sẽ cô lập mọi trang web.
+      Bạn nên xem xét tùy chọn cài đặt chính sách IsolateOriginsAndroid để khai thác tối đa cả hai khía cạnh, việc cô lập và việc hạn chế tác động đến người dùng, bằng việc sử dụng IsolateOriginsAndroid cùng với danh sách các trang web mà bạn muốn cô lập. Tùy chọn cài đặt này, SitePerProcessAndroid, sẽ cô lập mọi trang web.
       Nếu bạn bật chính sách này, mỗi trang web sẽ chạy theo quy trình riêng.
       Nếu bạn tắt chính sách này, sẽ không có sự Cô lập trang web rõ ràng nào xảy ra và các phiên bản dùng thử tại chỗ của IsolateOriginsAndroid và SitePerProcessAndroid sẽ bị tắt. Người dùng vẫn có thể bật SitePerProcess theo cách thủ công.
       Nếu bạn không định cấu hình chính sách này, thì người dùng sẽ có thể thay đổi tùy chọn cài đặt này.
@@ -2349,7 +2349,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="7643883929273267746">Hạn chế các tài khoản được hiển thị trong <ph name="PRODUCT_NAME" /></translation>
 <translation id="7651739109954974365">Xác định liệu chuyển vùng dữ liệu có được bật cho thiết bị hay không. Nếu được đặt thành đúng, chuyển vùng dữ liệu sẽ được phép. Nếu không được định cấu hình hoặc được đặt thành sai, chuyển vùng dữ liệu sẽ không khả dụng.</translation>
 <translation id="7673194325208122247">Khoảng thời gian (mili giây)</translation>
-<translation id="7676708657861783864">Cookie do những trang khớp với các mẫu URL này đặt sẽ bị giới hạn ở phiên hiện tại, tức là chúng sẽ bị xóa khi thoát khỏi trình duyệt.
+<translation id="7676708657861783864">Cookie do những trang khớp với các mẫu URL này đặt sẽ bị giới hạn ở phiên hiện tại, tức là chúng sẽ bị xóa khi trình duyệt đóng.
 
           Đối với những URL không thuộc các mẫu được chỉ định ở đây hoặc đối với tất cả các URL nếu bạn chưa đặt chính sách này, thì sẽ sử dụng giá trị mặc định chung từ chính sách 'DefaultCookiesSetting', nếu chính sách này được đặt, hoặc từ cấu hình cá nhân của người dùng.
 
@@ -2423,7 +2423,7 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="7781069478569868053">Trang tab mới</translation>
 <translation id="7788511847830146438">Cho mỗi hồ sơ</translation>
 <translation id="7788872453000173219">
-      Bạn nên xem xét tùy chọn cài đặt chính sách IsolateOrigins để khai thác tối đa cả hai khía cạnh, cách cô lập và cách hạn chế tác động đến người dùng, bằng việc sử dụng IsolateOrigins cùng với danh sách các trang web mà bạn muốn cô lập. Tùy chọn cài đặt này, SitePerProcess, sẽ cô lập mọi trang web.
+      Bạn nên xem xét tùy chọn cài đặt chính sách IsolateOrigins để khai thác tối đa cả hai khía cạnh, việc cô lập và việc hạn chế tác động đến người dùng, bằng việc sử dụng IsolateOrigins cùng với danh sách các trang web mà bạn muốn cô lập. Tùy chọn cài đặt này, SitePerProcess, sẽ cô lập mọi trang web.
       Nếu bạn bật chính sách này, thì mỗi trang web sẽ chạy theo quy trình riêng.
       Nếu bạn tắt chính sách này, sẽ không có sự Cô lập trang web rõ ràng nào xảy ra và các phiên bản dùng thử tại chỗ của IsolateOrigins và SitePerProcess sẽ bị tắt. Người dùng vẫn có thể bật SitePerProcess theo cách thủ công.
       Nếu bạn không định cấu hình chính sách này, thì người dùng sẽ có thể thay đổi tùy chọn cài đặt này.
@@ -2834,9 +2834,9 @@ Bạn nên định cấu hình chính sách trên Windows qua GPO, mặc dù vi�
 
       Nếu bạn chưa đặt chính sách này, thì <ph name="PRINTERS_ALLOW_ALL" /> sẽ là tùy chọn mặc định.
       </translation>
-<translation id="8942616385591203339">Chính sách này sẽ kiểm soát liệu mục Chấp thuận đồng bộ hóa có hiển thị với người dùng trong lần đăng nhập đầu tiên hay không. Bạn nên đặt chính sách này thành false nếu không cần hiển thị mục Chấp thuận đồng bộ hóa cho người dùng.
-      Nếu đặt chính sách thành false, thì mục Chấp thuận đồng bộ hóa sẽ không hiển thị.
-      Nếu đặt thành true hoặc không đặt chính sách này, thì mục Chấp thuận đồng bộ hóa có thể được hiển thị.</translation>
+<translation id="8942616385591203339">Chính sách này sẽ kiểm soát liệu màn hình Đồng ý đồng bộ hóa có hiển thị với người dùng trong lần đăng nhập đầu tiên hay không. Bạn nên đặt chính sách này thành false nếu không cần hiển thị màn hình Đồng ý đồng bộ hóa cho người dùng.
+      Nếu đặt chính sách thành false, thì màn hình Đồng ý đồng bộ hóa sẽ không hiển thị.
+      Nếu đặt thành true hoặc không đặt chính sách này, thì màn hình Đồng ý đồng bộ hóa có thể được hiển thị.</translation>
 <translation id="8947415621777543415">Báo cáo vị trí thiết bị</translation>
 <translation id="8951350807133946005">Thiết lập thư mục bộ nhớ đệm trên đĩa</translation>
 <translation id="8952317565138994125">Tắt đồng bộ hóa dữ liệu trong <ph name="PRODUCT_NAME" /> bằng cách sử dụng các dịch vụ đồng bộ hóa được lưu trữ trên Google và ngăn người dùng thay đổi cài đặt này.

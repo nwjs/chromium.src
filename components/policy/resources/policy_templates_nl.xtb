@@ -2828,7 +2828,7 @@ Als dit beleid niet is ingesteld, worden er geen beperkingen toegepast en kan de
       </translation>
 <translation id="8942616385591203339">Dit beleid bepaalt of er informatie over toestemming voor synchronisatie mag worden getoond aan de gebruiker wanneer deze voor het eerst inlogt. De waarde moet op 'false' (onwaar) worden ingesteld als er nooit toestemming voor synchronisatie is vereist voor de gebruiker.
       Als dit is ingesteld op 'false' (onwaar), wordt er geen informatie over toestemming voor synchronisatie weergegeven.
-      Als dit is ingesteld op 'true' (waar) of als dit niet is ingesteld, kan er informatie over toestemming voor synchronisatie weergegeven.</translation>
+      Als dit is ingesteld op 'true' (waar) of als dit niet is ingesteld, kan er informatie over toestemming voor synchronisatie worden weergegeven.</translation>
 <translation id="8947415621777543415">Apparaatlocatie rapporteren</translation>
 <translation id="8951350807133946005">Directory voor schijfcache instellen</translation>
 <translation id="8952317565138994125">Hiermee wordt gegevenssynchronisatie uitgeschakeld in <ph name="PRODUCT_NAME" /> via door Google gehoste synchronisatieservices. Gebruikers kunnen deze instelling niet wijzigen.

@@ -172,7 +172,7 @@
 <translation id="4527045527269911712">Il dispositivo Bluetooth "<ph name="DEVICE_NAME" />" chiede l'autorizzazione per essere accoppiato.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> alla ricarica completa</translation>
 <translation id="4544944664594876241">La scorciatoia per bloccare lo schermo è cambiata. Utilizza <ph name="NEW_SHORTCUT" /> invece di <ph name="OLD_SHORTCUT" />.</translation>
-<translation id="4564869809620998694">Servizio carattere</translation>
+<translation id="4564869809620998694">Servizio di gestione caratteri</translation>
 <translation id="4570957409596482333">Pulsante Seleziona per ascoltare</translation>
 <translation id="4659419629803378708">ChromeVox attivato</translation>
 <translation id="4776917500594043016">Password per <ph name="USER_EMAIL_ADDRESS" /></translation>
@@ -265,7 +265,7 @@
 <translation id="6715542151869432661">Nessun dispositivo mobile trovato.</translation>
 <translation id="671928215901716392">Blocco schermo</translation>
 <translation id="6723839937902243910">Alimentazione</translation>
-<translation id="6725073593266469338">Servizio UI</translation>
+<translation id="6725073593266469338">Servizio di gestione UI</translation>
 <translation id="6785414152754474415">Percentuale di caricamento batteria: <ph name="PERCENTAGE" />%. La batteria è in carica.</translation>
 <translation id="6803622936009808957">Impossibile duplicare i display perché non sono state trovate risoluzioni supportate. È stato attivato il desktop esteso.</translation>
 <translation id="6820676911989879663">Fai una pausa!</translation>

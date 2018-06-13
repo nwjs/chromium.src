@@ -946,9 +946,9 @@ Bu ayar Kapalı değerine getirilirse veya herhangi bir değer belirlenmezse <ph
 <translation id="3737544779868348650">Cihaz ağı ana makine adı</translation>
 <translation id="3746590506846867985">
       Bu politika, oturum açma ekranı için geçerlidir. Lütfen ayrıca kullanıcı oturumu için geçerli olan <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse kullanıcı oturumuna giriş sırasında kullanıcı politikası tarafından belirtilen değer uygulanırken gecikme olabilir.
-      Bu politikanın etkinleştirilmesi halinde, virgülle ayrılmış listede ad verilmiş her kaynak kendi işleminde çalışır. Bu politika ayrıca alt alan adlarıyla adlandırılan kaynakları da izole eder; örneğin, https://example.com/ adresinin belirtilmesi, https://example.com/ sitesinin bir parçası olarak https://foo.example.com/ sitesinin de izole edilmesine neden olur.
-      Bu politikanın devre dışı bırakılması halinde herhangi bir Site İzolasyonu yapılmaz ve IsolateOrigins ile SitePerProcess'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de IsolateOrigins'i, manuel olarak etkinleştirebilirler.
-      Bu politikanın yapılandırılmaması halinde oturum açma ekranı için platformun varsayılan site izolasyonu ayarları kullanılır.
+      Bu politika etkinleştirilirse virgülle ayrılmış listede ad verilmiş her kaynak kendi işleminde çalışır. Bu politika ayrıca alt alan adlarıyla adlandırılan kaynakları da izole eder; örneğin, https://example.com/ adresinin belirtilmesi, https://example.com/ sitesinin bir parçası olarak https://foo.example.com/ sitesinin de izole edilmesine neden olur.
+      Bu politika devre dışı bırakılırsa herhangi bir Site İzolasyonu yapılmaz ve IsolateOrigins ile SitePerProcess'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de IsolateOrigins'i, manuel olarak etkinleştirebilirler.
+      Bu politikanın yapılandırılmazsa oturum açma ekranı için platformun varsayılan site izolasyonu ayarları kullanılır.
       </translation>
 <translation id="3750220015372671395">Bu sitelerde anahtar oluşturmayı engelle</translation>
 <translation id="3756011779061588474">Geliştirici modunu engelle</translation>
@@ -1293,15 +1293,15 @@ politikayı geçersiz kılamaz.
 <translation id="4604931264910482931">Yerel mesajlaşma kara listesini yapılandır</translation>
 <translation id="4613261833393532156">Kullanıcının oturumunu istemci süresine veya günün kullanım kotasına dayalı olarak kilitlemenize olanak tanır.
 
-          |time_window_limit|, kullanıcı oturumunun kilitli olacağı bir günlük aralık belirtir. Haftanın her günü için yalnızca bir kural desteklendiğinden |entries| dizisinin büyüklüğü 0-7 arasında değişiklik gösterebilir. |starts_at| ve |ends_at|, zaman aralığı sınırının başlangıcı ve bitişidir. |ends_at| değerinin |starts_at| değerinden küçük olması |time_limit_window| aralığının ertesi gün sona ereceği anlamına gelir. |last_updated_millis|, bu girişin son güncellemesine ilişkin UTC zaman damgasıdır. Zaman damgası bir tam sayı olarak uygun olmayacağından dize olarak gönderilir.
+          |time_window_limit|, kullanıcı oturumunun kilitli olacağı bir günlük aralık belirtir. Haftanın her günü için yalnızca bir kural desteklendiğinden |entries| dizisinin büyüklüğü 0-7 arasında değişiklik gösterebilir. |starts_at| ve |ends_at|, zaman aralığı sınırının başlangıcı ve bitişidir. |ends_at| değerinin |starts_at| değerinden küçük olması |time_limit_window| aralığının ertesi gün sona ereceği anlamına gelir. |last_updated_millis|, bu girişin son güncellemesine ilişkin UTC zaman damgasıdır. Zaman damgası bir tam sayıya sığmayacağından dize olarak gönderilir.
 
-          |time_usage_limit|, bir günlük ekran kotasını belirtir. Böylece, kullanıcı bu değere ulaştığında kullanıcının oturumu kilitlenir. Haftanın her günü için bir özellik vardır ve yalnızca söz konusu gün için etkin bir kota olduğunda ayarlanması gerekir. |usage_quota_mins|, yönetilen cihazın bir günde kullanılabileceği süredir ve |reset_at|, kullanım kotasının ne zaman yenilendiğini belirtir. |reset_at| için varsayılan değer gece yarısıdır ({'hour': 0, 'minute': 0}). |last_updated_millis|, bu girişin son güncellemesine ilişkin UTC zaman damgasıdır. Zaman damgası bir tam sayı olarak uygun olmayacağından dize olarak gönderilir.
+          |time_usage_limit|, bir günlük ekran kotasını belirtir. Böylece, kullanıcı bu değere ulaştığında kullanıcının oturumu kilitlenir. Haftanın her günü için bir özellik vardır ve yalnızca söz konusu gün için etkin bir kota olduğunda ayarlanması gerekir. |usage_quota_mins|, yönetilen cihazın bir günde kullanılabileceği süredir ve |reset_at|, kullanım kotasının ne zaman yenilendiğini belirtir. |reset_at| için varsayılan değer gece yarısıdır ({'hour': 0, 'minute': 0}). |last_updated_millis|, bu girişin son güncellemesine ilişkin UTC zaman damgasıdır. Zaman damgası bir tam sayıya sığmayacağından dize olarak gönderilir.
 
           |overrides|, önceki kuralların birini veya birkaçını geçici olarak geçersiz kılmak için sağlanır.
           * time_window_limit veya time_usage_limit etkin değilse, cihazı kilitlemek için |LOCK| kullanılabilir.
           * |LOCK|, bir sonraki time_window_limit veya time_usage_limit başlayıncaya kadar bir kullanıcı oturumunu geçici olarak kilitler.
           * |UNLOCK|, time_window_limit veya time_usage_limit tarafından kilitlenen bir kullanıcı oturumunun kilidini açar.
-          |created_time_millis|, geçersiz kılmanın oluşturulmasıyla ilgili UTC zaman damgasıdır. Zaman damgası bir tamsayı olarak uygun olmayacağından Dize olarak gönderilir. Bu geçersiz kılmanın hâlâ uygulanmasının gerekip gerekmediğini belirlemek için kullanılır. Geçerli etkin zaman sınırı özelliği (zaman kullanım sınırı veya zaman aralığı sınırı) geçersiz kılma oluşturulduktan sonra başladıysa herhangi bir işlem yapmaz. Ayrıca, geçersiz kılma, etkin time_window_limit veya time_usage_window değerinde yapılan son değişiklikten önce oluşturulduysa uygulanmamalıdır.</translation>
+          |created_time_millis|, geçersiz kılmanın oluşturulmasıyla ilgili UTC zaman damgasıdır. Zaman damgası bir tam sayıya sığmayacağından Dize olarak gönderilir. Bu geçersiz kılmanın uygulanmasının hâlâ gerekip gerekmediğini belirlemek için kullanılır. Geçerli etkin zaman sınırı özelliği (zaman kullanım sınırı veya zaman aralığı sınırı) geçersiz kılma oluşturulduktan sonra başladıysa herhangi bir işlem yapmaz. Ayrıca, geçersiz kılma, etkin time_window_limit veya time_usage_window değerinde yapılan son değişiklikten önce oluşturulduysa uygulanmamalıdır.</translation>
 <translation id="4613508646038788144">Bu politika false (yanlış) değerine ayarlanırsa üçüncü taraf yazılımlarının Chrome işlemlerine çalıştırılabilir kod yerleştirmelerine izin verilir. Politika ayarlanmazsa veya true (doğru) değerine ayarlanırsa üçüncü taraf yazılımlarının Chrome işlemlerine çalıştırılabilir kod yerleştirmeleri engellenir.</translation>
 <translation id="4617338332148204752"><ph name="PRODUCT_FRAME_NAME" /> cihazında meta etiket kontrolünü atla</translation>
 <translation id="4625915093043961294">Uzantı yükleme beyaz listesini yapılandır</translation>
@@ -2057,8 +2057,8 @@ politikayı geçersiz kılamaz.
           Bu politika ayarlanmadan bırakılırsa, sesli geri bildirim başta devre dışıdır, ancak istenildiğinde kullanıcı tarafından etkinleştirilebilir.</translation>
 <translation id="6916507170737609563">
       Hem izolasyondan hem de kullanıcılar için sınırlı etkiden en iyi şekilde yararlanmak üzere IsolateOriginsAndroid politika ayarına bakmak isteyebilirsiniz. Bunun için, izole etmek istediğiniz sitelerin listesiyle IsolateOriginsAndroid'i kullanabilirsiniz. Bu ayar (SitePerProcessAndroid) tüm siteleri izole eder. 
-      Bu politikanın etkinleştirilmesi halinde her site kendi işleminde çalışır.
-      Bu politikanın devre dışı bırakılması halinde hiçbir Site İzolasyonu yapılmaz ve IsolateOriginsAndroid ile SitePerProcessAndroid’in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de SitePerProcessAndroid’i manuel olarak etkinleştirebilirler.
+      Bu politika etkinleştirilirse her site kendi işleminde çalışır.
+      Bu politika devre dışı bırakılırsa hiçbir Site İzolasyonu yapılmaz ve IsolateOriginsAndroid ile SitePerProcessAndroid’in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de SitePerProcessAndroid’i manuel olarak etkinleştirebilirler.
       Politika yapılandırılmazsa kullanıcı bu ayarı değiştirebilir.
 
       NOT: Android'de Site İzolasyonu deneme aşamasındadır. Destek zaman içinde iyileşecektir ancak şu anda performans sorunlarına neden olabilir.
@@ -2424,8 +2424,8 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 <translation id="7788511847830146438">Her Profil İçin Ayrı</translation>
 <translation id="7788872453000173219">
       Hem izolasyondan hem de kullanıcılar için sınırlı etkiden en iyi şekilde yararlanmak amacıyla IsolateOrigins politika ayarına bakmak isteyebilirsiniz. Bunun için, izole etmek istediğiniz sitelerin listesiyle IsolateOrigins'i kullanabilirsiniz. Bu ayar (SitePerProcess) tüm siteleri izole eder.
-      Bu politikanın etkinleştirilmesi halinde her site kendi işleminde çalışır.
-      Bu politikanın devre dışı bırakılması halinde hiçbir Site İzolasyonu yapılmaz  ve IsolateOrigins ile SitePerProcess'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de IsolateOrigins'i manuel olarak etkinleştirebilir.
+      Bu politika etkinleştirilirse her site kendi işleminde çalışır.
+      Bu politika devre dışı bırakılırsa hiçbir Site İzolasyonu yapılmaz  ve IsolateOrigins ile SitePerProcess'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de IsolateOrigins'i manuel olarak etkinleştirebilir.
       Politika yapılandırılmazsa, kullanıcı bu ayarı değiştirebilir. 
       <ph name="PRODUCT_OS_NAME" /> işletim sisteminde <ph name="DEVICE_LOGIN_SCREEN_SITE_PER_PROCESS_POLICY_NAME" /> cihaz politikasının da aynı değere ayarlanması önerilir. İki politikanın belirttiği değerler eşleşmezse kullanıcı oturumuna giriş sırasında kullanıcı politikası tarafından belirtilen değer uygulanırken gecikme olabilir.
 
@@ -2469,9 +2469,9 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 <translation id="7892077286206685156">
       Bu politika, oturum açma ekranı için geçerlidir. Lütfen ayrıca kullanıcı oturumu için geçerli olan <ph name="SITE_PER_PROCESS_POLICY_NAME" /> politikasına da bakın. Her iki politikanın da aynı değere ayarlanması önerilir. Değerler eşleşmezse kullanıcı oturumuna giriş sırasında kullanıcı politikası tarafından belirtilen değer uygulanırken gecikme olabilir.
       Hem izolasyondan hem de kullanıcılar için sınırlı etkiden en iyi şekilde yararlanmak üzere IsolateOrigins politika ayarına bakmak isteyebilirsiniz. Bunun için, izole etmek istediğiniz sitelerin listesiyle IsolateOrigins'i kullanabilirsiniz. Bu ayar (SitePerProcess) tüm siteleri izole eder.
-      Bu politikanın etkinleştirilmesi halinde her site kendi işleminde çalışır.
-      Bu politikanın devre dışı bırakılması halinde herhangi bir Site İzolasyonu yapılmaz ve IsolateOrigins ile SitePerProcess'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de SitePerProcess'i manuel olarak etkinleştirebilirler.
-      Bu politikanın yapılandırılmaması halinde kullanıcı bu ayarı değiştirebilir.
+      Bu politika etkinleştirilirse her site kendi işleminde çalışır.
+      Bu politika devre dışı bırakılırsa herhangi bir Site İzolasyonu yapılmaz ve IsolateOrigins ile SitePerProcess'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de SitePerProcess'i manuel olarak etkinleştirebilirler.
+      Bu politika yapılandırılmazsa kullanıcı bu ayarı değiştirebilir.
       </translation>
 <translation id="7912255076272890813">İzin verilen uygulama/uzantı türlerini yapılandır</translation>
 <translation id="7915236031252389808">Bir proxy .pac dosyasının URL'sini burada belirtebilirsiniz.
@@ -2488,8 +2488,8 @@ Bu politika yanlış (false) değerine ayarlanırsa Yeni Sekme sayfasında, otom
 <translation id="7937766917976512374">Video yakalamaya izin verme veya reddetme</translation>
 <translation id="7941975817681987555">Ağ bağlantılarında ağ işlemlerini tahmin etme</translation>
 <translation id="7952880400776676958">
-      Bu politikanın etkinleştirilmesi halinde, virgülle ayrılmış listede adı verilen her kaynak kendi işleminde çalışır. Bu politika ayrıca alt alan adlarıyla adlandırılan kaynakları da izole eder; örneğin, https://example.com/ adresinin belirtilmesi, https://example.com/ sitesinin bir parçası olarak https://foo.example.com/ sitesinin de izole edilmesine neden olur.
-      Bu politikanın devre dışı bırakılması halinde hiçbir Site İzolasyonu yapılmaz ve IsolateOriginsAndroid ile SitePerProcessAndroid'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de IsolateOrigins'i manuel olarak etkinleştirebilir.
+      Bu politika etkinleştirilirse virgülle ayrılmış listede adı verilen her kaynak kendi işleminde çalışır. Bu politika ayrıca alt alan adlarıyla adlandırılan kaynakları da izole eder; örneğin, https://example.com/ adresinin belirtilmesi, https://example.com/ sitesinin bir parçası olarak https://foo.example.com/ sitesinin de izole edilmesine neden olur.
+      Bu politika devre dışı bırakılırsa hiçbir Site İzolasyonu yapılmaz ve IsolateOriginsAndroid ile SitePerProcessAndroid'in saha denemeleri devre dışı kalır. Ancak kullanıcılar yine de IsolateOrigins'i manuel olarak etkinleştirebilir.
       Politika yapılandırılmazsa, kullanıcı bu ayarı değiştirebilir. 
 
       NOT: Android'de Site İzolasyonu deneme aşamasındadır. Destek zaman içinde iyileşecektir ancak şu anda performans sorunlarına neden olabilir.
@@ -2954,6 +2954,6 @@ olan sanal makineleri kapatmaz.
 <translation id="924557436754151212">İlk çalıştırmada kayıtlı şifreleri varsayılan tarayıcıdan içe aktar</translation>
 <translation id="930930237275114205"><ph name="PRODUCT_FRAME_NAME" /> kullanıcı verileri dizinini ayarla</translation>
 <translation id="944817693306670849">Disk önbellek boyutunu ayarla</translation>
-<translation id="981346395360763138">Google konum hizmetleri devre dışı bırakıldı</translation>
+<translation id="981346395360763138">Google konum hizmetleri devre dışı</translation>
 <translation id="982497069985795632">Yazım denetimini etkinleştir</translation>
 </translationbundle>

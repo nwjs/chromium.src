@@ -101,7 +101,7 @@
 <translation id="1145292499998999162">செருகுநிரல் தடுக்கப்பட்டது</translation>
 <translation id="1145532888383813076">சாதனம், பயன்பாடுகள், இணையம் ஆகியவற்றில் தேடவும்.</translation>
 <translation id="1146204723345436916">HTML கோப்பிலிருந்து புக்மார்க்குகளை இறக்குமதி செய்க...</translation>
-<translation id="114721135501989771">Chrome-Google ஸ்மார்ட்பெறுக</translation>
+<translation id="114721135501989771">Chromeமில் Google ஸ்மார்ட்களை பெறுக</translation>
 <translation id="1148097584170732637"><ph name="FILE_COUNT" /> உள்ளது.
     <ph name="LINE_BREAK1" />
     அகச் சேமிப்பகத்தில் போதுமான இடம் இல்லை. கூடுதலாக <ph name="FILE_SIZE" /> தேவை.
@@ -929,7 +929,7 @@
 <translation id="2408955596600435184">பின்னை உள்ளிடவும்</translation>
 <translation id="241082044617551207">அறியப்படாத செருகுநிரல்</translation>
 <translation id="2413749388954403953">புக்மார்க்குகள் பயனர் இடைமுகத்தை மாற்றலாம்</translation>
-<translation id="2419706071571366386">பாதுகாப்பிற்காக, கணினி பயன்படுத்தப்படாத போது வெளியேறவும்.</translation>
+<translation id="2419706071571366386">பாதுகாப்பிற்காக, கம்ப்யூட்டர் பயன்படுத்தப்படாத போது வெளியேறவும்.</translation>
 <translation id="2422426094670600218">&lt;பெயரிடப்படாதது&gt;</translation>
 <translation id="2423578206845792524">படத்தை இவ்வாறு சே&amp;மி...</translation>
 <translation id="2425665904502185219">மொத்தக் கோப்பின் அளவு</translation>
@@ -4134,7 +4134,7 @@
 <translation id="7366415735885268578">தளத்தைச் சேர்</translation>
 <translation id="7366909168761621528">உலாவல் தரவு</translation>
 <translation id="7371006317849674875">தொடக்க நேரம்</translation>
-<translation id="737439367876257440">சாதனம் மற்றும் உபயோகத் தகவலை Googleக்கு அனுப்புவதன் மூலம், Chromeஐயும் அதன் பாதுகாப்பையும் மேம்படுத்தவும்</translation>
+<translation id="737439367876257440">சாதனம் மற்றும் உபயோகத் தகவலை Googleளுக்கு அனுப்புவதன் மூலம், Chromeமையும் அதன் பாதுகாப்பையும் மேம்படுத்தவும்</translation>
 <translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">மவுஸ் கர்சரை நகர்த்தும் போது, அதை ஹைலைட் செய்</translation>
 <translation id="7377169924702866686">Caps Lock இயக்கத்தில் உள்ளது.</translation>

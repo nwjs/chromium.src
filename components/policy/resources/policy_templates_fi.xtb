@@ -390,7 +390,7 @@
           Jos tämä asetus on määritetty, pika-avaamista käyttäviä käyttäjiä pyydetään antamaan salasana lukitusnäytöllä tämän asetuksen mukaisesti.
 
           Jos tätä asetusta ei ole määritetty, pika-avaamista käyttäviä käyttäjiä pyydetään antamaan salasana lukitusnäytöllä päivittäin.</translation>
-<translation id="2187588466015916207">Sallii sinun valita, missä kehittäjätyökaluja voi käyttää
+<translation id="2187588466015916207">Voit valita, missä kehittäjätyökaluja voi käyttää.
 
       Jos käytännön arvoksi on asetettu DeveloperToolsDisallowedForForceInstalledExtensions (arvo 0, joka on yrityskäyttäjien oletusarvo), kehittäjätyökalujen ja JavaScript-konsolin käyttö on sallittua yleisesti mutta ei yrityskäytännön asentamien laajennusten yhteydessä.
       Jos käytännön arvoksi on asetettu DeveloperToolsAllowed (arvo 1, joka on hallinnoimattomien käyttäjien oletusarvo), kehittäjätyökalujen ja JavaScript-konsolin käyttö on sallittua kaikissa yhteyksissä, mukaan lukien yrityskäytännön asentamat laajennukset. 
@@ -840,7 +840,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="332771718998993005">Määritä laitteelle nimi, jonka <ph name="PRODUCT_NAME" /> näyttää kohteena.
 
           Jos tämän käytännön arvo on ei-tyhjä merkkijono, <ph name="PRODUCT_NAME" /> näyttää kyseisen merkkijonon kohdenimenä. Muussa tapauksessa kohdenimenä käytetään laitteen nimeä. Jos tätä käytäntöä ei ole määritetty, kohdenimenä käytetään laitteen nimeä ja laitteen omistaja (tai laitetta hallinnoivan verkkotunnuksen käyttäjä) voi vaihtaa nimen. Nimen enimmäispituus on 24 merkkiä.</translation>
-<translation id="3335468714959531450">Sallii määrittää luettelon URL-malleja, joissa määritetään sivustot, jotka saavat asettaa evästeitä
+<translation id="3335468714959531450">Voit määrittää luettelon URL-malleja, joissa määritetään sivustot, jotka saavat asettaa evästeitä.
 
           Jos tätä käytäntöä ei ole määritetty, kaikille sivustoille käytetään joko DefaultCookiesSetting-käytännön yleistä oletusarvoa, jos se on asetettu, tai käyttäjän henkilökohtaisia määrityksiä.
 
@@ -1080,7 +1080,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="4056910949759281379">Poista SPDY-protokolla käytöstä</translation>
 <translation id="4059515172917655545">Tämän käytännön avulla määritetään Googlen sijaintipalveluiden käyttö.
 
-      Jos käytäntöä ei ole määritetty tai sen arvoksi on asetettu <ph name="GLS_DISABLED" />, Googlen sijaintipalvelut on poistettu käytöstä, eikä käyttäjä voi ottaa niitä käyttöön..
+      Jos käytäntöä ei ole määritetty tai sen arvoksi on asetettu <ph name="GLS_DISABLED" />, Googlen sijaintipalvelut on poistettu käytöstä, eikä käyttäjä voi ottaa niitä käyttöön.
 
       Jos käytännön arvoksi on asetettu <ph name="GLS_UNDER_USER_CONTROL" />, käyttäjää pyydetään valitsemaan, haluavatko he käyttää Googlen sijaintipalveluita. Tämä sallii Android-sovellusten käyttää palveluita laitteen sijainnin kysymiseen ja ottaa käyttöön nimettömän sijaintidatan lähettämisen Googlelle.
 
@@ -1255,7 +1255,7 @@ Jos asetus ei ole käytössä, käyttäjät eivät voi ottaa välityspalvelinta 
 <translation id="4567137030726189378">Salli kehittäjätyökalujen käyttö</translation>
 <translation id="4600786265870346112">Ota suuri osoitin käyttöön</translation>
 <translation id="4604931264910482931">Määritä kiellettyjen luettelo laitteen omalle viestijärjestelmälle</translation>
-<translation id="4613261833393532156">Sallii käyttäjän käyttökerran lukitsemisen perustuen asiakasaikaan tai päivän käyttökiintiöön.
+<translation id="4613261833393532156">Voit lukita käyttäjän käyttökerran perustuen asiakasaikaan tai päivän käyttökiintiöön.
 
           |time_window_limit| määrittää päivittäisen aikaikkunan, jolloin käyttäjän käyttökerta pitäisi lukita. Tuemme vain yhtä sääntöä viikonpäivää kohti, minkä vuoksi |entries|-joukko voi olla kooltaan 0–7. |starts_at| ja |ends_at| ovat aikaikkunan aloitus- ja päättymisajat. Jos |ends_at| on aiemmin kuin |starts_at|, |time_limit_window| päättyy seuraavana päivänä. |last_updated_millis| on tämän merkinnän edellisen päivityskerran UTC-aikaleima. Se lähetetään merkkijonona, koska aikaleima ei mahtuisi kokonaislukuun.
 
@@ -2420,7 +2420,7 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
 <translation id="8044493735196713914">Ilmoita laitteen tila uudelleenkäynnistyksen yhteydessä</translation>
 <translation id="8050080920415773384">Natiivitulostus</translation>
 <translation id="8059164285174960932">URL-osoite, josta etäkäytön asiakkaiden tulisi saada todennustunnus</translation>
-<translation id="8078366200175825572">Sallii määrittää luettelon URL-osoitemalleista, jotka määrittävät sivustot, jotka eivät saa määrittää evästeitä.
+<translation id="8078366200175825572">Voit määrittää luettelon URL-osoitemalleista, jotka määrittävät sivustot, jotka eivät saa määrittää evästeitä.
 
           Jos tätä käytäntöä ei aseteta, kaikkiin sivustoihin sovelletaan DefaultCookiesSetting-käytännön (jos se on asetettu) tai käyttäjän oman määrityksen mukaista yleistä oletusarvoa.
 

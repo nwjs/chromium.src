@@ -88,7 +88,7 @@
 <translation id="1123187597739372905">Открыть настройки синхронизации</translation>
 <translation id="1123316951456119629">После отключения аккаунта Google в <ph name="PRODUCT_NAME" /> с ним больше не будут синхронизироваться изменения данных на вашем мобильном устройстве. Информация, которая уже хранится в аккаунте, останется там до тех пор, пока вы не удалите ее через <ph name="BEGIN_LINK" />Личный кабинет Google<ph name="END_LINK" />.</translation>
 <translation id="1124772482545689468">Пользователь</translation>
-<translation id="1125550662859510761">Похоже на <ph name="WIDTH" /> x <ph name="HEIGHT" /> (аппаратное разрешение)</translation>
+<translation id="1125550662859510761">Выглядит как <ph name="WIDTH" /> x <ph name="HEIGHT" /> (аппаратное разрешение)</translation>
 <translation id="1128109161498068552">Запретить сайтам доступ к устройствам MIDI с помощью системных сообщений</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">Изменить поисковую систему</translation>
@@ -769,7 +769,7 @@
 <translation id="2151576029659734873">Указан неверный индекс вкладки.</translation>
 <translation id="2154484045852737596">Изменение данных карты</translation>
 <translation id="2154710561487035718">Копировать URL</translation>
-<translation id="2155772377859296191">Похоже на <ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
+<translation id="2155772377859296191">Выглядит как <ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
 <translation id="215753907730220065">Выход из полноэкранного режима</translation>
 <translation id="2157875535253991059">Эта страница отображается в полноэкранном режиме.</translation>
 <translation id="216169395504480358">Добавить подключение по Wi-Fi...</translation>
@@ -2483,7 +2483,7 @@
 <translation id="4862042298115071399"><ph name="WINDOW_TITLE" />: видео воспроизводится в режиме "Картинка в картинке"</translation>
 <translation id="4862050643946421924">Добавление устройства</translation>
 <translation id="4862642413395066333">Подпись ответов OCSP</translation>
-<translation id="4863769717153320198">Похоже на <ph name="WIDTH" /> x <ph name="HEIGHT" /> (разрешение по умолчанию)</translation>
+<translation id="4863769717153320198">Выглядит как <ph name="WIDTH" /> x <ph name="HEIGHT" /> (разрешение по умолчанию)</translation>
 <translation id="4864369630010738180">Вход в систему...</translation>
 <translation id="486635084936119914">Автоматически открывать некоторые типы файлов после скачивания</translation>
 <translation id="4869142322204669043">Для персонализации <ph name="IDS_SHORT_PRODUCT_NAME" /> и других сервисов Google, таких как Переводчик, Поиск и Google Ads, могут использоваться данные с сайтов, которые вы посещаете, а также история просмотров и действий в браузере. Изменить эти параметры можно в любое время в настройках.</translation>

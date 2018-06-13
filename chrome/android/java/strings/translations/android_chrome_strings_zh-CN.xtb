@@ -13,7 +13,7 @@
 <translation id="1111673857033749125">您在其他设备上保存的书签将列在此处。</translation>
 <translation id="1113597929977215864">显示简化版视图</translation>
 <translation id="1121094540300013208">使用情况统计信息和崩溃报告</translation>
-<translation id="11221688409173367">点按主屏幕按钮即可查看系统专门为您挑选的文章</translation>
+<translation id="11221688409173367">点按主页按钮即可查看系统专门为您挑选的文章</translation>
 <translation id="1129510026454351943">错误详情：<ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">删除现有数据。</translation>
 <translation id="1146678959555564648">进入 VR</translation>
@@ -145,7 +145,7 @@
 <translation id="2154484045852737596">修改支付卡</translation>
 <translation id="2154710561487035718">复制网址</translation>
 <translation id="2156074688469523661">其余的网站（<ph name="NUMBER_OF_SITES" /> 个）</translation>
-<translation id="2184766556418880456">点按即可在当前标签页中转到新标签页</translation>
+<translation id="2184766556418880456">点按即可在当前标签中转到新标签页</translation>
 <translation id="219985413780390209">保护您和您的设备不受危险网站的侵害</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />，网络应用。<ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">以“<ph name="USER_FULL_NAME" />”的身份继续</translation>
@@ -206,7 +206,7 @@
 <translation id="2709516037105925701">自动填充</translation>
 <translation id="271033894570825754">新建</translation>
 <translation id="2728754400939377704">按网站排序</translation>
-<translation id="2736391366332017384">点按主屏幕按钮即可在当前标签页中转到新标签页</translation>
+<translation id="2736391366332017384">点按主页按钮即可在当前标签中转到新标签页</translation>
 <translation id="2744248271121720757">点按某个字词可立即开始搜索或查看相关操作</translation>
 <translation id="2762000892062317888">刚刚</translation>
 <translation id="2777555524387840389">还剩 <ph name="SECONDS" /> 秒</translation>
@@ -922,7 +922,7 @@
 <translation id="9099018167121903954">下载内容已占用的空间：<ph name="KILOBYTES" /> KB</translation>
 <translation id="9100505651305367705">询问是否使用简化版视图显示受支持的文章</translation>
 <translation id="9100610230175265781">必须提供密码</translation>
-<translation id="9100939710791843300">点按主屏幕按钮即可加载新标签页并查看推荐文章</translation>
+<translation id="9100939710791843300">点按主页按钮即可加载新标签页并查看推荐文章</translation>
 <translation id="9133515669113036225">重置设备凭据</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">在允许网站发送通知前先询问（推荐）</translation>

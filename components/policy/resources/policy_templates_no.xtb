@@ -411,7 +411,7 @@ Hvis verdiene som er angitt av de to reglene, ikke samsvarer, kan det oppstå en
       Hvis du angir denne innstillingen som «AllowMigration», har brukere med eCryptfs-hjemmekataloger muligheten til å overføre disse til ext4-kryptering der det er nødvendig (for øyeblikket når Android N blir tilgjengelig på enheten).
 
       Denne regelen gjelder ikke for kioskapper – disse overføres automatisk. Hvis denne innstillingen ikke angis, oppfører enheten seg som om «DisallowArc» er valgt.</translation>
-<translation id="2195032660890227692">Disse retningslinjene ble fjernet i <ph name="PRODUCT_NAME" /> 68 og erstattet av <ph name="ARC_BR_POLICY_NAME" />.</translation>
+<translation id="2195032660890227692">Denne regelen ble fjernet i <ph name="PRODUCT_NAME" /> 68 og erstattet av <ph name="ARC_BR_POLICY_NAME" />.</translation>
 <translation id="2201555246697292490">Konfigurer godkjenning av innebygde meldinger</translation>
 <translation id="2204753382813641270">Kontrollér automatisk skjuling av hyllen</translation>
 <translation id="2208976000652006649">Parametere for søkenettadresser som bruker POST</translation>
@@ -671,7 +671,7 @@ Hvis verdiene som er angitt av de to reglene, ikke samsvarer, kan det oppstå en
 
       Når denne regelen ikke er konfigurert eller er angitt som <ph name="BR_DISABLED" />, er sikkerhetskopiering og gjenoppretting for Android deaktivert og kan ikke aktiveres av brukeren.
 
-      Når denne regelen er angitt som <ph name="BR_UNDER_USER_CONTROL" />, kan brukeren velge om sikkerhetskopiering og gjenoppretting for Android skal brukes. Hvis brukeren aktiverer sikkerhetskopiering og gjenoppretting, lastes Android-appdata opp til Android Backup-tjenere og gjenopprettes derfra når kompatible apper installeres på nytt.</translation>
+      Når denne regelen er angitt som <ph name="BR_UNDER_USER_CONTROL" />, kan brukeren velge om sikkerhetskopiering og gjenoppretting for Android skal brukes. Hvis brukeren aktiverer sikkerhetskopiering og gjenoppretting, lastes Android-appdata opp til Android-tjenere for sikkerhetskopiering og gjenopprettes derfra når kompatible apper installeres på nytt.</translation>
 <translation id="2757054304033424106">Utvidelser og apper som kan installeres</translation>
 <translation id="2759224876420453487">Kontrollér brukeradferd i flerprofilsøkter</translation>
 <translation id="2761483219396643566">Forsinkelse for advarsel om inaktivitet når enheten kjører på batteristrøm</translation>
@@ -1100,7 +1100,7 @@ Hvis verdiene som er angitt av de to reglene, ikke samsvarer, kan det oppstå en
 <translation id="4056910949759281379">Deaktiver SPDY-protokoll</translation>
 <translation id="4059515172917655545">Denne regelen styrer tilgjengeligheten av Googles posisjonstjenester.
 
-      Når denne regelen ikke er konfigurert eller er angitts som <ph name="GLS_DISABLED" />, er Googles posisjonstjenester deaktivert og kan ikke aktiveres av brukeren.
+      Når denne regelen ikke er konfigurert eller er angitt som <ph name="GLS_DISABLED" />, er Googles posisjonstjenester deaktivert og kan ikke aktiveres av brukeren.
 
       Når denne regelen er angitt som <ph name="GLS_UNDER_USER_CONTROL" />, kan brukeren velge om Googles posisjonstjenester skal brukes. Da kan Android-apper bruke tjenesten til å søke etter enhetens posisjon, og anonyme posisjonsdata kan sendes til Google.
 
@@ -1282,17 +1282,17 @@ Hvis verdiene som er angitt av de to reglene, ikke samsvarer, kan det oppstå en
 <translation id="4567137030726189378">Tillat bruk av utviklerverktøy</translation>
 <translation id="4600786265870346112">Aktiver stor markør</translation>
 <translation id="4604931264910482931">Konfigurer svarteliste for innebygde meldinger</translation>
-<translation id="4613261833393532156">Lar deg låse brukerens øke basert på klienttiden eller dagens brukskvote.
+<translation id="4613261833393532156">Lar deg låse brukerens økt basert på klienttiden eller dagens brukskvote.
 
-          [time_window_limit| angir et daglig vindu hvor brukerens økt skal være låst. Vi støtter bare én regel hver ukedag, derfor varierer |entries|-matrisen mellom 0-7. |starts_at| og |ends_at| er plassert på starten og slutten av vinduets grense. Når |ends_at| er mindre enn |starts_at|. betyr det at |time_limit_window| slutter neste dag. |last_updated_millis| er UTC-tidsstempelet for sist denne oppføringen ble oppdatert, og det sendes som en streng fordi tidsstempelet ikke passer i et heltall.
+          [time_window_limit| angir et daglig vindu hvor brukerens økt skal være låst. Vi støtter bare én regel hver ukedag, derfor varierer |entries|-matrisen mellom 0 og 7. |starts_at| og |ends_at| er plassert på starten og slutten av vinduets grense. Når |ends_at| er mindre enn |starts_at|. betyr det at |time_limit_window| slutter neste dag. |last_updated_millis| er UTC-tidsstempelet for sist denne oppføringen ble oppdatert, og det sendes som en streng fordi tidsstempelet ikke passer i et heltall.
 
-          |time_usage_limit| angir en daglig skjermkvote som låser brukerens økt når den oppnås. Hver ukedag har et område, og det skal bare angis hvis det er en aktiv kvote for den dagen. |usage_quota_mins| angir hvor lang tid en administrert enhet kan brukes på en dag, og |reset_at| er tiden når brukskvoten fornyes. Standardverdien for |reset_at| er midnatt ({«time»: 0, «minutt»: 0}). |last_updated_millis| er UTC-tidsstempelet for sist denne oppføringen ble oppdatert, og det sendes som en streng fordi tidsstempelet ikke passer i et heltall.
+          |time_usage_limit| angir en daglig skjermkvote som låser brukerens økt når den oppnås. Hver ukedag har en verdi, og den skal bare angis hvis det er en aktiv kvote for den dagen. |usage_quota_mins| angir hvor lang tid en administrert enhet kan brukes på en dag, og |reset_at| er tiden når brukskvoten fornyes. Standardverdien for |reset_at| er midnatt ({'hour': 0, 'minute': 0}). |last_updated_millis| er UTC-tidsstempelet for sist denne oppføringen ble oppdatert, og det sendes som en streng fordi tidsstempelet ikke passer i et heltall.
 
           |overrides| kan brukes til å midlertidig deaktivere én eller flere av de nevnte reglene.
           * Hvis verken time_window_limit eller time_usage_limit er aktiv, kan |LOCK| brukes til å låse enheten.
           * |LOCK| låser en brukerøkt midlertidig til neste time_window_limit eller time_usage_limit starter.
-          * |UNLOCK| låser opp en brukers øk som er låst av time_window_limit eller time_usage_limit.
-          |created_time_millis| er UTC-tidsstempelet for overstyringen. Det sendes som en streng fordi det ikke passer i et heltall. Tidsstemplet brukes for å avgjøre om denne overstyringen skal anvendes. Hvis den gjeldende tidsbegrensningsfunksjonen (tidsforbrukgrense eller tidsvindugrense) startet etter overstyringen ble opprettet, blir den ikke tatt i bruk. Den blir heller ikke tatt i bruk hvis overstyringen ble opprettet før siste endring av den aktive time_window_limit eller time_usage_window.</translation>
+          * |UNLOCK| låser opp en brukers økt som er låst av time_window_limit eller time_usage_limit.
+          |created_time_millis| er UTC-tidsstempelet for overstyringen. Det sendes som en streng fordi det ikke passer i et heltall. Tidsstemplet brukes for å avgjøre om denne overstyringen skal anvendes. Hvis den gjeldende tidsbegrensningsfunksjonen (time_usage_limit eller time_window_limit) startet etter at overstyringen ble opprettet, blir den ikke tatt i bruk. Den blir heller ikke tatt i bruk hvis overstyringen ble opprettet før siste endring av den aktive time_window_limit eller time_usage_window.</translation>
 <translation id="4613508646038788144">Hvis regelen er satt til «usann», kan tredjepartsprogramvare sette inn kjørbar kode i Chromes prosesser. Hvis regelen ikke er spesifisert eller er satt til «sann», forhindres tredjepartsprogramvare fra å sette inn kjørbar kode i Chromes prosesser.</translation>
 <translation id="4617338332148204752">Hopp over sjekk av metatag i <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="4625915093043961294">Konfigurer godkjenningslisten for installasjon av utvidelser</translation>
@@ -1619,7 +1619,7 @@ Hvis verdiene som er angitt av de to reglene, ikke samsvarer, kan det oppstå en
       Vær oppmerksom på at dette ikke anbefales, ettersom det gjør det mulig å omgå nameConstraints-utvidelsen som begrenser vertsnavnene et gitt sertifikat kan autoriseres for
 
       Hvis denne innstillingen ikke angis, eller hvis den angis som «false» (usann), klareres ikke tjenersertifikater som mangler en subjectAlternativeName-utvidelse og har enten et DNS-navn eller en IP-adresse.</translation>
-<translation id="5584132346604748282">Kontroller Googles posisjonstjenester for Android</translation>
+<translation id="5584132346604748282">Kontrollér Googles posisjonstjenester for Android</translation>
 <translation id="5586942249556966598">Gjør ingenting</translation>
 <translation id="5630352020869108293">Gjenopprett den siste økten</translation>
 <translation id="5645779841392247734">Tillat informasjonskapsler på disse nettstedene</translation>
@@ -2048,7 +2048,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
       Hvis regelen er deaktivert, skjer det ingen eksplisitt nettstedsisolering, og feltprøver for IsolateOriginsAndroid og SitePerProcessAndroid deaktiveres. Brukerne kan fortsatt aktivere SitePerProcess manuelt.
       Hvis regelen ikke er konfigurert, kan brukerne endre denne innstillingen.
 
-      MERK: Nettstedsisolering er på forsøksstadiet på Android. Den kan forårsake ytelsesproblemer, men kvaliteten på støtten økes etterhvert.
+      MERK: Nettstedsisolering er på forsøksstadiet på Android. Det kan foreløpig forårsake ytelsesproblemer, men kommer til å bli mer kompatibel.
 
       MERK: Denne regelen gjelder bare for Chrome på Android med mer enn 1 GB RAM. Bruk SitePerProcess for å anvende regelen på andre plattformer.
       </translation>
@@ -2102,7 +2102,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 
       Disse innstillingene lar deg konfigurere hvordan <ph name="PRODUCT_OS_NAME" /> oppfører seg når brukeren er inaktiv i en periode.</translation>
 <translation id="7040229947030068419">Eksempelverdi:</translation>
-<translation id="7044883996351280650">Kontroller funksjonen for sikkerhetskopiering og gjenoppretting for Android</translation>
+<translation id="7044883996351280650">Kontrollér funksjonen for sikkerhetskopiering og gjenoppretting for Android</translation>
 <translation id="7049373494483449255">Gjør at <ph name="PRODUCT_NAME" /> kan sende dokumenter til <ph name="CLOUD_PRINT_NAME" /> for utskrift.  MERK: Dette påvirker bare støtte av <ph name="CLOUD_PRINT_NAME" /> i <ph name="PRODUCT_NAME" />. Det hindrer ikke brukeren i å sende utskriftsjobber på nettsteder.
 
       Hvis denne innstillingen er aktivert eller ikke konfigurert, kan brukerne sende utskrift til <ph name="CLOUD_PRINT_NAME" /> fra <ph name="PRODUCT_NAME" />-utskriftsdialogen.
@@ -2335,7 +2335,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
 
           For nettadresser som ikke dekkes av de nevnte mønstrene, eller for alle nettadresser hvis denne regelen ikke er angitt, brukes den globale verdien fra enten DefaultCookiesSetting-regelen (hvis angitt) eller brukerens egen konfigurasjon hvis regelen ikke er angitt.
 
-          Vær oppmerksom på at hvis <ph name="PRODUCT_NAME" /> kjører i «bakgrunnsmodus», kan det hende økten ikke avsluttes når det siste nettleservinduet lukkes, og at den fortsetter å være aktiv til nettleseren avsluttes. Du finner mer informasjon om hvordan du konfigurerer denne atferden i «BackgroundModeEnabled»-regelen.
+          Vær oppmerksom på at hvis <ph name="PRODUCT_NAME" /> kjører i «bakgrunnsmodus», kan det hende økten ikke avsluttes når det siste nettleservinduet lukkes, og at den fortsetter å være aktiv til nettleseren avsluttes. Du finner mer informasjon om hvordan du konfigurerer denne atferden, i «BackgroundModeEnabled»-regelen.
 
           Se også reglene «CookiesAllowedForUrls» and «CookiesBlockedForUrls». Merk at det ikke må være motstridende nettadressemønstre mellom disse tre reglene. Det er ikke spesifisert hvilken regel som prioriteres.
 
@@ -2818,7 +2818,7 @@ Vi anbefaler å konfigurere regler på Windows via GPO, men tildeling av regler 
 
       Hvis regelen ikke er angitt, brukes <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
-<translation id="8942616385591203339">Denne regelen bestemmer om samtykke for synkronisering skal vises til brukeren ved første pålogging. Den skal angis som «False» (usann) hvis samtykke for synkronisering ikke er nødvendig for denne brukeren..
+<translation id="8942616385591203339">Denne regelen bestemmer om samtykke for synkronisering skal vises til brukeren ved første pålogging. Den skal angis som «False» (usann) hvis samtykke for synkronisering ikke er nødvendig for denne brukeren.
       Hvis regelen er angitt som «False» (usann), vises ikke samtykke for synkronisering.
       Hvis regelen er angitt som «True» (sann) eller ikke er angitt, vises samtykke for synkronisering.</translation>
 <translation id="8947415621777543415">Rapportering av enhetsposisjonen</translation>

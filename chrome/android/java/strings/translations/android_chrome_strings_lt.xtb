@@ -145,7 +145,7 @@
 <translation id="2154484045852737596">Kortelės informacijos redagavimas</translation>
 <translation id="2154710561487035718">Kopijuoti URL adresą</translation>
 <translation id="2156074688469523661">Likusios svetainės (<ph name="NUMBER_OF_SITES" />)</translation>
-<translation id="2184766556418880456">Norėdami pasiekti naujo skirtuko puslapį dabartiniame skirtuke, palieskite</translation>
+<translation id="2184766556418880456">Norėdami pasiekti naujo skirtuko puslapį dabartiniame skirtuke, palieskite pagrindinio ekrano mygtuką</translation>
 <translation id="219985413780390209">Apsaugokite save ir įrenginį nuo pavojingų svetainių</translation>
 <translation id="2206488550163399966">„<ph name="APP_NAME" />“, žiniatinklio programa. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Tęsti kaip <ph name="USER_FULL_NAME" /></translation>
@@ -468,7 +468,7 @@ Adresu <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" /> gali 
 <translation id="5152843274749979095">Neįdiegta jokių palaikomų programų</translation>
 <translation id="5161254044473106830">Būtina nurodyti pavadinimą</translation>
 <translation id="5168917394043976756">Atidaryti naršymo skydelį</translation>
-<translation id="5171365962177408781">Norėdami įkelti naujo skirtuko puslapį ir peržiūrėti siūlomus straipsnius, palieskite</translation>
+<translation id="5171365962177408781">Norėdami įkelti naujo skirtuko puslapį ir peržiūrėti siūlomus straipsnius, palieskite pagrindinio ekrano mygtuką</translation>
 <translation id="5184329579814168207">Atidaryti naudojant „Chrome“</translation>
 <translation id="5199929503336119739">Darbo profilis</translation>
 <translation id="5210286577605176222">Pereiti prie ankstesnio skirtuko</translation>
@@ -899,7 +899,7 @@ Jei norite gauti naujas licencijas, prisijunkite prie interneto ir leiskite atsi
 <translation id="8912362522468806198">„Google“ paskyra</translation>
 <translation id="8920114477895755567">Laukiama išsamios tėvų informacijos.</translation>
 <translation id="8922289737868596582">Atsisiųskite puslapius spustelėję mygtuką „Daugiau parinkčių“, kad galėtumėte naudoti juos neprisijungę</translation>
-<translation id="8934029156920711950">Norėdami peržiūrėti specialiai jums parinktus straipsnius, palieskite</translation>
+<translation id="8934029156920711950">Norėdami peržiūrėti specialiai jums parinktus straipsnius, palieskite pagrindinio ekrano mygtuką</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Atidaryti kitame lange</translation>
 <translation id="8951232171465285730">„Chrome“ sutaupė jums <ph name="MEGABYTES" /> MB</translation>

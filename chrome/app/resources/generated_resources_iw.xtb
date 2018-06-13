@@ -88,7 +88,7 @@
 <translation id="1123187597739372905">הצגת הגדרות סינכרון</translation>
 <translation id="1123316951456119629">‏לאחר ניתוק חשבון Google שלך מ-<ph name="PRODUCT_NAME" />, הנתונים שלך יישארו במחשב זה, אך השינויים לא יסתנכרנו עוד עם חשבון Google שלך. נתונים שכבר מאוחסנים בחשבון Google שלך יישארו בו עד שתסיר אותם באמצעות <ph name="BEGIN_LINK" />לוח הבקרה של Google‏<ph name="END_LINK" />.</translation>
 <translation id="1124772482545689468">משתמש</translation>
-<translation id="1125550662859510761">‏נראה שהרזולוציה היא <ph name="WIDTH" /> x <ph name="HEIGHT" /> (מקורית)</translation>
+<translation id="1125550662859510761">‏נראה כמו <ph name="WIDTH" /> x <ph name="HEIGHT" /> (במקור)</translation>
 <translation id="1128109161498068552">‏אל תאפשר לאף אתר להשתמש בהודעות בלעדיות של המערכת כדי לגשת למכשירי MIDI.</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">עריכת מנוע חיפוש</translation>
@@ -767,7 +767,7 @@
 <translation id="2151576029659734873">הוזן אינדקס שגוי של כרטיסייה</translation>
 <translation id="2154484045852737596">עריכת כרטיס</translation>
 <translation id="2154710561487035718">העתק כתובת אתר</translation>
-<translation id="2155772377859296191">‏נראה שהרזולוציה היא <ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
+<translation id="2155772377859296191">‏נראה כמו <ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
 <translation id="215753907730220065">צא ממסך מלא</translation>
 <translation id="2157875535253991059">דף זה הוא במסך מלא כעת.</translation>
 <translation id="216169395504480358">‏הוסף Wi-Fi...</translation>
@@ -1015,6 +1015,7 @@
 <translation id="2544853746127077729">אישור האימות נדחה על ידי הרשת</translation>
 <translation id="2547921442987553570">הוסף אל <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">זיכרון מוחלף</translation>
+<translation id="2550596535588364872">האם להתיר ל-<ph name="EXTENSION_NAME" /> לפתוח את <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> לא הצליח להתחבר אל <ph name="NETWORK_ID" />. בחר רשת אחרת או נסה שוב.</translation>
 <translation id="2553440850688409052">הסתר פלאגין זה</translation>
 <translation id="2554553592469060349">‏הקובץ שנבחר גדול מדי (גודל מרבי: ‎3mb).</translation>
@@ -2257,7 +2258,7 @@
 <translation id="4508765956121923607">הצג מ&amp;קור</translation>
 <translation id="451407183922382411">מופעל על-ידי <ph name="COMPANY_NAME" /></translation>
 <translation id="4514542542275172126">הגדר משתמש חדש בפיקוח</translation>
-<translation id="4514610446763173167">יש להחליף את מצב הווידאו כדי להפעיל או להפסיק</translation>
+<translation id="4514610446763173167">הפעלת וידאו או הפסקת הפעולה</translation>
 <translation id="451515744433878153">הסר</translation>
 <translation id="4518677423782794009">‏האם Chrome קורס, מציג דפי פתיחה חריגים, מודעות לא צפויות או סרגלי כלים שאי אפשר להיפטר מהם או שמשנים באופן כלשהו את חוויית הגלישה? ייתכן שתוכל לפתור את הבעיה באמצעות הפעלה של Chrome Cleanup Tool.</translation>
 <translation id="4518928191942891293">‏הפעלת מאגר בתוך Termina VM.</translation>
@@ -2475,9 +2476,10 @@
 <translation id="4856478137399998590">שירות הנתונים הסלולריים פועל ומוכן לשימוש</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{פתח הכל בחלון &amp;גלישה בסתר}=1{פתח בחלון &amp;גלישה בסתר}two{פתח הכל (2) בחלון &amp;גלישה בסתר}many{פתח הכל (#) בחלון &amp;גלישה בסתר}other{פתח הכל (#) בחלון &amp;גלישה בסתר}}</translation>
 <translation id="4858913220355269194">מסי</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - הסרטון פועל במצב תמונה בתוך תמונה</translation>
 <translation id="4862050643946421924">מוסיף מכשיר...</translation>
 <translation id="4862642413395066333">‏חתימה על תגובות OCSP</translation>
-<translation id="4863769717153320198">‏נראה שהרזולוציה היא <ph name="WIDTH" /> x <ph name="HEIGHT" /> (ברירת מחדל)</translation>
+<translation id="4863769717153320198">‏נראה כמו <ph name="WIDTH" /> x <ph name="HEIGHT" /> (ברירת מחדל)</translation>
 <translation id="4864369630010738180">נכנס...</translation>
 <translation id="486635084936119914">פתיחת סוגי קבצים מסוימים באופן אוטומטי לאחר הורדתם</translation>
 <translation id="4869142322204669043">‏Google עשויה להשתמש בתוכן באתרים שאליהם נכנסת, בפעילות גלישה ובאינטראקציות כדי להתאים אישית את <ph name="IDS_SHORT_PRODUCT_NAME" /> ושירותים אחרים של Google, כמו Translate, החיפוש ומודעות. אפשר לשנות זאת דרך 'הגדרות'.</translation>
@@ -3073,7 +3075,7 @@
 <translation id="572392919096807438">זכור את ההחלטה שלי</translation>
 <translation id="5727728807527375859">‏תוספים, Google Apps ועיצובים עלולים לפגוע במחשב שלך. האם אתה בטוח שברצונך להמשיך?</translation>
 <translation id="5729712731028706266">&amp;הצג</translation>
-<translation id="5731185123186077399">‏שירותים מותאמים אישית של Google כמו Google Pay</translation>
+<translation id="5731185123186077399">‏שירותים מותאמים אישית של Google, כמו Google Pay</translation>
 <translation id="5731247495086897348">הד&amp;בק ועבור אל</translation>
 <translation id="5731409020711461763">תמונה חדשה אחת</translation>
 <translation id="5734362860645681824">תקשורת</translation>
@@ -3566,6 +3568,7 @@
 <translation id="6474884162850599008">‏נתק חשבון Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> רוצה לשתף את תוכן המסך שלך. בחר את התוכן שברצונך לשתף.</translation>
 <translation id="6478248366783946499">להשאיר את הקובץ המסוכן?</translation>
+<translation id="6483485061007832714">פתיחת הקובץ שהורדת</translation>
 <translation id="6483805311199035658">פותח את <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">נכשל בקבלת מידע על שטח האחסון</translation>
 <translation id="648637985389593741">אני רוצה להפעיל את תכונות ההתאמה האישית והסינכרון</translation>
@@ -4447,6 +4450,7 @@
 <translation id="7839051173341654115">הצג/גבה מדיה</translation>
 <translation id="7839192898639727867">מזהה מפתח של נושא אישור</translation>
 <translation id="7839804798877833423">הבאת קבצים אלה תשתמש בערך ב-<ph name="FILE_SIZE" /> של נתונים לנייד.</translation>
+<translation id="7844553762889824470">‏יש להדגיש את הטקסט להשמעה ולהקיש על מקש החיפוש יחד עם מקש S. לחלופין, אפשר גם ללחוץ לחיצה ארוכה על מקש החיפוש או להקיש על סמל ההקראה ליד תמונת הפרופיל כדי לבחור.</translation>
 <translation id="7844992432319478437">מעדכן הבדל</translation>
 <translation id="7846076177841592234">בטל את הבחירה</translation>
 <translation id="7846634333498149051">מקלדת</translation>
@@ -4820,7 +4824,7 @@
 <translation id="8427292751741042100">מוטמע במארח כלשהו</translation>
 <translation id="8428213095426709021">הגדרות</translation>
 <translation id="8428634594422941299">הבנתי</translation>
-<translation id="84297032718407999">המערכת תוציא אותך מהחשבון בעוד <ph name="LOGOUT_TIME_LEFT" /></translation>
+<translation id="84297032718407999">בעוד <ph name="LOGOUT_TIME_LEFT" /> תבוצע יציאה מהחשבון</translation>
 <translation id="8431909052837336408">‏שנה את מספר ה-PIN של ה-SIM</translation>
 <translation id="8434480141477525001">יציאת ניפוי באגים של לקוח מקומי</translation>
 <translation id="843760761634048214">שמור כרטיס אשראי</translation>
@@ -5355,11 +5359,12 @@
 <translation id="952992212772159698">לא פעיל</translation>
 <translation id="957960681186851048">האתר הזה ניסה להוריד קבצים מרובים באופן אוטומטי</translation>
 <translation id="9580706199804957">‏לא ניתן היה להתחבר אל שירותי Google</translation>
+<translation id="958416628331784386">בכרטיסייה הזו מופעל סרטון במצב 'תמונה בתוך תמונה'.</translation>
 <translation id="958515377357646513">גע כדי לעבור קדימה.</translation>
 <translation id="960719561871045870">קוד ספק</translation>
 <translation id="960987915827980018">נותרה בערך שעה אחת</translation>
 <translation id="962802172452141067">עץ תיקיות של סימניות</translation>
-<translation id="964286338916298286">‏מנהל המערכת השבית את ההטבות של Chrome בשביל המכשיר שלך.</translation>
+<translation id="964286338916298286">‏מנהל המערכת שלך השבית את ההטבות של Chrome בשביל המכשיר שלך.</translation>
 <translation id="964439421054175458">{NUM_APLLICATIONS,plural, =1{אפליקציה}two{אפליקציות}many{אפליקציות}other{אפליקציות}}</translation>
 <translation id="968000525894980488">‏מפעילים את שירותי Google Play.</translation>
 <translation id="968174221497644223">מטמון של יישום</translation>

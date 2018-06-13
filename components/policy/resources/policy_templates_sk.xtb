@@ -1290,7 +1290,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
           * Ak nie je aktívna možnosť time_window_limit ani time_usage_limit, na uzamknutie zariadenia môžete použiť |LOCK|.
           * Možnosť |LOCK| dočasne uzamkne reláciu používateľa, dokým sa nezačne najbližšia možnosť time_window_limit alebo time_usage_limit.
           * Možnosť |UNLOCK| odomkne reláciu používateľa uzamknutú možnosťou time_window_limit alebo time_usage_limit.
-          Možnosť |created_time_millis| je časová pečiatka UTC vytvorenia prepísania. Odosiela sa ako reťazec, pretože by sa nevmestila ako celé číslo. Používa sa na učenie toho, či má toto prepísanie stále platiť. Ak sa aktuálna aktívna funkcia časového limitu (časový limit používania alebo limit časového okna) začala po vytvorení prepísania, nemala by vykonať žiadnu akciu. Ak bolo prepísanie vytvorené pred poslednou zmena aktívnej možnosti time_window_limit alebo time_usage_window, nemalo by platiť.</translation>
+          Možnosť |created_time_millis| je časová pečiatka UTC vytvorenia prepísania. Odosiela sa ako reťazec, pretože by sa nevmestila ako celé číslo. Používa sa na učenie toho, či má toto prepísanie stále platiť. Ak sa aktuálna aktívna funkcia časového limitu (časový limit používania alebo limit časového okna) začala po vytvorení prepísania, nemala by vykonať žiadnu akciu. Ak bolo prepísanie vytvorené pred poslednou zmenou aktívnej možnosti time_window_limit alebo time_usage_window, nemalo by platiť.</translation>
 <translation id="4613508646038788144">Ak toto pravidlo nastavíte na hodnotu False, softvér tretej strany bude môcť vkladať spustiteľný kód do procesov Chromu. Ak toto pravidlo nastavíte na hodnotu True alebo ponecháte nenastavené, softvér tretej strany bude mať vkladanie spustiteľného kódu do procesov Chromu zakázané.</translation>
 <translation id="4617338332148204752">Preskočiť kontrolu metaznačiek v rámci služby <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="4625915093043961294">Konfigurovať zoznam rozšírení, ktorých inštalácia je povolená</translation>
@@ -2348,7 +2348,7 @@ volania rozhrania API zlyhajú a nahlásia kód chyby.</translation>
 
           Pozrite si tiež pravidlá „CookiesAllowedForUrls“ a „CookiesBlockedForUrls“. Upozorňujeme, že medzi týmito troma pravidlami nesmú byť žiadne konfliktné vzory webových adries. Nie je určené, ktoré pravidlo má prednosť.
 
-          Ak pravidlo „RestoreOnStartup“ nastavíte tak, aby obnovilo webové adresy z predchádzajúcej relácie, toto pravidlo sa nebude rešpektovať a súbory cookie týchto webov na uložia natrvalo.</translation>
+          Ak pravidlo „RestoreOnStartup“ nastavíte tak, aby obnovilo webové adresy z predchádzajúcej relácie, toto pravidlo sa nebude rešpektovať a súbory cookie týchto webov sa uložia natrvalo.</translation>
 <translation id="7683777542468165012">Obnovenie dynamického pravidla</translation>
 <translation id="7694807474048279351">Naplánuje automatické reštartovanie po použití aktualizácie systému <ph name="PRODUCT_OS_NAME" />.
 

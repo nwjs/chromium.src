@@ -156,7 +156,7 @@
 <translation id="2321086116217818302">Klargjør passordene …</translation>
 <translation id="2321958826496381788">Dra glidebryteren til du kan lese dette uten problemer. Når du har dobbelttrykket på et avsnitt, bør teksten være minst like stor som dette.</translation>
 <translation id="2323763861024343754">Nettstedslagring</translation>
-<translation id="2325181368089033281">Du kan tilpasse <ph name="BEGIN_LINK1" />innstillingene<ph name="END_LINK1" /> når som helst. Google kan bruke innhold på nettsteder du besøker, nettleserinteraksjoner og aktiviteter for å gi Chrome og Google-tjenester (som Oversetter, Søk og annonser) et personlig preg.</translation>
+<translation id="2325181368089033281">Du kan tilpasse <ph name="BEGIN_LINK1" />innstillingene<ph name="END_LINK1" /> når som helst. Google kan bruke innhold på nettsteder du besøker, nettleserinteraksjoner og annen aktivitet for å gi Chrome og Google-tjenester (som Oversetter, Søk og annonser) et personlig preg.</translation>
 <translation id="2328985652426384049">Kan ikke logge på</translation>
 <translation id="2342981853652716282">Logg på Chrome for å hente blant annet bokmerkene og passordene dine på alle enhetene du bruker.</translation>
 <translation id="2343328333327081434">Installerer …</translation>
@@ -266,7 +266,7 @@
 <translation id="3328801116991980348">Informasjon om nettstedet</translation>
 <translation id="3341058695485821946">Se hvor mye data du har spart</translation>
 <translation id="3350687908700087792">Lukk alle inkognitofaner</translation>
-<translation id="3361477720586884778"><ph name="BEGIN_LINK1" />Innstillinger<ph name="END_LINK1" /> kan tilpasses når som helst. Google kan bruke innhold på nettsteder du besøker, nettleserinteraksjoner og aktiviteter for å gi Chrome og Google-tjenester (som Oversetter, Søk og annonser) et personlig preg.</translation>
+<translation id="3361477720586884778"><ph name="BEGIN_LINK1" />Innstillinger<ph name="END_LINK1" /> kan tilpasses når som helst. Google kan bruke innhold på nettsteder du besøker, nettleserinteraksjoner og annen aktivitet for å gi Chrome og Google-tjenester (som Oversetter, Søk og annonser) et personlig preg.</translation>
 <translation id="3365671512111106261">Utilgjengelig når Datasparing er slått på</translation>
 <translation id="3367813778245106622">Logg på igjen for å starte synkroniseringen</translation>
 <translation id="3384347053049321195">Del bildet</translation>
@@ -442,7 +442,7 @@ Google-kontoen din kan ha andre former for nettlesingslogg, for eksempel søk og
 <translation id="4915549754973153784"><ph name="BEGIN_LINK" />Få hjelp<ph name="END_LINK" /> mens du skanner etter enheter …</translation>
 <translation id="4943872375798546930">Ingen resultater</translation>
 <translation id="4958708863221495346"><ph name="URL_OF_THE_CURRENT_TAB" /> deler skjermen din</translation>
-<translation id="4961334780091921942">Passordene dine, loggen din med mer på alle enhetene</translation>
+<translation id="4961334780091921942">Passordene dine, loggen din med mer på alle enheter</translation>
 <translation id="4961700429721424617">Du logger av en konto som administreres av <ph name="MANAGED_DOMAIN" />. Dette fører til at Chrome-dataene dine slettes fra denne enheten. De fortsetter imidlertid å være lagret i Google-kontoen din.</translation>
 <translation id="497421865427891073">Gå til neste</translation>
 <translation id="4988526792673242964">Sider</translation>

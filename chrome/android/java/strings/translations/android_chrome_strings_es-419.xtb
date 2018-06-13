@@ -334,7 +334,7 @@
 <translation id="3987993985790029246">Copiar vínculo</translation>
 <translation id="3988213473815854515">Se admite la ubicación.</translation>
 <translation id="3988466920954086464">Los resultados de la búsqueda instantánea se muestran en este panel</translation>
-<translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" />/¿?</translation>
+<translation id="3991845972263764475"><ph name="BYTES_DOWNLOADED_WITH_UNITS" />/?</translation>
 <translation id="3997476611815694295">Almacenamiento no importante</translation>
 <translation id="4002066346123236978">Título</translation>
 <translation id="4042870126885713738">Mostrar sugerencias cuando no se resuelve una dirección web o cuando no se puede establecer una conexión</translation>

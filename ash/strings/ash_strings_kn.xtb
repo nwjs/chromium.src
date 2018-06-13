@@ -171,6 +171,7 @@
 <translation id="4527045527269911712">ಬ್ಲೂಟೂತ್‌‌ ಸಾಧನವು "<ph name="DEVICE_NAME" />" ಜೋಡಣೆಗಾಗಿ ಅನುಮತಿಯನ್ನು ಬಯಸುತ್ತದೆ.</translation>
 <translation id="453661520163887813"><ph name="TIME" /> ಪೂರ್ಣಗೊಳ್ಳುವವರೆಗೆ</translation>
 <translation id="4544944664594876241">ಸ್ಕ್ರೀನ್ ಅನ್ನು ಲಾಕ್ ಮಾಡುವ ಶಾರ್ಟ್‌ಕಟ್ ಬದಲಾಗಿದೆ. <ph name="OLD_SHORTCUT" /> ಬದಲಿಗೆ <ph name="NEW_SHORTCUT" /> ಬಳಸಿ.</translation>
+<translation id="4564869809620998694">ಫಾಂಟ್ ಸೇವೆ</translation>
 <translation id="4570957409596482333">ಧ್ವನಿ ಆಯ್ಕೆ ಮಾಡಿ ವೈಶಿಷ್ಟ್ಯದ ಬಟನ್‌</translation>
 <translation id="4659419629803378708">ChromeVox ಸಕ್ರಿಯಗೊಳಿಸಲಾಗಿದೆ</translation>
 <translation id="4776917500594043016"><ph name="USER_EMAIL_ADDRESS" /> ಗಾಗಿ ಪಾಸ್‌ವರ್ಡ್</translation>
@@ -207,11 +208,13 @@
 <translation id="5744083938413354016">ಟ್ಯಾಪ್ ಎಳೆಯುವಿಕೆ</translation>
 <translation id="5777841717266010279">ಸ್ಕ್ರೀನ್ ಹಂಚಿಕೆ ನಿಲ್ಲಿಸುವುದೇ?</translation>
 <translation id="57838592816432529">ಮ್ಯೂಟ್</translation>
+<translation id="5805697420284793859">ವಿಂಡೋ ಮ್ಯಾನೇಜರ್</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">ವ್ಯಕ್ತಿಯನ್ನು ಸೇರಿಸು</translation>
 <translation id="5860033963881614850">ಆಫ್</translation>
 <translation id="5895138241574237353">ಮರುಪ್ರಾರಂಭಿಸಿ</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
+<translation id="5911533659001334206">ಶಾರ್ಟ್‌ಕಟ್ ವೀಕ್ಷಕ</translation>
 <translation id="5916664084637901428">ಆನ್‌</translation>
 <translation id="5927132638760172455">ಅಪರಿಚಿತ ಸ್ವೀಕರಿಸುವವರಿಗೆ ಬಿತ್ತರಿಸಲಾಗುತ್ತಿದೆ</translation>
 <translation id="5947494881799873997">ಹಿಂತಿರುಗಿಸು</translation>
@@ -262,6 +265,7 @@ Ctrl+ಹುಡುಕಾಟ+H ಅನ್ನು ಒತ್ತಿರಿ.</translation
 <translation id="6715542151869432661">ಯಾವುದೇ ಮೊಬೈಲ್ ಸಾಧನಗಳು ಕಂಡುಬಂದಿಲ್ಲ.</translation>
 <translation id="671928215901716392">ಪರದೆಯನ್ನು ಲಾಕ್ ಮಾಡಿ</translation>
 <translation id="6723839937902243910">ಪವರ್‌</translation>
+<translation id="6725073593266469338">UI ಸೇವೆ</translation>
 <translation id="6785414152754474415">ಬ್ಯಾಟರಿ <ph name="PERCENTAGE" />% ಪೂರ್ಣಗೊಂಡಿದೆ ಮತ್ತು ಚಾರ್ಜ್ ಆಗುತ್ತಿದೆ.</translation>
 <translation id="6803622936009808957">ಯಾವುದೇ ಬೆಂಬಲಿತ ಪರಿಹಾರಗಳು ಕಂಡುಬರದ ಕಾರಣ ಪ್ರದರ್ಶನಗಳನ್ನು ಪ್ರತಿಬಿಂಬಿಸಲಾಗಲಿಲ್ಲ. ಬದಲಿಗೆ ವಿಸ್ತರಿತ ಡೆಸ್ಕ್‌ಟಾಪ್ ಅನ್ನು ನಮೂದಿಸಲಾಗಿದೆ.</translation>
 <translation id="6820676911989879663">ವಿರಾಮ ತೆಗೆದುಕೊಳ್ಳಿ!</translation>
@@ -325,6 +329,7 @@ Ctrl+ಹುಡುಕಾಟ+H ಅನ್ನು ಒತ್ತಿರಿ.</translation
 <translation id="8351131234907093545">ಟಿಪ್ಪಣಿ ರಚಿಸಿ</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> ಅವರಿಗಾಗಿ ಆಯ್ಕೆಗಳ ಮೆನು</translation>
 <translation id="8428213095426709021">ಸೆಟ್ಟಿಂಗ್‌ಗಳು</translation>
+<translation id="8431190899827883166">ಟ್ಯಾಪ್‌ ಪಾಯಿಂಟ್‌‌ಗಳನ್ನು ತೋರಿಸಿ</translation>
 <translation id="8433186206711564395">ನೆಟ್‌ವರ್ಕ್ ಸೆಟ್ಟಿಂಗ್‌ಗಳು</translation>
 <translation id="8433977262951327081">ಶೆಲ್ಫ್‌ನಲ್ಲಿ ಇನ್‌ಪುಟ್ ಆಯ್ಕೆಗಳ ಮೆನು ಬಬಲ್ ತೋರಿಸುವ ಶಾರ್ಟ್‌ಕಟ್ ಬದಲಾಗಿದೆ. <ph name="OLD_SHORTCUT" /> ಬದಲಿಗೆ <ph name="NEW_SHORTCUT" /> ಬಳಸಿ.</translation>
 <translation id="8452135315243592079">ಕಾಣೆಯಾಗಿರುವ ಸಿಮ್ ಕಾರ್ಡ್</translation>
@@ -350,6 +355,7 @@ Ctrl+ಹುಡುಕಾಟ+H ಅನ್ನು ಒತ್ತಿರಿ.</translation
 <translation id="8921624153894383499">Google ಸಹಾಯಕವು ಈ ಭಾಷೆಯನ್ನು ಮಾತನಾಡುವುದಿಲ್ಲ.</translation>
 <translation id="8938800817013097409">USB-C ಸಾಧನ (ಹಿಂಭಾಗದಲ್ಲಿನ ಬಲ ಪೋರ್ಟ್‌)</translation>
 <translation id="8940956008527784070">ಬ್ಯಾಟರಿ ಕಡಿಮೆ (<ph name="PERCENTAGE" />%)</translation>
+<translation id="8984179138335769204">ಶೀಘ್ರ ಬಿಡುಗಡೆ</translation>
 <translation id="8995603266996330174"><ph name="DOMAIN" /> ನಿಂದ ನಿರ್ವಹಿಸಲಾಗಿದೆ</translation>
 <translation id="9074739597929991885">ಬ್ಲೂಟೂತ್‌</translation>
 <translation id="9079731690316798640">ವೈ-ಫೈ: <ph name="ADDRESS" /></translation>
@@ -366,4 +372,5 @@ Ctrl+ಹುಡುಕಾಟ+H ಅನ್ನು ಒತ್ತಿರಿ.</translation
 <translation id="923686485342484400">ಸೈನ್ ಔಟ್ ಮಾಡಲು Control Shift Q ಅನ್ನು ಎರಡುಬಾರಿ ಒತ್ತಿರಿ.</translation>
 <translation id="945522503751344254">ಪ್ರತಿಕ್ರಿಯೆಯನ್ನು ಕಳುಹಿಸಿ</translation>
 <translation id="98515147261107953">ಲ್ಯಾಂಡ್‌ಸ್ಕೇಪ್</translation>
+<translation id="995927048686010764">ಆಟೋಕ್ಲಿಕ್</translation>
 </translationbundle>

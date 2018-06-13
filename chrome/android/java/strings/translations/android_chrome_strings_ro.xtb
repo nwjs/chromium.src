@@ -13,11 +13,11 @@
 <translation id="1111673857033749125">Marcajele salvate pe alte dispozitive vor apărea aici.</translation>
 <translation id="1113597929977215864">Arată afișarea simplificată</translation>
 <translation id="1121094540300013208">Statistici de utilizare și rapoarte de blocare</translation>
-<translation id="11221688409173367">Atinge butonul ecran de pornire pentru a vizualiza articolele selectate special pentru tine</translation>
+<translation id="11221688409173367">Atinge butonul pagină de pornire pentru a vedea articolele selectate special pentru tine</translation>
 <translation id="1129510026454351943">Detalii: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1145536944570833626">Șterge datele existente.</translation>
 <translation id="1146678959555564648">Intră în RV</translation>
-<translation id="114721135501989771">Obține ingeniozitatea Google în Chrome</translation>
+<translation id="114721135501989771">Profită de ingeniozitatea Google în Chrome</translation>
 <translation id="116280672541001035">Utilizate</translation>
 <translation id="1172593791219290334">Pagină de pornire</translation>
 <translation id="1178581264944972037">Întrerupe</translation>
@@ -206,7 +206,7 @@
 <translation id="2709516037105925701">Completare automată</translation>
 <translation id="271033894570825754">Nou</translation>
 <translation id="2728754400939377704">Sortează după site</translation>
-<translation id="2736391366332017384">Atinge butonul ecran de pornire pentru a accesa pagina filă nouă în fila curentă</translation>
+<translation id="2736391366332017384">Atinge butonul pagină de pornire pentru a accesa pagina Filă nouă în fila curentă</translation>
 <translation id="2744248271121720757">Atinge un cuvânt pentru a căuta instantaneu sau pentru a vedea acțiuni conexe</translation>
 <translation id="2762000892062317888">adineauri</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> sec. rămase</translation>
@@ -468,7 +468,7 @@ Contul Google poate să ofere alte forme ale istoricului de navigare, cum ar fi 
 <translation id="5152843274749979095">Nu sunt instalate aplicații acceptate</translation>
 <translation id="5161254044473106830">Titlul este obligatoriu</translation>
 <translation id="5168917394043976756">Deschide panoul de navigare</translation>
-<translation id="5171365962177408781">Atinge pentru a încărca pagina filă nouă și a vizualiza articolele sugerate</translation>
+<translation id="5171365962177408781">Atinge pentru a încărca pagina Filă nouă și a vedea articolele sugerate</translation>
 <translation id="5184329579814168207">Deschide în Chrome</translation>
 <translation id="5199929503336119739">Profilul de serviciu</translation>
 <translation id="5210286577605176222">Accesează fila anterioară</translation>
@@ -922,7 +922,7 @@ Pentru licențe noi, conectează-te la internet și redă conținutul descărcat
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> KB pentru descărcări</translation>
 <translation id="9100505651305367705">Oferă afișarea simplificată a articolelor, dacă este acceptată</translation>
 <translation id="9100610230175265781">Este necesară o expresie de acces</translation>
-<translation id="9100939710791843300">Atinge butonul ecran de pornire pentru a încărca pagina filă nouă și a vizualiza articolele sugerate</translation>
+<translation id="9100939710791843300">Atinge butonul pagină de pornire pentru a încărca pagina Filă nouă și a vedea articolele sugerate</translation>
 <translation id="9133515669113036225">Resetează datele de conectare de pe dispozitiv</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">Întreabă înainte de a permite site-urilor să trimită notificări (recomandat)</translation>

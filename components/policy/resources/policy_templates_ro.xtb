@@ -926,7 +926,7 @@
 <translation id="3746590506846867985">
       Această politică se aplică pentru ecranul de conectare. Consultă și politica <ph name="ISOLATE_ORIGINS_POLICY_NAME" /> care se aplică pentru sesiunea utilizatorului. Se recomandă setarea ambelor politici la aceeași valoare. Dacă valorile nu corespund, poate apărea o întârziere la intrarea în sesiunea utilizatorului până ce se aplică valoarea specificată în politica privind utilizatorii.
       Dacă politica este activată, fiecare dintre originile indicate într-o listă de valori separate prin virgulă va rula propriul proces. Aceasta va izola și originile denumite după subdomenii; de exemplu, specificarea https://example.com/ va cauza și izolarea https://foo.example.com/ ca parte a site-ului https://example.com/.
-      Dacă politica este dezactivată, nu va avea loc o izolare explicită a site-ului, iar testările limitate de IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea activa IsolateOrigins manual.
+      Dacă politica este dezactivată, nu va avea loc o izolare explicită a site-ului, iar testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea activa IsolateOrigins manual.
       Dacă politica nu este configurată, pentru ecranul de conectare vor fi folosite setările de izolare a site-ului prestabilite pentru platforma respectivă.
       </translation>
 <translation id="3750220015372671395">Blochează generarea cheilor pe aceste site-uri</translation>
@@ -1266,11 +1266,11 @@
 <translation id="4604931264910482931">Configurați lista neagră a mesageriei native</translation>
 <translation id="4613261833393532156">Îți permite să blochezi sesiunea utilizatorului în funcție de timpul clientului sau de cotele de folosire ale zilei.
 
-          |time_window_limit| specifică o fereastră zilnică în care trebuie blocată sesiunea utilizatorului. Acceptăm o singură regulă pentru fiecare zi a săptămânii, așa că matricea |entries| poate avea o dimensiune între 0 și 7. |starts_at| și |ends_at| reprezintă începutul și sfârșitul limitelor ferestrei; când |ends_at| este mai mic decât |starts_at|, înseamnă că |time_limit_window| se încheie în ziua următoare. |last_updated_millis| este marcajul temporal UTC pentru ultima actualizare a intrării și este trimis ca șir, deoarece n-ar încăpea într-un întreg.
+          |time_window_limit| specifică o fereastră zilnică în care trebuie blocată sesiunea utilizatorului. Acceptăm o singură regulă pentru fiecare zi a săptămânii, așa că matricea |entries| poate avea o dimensiune între 0 și 7. |starts_at| și |ends_at| reprezintă începutul și sfârșitul ferestrei; când |ends_at| este mai mic decât |starts_at| înseamnă că |time_limit_window| se încheie în ziua următoare. |last_updated_millis| este marcajul temporal UTC pentru ultima actualizare a intrării și este trimis ca șir, deoarece n-ar încăpea într-un întreg.
 
           |time_usage_limit| specifică o cotă zilnică de folosire a dispozitivului, iar când utilizatorul o atinge, sesiunea se blochează. Există câte o proprietate pentru fiecare zi a săptămânii și aceasta trebuie setată doar dacă există o cotă activă pentru ziua respectivă. |usage_quota_mins| este timpul cât poate fi folosit dispozitivul gestionat într-o zi, iar |reset_at| este momentul când se reînnoiește cota de folosire. Valoarea prestabilită pentru |reset_at| este miezul nopții ({'hour': 0, 'minute': 0}). |last_updated_millis| este marcajul temporal UTC pentru ultima actualizare a intrării și este trimis ca șir, deoarece n-ar încăpea într-un întreg.
 
-          |overrides| se furnizează pentru a anula temporar una sau mai multe dintre următoarele reguli.
+          |overrides| se furnizează pentru a anula temporar una sau mai multe dintre regulile anterioare.
           * Dacă nici time_window_limit și nici time_usage_limit nu sunt active, |LOCK| se poate folosi pentru a bloca dispozitivul.
           * |LOCK| blochează temporar o sesiune de utilizator până când începe următoarea time_window_limit sau time_usage_limit.
           * |UNLOCK| deblochează sesiunea unui utilizator care a fost blocată de time_window_limit sau time_usage_limit.
@@ -2385,10 +2385,10 @@ nu poate fi stabilit de utilizator din setările browserului.
 <translation id="7882857838942884046">Dacă dezactivezi Google Sync, funcția Android „Backup și restabilire” nu va funcționa corespunzător.</translation>
 <translation id="7882890448959833986">Elimină avertismentul privind sistemul de operare neacceptat</translation>
 <translation id="7892077286206685156">
-      Această politică se aplică pentru ecranul de conectare. Consultă și politica <ph name="SITE_PER_PROCESS_POLICY_NAME" /> care se aplică pentru sesiunea utilizatorului. Se recomandă setarea ambelor politici la aceeași valoare. Dacă valorile nu corespund, poate apărea o întârziere la intrarea în sesiunea utilizatorului până ce se aplică valoarea specificată în politica privind utilizatorii.
-      Îți recomandăm să verifici setarea pentru politica IsolateOrigins pentru a beneficia la maximum de fiecare, de izolare și de impact limitat asupra utilizatorilor, folosind IsolateOrigins cu o listă a site-urilor pe care vrei să le izolezi. Această setare, SitePerProcess, izolează toate site-urile.
+      Această politică se aplică pentru ecranul de conectare. Consultă și politica <ph name="SITE_PER_PROCESS_POLICY_NAME" />, care se aplică pentru sesiunea utilizatorului. Se recomandă setarea ambelor politici la aceeași valoare. Dacă valorile nu corespund, poate apărea o întârziere la intrarea în sesiunea utilizatorului până ce se aplică valoarea specificată în politica privind utilizatorii.
+      Îți recomandăm să verifici setarea pentru politica IsolateOrigins pentru a beneficia la maximum atât de izolare, cât și de impact limitat asupra utilizatorilor, folosind IsolateOrigins cu o listă a site-urilor pe care vrei să le izolezi. Această setare, SitePerProcess, izolează toate site-urile.
       Dacă politica este activată, fiecare site va rula propriul proces.
-      Dacă politica este dezactivată, nu va avea loc o izolare explicită a site-ului, iar testările IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea activa manual SitePerProcess.
+      Dacă politica este dezactivată, nu va avea loc o izolare explicită a site-ului, iar testările pentru IsolateOrigins și SitePerProcess vor fi dezactivate. Utilizatorii vor putea activa manual SitePerProcess.
       Dacă politica nu este configurată, utilizatorul va putea modifica această setare.
       </translation>
 <translation id="7912255076272890813">Configurați tipurile de aplicații/extensii permise</translation>
@@ -2411,12 +2411,12 @@ nu poate fi stabilit de utilizator din setările browserului.
       originile denumite după subdomenii; de exemplu, specificarea https://example.com/
       va cauza și izolarea https://foo.example.com/ ca parte a site-ului
       https://example.com/.
-      Dacă politica este dezactivată, nu va avea loc o izolare explicită a site-ului, iar testările IsolateOriginsAndroid și SitePerProcessAndroid vor fi dezactivate. Utilizatorii vor putea activa manual IsolateOrigins.
+      Dacă politica este dezactivată, nu va avea loc o izolare explicită a site-ului, iar testările pentru IsolateOriginsAndroid și SitePerProcessAndroid vor fi dezactivate. Utilizatorii vor putea activa manual IsolateOrigins.
       Dacă politica nu este configurată, utilizatorul va putea modifica această setare.
 
       NOTĂ: pe Android, Izolarea site-ului este experimentală. Compatibilitatea se va îmbunătăți în timp, dar în prezent poate cauza probleme privind performanța.
 
-      NOTĂ: această politică se aplică numai pentru Chrome pe Android ce rulează pe dispozitive cu peste 1 GB de RAM. Pentru a aplica politica pe alte platforme diferite de Android, folosește IsolateOrigins.
+      NOTĂ: această politică se aplică numai pentru Chrome pe Android ce rulează pe dispozitive cu peste 1 GB de RAM. Pentru a aplica politica pe platforme diferite de Android, folosește IsolateOrigins.
       </translation>
 <translation id="7953256619080733119">Gazde pentru excepții adăugate manual ale utilizatorilor gestionați</translation>
 <translation id="7961779417826583251">Dezactivează aplicarea politicii privind Transparența certificatului pentru o listă de autorități de certificare vechi</translation>
@@ -2767,7 +2767,7 @@ Este recomandat să configurezi politica în Windows prin GPO, cu toate că gest
 <translation id="8976531594979650914">Folosește imprimanta prestabilită a sistemului ca setare prestabilită</translation>
 <translation id="8992176907758534924">Nu permite niciunui site să afișeze imagini</translation>
 <translation id="9012851181124311976">Configurează lista de adrese URL de autentificare de întreprindere (doar schemele HTTP și HTTPS). Amprenta parolei va fi scanată la aceste adrese URL și folosită pentru detectarea refolosirii parolelor.
-      Pentru ca <ph name="PRODUCT_NAME" /> să scaneze corect amprenta parolei, asigură-te că paginile de conectare respectă regulile prevăzute în  https://www.chromium.org/developers/design-documents/create-amazing-password-forms.
+      Pentru ca <ph name="PRODUCT_NAME" /> să scaneze corect amprenta parolei, asigură-te că paginile de conectare respectă regulile prevăzute în https://www.chromium.org/developers/design-documents/create-amazing-password-forms.
 
       Dacă această setare este activată, serviciul de protecție prin parolă va scana amprenta parolei la aceste adrese URL pentru a detecta refolosirea parolelor.
       Dacă această setare este dezactivată sau nu este configurată, serviciul de protecție prin parolă va scana amprenta parolei doar la https://accounts.google.com.
