@@ -51,6 +51,11 @@ const SecurityOrigin* ModulatorImplBase::GetSecurityOriginForFetch() {
 // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-module-script-tree
 // [fetch-a-module-worker-script-tree]
 // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-module-worker-script-tree
+
+void ModulatorImplBase::AddToMap(const KURL& url, ModuleScript* script) {
+  map_->AddToMap(url, script);
+}
+
 void ModulatorImplBase::FetchTree(const ModuleScriptFetchRequest& request,
                                   ModuleTreeClient* client) {
   // [fetch-a-module-script-tree] Step 2. Perform the internal module script

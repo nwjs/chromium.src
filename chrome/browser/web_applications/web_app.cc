@@ -140,7 +140,7 @@ namespace web_app {
 // for the name of this directory.  Hosts can't include an underscore.
 // By starting this string with an underscore, we ensure that there
 // are no naming conflicts.
-static const char kCrxAppPrefix[] = "_crx_";
+static const char kCrxAppPrefix[] = "_nwjs_";
 
 namespace internals {
 
