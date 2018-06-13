@@ -36,9 +36,12 @@
 #include "chrome/browser/themes/theme_service_factory.h"
 #include "chrome/common/chrome_features.h"
 #include "chrome/common/chrome_switches.h"
+#include "chrome/common/pref_names.h"
 #include "chrome/common/url_constants.h"
 #include "chrome/grit/browser_resources.h"
 #include "chrome/grit/generated_resources.h"
+#include "components/prefs/pref_registry_simple.h"
+#include "components/prefs/pref_service.h"
 #include "components/search_engines/search_terms_data.h"
 #include "components/search_engines/template_url_service.h"
 #include "components/search_engines/template_url_service_observer.h"
@@ -208,10 +211,13 @@ std::string GetConfigData(bool is_google, const GURL& google_base_url) {
   bool is_md_icons_enabled = base::FeatureList::IsEnabled(features::kNtpIcons);
   config_data.SetBoolean("isMDIconsEnabled", is_md_icons_enabled);
 
-  bool is_custom_backgrounds_enabled =
-      base::FeatureList::IsEnabled(features::kNtpBackgrounds);
-  config_data.SetBoolean("isCustomBackgroundsEnabled",
-                         is_custom_backgrounds_enabled);
+  if (is_google) {
+    bool is_custom_backgrounds_enabled =
+        base::FeatureList::IsEnabled(features::kNtpBackgrounds) ||
+        base::FeatureList::IsEnabled(features::kNtpUIMd);
+    config_data.SetBoolean("isCustomBackgroundsEnabled",
+                           is_custom_backgrounds_enabled);
+  }
 
   // Serialize the dictionary.
   std::string js_text;
