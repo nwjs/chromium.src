@@ -1017,6 +1017,7 @@
 <translation id="2544853746127077729">प्रमाणीकरण प्रमाणपत्र नेटवर्कद्वारे नाकारले</translation>
 <translation id="2547921442987553570"><ph name="EXTENSION_NAME" /> मध्ये जोडा</translation>
 <translation id="2550212893339833758">स्वॅप केलेली मेमरी</translation>
+<translation id="2550596535588364872"><ph name="EXTENSION_NAME" /> ला <ph name="FILE_NAME" /> उघडू द्यायचे?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> <ph name="NETWORK_ID" /> शी कनेक्ट करण्यात अक्षम आहे. कृपया दुसरे नेटवर्क निवडा किंवा पुन्हा प्रयत्न करा. </translation>
 <translation id="2553440850688409052">हे प्लगिन लपवा</translation>
 <translation id="2554553592469060349">निवडलेली फाईल खूप मोठी आहे (कमाल आकार: 3mb).</translation>
@@ -3570,6 +3571,7 @@
 <translation id="6474884162850599008">Google ड्राइव्ह खाते डिस्कनेक्ट करा</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> आपल्या स्क्रीनची सामग्री सामायिक करू इच्छित आहे. आपण सामायिक करू इच्छित असलेले निवडा.</translation>
 <translation id="6478248366783946499">धोकादायक फाईल ठेवायची?</translation>
+<translation id="6483485061007832714">डाउनलोड उघडा</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> उघडत आहे...</translation>
 <translation id="6485131920355264772">स्थान माहिती पुनर्प्राप्त करण्यात अयशस्वी</translation>
 <translation id="648637985389593741">पुढे जा, सिंक आणि पर्सनलाइझ वैशिष्ट्ये सुरू करा</translation>

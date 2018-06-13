@@ -1018,6 +1018,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="2544853746127077729">Certyfikat uwierzytelniania został odrzucony przez sieć</translation>
 <translation id="2547921442987553570">Dodaj do rozszerzenia <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Zamieniona pamięć</translation>
+<translation id="2550596535588364872">Pozwolić rozszerzeniu <ph name="EXTENSION_NAME" /> otworzyć plik <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> nie może nawiązać połączenia z siecią <ph name="NETWORK_ID" />. Wybierz inną sieć lub spróbuj ponownie.</translation>
 <translation id="2553440850688409052">Ukryj wtyczkę</translation>
 <translation id="2554553592469060349">Wybrany plik jest za duży (maksymalny rozmiar: 3 MB).</translation>
@@ -3569,6 +3570,7 @@ Ta strona nie powinna być zablokowana.</translation>
 <translation id="6474884162850599008">Odłącz konto na Dysku Google</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> chce udostępnić zawartość Twojego ekranu. Wybierz elementy, które chcesz udostępnić.</translation>
 <translation id="6478248366783946499">Zachować niebezpieczny plik?</translation>
+<translation id="6483485061007832714">Otwieranie pobranego pliku</translation>
 <translation id="6483805311199035658">Otwieram <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Pobieranie informacji o wolnym miejscu nie powiodło się</translation>
 <translation id="648637985389593741">Tak, włącz synchronizację i personalizację</translation>

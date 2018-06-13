@@ -514,7 +514,7 @@
 <translation id="1753682364559456262">Administrar bloqueo de imágenes...</translation>
 <translation id="1753905327828125965">Más visitado</translation>
 <translation id="1754582516739637364">Estado de la memoria</translation>
-<translation id="1756681705074952506">Método de entrada</translation>
+<translation id="1756681705074952506">Método de introducción</translation>
 <translation id="175772926354468439">Habilitar tema</translation>
 <translation id="1758018619400202187">EAP-TLS</translation>
 <translation id="17584710573359123">Ver en Chrome Web Store</translation>
@@ -1018,6 +1018,7 @@ No creo que este sitio deba bloquearse</translation>
 <translation id="2544853746127077729">Certificado de autenticación rechazado por la red</translation>
 <translation id="2547921442987553570">Añadir a <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memoria trasladada al espacio de reserva</translation>
+<translation id="2550596535588364872">¿Quieres permitir que <ph name="EXTENSION_NAME" /> abra <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> no ha podido establecer conexión con <ph name="NETWORK_ID" />. Selecciona otra red o vuelve a intentarlo.</translation>
 <translation id="2553440850688409052">Ocultar este complemento</translation>
 <translation id="2554553592469060349">El archivo seleccionado es demasiado grande (tamaño máximo: 3 MB).</translation>
@@ -3564,6 +3565,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="6474884162850599008">Desconectar cuenta de Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> quiere compartir contenido de tu pantalla. Elige lo que quieres compartir.</translation>
 <translation id="6478248366783946499">¿Quieres conservar el archivo peligroso?</translation>
+<translation id="6483485061007832714">Abrir descarga</translation>
 <translation id="6483805311199035658">Abriendo <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">No se ha podido obtener información sobre el espacio.</translation>
 <translation id="648637985389593741">Sí, activar funciones de sincronización y personalización</translation>

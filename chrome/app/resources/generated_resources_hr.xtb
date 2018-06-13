@@ -1018,6 +1018,7 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="2544853746127077729">Mreža je odbila certifikat za autentifikaciju</translation>
 <translation id="2547921442987553570">Dodaj u proširenje <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Zamijenjena memorija</translation>
+<translation id="2550596535588364872">Omogućiti proširenju <ph name="EXTENSION_NAME" /> da otvori <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> nije se mogao povezati s mrežom <ph name="NETWORK_ID" />. Odaberite drugu mrežu ili pokušajte ponovno.</translation>
 <translation id="2553440850688409052">Sakrij ovaj dodatak</translation>
 <translation id="2554553592469060349">Odabrana je datoteka prevelika (maksimalna veličina iznosi 3 MB).</translation>
@@ -3569,6 +3570,7 @@ Mislim da ta web-lokacija ne bi trebala biti blokirana!</translation>
 <translation id="6474884162850599008">Prekini vezu računa Google diska</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> želi dijeliti sadržaj vašeg zaslona. Odaberite što želite dijeliti.</translation>
 <translation id="6478248366783946499">Želite li zadržati opasnu datoteku?</translation>
+<translation id="6483485061007832714">Otvorite preuzimanje</translation>
 <translation id="6483805311199035658">Otvaranje datoteke <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Dohvaćanje informacija o prostoru nije uspjelo</translation>
 <translation id="648637985389593741">U redu, uključi značajke sinkronizacije i prilagodbe</translation>

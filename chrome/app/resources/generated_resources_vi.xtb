@@ -209,7 +209,7 @@
 <translation id="1296497012903089238">Loại chứng chỉ</translation>
 <translation id="1297175357211070620">Máy in đích</translation>
 <translation id="1297922636971898492">Google Drive hiện không khả dụng. Quá trình tải lên sẽ tự động khởi động lại khi Google Drive hoạt động trở lại.</translation>
-<translation id="1300415640239881824"><ph name="DOMAIN" /> muốn Google xác minh danh tính thiết bị của bạn nhằm xác định tính đủ điều kiện để phát lại nâng cao nội dung phương tiện được bảo vệ.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> muốn Google xác minh thông tin định danh thiết bị của bạn để xác định xem thiết bị có thể sử dụng chức năng phát nâng cao nội dung được bảo vệ hay không.</translation>
 <translation id="1300806585489372370">Để thay đổi cài đặt này, trước tiên hãy <ph name="BEGIN_LINK" />bật giá trị nhận dạng<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">Cho phép JavaScript từ Apple Events</translation>
 <translation id="1303101771013849280">Tệp HTML chứa dấu trang</translation>
@@ -1019,6 +1019,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="2544853746127077729">Chứng chỉ xác thực bị mạng từ chối</translation>
 <translation id="2547921442987553570">Thêm vào <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Đã hoán đổi bộ nhớ</translation>
+<translation id="2550596535588364872">Bạn muốn cho phép <ph name="EXTENSION_NAME" /> mở <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> không thể kết nối đến <ph name="NETWORK_ID" />. Vui lòng chọn một mạng khác hoặc thử lại.</translation>
 <translation id="2553440850688409052">Ẩn plugin này</translation>
 <translation id="2554553592469060349">Tệp đã chọn quá lớn (kích thước tối đa: 3mb).</translation>
@@ -3570,6 +3571,7 @@ Tôi không cho rằng nên chặn trang web này!</translation>
 <translation id="6474884162850599008">Ngắt kết nối tài khoản Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> muốn chia sẻ nội dung trên màn hình của bạn. Chọn nội dung bạn muốn chia sẻ.</translation>
 <translation id="6478248366783946499">Giữ tệp nguy hiểm?</translation>
+<translation id="6483485061007832714">Mở tệp đã tải xuống</translation>
 <translation id="6483805311199035658">Đang mở <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Không thể truy xuất thông tin dung lượng</translation>
 <translation id="648637985389593741">Tiếp tục bật tính năng đồng bộ hóa và cá nhân hóa</translation>

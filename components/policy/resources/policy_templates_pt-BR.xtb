@@ -390,7 +390,7 @@
 
       Se esta política estiver definida como "DeveloperToolsDisallowedForForceInstalledExtensions" (valor 0, que é o padrão para usuários corporativos), as Ferramentas para Desenvolvedores e o Console JavaScript poderão ser acessados de um modo geral, mas não no contexto de extensões instaladas por uma política corporativa.
       Se esta política estiver definida como "DeveloperToolsAllowed" (valor 1, que é o padrão para usuários não gerenciados), as Ferramentas para Desenvolvedores e o Console JavaScript poderão ser acessados e usados em todos os contextos, incluindo o de extensões instaladas por uma política corporativa.
-      Se esta política estiver definida como "DeveloperToolsDisallowed" (valor 2), as Ferramentas para Desenvolvedores não poderão ser acessadas e os elementos do site não poderão mais ser inspecionados. Nenhum atalho de teclado e nenhuma entrada de menu ou menu de contexto para abrir as Ferramentas para Desenvolvedores ou o Console JavaScript será desativado.</translation>
+      Se esta política estiver definida como "DeveloperToolsDisallowed" (valor 2), as Ferramentas para Desenvolvedores não poderão ser acessadas e os elementos do site não poderão mais ser inspecionados. Nenhum atalho de teclado e nenhuma entrada de menu ou menu de contexto para abrir as Ferramentas para Desenvolvedores ou o Console JavaScript estará ativo.</translation>
 <translation id="2194470398825717446">O uso desta política foi suspenso no M61. Substitua-a por EcryptfsMigrationStrategy.
 
       Especifica como um dispositivo deve se comportar tendo sido embarcado com ecryptfs e precisando fazer a transição para criptografia ext4.
@@ -647,7 +647,7 @@
 <translation id="2753637905605932878">Restringir o alcance das portas UDP locais usadas por WebRTC</translation>
 <translation id="2755385841634849932">Esta política controla a disponibilidade de backup e restauração do Android.
 
-      Quando esta política não está configurada ou definida como <ph name="BR_DISABLED" />, o backup e a restauração do Android estão desativados e não podem ser ativados pelo usuário.
+      Quando esta política não está configurada ou está definida como <ph name="BR_DISABLED" />, o backup e a restauração do Android estão desativados e não podem ser ativados pelo usuário.
 
       Quando esta política está definida como <ph name="BR_UNDER_USER_CONTROL" />, é solicitado que o usuário escolha se quer usar o backup e a restauração do Android. Se o usuário ativar o backup e a restauração, os dados de apps Android serão carregados para os servidores de backup do Android e restaurados a partir deles durante a reinstalação de apps compatíveis.</translation>
 <translation id="2757054304033424106">Tipos de extensões/aplicativos que podem ser instalados</translation>
@@ -1072,7 +1072,7 @@
 <translation id="4056910949759281379">Desativar o protocolo SPDY</translation>
 <translation id="4059515172917655545">Esta política controla a disponibilidade dos serviços de localização do Google.
 
-      Quando esta política não está configurada ou definida como <ph name="GLS_DISABLED" />, os serviços de localização do Google são desativados e não podem ser ativados pelo usuário.
+      Quando esta política não está configurada ou está definida como <ph name="GLS_DISABLED" />, os serviços de localização do Google são desativados e não podem ser ativados pelo usuário.
 
       Quando esta política é definida como <ph name="GLS_UNDER_USER_CONTROL" />, é solicitado que o usuário escolha se quer usar os serviços de localização do Google. Isso permitirá que apps Android usem os serviços para consultar a localização do dispositivo, além de permitir o envio de dados de local anônimos para o Google.
 
@@ -2100,7 +2100,7 @@
 
       Desativa as Ferramentas para Desenvolvedores e o Console JavaScript.
 
-      Se você ativar essa configuração, as Ferramentas para Desenvolvedores não poderão ser acessadas, e os elementos de sites não poderão mais ser inspecionados. Nenhum atalho de teclado e nenhuma entrada de menu ou menu de contexto para abrir as Ferramentas para Desenvolvedores ou o Console JavaScript será desativado.
+      Se você ativar essa configuração, as Ferramentas para Desenvolvedores não poderão ser acessadas, e os elementos de sites não poderão mais ser inspecionados. Nenhum atalho de teclado e nenhuma entrada de menu ou menu de contexto para abrir as Ferramentas para Desenvolvedores ou o Console JavaScript estará ativo.
 
       Definir esta opção como desativada ou deixá-la sem definição permite que o usuário use as Ferramentas para Desenvolvedores e o Console JavaScript.
 

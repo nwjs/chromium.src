@@ -1015,6 +1015,7 @@
 <translation id="2544853746127077729">Сертификатът за удостоверяване бе отхвърлен от мрежата</translation>
 <translation id="2547921442987553570">Добавяне към <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Резервна памет</translation>
+<translation id="2550596535588364872">Да се разреши ли на <ph name="EXTENSION_NAME" /> да отвори <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> не успя да се свърже с: <ph name="NETWORK_ID" />. Моля, изберете друга мрежа или опитайте отново.</translation>
 <translation id="2553440850688409052">Скриване на тази приставка</translation>
 <translation id="2554553592469060349">Избраният файл е твърде голям (максимален размер: 3 МБ).</translation>
@@ -3568,6 +3569,7 @@
 <translation id="6474884162850599008">Прекратяване на връзката с профила в Google Диск</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> иска да сподели съдържанието на екрана ви. Изберете какво да се сподели.</translation>
 <translation id="6478248366783946499">Да се запази ли опасният файл?</translation>
+<translation id="6483485061007832714">Отваряне на изтегления файл</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> се отваря...</translation>
 <translation id="6485131920355264772">Извличането на информацията за мястото не бе успешно</translation>
 <translation id="648637985389593741">Включване на функциите за синхронизиране и персонализиране</translation>

@@ -384,7 +384,7 @@ Jika kebijakan ini tidak disetel, setelan kebijakan berarti diaktifkan, lihat de
 
       Jika kebijakan SystemTimezone disetel, kebijakan tersebut akan mengganti kebijakan ini. Dalam kasus ini, deteksi zona waktu otomatis akan dinonaktifkan sepenuhnya.</translation>
 <translation id="2178899310296064282">Terapkan setidaknya Mode Terbatas Menengah di YouTube</translation>
-<translation id="2182291258410176649">Pengguna memutuskan apakah akan mengaktifkan opsi backup dan pulihkan</translation>
+<translation id="2182291258410176649">Pengguna memutuskan apakah akan mengaktifkan opsi backup dan pemulihan</translation>
 <translation id="2183294522275408937">Setelan ini mengontrol seberapa sering layar kunci akan meminta sandi dimasukkan guna melanjutkan penggunaan buka kunci cepat. Setiap kali masuk ke layar kunci, jika entri sandi terakhir melebihi setelan ini, buka kunci cepat tidak akan tersedia untuk masuk ke layar kunci. Jika pengguna membiarkan layar kunci melewati periode ini, sandi akan diminta lagi nantinya apabila pengguna salah memasukkan kode, atau masuk ke layar kunci lagi, mana saja yang muncul terlebih dahulu.
 
           Jika setelan ini dikonfigurasi, pengguna yang menggunakan buka kunci cepat akan diminta untuk memasukkan sandi pada layar kunci, bergantung pada setelan ini.
@@ -392,7 +392,7 @@ Jika kebijakan ini tidak disetel, setelan kebijakan berarti diaktifkan, lihat de
           Jika setelan ini tidak dikonfigurasi, pengguna yang menggunakan buka kunci cepat akan diminta untuk memasukkan sandi pada layar kunci setiap hari.</translation>
 <translation id="2187588466015916207">Memungkinkan Anda mengontrol lokasi penggunaan Developer Tools.
 
-      Jika kebijakan ini disetel ke 'DeveloperToolsDisallowedForForceInstalledExtensions' (nilai 0, yang merupakan nilai default untuk pengguna perusahaan), Developer Tools dan konsol JavaScript secara umum dapat diakses, namun tidak dapat diakses dalam konteks ekstensi yang diinstal oleh kebijakan perusahaan.
+      Jika kebijakan ini disetel ke 'DeveloperToolsDisallowedForForceInstalledExtensions' (nilai 0, yang merupakan nilai default untuk pengguna perusahaan), Developer Tools dan konsol JavaScript secara umum dapat diakses, tetapi tidak dapat diakses dalam konteks ekstensi yang diinstal oleh kebijakan perusahaan.
       Jika kebijakan ini disetel ke 'DeveloperToolsAllowed' (nilai 1, yang merupakan nilai default untuk pengguna tidak terkelola), Developer Tools dan konsol JavaScript dapat diakses dan digunakan dalam semua konteks, termasuk dalam konteks ekstensi yang diinstal oleh kebijakan perusahaan.
       Jika kebijakan ini disetel ke 'DeveloperToolsDisallowed' (nilai 2), Developer Tools tidak dapat diakses dan elemen situs tidak dapat diperiksa lagi. Semua pintasan keyboard dan semua menu atau entri menu konteks untuk membuka Developer Tools atau Konsol JavaScript akan dinonaktifkan.</translation>
 <translation id="2194470398825717446">Kebijakan ini sudah tidak digunakan lagi di M61, sebagai gantinya harap gunakan EcryptfsMigrationStrategy.
@@ -412,7 +412,7 @@ Jika kebijakan ini tidak disetel, setelan kebijakan berarti diaktifkan, lihat de
 <translation id="2231817271680715693">Impor histori browseran dari browser default saat pertama kali dijalankan</translation>
 <translation id="2236488539271255289">Jangan izinkan situs mana pun menyetel data lokal</translation>
 <translation id="2240879329269430151">Memungkinkan Anda menentukan apakah situs diizinkan untuk menampilkan pop-up. Menampilkan pop-up dapat diizinkan atau diblokir untuk semua situs. Jika kebijakan ini tidak disetel, 'BlockPopups' akan digunakan dan pengguna dapat mengubahnya.</translation>
-<translation id="2269319728625047531">Aktifkan menampilkan Persetujuan Sinkronisasi saat login</translation>
+<translation id="2269319728625047531">Aktifkan menampilkan Izin Sinkronisasi saat login</translation>
 <translation id="2274864612594831715">Kebijakan ini mengonfigurasi pengaktifkan keyboard virtual sebagai perangkat masukan di ChromeOS. Pengguna tidak dapat mengganti kebijakan ini.
 
       Jika kebijakan ini disetel ke true, keyboard virtual di layar akan selalu diaktifkan.
@@ -646,11 +646,11 @@ Jika kebijakan ini tidak disetel, tidak ada aplikasi atau ekstensi yang otomatis
 
       Jika setelan ini diaktifkan atau tidak disetel, halaman web dapat menggunakan JavaScript, namun pengguna dapat mengubah setelan tersebut.</translation>
 <translation id="2753637905605932878">Membatasi rentang port UDP lokal yang digunakan oleh WebRTC</translation>
-<translation id="2755385841634849932">Kebijakan ini mengontrol ketersediaan opsi backup dan pulihkan Android.
+<translation id="2755385841634849932">Kebijakan ini mengontrol ketersediaan opsi backup dan pemulihan Android.
 
-      Jika kebijakan ini tidak dikonfigurasi atau disetel ke <ph name="BR_DISABLED" />, opsi backup dan pulihkan Android dinonaktifkan dan tidak dapat diaktifkan oleh pengguna.
+      Jika kebijakan ini tidak dikonfigurasi atau disetel ke <ph name="BR_DISABLED" />, opsi backup dan pemulihan Android dinonaktifkan dan tidak dapat diaktifkan oleh pengguna.
 
-      Jika kebijakan ini disetel ke <ph name="BR_UNDER_USER_CONTROL" />, pengguna diminta untuk memilih apakah akan menggunakan opsi backup dan pulihkan Android. Jika pengguna mengaktifkan opsi backup dan pulihkan, data aplikasi Android diupload ke server backup Android dan dipulihkan setelah penginstalan ulang untuk aplikasi yang kompatibel.</translation>
+      Jika kebijakan ini disetel ke <ph name="BR_UNDER_USER_CONTROL" />, pengguna diminta untuk memilih apakah akan menggunakan opsi backup dan pemulihan Android. Jika pengguna mengaktifkan opsi backup dan pemulihan, data aplikasi Android diupload ke server backup Android dan dipulihkan setelah penginstalan ulang untuk aplikasi yang kompatibel.</translation>
 <translation id="2757054304033424106">Ketik ekstensi/aplikasi yang diizinkan untuk dipasang</translation>
 <translation id="2759224876420453487">Mengontrol perilaku pengguna pada sesi multiprofil</translation>
 <translation id="2761483219396643566">Menunda peringatan waktu menganggur saat menggunakan daya baterai</translation>
@@ -1252,15 +1252,15 @@ Jika kebijakan ini tidak disetel, tidak ada aplikasi atau ekstensi yang otomatis
 <translation id="4604931264910482931">Konfigurasikan daftar hitam perpesanan asli</translation>
 <translation id="4613261833393532156">Memungkinkan Anda mengunci sesi pengguna berdasarkan waktu klien atau kuota penggunaan hari ini.
 
-          |time_window_limit| menentukan durasi harian untuk mengunci sesi pengguna. Kami hanya mendukung satu aturan untuk tiap hari dalam seminggu, oleh karena itu, deret |entries| dapat bervariasi ukurannya antara 0-7. |starts_at| dan |ends_at| adalah awal dan akhir batas durasi, jika |ends_at| lebih kecil dari |starts_at| berarti |time_limit_window| berakhir pada hari berikutnya. |last_updated_millis| adalah stempel waktu UTC untuk terakhir kali entri ini diperbarui, dikirim sebagai string karena stempel waktu tidak cocok dalam bilangan bulat.
+          |time_window_limit| menentukan durasi harian untuk mengunci sesi pengguna. Kami hanya mendukung satu aturan untuk tiap hari dalam seminggu, oleh karena itu, deret |entries| dapat bervariasi ukurannya antara 0-7. |starts_at| dan |ends_at| adalah awal dan akhir batas durasi, jika |ends_at| lebih kecil dari |starts_at| berarti |time_limit_window| berakhir pada hari berikutnya. |last_updated_millis| adalah stempel waktu UTC untuk terakhir kali entri ini diperbarui, yang dikirim sebagai string karena stempel waktu tidak dapat ditampilkan dalam bilangan bulat.
 
-          |time_usage_limit| menentukan kuota penggunaan perangkat harian, jadi jika pengguna mencapainya, sesi pengguna dikunci. Ada properti untuk tiap hari dalam seminggun, dan hanya boleh disetel jika ada kuota yang aktif untuk hari tersebut. |usage_quota_mins| adalah jumlah waktu yang menentukan perangkat yang dikelola dapat digunakan dalam sehari dan |reset_at| adalah waktu yang menentukan kapan kuota penggunaan diperpanjang. Nilai default untuk |reset_at| adalah tengah malam ({'hour': 0, 'minute': 0}). |last_updated_millis| adalah stempel waktu UTK untuk terakhir kali entri ini diperbarui, dikirim sebagai string karena stempel waktu tidak cocok dalam bilangan bulat.
+          |time_usage_limit| menentukan kuota penggunaan perangkat harian, jadi jika pengguna mencapai batas tersebut, sesi pengguna dikunci. Ada properti untuk tiap hari dalam seminggu, dan hanya boleh disetel jika ada kuota yang aktif untuk hari tersebut. |usage_quota_mins| adalah jumlah waktu perangkat yang dikelola dapat digunakan dalam sehari dan |reset_at| adalah waktu yang menentukan kapan kuota penggunaan diperpanjang. Nilai default untuk |reset_at| adalah tengah malam ({'hour': 0, 'minute': 0}). |last_updated_millis| adalah stempel waktu UTK untuk terakhir kali entri ini diperbarui, yang dikirim sebagai string karena stempel waktu tidak dapat ditampilkan dalam bilangan bulat.
 
           |overrides| diberikan untuk membuat tidak valid satu atau beberapa aturan sebelumnya.
           * Jika time_window_limit atau time_usage_limit tidak aktif, |LOCK| dapat digunakan untuk mengunci perangkat.
           * |LOCK| mengunci sesi pengguna untuk sementara hingga time_window_limit atau time_usage_limit berikutnya dimulai.
           * |UNLOCK| membuka kunci sesi pengguna yang dikunci oleh time_window_limit atau time_usage_limit.
-          |created_time_millis| adalah stempel waktu UTC untuk pembuatan opsi penggantian, dikirim sebagai String karena stempel waktu tidak cocok dalam bilangan bulat Ini digunakan untuk menentukan apakah penggantian ini harus tetap diterapkan. Jika fitur batas waktu aktif saat ini (batas penggunaan waktu atau batas durasi waktu) dimulai setelah penggantian dibuat, maka tidak akan dilakukan tindakan. Selain itu, jika penggantian dibuat sebelum perubahan terakhir time_window_limit atau time_usage_window yang aktif, maka tidak akan diterapkan.</translation>
+          |created_time_millis| adalah stempel waktu UTC untuk pembuatan opsi penggantian, dikirim sebagai String karena stempel waktu tidak dapat ditampilkan dalam bilangan bulat. Ini digunakan untuk menentukan apakah penggantian ini harus tetap diterapkan. Jika fitur batas waktu aktif saat ini (batas penggunaan waktu atau batas durasi waktu) dimulai setelah penggantian dibuat, maka tidak akan dilakukan tindakan. Selain itu, jika penggantian dibuat sebelum perubahan terakhir time_window_limit atau time_usage_window yang aktif, maka tidak akan diterapkan.</translation>
 <translation id="4613508646038788144">Jika kebijakan disetel ke false, maka software pihak ketiga akan diizinkan untuk melakukan injeksi kode yang dapat dieksekusi ke dalam proses Chrome. Jika kebijakan tidak disetel atau disetel ke true, maka software pihak ketiga akan dicegah melakukan injeksi kode yang dapat dieksekusi ke dalam proses Chrome.</translation>
 <translation id="4617338332148204752">Lewati pemeriksaan tag meta pada <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="4625915093043961294">Mengonfigurasi daftar putih pemasangan ekstensi</translation>
@@ -1571,7 +1571,7 @@ Jika kebijakan ini dinonaktifkan atau tidak disetel, situs tidak akan dapat mena
       Perlu diperhatikan bahwa tindakan ini tidak disarankan, karena dapat melewati ekstensi nameConstraints yang membatasi hostname untuk mengotorisasi sertifikat yang diberikan.
 
       Jika kebijakan ini tidak disetel, atau disetel ke false, sertifikat server yang tidak menyertakan ekstensi subjectAlternativeName yang berisi nama DNS atau alamat IP tidak akan dipercaya.</translation>
-<translation id="5584132346604748282">Mengontrol layanan lokasi Google Android</translation>
+<translation id="5584132346604748282">Mengontrol layanan lokasi Google di Android</translation>
 <translation id="5586942249556966598">Tidak melakukan apa-apa</translation>
 <translation id="5630352020869108293">Mengembalikan sesi terakhir</translation>
 <translation id="5645779841392247734">Izinkan cookie di situs ini</translation>
@@ -1825,7 +1825,7 @@ Jika kebijakan ini dinonaktifkan atau tidak disetel, situs tidak akan dapat mena
 
           Jika Anda memilih untuk menggunakan skrip proxy .pac, URL skrip akan diberikan pada aplikasi Android.</translation>
 <translation id="6440051664870270040">Izinkan situs menavigasi dan membuka (jendela) pop-up sekaligus</translation>
-<translation id="6447948611083700881">Opsi backup dan pulihkan dinonaktifkan</translation>
+<translation id="6447948611083700881">Opsi backup dan pemulihan dinonaktifkan</translation>
 <translation id="645425387487868471">Aktifkan login paksa untuk <ph name="PRODUCT_NAME" /></translation>
 <translation id="6473623140202114570">Mengonfigurasi daftar domain tempat Safe Browsing tidak akan memicu peringatan.</translation>
 <translation id="6491139795995924304">Izinkan bluetooth di perangkat</translation>
@@ -2033,7 +2033,7 @@ Jika kebijakan ini tidak disetel, fungsi update firmware <ph name="TPM_FIRMWARE_
 
       Kebijakan ini memungkinkan Anda mengonfigurasi cara <ph name="PRODUCT_OS_NAME" /> berperilaku saat pengguna tetap menganggur dalam beberapa waktu.</translation>
 <translation id="7040229947030068419">Nilai contoh:</translation>
-<translation id="7044883996351280650">Mengontrol layanan backup dan pulihkan Android</translation>
+<translation id="7044883996351280650">Mengontrol layanan backup dan pemulihan Android</translation>
 <translation id="7049373494483449255">Mengizinkan <ph name="PRODUCT_NAME" /> mengirimkan dokumen ke <ph name="CLOUD_PRINT_NAME" /> untuk pencetakan. CATATAN: Setelan ini hanya memengaruhi dukungan <ph name="CLOUD_PRINT_NAME" /> dalam <ph name="PRODUCT_NAME" />. Setelan ini tidak mencegah pengguna mengirimkan pekerjaan cetak di situs web. Jika setelan ini diaktifkan atau tidak dikonfigurasi, pengguna dapat mencetak ke <ph name="CLOUD_PRINT_NAME" /> dari dialog cetak <ph name="PRODUCT_NAME" />. Jika setelan ini dinonaktifkan, pengguna tidak dapat mencetak ke <ph name="CLOUD_PRINT_NAME" /> dari dialog pencetakan <ph name="PRODUCT_NAME" /></translation>
 <translation id="7053678646221257043">Kebijakan ini memaksa bookmark diimpor dari browser default saat ini, jika diaktifkan. Jika diaktifkan, kebijakan ini juga memengaruhi dialog impor. Jika dinonaktifkan, tidak ada bookmark yang diimpor. Jika tidak disetel, pengguna mungkin akan diminta untuk mengimpor, atau pengimporan dapat terjadi secara otomatis.</translation>
 <translation id="7063895219334505671">Izinkan pop-up di situs ini</translation>
@@ -2106,7 +2106,7 @@ Jika kebijakan ini tidak disetel, fungsi update firmware <ph name="TPM_FIRMWARE_
 <translation id="7258823566580374486">Mengaktifkan pemberian tirai hosting akses jarak jauh</translation>
 <translation id="7260277299188117560">Pembaruan p2p otomatis diaktifkan</translation>
 <translation id="7261252191178797385">Gambar wallpaper perangkat</translation>
-<translation id="7264704483008663819">Kebijakan ini tidak digunakan lagi pada M68, sebagai gantinya gunakan DeveloperToolsAvailability.
+<translation id="7264704483008663819">Kebijakan ini tidak digunakan lagi di M68, sebagai gantinya gunakan DeveloperToolsAvailability.
 
       Menonaktifkan Developer Tools dan konsol JavaScript.
 
@@ -2250,11 +2250,11 @@ Jika kebijakan ini tidak disetel, fungsi update firmware <ph name="TPM_FIRMWARE_
 <translation id="7643883929273267746">Batasi akun yang terlihat di <ph name="PRODUCT_NAME" /></translation>
 <translation id="7651739109954974365">Menentukan apakah roaming data harus diaktifkan untuk perangkat. Jika disetel ke true, roaming data akan diizinkan. Jika dibiarkan tanpa konfigurasi atau disetel ke false, roaming data tidak akan tersedia.</translation>
 <translation id="7673194325208122247">Periode waktu (milidetik)</translation>
-<translation id="7676708657861783864">Cookie yang disetel oleh halaman yang cocok dengan pola URL ini akan dibatasi ke sesi saat ini, yaitu dihapus jika browser ditutup.
+<translation id="7676708657861783864">Cookie yang disetel oleh halaman yang cocok dengan pola URL ini akan dibatasi ke sesi saat ini. Artinya, cookie tersebut dihapus jika browser ditutup.
 
           Untuk URL yang tidak tercakup oleh pola yang ditentukan di sini, atau untuk semua URL jika kebijakan ini tidak disetel, nilai default global akan digunakan dari kebijakan 'DefaultCookiesSetting', jika disetel, atau dari konfigurasi pribadi pengguna.
 
-          Perlu diperhatikan bahwa jika <ph name="PRODUCT_NAME" /> berjalan dalam 'mode background', sesi mungkin tidak ditutup jika jendela browser terakhir ditutup, namun tetap aktif hingga browser ditutup. Lihat kebijakan 'BackgroundModeEnabled' untuk mengetahui informasi selengkapnya tentang cara mengonfigurasi perilaku ini.
+          Perlu diperhatikan bahwa jika <ph name="PRODUCT_NAME" /> berjalan dalam 'mode background', sesi mungkin tidak ditutup saat jendela browser terakhir ditutup, namun tetap aktif hingga browser ditutup. Lihat kebijakan 'BackgroundModeEnabled' untuk mengetahui informasi selengkapnya tentang cara mengonfigurasi perilaku ini.
 
           Lihat juga kebijakan 'CookiesAllowedForUrls' dan 'CookiesBlockedForUrls'. Perlu diperhatikan bahwa pola URL di antara ketiga kebijakan ini tidak boleh bertentangan - tidak ditentukan kebijakan mana yang diprioritaskan.
 
@@ -2717,9 +2717,9 @@ Cara yang disarankan untuk mengonfigurasi kebijakan di Windows adalah melalui GP
 
       Jika kebijakan ini tidak disetel, <ph name="PRINTERS_ALLOW_ALL" /> akan diterapkan.
       </translation>
-<translation id="8942616385591203339">Kebijakan ini mengontrol apakah Persetujuan Sinkronisasi dapat ditampilkan ke pengguna saat login pertama kali. Kebijakan ini harus disetel ke false jika Persetujuan Sinkronisasi tidak diperlukan bagi pengguna.
-      Jika disetel ke false, Persetujuan Sinkronisasi tidak akan ditampilkan.
-      Jika disetel ke trua atau tidak disetel, Persetujuan Sinkronisasi dapat ditampilkan.</translation>
+<translation id="8942616385591203339">Kebijakan ini mengontrol apakah Izin Sinkronisasi dapat ditampilkan ke pengguna saat login pertama kali. Kebijakan ini harus disetel ke false jika Izin Sinkronisasi tidak diperlukan bagi pengguna.
+      Jika disetel ke false, Izin Sinkronisasi tidak akan ditampilkan.
+      Jika disetel ke true atau tidak disetel, Izin Sinkronisasi dapat ditampilkan.</translation>
 <translation id="8947415621777543415">Laporkan lokasi perangkat</translation>
 <translation id="8951350807133946005">Setel direktori cache disk</translation>
 <translation id="8952317565138994125">Menonaktifkan sinkronisasi data di <ph name="PRODUCT_NAME" /> menggunakan layanan sinkronisasi yang dihosting Google dan mencegah pengguna mengganti setelan ini.

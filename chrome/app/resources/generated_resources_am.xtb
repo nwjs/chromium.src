@@ -1018,6 +1018,7 @@
 <translation id="2544853746127077729">የማረጋገጫ ምስክር ወረቀት በአውታረ መረቡ ተቀባይነት አላገኘም</translation>
 <translation id="2547921442987553570">ወደ <ph name="EXTENSION_NAME" /> አክል</translation>
 <translation id="2550212893339833758">የተተካ ማህደረ ትውስታ</translation>
+<translation id="2550596535588364872"><ph name="EXTENSION_NAME" /> <ph name="FILE_NAME" />ን እንዲከፍት ይፈቀድለት?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> ከ<ph name="NETWORK_ID" /> ጋር ሊገናኝ አልቻለም። እባክዎ ሌላ አውታረ መረብ ይሞክሩ ወይም እንደገና ይሞክሩ።</translation>
 <translation id="2553440850688409052">ይህን ተሰኪ ደብቅ</translation>
 <translation id="2554553592469060349">የተመረጠው ፋይል በጣም ትልቅ ነው (ከፍተኛ የፋይል መጠን፦ 3 ሜባ)።</translation>
@@ -3566,6 +3567,7 @@
 <translation id="6474884162850599008">የGoogle Drive መለያን አላቅቅ</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> የማያ ገጽዎን ይዘቶች ማጋራት ይፈልጋል። ምን ማጋራት እንደሚፈልጉ ይምረጡ።</translation>
 <translation id="6478248366783946499">አደገኛ ፋይል ይቀመጥ?</translation>
+<translation id="6483485061007832714">ውርድን ይክፈቱ</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> በመክፈት ላይ…</translation>
 <translation id="6485131920355264772">የቦታ መረጃን ማምጣት አልተቻለም</translation>
 <translation id="648637985389593741">ይቀጥሉ፣ የስምረት እና ግላዊነት ማላበስ ባህሪያትን ያብሩ</translation>

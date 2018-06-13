@@ -1019,6 +1019,7 @@ Tento web by podle mě neměl být blokován.</translation>
 <translation id="2544853746127077729">Ověřovací certifikát byl sítí odmítnut</translation>
 <translation id="2547921442987553570">Přidat do rozšíření <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Stránkovaná paměť</translation>
+<translation id="2550596535588364872">Povolit rozšíření <ph name="EXTENSION_NAME" /> otevřít soubor <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190">Systému <ph name="PRODUCT_NAME" /> se nepodařilo připojit k síti <ph name="NETWORK_ID" />. Vyberte jinou síť nebo to zkuste znovu.</translation>
 <translation id="2553440850688409052">Skrýt tento plugin</translation>
 <translation id="2554553592469060349">Vybraný soubor je příliš velký (maximální velikost je 3 MB).</translation>
@@ -2476,6 +2477,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="4856478137399998590">Datové služby jsou aktivovány a můžete je začít používat</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Otevřít vše v &amp;anonymním okně}=1{Otevřít v &amp;anonymním okně}few{Otevřít vše (#) v &amp;anonymním okně}many{Otevřít vše (#) v &amp;anonymním okně}other{Otevřít vše (#) v &amp;anonymním okně}}</translation>
 <translation id="4858913220355269194">Fotbal</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – video se přehrává v režimu obrazu v obraze</translation>
 <translation id="4862050643946421924">Přidávání zařízení...</translation>
 <translation id="4862642413395066333">Podepisování odpovědí OCSP</translation>
 <translation id="4863769717153320198">Vypadá jako <ph name="WIDTH" /> × <ph name="HEIGHT" /> (výchozí)</translation>
@@ -3565,6 +3567,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="6474884162850599008">Odpojit účet Disku Google</translation>
 <translation id="6475697075626596525">Aplikace <ph name="APP_NAME" /> chce sdílet obsah vaší obrazovky. Vyberte, co chcete sdílet.</translation>
 <translation id="6478248366783946499">Ponechat nebezpečný soubor?</translation>
+<translation id="6483485061007832714">Otevřít stažený soubor</translation>
 <translation id="6483805311199035658">Otevírání souboru <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Informace o volném místě se nepodařilo načíst</translation>
 <translation id="648637985389593741">Zapnout funkce synchronizace a přizpůsobení</translation>
@@ -4451,6 +4454,7 @@ V zařízení se systémem Chrome OS můžete aktivovat funkce ladění, abyste
 <translation id="7839051173341654115">Zobrazit/zálohovat média</translation>
 <translation id="7839192898639727867">ID klíče subjektu certifikátu</translation>
 <translation id="7839804798877833423">Načtení souborů spotřebuje přibližně <ph name="FILE_SIZE" /> mobilních dat.</translation>
+<translation id="7844553762889824470">Zvýrazněte text, který chcete přečíst, a stiskněte Hledat + S. Můžete také podržet tlačítko Hledat nebo vedle svého profilového obrázku klepnout na ikonu poslechu vybraného textu a provést výběr.</translation>
 <translation id="7844992432319478437">Probíhá aktualizace souboru diff</translation>
 <translation id="7846076177841592234">Zrušit výběr</translation>
 <translation id="7846634333498149051">Klávesnice</translation>
@@ -5359,6 +5363,7 @@ Svůj soubor klíče uchovávejte na bezpečném místě. Budete jej potřebovat
 <translation id="952992212772159698">Není aktivováno</translation>
 <translation id="957960681186851048">Tento web se pokusil automaticky stáhnout několik souborů</translation>
 <translation id="9580706199804957">Ke službám Google se nelze připojit</translation>
+<translation id="958416628331784386">Na této kartě se přehrává video v režimu obrazu v obraze</translation>
 <translation id="958515377357646513">Klepnutím přejdete vpřed</translation>
 <translation id="960719561871045870">Kód operátora</translation>
 <translation id="960987915827980018">Zbývá přibližně hodina</translation>

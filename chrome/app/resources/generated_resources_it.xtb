@@ -1018,6 +1018,7 @@ Non credo che questo sito debba essere bloccato.</translation>
 <translation id="2544853746127077729">Certificato di autenticazione rifiutato dalla rete</translation>
 <translation id="2547921442987553570">Aggiungi all'estensione <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memoria sostituita</translation>
+<translation id="2550596535588364872">Vuoi consentire a <ph name="EXTENSION_NAME" /> di aprire <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> non è riuscito a collegarsi a <ph name="NETWORK_ID" />. Seleziona un'altra rete o riprova.</translation>
 <translation id="2553440850688409052">Nascondi questo plug-in</translation>
 <translation id="2554553592469060349">Il file selezionato è troppo grande (dimensioni massime: 3 mb).</translation>
@@ -3565,6 +3566,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6474884162850599008">Scollega account Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> vuole condividere i contenuti del tuo schermo. Scegli i contenuti che desideri condividere.</translation>
 <translation id="6478248366783946499">Conservare il file pericoloso?</translation>
+<translation id="6483485061007832714">Apri download</translation>
 <translation id="6483805311199035658">Apertura di <ph name="FILE" /> in corso...</translation>
 <translation id="6485131920355264772">Impossibile recuperare le informazioni sullo spazio</translation>
 <translation id="648637985389593741">Attiva le funzioni di sincronizzazione e personalizzazione</translation>

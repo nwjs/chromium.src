@@ -1019,6 +1019,7 @@ I don't think this site should be blocked!</translation>
 <translation id="2544853746127077729">Authentication certificate rejected by network</translation>
 <translation id="2547921442987553570">Add to <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Swapped memory</translation>
+<translation id="2550596535588364872">Allow <ph name="EXTENSION_NAME" /> to open <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> was unable to connect to <ph name="NETWORK_ID" />. Please select another network or try again.</translation>
 <translation id="2553440850688409052">Hide This Plug-in</translation>
 <translation id="2554553592469060349">Selected file is too big (max size: 3mb).</translation>
@@ -3569,6 +3570,7 @@ I don't think this site should be blocked!</translation>
 <translation id="6474884162850599008">Disconnect Google Drive account</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> wants to share the contents of your screen. Choose what you'd like to share.</translation>
 <translation id="6478248366783946499">Keep dangerous file?</translation>
+<translation id="6483485061007832714">Open download</translation>
 <translation id="6483805311199035658">Opening <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Failed to retrieve space info</translation>
 <translation id="648637985389593741">Go ahead, turn on sync and personalisation features</translation>

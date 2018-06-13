@@ -1018,6 +1018,7 @@
 <translation id="2544853746127077729">A hálózat elutasította a hitelesítési tanúsítványt</translation>
 <translation id="2547921442987553570">Hozzáadás a következőhöz: <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Swap memória</translation>
+<translation id="2550596535588364872">Engedélyezi <ph name="EXTENSION_NAME" /> számára a(z) <ph name="FILE_NAME" /> megnyitását?</translation>
 <translation id="2553340429761841190">A <ph name="PRODUCT_NAME" /> nem tudott kapcsolódni a következőhöz: <ph name="NETWORK_ID" />. Válasszon másik hálózatot és próbálja újra.</translation>
 <translation id="2553440850688409052">Plug-in elrejtése</translation>
 <translation id="2554553592469060349">A kiválasztott fájl túl nagy (a maximális méret 3 MB).</translation>
@@ -3571,6 +3572,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6474884162850599008">Google Drive-fiók leválasztása</translation>
 <translation id="6475697075626596525">A(z) <ph name="APP_NAME" /> szeretné megosztani a képernyő tartalmát. Válassza ki, hogy mit kíván megosztani.</translation>
 <translation id="6478248366783946499">Megtartja a veszélyes fájlt?</translation>
+<translation id="6483485061007832714">Letöltés megnyitása</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> megnyitása...</translation>
 <translation id="6485131920355264772">A helyinformációk lekérése sikertelen</translation>
 <translation id="648637985389593741">Folytatás: a szinkronizálás és a személyre szabás bekapcsolása</translation>
@@ -4133,7 +4135,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="7366415735885268578">Webhely hozzáadása</translation>
 <translation id="7366909168761621528">Böngészési adatok</translation>
 <translation id="7371006317849674875">Kezdés ideje</translation>
-<translation id="737439367876257440">A rendszer- és használati adatok Google-nak való elküldésével hozzájárulhat a Chrome fejlesztéséhez és a böngésző biztonságának javításához</translation>
+<translation id="737439367876257440">Ha elküldi a rendszer- és használati adatokat a Google-nak, hozzájárulhat a Chrome fejlesztéséhez és a böngésző biztonságának javításához</translation>
 <translation id="7375053625150546623">EAP</translation>
 <translation id="7376553024552204454">Az egérmutató kiemelése mozgás közben</translation>
 <translation id="7377169924702866686">A Caps Lock be van kapcsolva.</translation>

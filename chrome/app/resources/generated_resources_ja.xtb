@@ -1019,6 +1019,7 @@
 <translation id="2544853746127077729">認証証明書がネットワークによって拒否されました</translation>
 <translation id="2547921442987553570"><ph name="EXTENSION_NAME" /> に追加</translation>
 <translation id="2550212893339833758">スワップ対象メモリ</translation>
+<translation id="2550596535588364872"><ph name="EXTENSION_NAME" /> が <ph name="FILE_NAME" /> を開くことを許可しますか？</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> は <ph name="NETWORK_ID" /> に接続できませんでした。別のネットワークを選択するか、もう一度お試しください。</translation>
 <translation id="2553440850688409052">このプラグインを表示しない</translation>
 <translation id="2554553592469060349">選択したファイルが大きすぎます（最大サイズ: 3 MB）。</translation>
@@ -3570,6 +3571,7 @@
 <translation id="6474884162850599008">Google ドライブ アカウントを切断</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> が画面コンテンツの共有をリクエストしています。共有する部分を選択してください。</translation>
 <translation id="6478248366783946499">危険なファイルを保存しますか？</translation>
+<translation id="6483485061007832714">ダウンロードしたファイルを開く</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> を開いています...</translation>
 <translation id="6485131920355264772">空き容量情報を取得できませんでした</translation>
 <translation id="648637985389593741">続行して同期とカスタマイズの機能をオンにする</translation>

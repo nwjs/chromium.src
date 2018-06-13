@@ -1016,6 +1016,7 @@ Sidhani ikiwa tovuti hii inapaswa kuzuiwa!</translation>
 <translation id="2544853746127077729">Cheti cha uthibitishaji kimekataliwa na mtandao</translation>
 <translation id="2547921442987553570">Ongeza kwenye <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Hifadhi iliyobadilishwa</translation>
+<translation id="2550596535588364872">Ungependa kuruhusu <ph name="EXTENSION_NAME" /> ifungue <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> haikuweza kuunganisha kwenye <ph name="NETWORK_ID" />. Tafadhali chagua mtandao mwingine au ujaribu tena.</translation>
 <translation id="2553440850688409052">Ficha Programu-jalizi Hii</translation>
 <translation id="2554553592469060349">Faili iliyochaguliwa ni kubwa mno (Upeo wa juu wa ukubwa: MB 3).</translation>
@@ -2470,6 +2471,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4856478137399998590">Huduma yako ya data ya simu ya mkononi imeamilishwa na iko tayari kutumia</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Fungua Zote katika &amp;Dirisha Fiche}=1{Fungua katika &amp;Dirisha Fiche}other{Fungua Zote (#) katika &amp;Dirisha Fiche}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Video inacheza katika hali ya Picha ndani ya Picha</translation>
 <translation id="4862050643946421924">Inaongeza kifaa...</translation>
 <translation id="4862642413395066333">Kuweka Sahihi Majibu ya OCSP</translation>
 <translation id="4863769717153320198">Inaonekana kama <ph name="WIDTH" /> x <ph name="HEIGHT" /> (Chaguo msingi)</translation>
@@ -3560,6 +3562,7 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="6474884162850599008">Ondoa akaunti ya Hifadhi ya Google</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> inataka kushiriki maudhui ya skrini yako. Chagua kile ambacho ungependa kushiriki.</translation>
 <translation id="6478248366783946499">Ungependa kuhifadhi faili hatari?</translation>
+<translation id="6483485061007832714">Fungua faili uliyopakua</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> inafunguliwa...</translation>
 <translation id="6485131920355264772">Imeshindwa kupata maelezo ya nafasi</translation>
 <translation id="648637985389593741">Endelea, washa vipengele vya kuweka mapendeleo na kusawazisha</translation>
@@ -4451,6 +4454,7 @@ Kusakinisha <ph name="APP_NAME" /> kutapakua data ya <ph name="DOWNLOAD_SIZE" />
 <translation id="7839051173341654115">Angalia/Hifadhi nakala rudufu ya maudhui</translation>
 <translation id="7839192898639727867">Utambulisho wa Ufunguo wa Kichwa cha Cheti</translation>
 <translation id="7839804798877833423">Kupata faili hizi kutatumia takribani  <ph name="FILE_SIZE" /> za data ya simu ya mkononi.</translation>
+<translation id="7844553762889824470">Angazia unachotaka kusikia, kisha ubonyeze Tafuta + S. Pia unaweza kubonyeza na ushikilie kitufe cha Utafutaji au uguse aikoni ya Chagua ili Izungumze iliyo karibu na picha ya wasifu wako ili uchague.</translation>
 <translation id="7844992432319478437">Inasasisha tofauti</translation>
 <translation id="7846076177841592234">Ghairi uchaguzi</translation>
 <translation id="7846634333498149051">Kibodi</translation>
@@ -5360,6 +5364,7 @@ Huenda watu wengine wenye miunganisho ya polepole hawataona maudhui yako.</trans
 <translation id="952992212772159698">Haijaamilishwa</translation>
 <translation id="957960681186851048">Tovuti hii imejaribu kupakua faili nyingi kiotomatiki</translation>
 <translation id="9580706199804957">Imeshindwa kuunganisha kwenye huduma za Google</translation>
+<translation id="958416628331784386">Kichupo hiki kinacheza video katika hali ya Picha ndani ya Picha.</translation>
 <translation id="958515377357646513">Gusa ili upeleke mbele.</translation>
 <translation id="960719561871045870">Msimbo wa mtoa huduma</translation>
 <translation id="960987915827980018">Takriban saa 1 imesalia</translation>

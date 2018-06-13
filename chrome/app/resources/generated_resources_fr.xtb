@@ -1018,6 +1018,7 @@ Je ne pense pas que ce site devrait être bloqué.</translation>
 <translation id="2544853746127077729">Certificat d'authentification rejeté par le réseau.</translation>
 <translation id="2547921442987553570">Ajouter à <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Espace mémoire d'échange</translation>
+<translation id="2550596535588364872">Autoriser <ph name="EXTENSION_NAME" /> à ouvrir le fichier <ph name="FILE_NAME" /> ?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> n'est pas parvenu à se connecter à <ph name="NETWORK_ID" />. Sélectionnez un autre réseau ou réessayez.</translation>
 <translation id="2553440850688409052">Masquer ce plug-in</translation>
 <translation id="2554553592469060349">Le fichier sélectionné est trop volumineux (taille maximale : 3 Mo).</translation>
@@ -2478,6 +2479,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4856478137399998590">Votre service Internet mobile est activé et prêt à l'emploi.</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Tout ouvrir dans une fenêtre de navigation &amp;privée}=1{Ouvrir dans une fenêtre de navigation &amp;privée}one{Tout ouvrir (#) dans une fenêtre de navigation &amp;privée}other{Tout ouvrir (#) dans une fenêtre de navigation &amp;privée}}</translation>
 <translation id="4858913220355269194">Foot</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – Vidéo diffusée en mode PIP (Picture-in-picture)</translation>
 <translation id="4862050643946421924">Ajout d'un appareil</translation>
 <translation id="4862642413395066333">Réponses OCSP de signature</translation>
 <translation id="4863769717153320198">La résolution est de <ph name="WIDTH" /> x <ph name="HEIGHT" /> (par défaut)</translation>
@@ -3569,6 +3571,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6474884162850599008">Déconnecter le compte Google Drive</translation>
 <translation id="6475697075626596525">Une demande de partage du contenu de votre écran a été envoyée depuis <ph name="APP_NAME" />. Sélectionnez ce que vous souhaitez partager.</translation>
 <translation id="6478248366783946499">Conserver le fichier dangereux ?</translation>
+<translation id="6483485061007832714">Ouvrir le fichier téléchargé</translation>
 <translation id="6483805311199035658">Ouverture de <ph name="FILE" /> en cours</translation>
 <translation id="6485131920355264772">Échec de la récupération des informations sur l'espace disponible</translation>
 <translation id="648637985389593741">Lancez-vous : activez les fonctionnalités de synchronisation et de personnalisation</translation>
@@ -4459,6 +4462,7 @@ Notez que la taille du téléchargement de l'application <ph name="APP_NAME" /> 
 <translation id="7839051173341654115">Afficher/Sauvegarder le support</translation>
 <translation id="7839192898639727867">ID de clé de l'objet du certificat</translation>
 <translation id="7839804798877833423">L'opération de récupération de ces fichiers consommera environ <ph name="FILE_SIZE" /> de données mobiles.</translation>
+<translation id="7844553762889824470">Mettez en surbrillance ce que vous souhaitez entendre, puis appuyez simultanément sur la touche de recherche et la touche S. Vous pouvez également appuyer de manière prolongée sur cette même touche de recherche, ou appuyez sur l'icône Sélectionner pour prononcer, située à côté de votre photo de profil afin de sélectionner l'élément souhaité.</translation>
 <translation id="7844992432319478437">Différence de mise à jour</translation>
 <translation id="7846076177841592234">Annuler la sélection</translation>
 <translation id="7846634333498149051">Clavier</translation>
@@ -5367,6 +5371,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="952992212772159698">Désactivé</translation>
 <translation id="957960681186851048">Une tentative de téléchargement automatique de plusieurs fichiers a été initiée via ce site</translation>
 <translation id="9580706199804957">Impossible de se connecter aux services Google</translation>
+<translation id="958416628331784386">Une vidéo est diffusée en mode PIP dans cet onglet.</translation>
 <translation id="958515377357646513">Appuyer pour avancer.</translation>
 <translation id="960719561871045870">Code de l'opérateur</translation>
 <translation id="960987915827980018">Environ 1 heure restante</translation>

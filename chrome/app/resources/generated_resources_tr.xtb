@@ -1018,6 +1018,7 @@ Bu sitenin engellenmesi gerektiğini düşünmüyorum!</translation>
 <translation id="2544853746127077729">Kimlik doğrulama sertifikası ağ tarafından reddedildi</translation>
 <translation id="2547921442987553570"><ph name="EXTENSION_NAME" /> uzantısına ekle</translation>
 <translation id="2550212893339833758">Değiştirilmiş bellek</translation>
+<translation id="2550596535588364872"><ph name="EXTENSION_NAME" /> uzantısının <ph name="FILE_NAME" /> dosyasını açmasına izin verilsin mi?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" />, <ph name="NETWORK_ID" /> ağına bağlanamadı. Lütfen başka bir ağ seçin veya tekrar deneyin.</translation>
 <translation id="2553440850688409052">Bu Eklentiyi Gizle</translation>
 <translation id="2554553592469060349">Seçili dosya çok büyük (maks. boyut: 3 MB).</translation>
@@ -2478,6 +2479,7 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="4856478137399998590">Mobil veri hizmetiniz etkinleştirildi ve kullanıma hazır</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Tümünü &amp;Gizli Pencerede Aç}=1{&amp;Gizli Pencerede Aç}other{Tümünü (#) &amp;Gizli Pencerede Aç}}</translation>
 <translation id="4858913220355269194">Futbolcu</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Video Pencere İçinde Pencere modunda oynatılıyor</translation>
 <translation id="4862050643946421924">Cihaz ekleniyor...</translation>
 <translation id="4862642413395066333">İmza OCSP Yanıtları</translation>
 <translation id="4863769717153320198"><ph name="WIDTH" /> x <ph name="HEIGHT" /> şeklinde görünür (Varsayılan)</translation>
@@ -3569,6 +3571,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6474884162850599008">Google Drive hesabının bağlantısını kes</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" />, ekranınızın içeriğini paylaşmak istiyor. Neleri paylaşmak istediğinizi seçin.</translation>
 <translation id="6478248366783946499">Tehlikeli dosya tutulsun mu?</translation>
+<translation id="6483485061007832714">İndirilen dosyayı aç</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> açılıyor...</translation>
 <translation id="6485131920355264772">Alan bilgileri alınamadı</translation>
 <translation id="648637985389593741">Devam et, senkronizasyon ve kişiselleştirme özelliklerini aç</translation>
@@ -4458,6 +4461,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7839051173341654115">Medyayı görüntüle/yedekle</translation>
 <translation id="7839192898639727867">Sertifika Konusu Anahtar Kimliği</translation>
 <translation id="7839804798877833423">Bu dosyaları getirmek için yaklaşık olarak <ph name="FILE_SIZE" /> mobil veri kullanılacak.</translation>
+<translation id="7844553762889824470">Dinlemek istediğiniz öğeyi vurgulayın, ardından Ara + S tuşlarına basın. İsterseniz seçim yapmak için Ara tuşunu basılı tutabilir veya profil resminizin yakınındaki Seç ve Dinle simgesine dokunabilirsiniz.</translation>
 <translation id="7844992432319478437">Fark güncelleniyor</translation>
 <translation id="7846076177841592234">Seçimi iptal et</translation>
 <translation id="7846634333498149051">Klavye</translation>
@@ -5366,6 +5370,7 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="952992212772159698">Etkin değil</translation>
 <translation id="957960681186851048">Bu site birden fazla dosyayı otomatik olarak indirmeye çalıştı</translation>
 <translation id="9580706199804957">Google hizmetlerine bağlanamadı</translation>
+<translation id="958416628331784386">Bu sekmede bir video Pencere İçinde Pencere modunda oynatılıyor.</translation>
 <translation id="958515377357646513">İlerlemek için dokunun.</translation>
 <translation id="960719561871045870">Operatör kodu</translation>
 <translation id="960987915827980018">Yaklaşık 1 saat kaldı</translation>

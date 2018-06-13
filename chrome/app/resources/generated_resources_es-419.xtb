@@ -1015,6 +1015,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="2544853746127077729">Certificado de autenticación rechazado por la red</translation>
 <translation id="2547921442987553570">Agregar a <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memoria en el espacio de intercambio</translation>
+<translation id="2550596535588364872">¿Quieres permitir que <ph name="EXTENSION_NAME" /> abra <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> no se pudo conectar a <ph name="NETWORK_ID" />. Selecciona otra red o inténtalo de nuevo.</translation>
 <translation id="2553440850688409052">Ocultar este complemento</translation>
 <translation id="2554553592469060349">El archivo seleccionado es demasiado grande (tamaño máximo: 3 MB).</translation>
@@ -2475,6 +2476,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="4856478137399998590">Tu servicio de datos para celulares está activado y listo para ser utilizado</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Abrir todo en una ventana de &amp;incógnito}=1{Abrir en una ventana de &amp;incógnito}other{Abrir todo (#) en una ventana de &amp;incógnito}}</translation>
 <translation id="4858913220355269194">Balón</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - El video se está reproduciendo en el modo de pantalla en pantalla</translation>
 <translation id="4862050643946421924">Agregando dispositivo…</translation>
 <translation id="4862642413395066333">Firma de respuestas de OCSP</translation>
 <translation id="4863769717153320198">Resolución: <ph name="WIDTH" /> × <ph name="HEIGHT" /> (predeterminada)</translation>
@@ -3565,6 +3567,7 @@ No creo que este sitio deba estar bloqueado.</translation>
 <translation id="6474884162850599008">Desconectar la cuenta de Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> desea compartir el contenido de tu pantalla. Elige lo que deseas compartir.</translation>
 <translation id="6478248366783946499">¿Deseas conservar el archivo peligroso?</translation>
+<translation id="6483485061007832714">Abrir el archivo descargado</translation>
 <translation id="6483805311199035658">Abriendo <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">No se pudo recuperar la información sobre el espacio.</translation>
 <translation id="648637985389593741">Activa las funciones de sincronización y personalización</translation>
@@ -4455,6 +4458,7 @@ La instalación de <ph name="APP_NAME" /> descargará <ph name="DOWNLOAD_SIZE" /
 <translation id="7839051173341654115">Ver/realizar una copia de seguridad de contenido multimedia</translation>
 <translation id="7839192898639727867">ID de clave del sujeto del certificado</translation>
 <translation id="7839804798877833423">Para recuperar estos archivos, se utilizará aproximadamente <ph name="FILE_SIZE" /> de los datos móviles.</translation>
+<translation id="7844553762889824470">Destaca lo que quieras escuchar y, luego, presiona Búsqueda + S. También puedes mantener presionada la tecla de búsqueda (o presionar el ícono Seleccionar para pronunciar que se encuentra cerca de tu imagen de perfil) para hacer una selección.</translation>
 <translation id="7844992432319478437">Actualizando diff</translation>
 <translation id="7846076177841592234">Cancelar la selección</translation>
 <translation id="7846634333498149051">Teclado</translation>
@@ -5364,6 +5368,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="952992212772159698">No activado</translation>
 <translation id="957960681186851048">Este sitio intentó descargar varios archivos automáticamente</translation>
 <translation id="9580706199804957">No se pudo establecer una conexión con los servicios de Google</translation>
+<translation id="958416628331784386">Esta pestaña está reproduciendo un video en el modo de pantalla en pantalla.</translation>
 <translation id="958515377357646513">Toca para continuar.</translation>
 <translation id="960719561871045870">Código del operador</translation>
 <translation id="960987915827980018">Falta aproximadamente una hora.</translation>

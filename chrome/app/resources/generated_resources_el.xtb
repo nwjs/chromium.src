@@ -1019,6 +1019,7 @@
 <translation id="2544853746127077729">Το πιστοποιητικό ελέγχου ταυτότητας απορρίφθηκε από το δίκτυο</translation>
 <translation id="2547921442987553570">Προσθήκη στην επέκταση <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Μνήμη ανταλλαγής</translation>
+<translation id="2550596535588364872">Να επιτραπεί στην επέκταση <ph name="EXTENSION_NAME" /> να ανοίξει το αρχείο <ph name="FILE_NAME" />;</translation>
 <translation id="2553340429761841190">Το <ph name="PRODUCT_NAME" /> δεν ήταν δυνατό να συνδεθεί στο <ph name="NETWORK_ID" />. Επιλέξτε άλλο δίκτυο ή δοκιμάστε ξανά.</translation>
 <translation id="2553440850688409052">Απόκρυψη αυτής της προσθήκης</translation>
 <translation id="2554553592469060349">Το επιλεγμένο αρχείο είναι πολύ μεγάλο (μέγ. μέγεθος: 3 mb).</translation>
@@ -3571,6 +3572,7 @@
 <translation id="6474884162850599008">Αποσύνδεση του λογαριασμού Google Drive</translation>
 <translation id="6475697075626596525">Η εφαρμογή <ph name="APP_NAME" /> θέλει να μοιραστεί το περιεχόμενο της οθόνης σας. Επιλέξτε το περιεχόμενο που θα θέλατε να μοιραστείτε.</translation>
 <translation id="6478248366783946499">Διατήρηση επικίνδυνου αρχείου;</translation>
+<translation id="6483485061007832714">Άνοιγμα λήψης</translation>
 <translation id="6483805311199035658">Άνοιγμα του αρχείου <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Αποτυχία ανάκτησης των πληροφοριών χώρου</translation>
 <translation id="648637985389593741">Να ενεργοποιηθούν οι λειτουργίες συγχρονισμού και εξατομίκευσης</translation>

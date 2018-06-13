@@ -209,7 +209,7 @@
 <translation id="1296497012903089238">证书类型</translation>
 <translation id="1297175357211070620">目标打印机</translation>
 <translation id="1297922636971898492">Google云端硬盘暂时无法使用。Google云端硬盘恢复正常后，系统将自动重新开始上传。</translation>
-<translation id="1300415640239881824"><ph name="DOMAIN" /> 想让 Google 验证您的设备的身份，以确定能否对受保护的内容使用增强播放功能。</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> 想让 Google 对您的设备身份进行验证，以确定能否对受保护的内容使用增强播放功能。</translation>
 <translation id="1300806585489372370">要更改此设置，请先<ph name="BEGIN_LINK" />启用标识符<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">允许 Apple 事件中的 JavaScript</translation>
 <translation id="1303101771013849280">以前导出的书签（HTML 文件）</translation>
@@ -1015,6 +1015,7 @@
 <translation id="2544853746127077729">身份验证证书遭到网络拒绝</translation>
 <translation id="2547921442987553570">添加到“<ph name="EXTENSION_NAME" />”</translation>
 <translation id="2550212893339833758">已交换的内存</translation>
+<translation id="2550596535588364872">允许“<ph name="EXTENSION_NAME" />”打开“<ph name="FILE_NAME" />”？</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" />无法连接到<ph name="NETWORK_ID" />。请选择其他网络或重试。</translation>
 <translation id="2553440850688409052">隐藏此插件</translation>
 <translation id="2554553592469060349">所选文件太大（大小上限为3mb）。</translation>
@@ -2471,6 +2472,7 @@
 <translation id="4856478137399998590">您的移动数据服务已激活，可以立即使用</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{在无痕式窗口中打开全部网址(&amp;I)}=1{在无痕式窗口中打开 1 个网址(&amp;I)}other{在无痕式窗口中打开全部（# 个）网址(&amp;I)}}</translation>
 <translation id="4858913220355269194">足球</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - 视频正在“画中画”模式中播放</translation>
 <translation id="4862050643946421924">添加设备…</translation>
 <translation id="4862642413395066333">签名 OCSP 响应</translation>
 <translation id="4863769717153320198">屏幕分辨率：<ph name="WIDTH" /> x <ph name="HEIGHT" />（默认）</translation>
@@ -3554,6 +3556,7 @@
 <translation id="6474884162850599008">取消与 Google 云端硬盘帐号的关联</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" />想要共享您屏幕上的内容。请选择您希望共享哪些内容。</translation>
 <translation id="6478248366783946499">要保留危险文件吗？</translation>
+<translation id="6483485061007832714">打开下载的文件</translation>
 <translation id="6483805311199035658">正在打开 <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">检索存储空间信息失败</translation>
 <translation id="648637985389593741">继续，开启同步和个性化功能</translation>
@@ -4435,6 +4438,7 @@
 <translation id="7839051173341654115">查看/备份媒体</translation>
 <translation id="7839192898639727867">证书主题背景密钥 ID</translation>
 <translation id="7839804798877833423">抓取这些文件将使用约 <ph name="FILE_SIZE" /> 移动数据。</translation>
+<translation id="7844553762889824470">突出显示您想听到的内容，然后按“搜索键 + S”组合键。您也可先按住搜索键，或点按您的个人资料图片附近的“随选朗读”图标，然后选择要朗读的区域。</translation>
 <translation id="7844992432319478437">正在更新diff</translation>
 <translation id="7846076177841592234">取消选择</translation>
 <translation id="7846634333498149051">键盘</translation>
@@ -5343,6 +5347,7 @@
 <translation id="952992212772159698">未激活</translation>
 <translation id="957960681186851048">此网站试图自动下载多个文件</translation>
 <translation id="9580706199804957">无法连接到 Google 服务</translation>
+<translation id="958416628331784386">此标签页正在“画中画”模式中播放视频。</translation>
 <translation id="958515377357646513">触摸即可前进。</translation>
 <translation id="960719561871045870">运营商代码</translation>
 <translation id="960987915827980018">约剩 1 小时</translation>

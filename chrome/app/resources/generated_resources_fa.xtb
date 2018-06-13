@@ -1015,6 +1015,7 @@
 <translation id="2544853746127077729">گواهینامه راستی‌آزمایی توسط شبکه رد شد</translation>
 <translation id="2547921442987553570">افزودن به <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">حافظه جابه‌جاشده</translation>
+<translation id="2550596535588364872">به <ph name="EXTENSION_NAME" /> اجازه می‌دهید <ph name="FILE_NAME" /> را باز کند؟</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> نتوانست به <ph name="NETWORK_ID" /> متصل شود. لطفاً یک شبکه دیگر را انتخاب کرده یا دوباره امتحان کنید.</translation>
 <translation id="2553440850688409052">پنهان کردن این افزایه</translation>
 <translation id="2554553592469060349">فایل انتخابی بیش از حد بزرگ است (حداکثر اندازه: ۳ مگابایت).</translation>
@@ -2474,6 +2475,7 @@
 <translation id="4856478137399998590">سرویس داده تلفن همراه شما فعال شده و آمادهٔ استفاده است.</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{باز کردن همه در پنجره ناشناس}=1{باز کردن در پنجره ناشناس}one{باز کردن همه (#) در پنجره ناشناس}other{باز کردن همه (#) در پنجره ناشناس}}</translation>
 <translation id="4858913220355269194">فوتبالی</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - ویدیو در حالت تصویر در تصویر پخش می‌شود</translation>
 <translation id="4862050643946421924">در حال افزودن دستگاه...</translation>
 <translation id="4862642413395066333">‏امضا کردن پاسخ‌های OCSP</translation>
 <translation id="4863769717153320198">‏‎<ph name="WIDTH" /> × <ph name="HEIGHT" />‎ به‌نظر می‌رسد (پیش‌فرض)</translation>
@@ -3564,6 +3566,7 @@
 <translation id="6474884162850599008">‏قطع ارتباط حساب Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> می‌خواهد محتوای صفحه شما را به اشتراک بگذارد. آنچه را می‌خواهید به اشتراک بگذارید، انتخاب کنید.</translation>
 <translation id="6478248366783946499">فایل خطرناک حفظ شود؟</translation>
+<translation id="6483485061007832714">باز کردن بارگیری</translation>
 <translation id="6483805311199035658">در حال باز کردن <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">دریافت اطلاعات فضا انجام نشد</translation>
 <translation id="648637985389593741">ادامه دادن و روشن کردن ویژگی‌های همگام‌سازی و شخصی‌سازی</translation>
@@ -4456,6 +4459,7 @@
 <translation id="7839051173341654115">مشاهده/پشتیبان‌گیری رسانه</translation>
 <translation id="7839192898639727867">شناسه کلید موضوع گواهی</translation>
 <translation id="7839804798877833423">دریافت این فایل‌ها تقریباً <ph name="FILE_SIZE" /> از داده تلفن همراه شما را مصرف می‌کند.</translation>
+<translation id="7844553762889824470">‏آنچه را می‌خواهید بشنوید برجسته کنید، سپس «جستجو + S» را فشار دهید. همچنین می‌توانید کلید «جستجو» را فشار دهید و نگه دارید یا در کنار تصویر نمایه‌تان روی نماد «انتخاب کنید تا بتوانید صحبت کنید» ضربه بزنید تا قسمتی را انتخاب کنید.</translation>
 <translation id="7844992432319478437">به‌روزرسانی تفاوت</translation>
 <translation id="7846076177841592234">لغو انتخاب</translation>
 <translation id="7846634333498149051">صفحه‌کلید</translation>
@@ -5364,6 +5368,7 @@
 <translation id="952992212772159698">فعال نشد</translation>
 <translation id="957960681186851048">این سایت تلاش کرده است چند فایل را به‌طور خودکار بارگیری کند</translation>
 <translation id="9580706199804957">‏به سرویس‌های Google متصل نشد</translation>
+<translation id="958416628331784386">این برگه درحال پخش ویدیو در حالت تصویر در تصویر است.</translation>
 <translation id="958515377357646513">برای حرکت به جلو،‌ لمس کنید.</translation>
 <translation id="960719561871045870">کد اپراتور</translation>
 <translation id="960987915827980018">حدود ۱ ساعت باقی مانده است</translation>

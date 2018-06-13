@@ -1019,6 +1019,7 @@ Tieto webové stránky by podľa mňa nemali byť blokované.</translation>
 <translation id="2544853746127077729">Certifikát na overenie totožnosti bol zamietnutý sieťou</translation>
 <translation id="2547921442987553570">Pridať do rozšírenia <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Swapovaná pamäť</translation>
+<translation id="2550596535588364872">Povoliť rozšíreniu <ph name="EXTENSION_NAME" /> otvoriť súbor <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190">Systém <ph name="PRODUCT_NAME" /> sa nemohol pripojiť k sieti <ph name="NETWORK_ID" />. Vyberte inú sieť alebo to skúste znova.</translation>
 <translation id="2553440850688409052">Skryť tento doplnok</translation>
 <translation id="2554553592469060349">Vybratý súbor je príliš veľký (maximálna veľkosť: 3 MB).</translation>
@@ -3569,6 +3570,7 @@ s ostatnými, a to všetko na jednom mieste.<ph name="MARKUP_9" /></translatio
 <translation id="6474884162850599008">Odpojiť účet služby Disk Google</translation>
 <translation id="6475697075626596525">Aplikácia <ph name="APP_NAME" /> chce zdieľať obsah vašej obrazovky. Vyberte, čo chcete zdieľať.</translation>
 <translation id="6478248366783946499">Ponechať nebezpečný súbor?</translation>
+<translation id="6483485061007832714">Otvorenie stiahnutého súboru</translation>
 <translation id="6483805311199035658">Otváranie súboru <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Nepodarilo sa získať informácie o voľnom mieste</translation>
 <translation id="648637985389593741">Zapnúť funkcie synchronizácie a prispôsobenia</translation>

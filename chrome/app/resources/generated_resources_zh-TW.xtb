@@ -1018,6 +1018,7 @@
 <translation id="2544853746127077729">網路已拒絕驗證憑證</translation>
 <translation id="2547921442987553570">加入「<ph name="EXTENSION_NAME" />」中</translation>
 <translation id="2550212893339833758">交換的記憶體</translation>
+<translation id="2550596535588364872">要允許「<ph name="EXTENSION_NAME" />」開啟「<ph name="FILE_NAME" />」嗎？</translation>
 <translation id="2553340429761841190">「<ph name="PRODUCT_NAME" />」無法連線至<ph name="NETWORK_ID" />，請選取其他網路，或再試一次。</translation>
 <translation id="2553440850688409052">隱藏這個外掛程式</translation>
 <translation id="2554553592469060349">選取的檔案過大 (大小上限：3MB)。</translation>
@@ -2477,6 +2478,7 @@
 <translation id="4856478137399998590">你的行動數據服務已啟用，隨時可供使用</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{在無痕式視窗中開啟所有書籤(&amp;I)}=1{在無痕式視窗中開啟(&amp;I)}other{在無痕式視窗中開啟全部 # 個書籤(&amp;I)}}</translation>
 <translation id="4858913220355269194">飛球</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - 正在使用子母畫面播放影片</translation>
 <translation id="4862050643946421924">新增裝置...</translation>
 <translation id="4862642413395066333">簽署 OCSP 回應</translation>
 <translation id="4863769717153320198">螢幕解析度：<ph name="WIDTH" /> x <ph name="HEIGHT" /> (預設)</translation>
@@ -3565,6 +3567,7 @@
 <translation id="6474884162850599008">取消連結 Google 雲端硬碟帳戶</translation>
 <translation id="6475697075626596525">「<ph name="APP_NAME" />」要求分享畫面內容，請選擇你要分享的內容。</translation>
 <translation id="6478248366783946499">要保留不安全的檔案嗎？</translation>
+<translation id="6483485061007832714">開啟下載檔案</translation>
 <translation id="6483805311199035658">正在開啟「<ph name="FILE" />」...</translation>
 <translation id="6485131920355264772">無法擷取空間資訊</translation>
 <translation id="648637985389593741">接著開啟同步處理和個人化功能</translation>
@@ -4452,6 +4455,7 @@
 <translation id="7839051173341654115">查看/備份媒體</translation>
 <translation id="7839192898639727867">憑證主體金鑰識別碼</translation>
 <translation id="7839804798877833423">擷取這些檔案大約會使用 <ph name="FILE_SIZE" /> 行動數據流量。</translation>
+<translation id="7844553762889824470">讓你要聆聽的內容醒目顯示，然後按下搜尋鍵 + S 鍵。你也可以按住搜尋鍵或輕觸設定檔圖片附近的「隨選朗讀」圖示，然後選取要朗讀的範圍。</translation>
 <translation id="7844992432319478437">正在更新差異部分</translation>
 <translation id="7846076177841592234">全部取消選取</translation>
 <translation id="7846634333498149051">鍵盤</translation>
@@ -5360,6 +5364,7 @@
 <translation id="952992212772159698">未啟用</translation>
 <translation id="957960681186851048">這個網站試圖自動下載多個檔案</translation>
 <translation id="9580706199804957">無法連上 Google 服務</translation>
+<translation id="958416628331784386">這個分頁正在使用子母畫面播放影片。</translation>
 <translation id="958515377357646513">輕觸即可繼續。</translation>
 <translation id="960719561871045870">電信業者代碼</translation>
 <translation id="960987915827980018">剩下約 1 個小時</translation>

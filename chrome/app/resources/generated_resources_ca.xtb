@@ -1018,6 +1018,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="2544853746127077729">La xarxa ha rebutjat el certificat d'autenticació</translation>
 <translation id="2547921442987553570">Afegeix a <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memòria intercanviada</translation>
+<translation id="2550596535588364872">Vols permetre que <ph name="EXTENSION_NAME" /> obri <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> no s'ha pogut connectar a <ph name="NETWORK_ID" />. Seleccioneu una altra xarxa o bé torneu-ho a provar.</translation>
 <translation id="2553440850688409052">Amaga aquest connector</translation>
 <translation id="2554553592469060349">El fitxer seleccionat és massa gran (mida màxima: 3 MB).</translation>
@@ -3009,7 +3010,7 @@ No crec que calgui bloquejar aquest lloc.</translation>
 <translation id="5618972959246891967">Data del sistema</translation>
 <translation id="56197088284879152">La connexió es congestiona al dispositiu remot <ph name="DEVICE_NAME" />.</translation>
 <translation id="5620568081365989559">DevTools sol·licita accés complet a <ph name="FOLDER_PATH" />.
-Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
+Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="5620612546311710611">estadístiques d'ús</translation>
 <translation id="5620655347161642930">Exporta les contrasenyes...</translation>
 <translation id="5623842676595125836">Registre</translation>
@@ -3568,6 +3569,7 @@ Assegureu-vos que no es pugui accedir a informació confidencial.</translation>
 <translation id="6474884162850599008">Desconnecta el compte de Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> vol compartir el contingut de la teva pantalla. Tria què vols compartir.</translation>
 <translation id="6478248366783946499">Vols desar el fitxer perillós?</translation>
+<translation id="6483485061007832714">Obre la baixada</translation>
 <translation id="6483805311199035658">S'està obrint <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">No s'ha pogut recuperar informació sobre l'espai</translation>
 <translation id="648637985389593741">Endavant, activa les funcions de sincronització i personalització</translation>

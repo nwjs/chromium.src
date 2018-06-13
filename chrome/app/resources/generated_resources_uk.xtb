@@ -1018,6 +1018,7 @@
 <translation id="2544853746127077729">Сертифікат автентифікації відхилений мережею</translation>
 <translation id="2547921442987553570">Додати в <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Змінна пам’ять</translation>
+<translation id="2550596535588364872">Дозволити розширенню <ph name="EXTENSION_NAME" /> відкрити файл <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> не вдалося з'єднатися з <ph name="NETWORK_ID" />. Виберіть іншу мережу або повторіть спробу.</translation>
 <translation id="2553440850688409052">Сховати цей плагін</translation>
 <translation id="2554553592469060349">Вибраний файл завеликий (максимальний розмір – 3 МБ).</translation>
@@ -3569,6 +3570,7 @@
 <translation id="6474884162850599008">Від’єднати обліковий запис Google Диска</translation>
 <translation id="6475697075626596525">Додаток <ph name="APP_NAME" /> хоче показувати вміст вашого екрана. Виберіть, що показувати.</translation>
 <translation id="6478248366783946499">Завантажити небезпечний файл?</translation>
+<translation id="6483485061007832714">Відкрити завантаження</translation>
 <translation id="6483805311199035658">Відкривається файл <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Не вдалось отримати дані про вільне місце</translation>
 <translation id="648637985389593741">Так, увімкнути синхронізацію та персоналізацію</translation>

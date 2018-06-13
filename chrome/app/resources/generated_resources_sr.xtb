@@ -1015,6 +1015,7 @@
 <translation id="2544853746127077729">Мрежа је одбила сертификат за потврду аутентичности</translation>
 <translation id="2547921442987553570">Додај у <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Замењена меморија</translation>
+<translation id="2550596535588364872">Желите ли да дозволите да <ph name="EXTENSION_NAME" /> отвори <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> није успео да се повеже са мрежом <ph name="NETWORK_ID" />. Изаберите другу мрежу или покушајте поново.</translation>
 <translation id="2553440850688409052">Сакриј овај додатак</translation>
 <translation id="2554553592469060349">Изабрана датотека је превелика (максимална величина: 3 MB).</translation>
@@ -3566,6 +3567,7 @@
 <translation id="6474884162850599008">Прекини везу са налогом Google диска</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> жели да дели садржај екрана. Изаберите шта желите да делите.</translation>
 <translation id="6478248366783946499">Желите ли да задржите опасну датотеку?</translation>
+<translation id="6483485061007832714">Отворите преузимање</translation>
 <translation id="6483805311199035658">Отварање датотеке <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Преузимање информација о простору није успело</translation>
 <translation id="648637985389593741">Да, укључи функције синхронизације и персонализације</translation>

@@ -1017,6 +1017,7 @@
 <translation id="2544853746127077729">Сертификат аутентификации отклонен сетью</translation>
 <translation id="2547921442987553570">Добавить в расширение "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="2550212893339833758">Память подкачки</translation>
+<translation id="2550596535588364872">Разрешить <ph name="EXTENSION_NAME" /> открыть файл <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> не удалось подключиться к <ph name="NETWORK_ID" />. Выберите другую сеть или повторите попытку.</translation>
 <translation id="2553440850688409052">Скрыть подключаемый модуль</translation>
 <translation id="2554553592469060349">Выбранный файл слишком большой (максимальный размер: 3 МБ).</translation>
@@ -3570,6 +3571,7 @@
 <translation id="6474884162850599008">Отключить аккаунт Google Диска</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> хочет предоставить доступ к вашему экрану. Выберите окно, которое нужно показать.</translation>
 <translation id="6478248366783946499">Сохранить опасный файл?</translation>
+<translation id="6483485061007832714">Открыть скачанный файл?</translation>
 <translation id="6483805311199035658">Открывается <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Не удалось получить информацию о свободном месте.</translation>
 <translation id="648637985389593741">Включить синхронизацию и персонализацию</translation>

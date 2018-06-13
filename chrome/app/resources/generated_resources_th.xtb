@@ -209,7 +209,7 @@
 <translation id="1296497012903089238">ประเภทใบรับรอง</translation>
 <translation id="1297175357211070620">ปลายทาง</translation>
 <translation id="1297922636971898492">Google ไดรฟ์ไม่พร้อมใช้งานในขณะนี้ การอัปโหลดจะเริ่มต้นอีกครั้งโดยอัตโนมัติเมื่อ Google ไดรฟ์ใช้งานได้</translation>
-<translation id="1300415640239881824"><ph name="DOMAIN" /> ต้องการข้อมูลประจำตัวของอุปกรณ์เพื่อรับการยืนยันจาก Google เพื่อระบุการมีสิทธิ์ในการเล่นที่เพิ่มประสิทธิภาพสำหรับสื่อที่มีการป้องกัน</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> ต้องการให้ Google ยืนยันข้อมูลประจำตัวเพื่อตรวจสอบสิทธิ์ของอุปกรณ์นี้ เพื่อปรับปรุงการเล่นเนื้อหาที่มีการป้องกัน</translation>
 <translation id="1300806585489372370">หาต้องการเปลี่ยนแปลงการตั้งค่านี้ อันดับแรกให้<ph name="BEGIN_LINK" />เปิดตัวระบุ<ph name="END_LINK" /></translation>
 <translation id="1302227299132585524">อนุญาตให้เรียกใช้ JavaScript จากกิจกรรมใน Apple</translation>
 <translation id="1303101771013849280">ไฟล์ HTML บุ๊กมาร์ก</translation>
@@ -1018,6 +1018,7 @@
 <translation id="2544853746127077729">ใบรับรองการตรวจสอบสิทธิ์ได้รับการปฏิเสธจากเครือข่าย</translation>
 <translation id="2547921442987553570">เพิ่มไปยัง <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">หน่วยความจำสว็อป</translation>
+<translation id="2550596535588364872">อนุญาตให้ <ph name="EXTENSION_NAME" /> เปิด <ph name="FILE_NAME" /> ใช่ไหม</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> ไม่สามารถเชื่อมต่อกับ <ph name="NETWORK_ID" /> โปรดเลือกเครือข่ายอื่นหรือลองอีกครั้ง</translation>
 <translation id="2553440850688409052">ซ่อนปลั๊กอินนี้</translation>
 <translation id="2554553592469060349">ไฟล์ที่เลือกมีขนาดใหญ่เกินไป (ขนาดสูงสุด: 3 MB)</translation>
@@ -3569,6 +3570,7 @@
 <translation id="6474884162850599008">ยกเลิกการเชื่อมต่อบัญชี Google ไดรฟ์</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> ต้องการแชร์เนื้อหาบนหน้าจอของคุณ เลือกส่วนที่คุณต้องการแชร์</translation>
 <translation id="6478248366783946499">เก็บไฟล์อันตรายไว้ไหม</translation>
+<translation id="6483485061007832714">เปิดไฟล์ที่ดาวน์โหลด</translation>
 <translation id="6483805311199035658">กำลังเปิด <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">การดึงข้อมูลพื้นที่ล้มเหลว</translation>
 <translation id="648637985389593741">ตกลง เปิดฟีเจอร์การซิงค์และการปรับเปลี่ยนในแบบของคุณ</translation>

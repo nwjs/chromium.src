@@ -1018,6 +1018,7 @@ Sa palagay ko, hindi dapat i-block ang site na ito!</translation>
 <translation id="2544853746127077729">Tinanggihan ng network ang certificate sa pagpapatunay</translation>
 <translation id="2547921442987553570">Idagdag sa <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Na-swap na memory</translation>
+<translation id="2550596535588364872">Payagan ang <ph name="EXTENSION_NAME" /> na buksan ang <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190">Hindi nagawang kumonekta ng <ph name="PRODUCT_NAME" /> sa <ph name="NETWORK_ID" />. Mangyaring pumili ng ibang network o subukang muli.</translation>
 <translation id="2553440850688409052">Itago ang Plugin na Ito</translation>
 <translation id="2554553592469060349">Masyadong malaki ang napiling file (max na laki: 3mb).</translation>
@@ -3569,6 +3570,7 @@ Sa palagay ko, hindi dapat i-block ang site na ito!</translation>
 <translation id="6474884162850599008">Alisin sa pagkakakonekta ang Google Drive account</translation>
 <translation id="6475697075626596525">Gustong ibahagi ng <ph name="APP_NAME" /> ang mga content ng iyong screen. Piliin ang gusto mong ibahagi.</translation>
 <translation id="6478248366783946499">Gusto mo bang panatilihin ang mapanganib na file?</translation>
+<translation id="6483485061007832714">Buksan ang na-download</translation>
 <translation id="6483805311199035658">Binubuksan ang <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Nabigong kunin ang impormasyon ng espasyo</translation>
 <translation id="648637985389593741">Magpatuloy, i-on ang mga feature ng pag-sync at pag-personalize</translation>

@@ -360,7 +360,7 @@
 <translation id="1511388193702657997">Tawarkan untuk menyimpan sandi web Anda</translation>
 <translation id="1512210426710821809">Satu-satunya cara untuk mengurungkan tindakan ini adalah dengan menginstal ulang <ph name="IDS_SHORT_PRODUCT_OS_NAME" /></translation>
 <translation id="151501797353681931">Diimpor Dari Safari</translation>
-<translation id="1520605251886806589">Google dapat menggunakan konten di situs yang Anda buka, aktivitas dan interaksi browsing untuk mempersonalisasi Chrome dan layanan Google lainnya seperti Terjemahan, Penelusuran, dan iklan. Anda dapat menyesuaikannya di Setelan.</translation>
+<translation id="1520605251886806589">Google dapat menggunakan konten di situs yang Anda buka, serta aktivitas dan interaksi browsing untuk mempersonalisasi Chrome dan layanan Google lainnya seperti Terjemahan, Penelusuran, dan iklan. Anda dapat menyesuaikannya di Setelan.</translation>
 <translation id="1521442365706402292">Kelola sertifikat</translation>
 <translation id="152234381334907219">Jangan Pernah Disimpan</translation>
 <translation id="1524430321211440688">Keyboard</translation>
@@ -1018,6 +1018,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="2544853746127077729">Sertifikat autentikasi ditolak oleh jaringan</translation>
 <translation id="2547921442987553570">Tambahkan ke <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memori yang ditukar</translation>
+<translation id="2550596535588364872">Izinkan <ph name="EXTENSION_NAME" /> membuka <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> tidak dapat menyambung ke <ph name="NETWORK_ID" />. Harap pilih jaringan lain atau coba lagi.</translation>
 <translation id="2553440850688409052">Sembunyikan Plugin Ini</translation>
 <translation id="2554553592469060349">File yang dipilih terlalu besar (ukuran maksimum: 3 MB).</translation>
@@ -2260,7 +2261,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="4508765956121923607">Lihat S&amp;umber</translation>
 <translation id="451407183922382411">Diberdayakan oleh <ph name="COMPANY_NAME" /></translation>
 <translation id="4514542542275172126">Menyiapkan pengguna yang dilindungi yang baru</translation>
-<translation id="4514610446763173167">Alihkan video untuk diputar atau dijeda</translation>
+<translation id="4514610446763173167">Tombol putar atau jeda video</translation>
 <translation id="451515744433878153">Hapus</translation>
 <translation id="4518677423782794009">Apakah Chrome tidak bekerja, menampilkan halaman mulai, toolbar yang tidak biasanya, iklan pop-up yang tidak dapat ditutup, atau mengubah pengalaman penjelajahan web Anda? Anda dapat memperbaiki masalah ini dengan menjalankan Alat Pembersih Chrome.</translation>
 <translation id="4518928191942891293">Memulai container di dalam Termina VM.</translation>
@@ -3569,6 +3570,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="6474884162850599008">Memutuskan hubungan akun Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> ingin membagikan konten layar Anda. Pilih yang ingin Anda bagikan.</translation>
 <translation id="6478248366783946499">Simpan file berbahaya?</translation>
+<translation id="6483485061007832714">Buka download</translation>
 <translation id="6483805311199035658">Membuka <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Gagal mengambil info ruang</translation>
 <translation id="648637985389593741">Silakan aktifkan fitur sinkronisasi dan personalisasi</translation>

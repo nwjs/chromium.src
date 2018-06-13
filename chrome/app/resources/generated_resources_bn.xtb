@@ -249,7 +249,7 @@
 <translation id="1367951781824006909">একটি ফাইল বেছে নিন</translation>
 <translation id="1368265273904755308">সমস্যা অভিযোগ করুন</translation>
 <translation id="1370646789215800222">ব্যক্তিকে সরাবেন?</translation>
-<translation id="1371301976177520732">আপনার সমস্ত ডিভাইসগুলিতে আপনার বুকমার্ক, পাসওয়ার্ড, ইতিহাস এবং আরও অনেক কিছু আছে</translation>
+<translation id="1371301976177520732">আপনার সমস্ত ডিভাইসে বুকমার্ক, পাসওয়ার্ড, ইতিহাস এবং আরও অনেক কিছু সিঙ্ক হয়</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{সরানোর মতো ১টি আইটেম আছে}one{সরানোর মতো #টি আইটেম আছে}other{সরানোর মতো #টি আইটেম আছে}}</translation>
 <translation id="1372841398847029212">আপনার অ্যাকাউন্টে সিঙ্ক করুন</translation>
 <translation id="1374844444528092021">নেটওয়ার্কের প্রয়োজনীয় শংসাপত্র "<ph name="NETWORK_NAME" />" হয় ইনস্টল করা নেই অথবা তা আর বৈধ নয়৷ অনুগ্রহ করে একটি নতুন শংসাপত্র আনুন আর সংযোগ করতে পুনরায় চেষ্টা করুন৷</translation>
@@ -1007,6 +1007,7 @@
 <translation id="2544853746127077729">নেটওয়ার্কের দ্বারা প্রমাণীকরণ শংসাপত্র প্রত্যাখ্যান করা হয়েছে</translation>
 <translation id="2547921442987553570"><ph name="EXTENSION_NAME" /> এ যোগ করুন</translation>
 <translation id="2550212893339833758">অদলবদল করা মেমরি</translation>
+<translation id="2550596535588364872"><ph name="FILE_NAME" /> খোলার জন্য <ph name="EXTENSION_NAME" />-কে অনুমতি দিন?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" />, <ph name="NETWORK_ID" /> এর সাথে সংযোগ স্থাপনে অক্ষম ছিল৷ দয়া করে অন্য একটি নেটওয়ার্ক বেছে নিন বা আবার চেষ্টা করুন৷</translation>
 <translation id="2553440850688409052">এই প্লাগইনটি লুকান</translation>
 <translation id="2554553592469060349">নির্বাচিত ফাইল খুবই বড়  (সর্বোচ্চ আকার: 3MB )৷</translation>
@@ -2454,6 +2455,7 @@
 <translation id="4856478137399998590">আপনার মোবাইল ডেটা পরিষেবা সক্রিয় করা হয়েছে এবং তা ব্যবহারের জন্য তৈরি আছে</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{সবগুলি &amp;ছদ্মবেশী উইন্ডোতে খুলুন}=1{&amp;ছদ্মবেশী উইন্ডোতে খুলুন}one{সবগুলি (#টি) &amp;ছদ্মবেশী উইন্ডোতে খুলুন}other{সবগুলি (#টি) &amp;ছদ্মবেশী উইন্ডোতে খুলুন}}</translation>
 <translation id="4858913220355269194">ফ্রিটজ</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - ভিডিওটি ছবির-মধ্যে-ছবি মোডে চালানো হচ্ছে</translation>
 <translation id="4862050643946421924">ডিভাইস যোগ করা হচ্ছে...</translation>
 <translation id="4862642413395066333">OCSP টি প্রতিক্রিয়া স্বাক্ষরিত হচ্ছে</translation>
 <translation id="4864369630010738180">প্রবেশ করা হচ্ছে...</translation>
@@ -2530,7 +2532,7 @@
 <translation id="4953689047182316270">অ্যাক্সেসযোগ্যতা সংক্রান্ত ইভেন্টে প্রতিক্রিয়া দিতে চায়</translation>
 <translation id="4953808748584563296">ডিফল্ট কমলা রঙের অবতার</translation>
 <translation id="4955814292505481804">বার্ষিক</translation>
-<translation id="4957949153200969297">শুধুমাত্র <ph name="IDS_SHORT_PRODUCT_NAME" /> লিঙ্ক সম্পর্কিত বৈশিষ্ট্যগুলি চালু করুন</translation>
+<translation id="4957949153200969297">শুধুমাত্র <ph name="IDS_SHORT_PRODUCT_NAME" /> সিঙ্ক সম্পর্কিত বৈশিষ্ট্যগুলি চালু করুন</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="496226124210045887">আপনার নির্বাচিত ফোল্ডারে সংবেদনশীল ফাইল রয়েছে৷ "$1" কে এই ফোল্ডারে স্থায়ী পড়ার অ্যাক্সেস মঞ্জুর করার ব্যাপারে আপনি কি নিশ্চিত?</translation>
 <translation id="4964455510556214366">সাজানোর ব্যবস্থা</translation>
@@ -3196,7 +3198,7 @@
 <translation id="5955282598396714173">আপনার পাসওয়ার্ডের মেয়াদ শেষ হয়ে গেছে। পাসওয়ার্ড পাল্টানোর জন্য সাইন-আউট করে আবার সাইন-ইন করুন।</translation>
 <translation id="5956585768868398362">আপনি কি এই পৃষ্ঠাটিকে সার্চ পৃষ্টা হিসেবে আশা করছিলেন?</translation>
 <translation id="5957613098218939406">আরও বিকল্পগুলি</translation>
-<translation id="5957987129450536192">আপনার প্রোফাইল ছবির পাশে বাছুন ও শুনুন আইকন ট্যাপ করুন তারপর আপনি যা শুনতে চান তা বেছে নিন।</translation>
+<translation id="5957987129450536192">আপনার প্রোফাইল ছবির পাশে 'বাছুন ও শুনুন' আইকন ট্যাপ করুন তারপর আপনি যা শুনতে চান তা বেছে নিন।</translation>
 <translation id="5958529069007801266">তত্ত্বাবধানে থাকা ব্যবহারকারী</translation>
 <translation id="5959471481388474538">নেটওয়ার্ক উপলব্ধ নয়</translation>
 <translation id="595959584676692139">এই এক্সটেনশনটি ব্যবহার করার জন্য পৃষ্ঠাটি আবার লোড করুন</translation>
@@ -3279,7 +3281,7 @@
 <translation id="6086846494333236931">আপনার প্রশাসক দ্বারা ইনস্টল করা হয়েছে</translation>
 <translation id="6087960857463881712">দুর্দান্ত চেহারা</translation>
 <translation id="6089481419520884864">পৃষ্ঠা পাতন করুন</translation>
-<translation id="6091761513005122595">মাউন্ট শেয়ার করুন।</translation>
+<translation id="6091761513005122595">শেয়ার মাউন্ট করা হয়েছে।</translation>
 <translation id="6093888419484831006">আপডেট বাতিল হচ্ছে...</translation>
 <translation id="6095984072944024315">−</translation>
 <translation id="6096047740730590436">সর্বাধিক খুলুন</translation>
@@ -3414,7 +3416,7 @@
 <translation id="6286684120317096255">ডেটা ব্যবহার পরিমাপ করা হচ্ছে</translation>
 <translation id="6286708577777130801">সংরক্ষিত পাসওয়ার্ডের বিশদ বিবরণ</translation>
 <translation id="6287852322318138013">এই ফাইলটি খোলার জন্য একটি অ্যাপ্লিকেশান বেছে নিন</translation>
-<translation id="6289452883081499048">আপনার জন্য তৈরি Google পরিষেবা যেমন প্লে</translation>
+<translation id="6289452883081499048">আপনার জন্য তৈরি Google পরিষেবা যেমন Play</translation>
 <translation id="6290556621549272952">আপনি আপনার টিভি বা অন্যান্য ডিভাইসে Chromium থেকে সামগ্রী প্রদর্শন করার জন্য এই বৈশিষ্ট্যটি ব্যবহার করতে পারেন।</translation>
 <translation id="6291949900244949761">একটি সাইট USB ডিভাইস অ্যাক্সেস করতে চাইলে আপনাকে জিজ্ঞাসা করা হবে (প্রস্তাবিত)</translation>
 <translation id="6291953229176937411">ফাইন্ডারে &amp;দেখান</translation>
@@ -3537,6 +3539,7 @@
 <translation id="6474884162850599008">Google ড্রাইভ অ্যাকাউন্টের সংযোগ বিচ্ছিন্ন করুন</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> আপনার স্ক্রীনের সামগ্রী শেয়ার করতে চায়। আপনি কী শেয়ার করতে চান তা বেছে নিন।</translation>
 <translation id="6478248366783946499">বিপজ্জনক ফাইল রাখবেন?</translation>
+<translation id="6483485061007832714">ডাউনলোড করা ফাইলটি খুলুন</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> খোলা হচ্ছে...</translation>
 <translation id="6485131920355264772">স্থান তথ্য পুনরুদ্ধার করতে ব্যর্থ হয়েছে</translation>
 <translation id="648637985389593741">চালিয়ে যান, সিঙ্ক এবং আপনার জন্য তৈরি বৈশিষ্ট্য চালু করুন</translation>
@@ -3604,7 +3607,7 @@
 <translation id="6584878029876017575">Microsoft Lifetime Signing</translation>
 <translation id="6585283250473596934">সর্বজনীন সেশন ঢোকানো হচ্ছে৷</translation>
 <translation id="6586451623538375658">প্রাথমিক মাউস বোতাম অদল-বদল করুন</translation>
-<translation id="6589660129740381104">আরও সহজে <ph name="IDS_SHORT_PRODUCT_NAME" />-এ আপনার অভিজ্ঞতা পরিচালনা করতে, সিঙ্ক এবং ব্যক্তিগতকরণের সাথে সম্পর্কিত বৈশিষ্ট্য এখন একক নিয়ন্ত্রণাধীন। এটি চালু করলে আপনার বর্তমান সেটিংস পরিবর্তন হতে পারে।</translation>
+<translation id="6589660129740381104">আরও সহজে <ph name="IDS_SHORT_PRODUCT_NAME" />-এ আপনার অভিজ্ঞতা পরিচালনা করতে, সিঙ্ক এবং ব্যক্তিগতকরণের সাথে সম্পর্কিত বৈশিষ্ট্য এখন একই জায়গা থেকে নিয়ন্ত্রণ করা যাবে। এটি চালু করলে আপনার বর্তমান সেটিংস পরিবর্তন হতে পারে।</translation>
 <translation id="6589706261477377614">কী উজ্জ্বলতা বাড়ান</translation>
 <translation id="6590458744723262880">ফোল্ডারটির নতুন নাম দিন</translation>
 <translation id="6592267180249644460"><ph name="WEBRTC_LOG_CAPTURE_TIME" /> এ WebRTC লগ ক্যাপচার করা হয়েছে</translation>
@@ -3905,7 +3908,7 @@
 <translation id="7063957500469387217">Google ক্লাউড মুদ্রণে প্রিন্টারগুলি সেট আপ বা পরিচালনা করুন।</translation>
 <translation id="7065223852455347715">এই ডিভাইসটি এমন একটি মোডে লক হয়েছে যা এন্টারপ্রাইজ তালিকাভুক্তি প্রতিরোধ করে৷ যদি আপনি ডিভাইসটিকে তালিকাভুক্ত করতে চান তবে আপনাকে প্রথমে ডিভাইস অ্যাকাউন্ট ফিরিয়ে আনার মধ্য দিয়ে যেতে হবে৷</translation>
 <translation id="7065534935986314333">সিস্টেম সম্বন্ধে</translation>
-<translation id="706626672220389329">মাউন্টিং শেয়ার করতে সমস্যা। নির্দিষ্ট শেয়ারটি আগেই মাউন্ট করা হয়েছে।</translation>
+<translation id="706626672220389329">শেয়ার মাউন্ট করা যায়নি। নির্দিষ্ট শেয়ারটি আগেই মাউন্ট করা হয়েছে।</translation>
 <translation id="7066944511817949584">"<ph name="DEVICE_NAME" />"-এর সাথে সংযোগ করতে ব্যর্থ৷</translation>
 <translation id="7067725467529581407">এটি আর কখনো দেখাবেন না।</translation>
 <translation id="7072010813301522126">শর্টকাটের নাম</translation>
@@ -4010,7 +4013,7 @@
 <translation id="7229570126336867161">EVDO এর প্রয়োজন</translation>
 <translation id="7230787553283372882">আপনার পাঠ্যের আকার কাস্টমাইজ করুন</translation>
 <translation id="7232750842195536390">নাম পরিবর্তন করা যায়নি</translation>
-<translation id="7234406375359457793">মাউন্টিং শেয়ার করতে সমস্যা। নির্দিষ্ট শেয়ারটি সমর্থিত নয়।</translation>
+<translation id="7234406375359457793">শেয়ার মাউন্ট করা যায়নি। নির্দিষ্ট শেয়ারটি সমর্থিত নয়।</translation>
 <translation id="7238585580608191973">SHA-256 আঙুলের ছাপ</translation>
 <translation id="7240120331469437312">শংসাপত্র বিষয় বিকল্প নাম</translation>
 <translation id="7240339475467890413">নতুন হটস্পটে সংযোগ করতে চান?</translation>
@@ -4345,7 +4348,7 @@
 <translation id="7772127298218883077"><ph name="PRODUCT_NAME" /> সম্বন্ধে</translation>
 <translation id="7772773261844472235">আপনার Chromebook স্টেটাস দেখে নিন</translation>
 <translation id="7773726648746946405">সেশন সঞ্চয়স্থান</translation>
-<translation id="7776701556330691704">কোনও শব্দ নেই</translation>
+<translation id="7776701556330691704">কোনও ভয়েস নেই</translation>
 <translation id="7781335840981796660">সব ব্যবহারকারী অ্যাকাউন্ট ও স্থানীয় ডেটা সরানো হবে।</translation>
 <translation id="7782102568078991263">Google থেকে আর কোনো পরামর্শ নেই</translation>
 <translation id="778330624322499012"><ph name="PLUGIN_NAME" /> লোড করা যায়নি</translation>
@@ -4419,6 +4422,7 @@
 <translation id="7839051173341654115">মিডিয়া দেখুন/ব্যাকআপ নিন</translation>
 <translation id="7839192898639727867">শংসাপত্র বিষয় কী ID</translation>
 <translation id="7839804798877833423">এই ফাইলগুলি আনয়ন করতে আনুমানিক মোবাইল ডেটার <ph name="FILE_SIZE" /> ব্যবহার করবে</translation>
+<translation id="7844553762889824470">আপনি যা শুনতে চান তা হাইলাইট করুন, তারপর Search + S চাপুন। বেছে নিতে আপনি সার্চ কী প্রেস করে ধরে থাকুন, অথবা আপনার প্রোফাইল ছবির কাছে বাছুন ও শুনুন আইকনটি ট্যাপ করুন।</translation>
 <translation id="7844992432319478437">ভিন্ন আপডেট হচ্ছে</translation>
 <translation id="7846076177841592234">নির্বাচন বাতিল করুন</translation>
 <translation id="7846634333498149051">কীবোর্ড</translation>
@@ -5174,7 +5178,7 @@
 <translation id="9022847679183471841">এই অ্যাকাউন্টটি ইতোমধ্যে এই কম্পিউটারে <ph name="AVATAR_NAME" /> দ্বারা ব্যবহৃত হচ্ছে।</translation>
 <translation id="9023009238991294202">এই ডিভাইসের অন্যান্য ব্যবহারকারীরা এই নেটওয়ার্ক ব্যবহার করতে পারেন।</translation>
 <translation id="9024127637873500333">&amp;নতুন ট্যাবে খুলুন</translation>
-<translation id="9024158959543687197">মাউন্টিং শেয়ার করার সময় সমস্যা। ফাইল শেয়ার করার ইউআরএল যাচাই করে আবার চেষ্টা করুন।</translation>
+<translation id="9024158959543687197">শেয়ার মাউন্ট করা যায়নি। ফাইল শেয়ার করার ইউআরএল যাচাই করে আবার চেষ্টা করুন।</translation>
 <translation id="9024331582947483881">পূর্ণ স্ক্রিন</translation>
 <translation id="9025098623496448965">ঠিক আছে, আমাকে সাইন-ইন স্ক্রীনে ফিরিয়ে নিয়ে চলুন</translation>
 <translation id="9026731007018893674">ডাউনলোড</translation>
@@ -5211,7 +5215,7 @@
 <translation id="9064275926664971810">এক ক্লিকে ফর্মগুলি পূরণ করার জন্য স্বতঃপূর্ণ সক্ষম করুন</translation>
 <translation id="9064939804718829769">হস্তান্তর হচ্ছে...</translation>
 <translation id="9065203028668620118">সম্পাদনা</translation>
-<translation id="9066773882585798925">জোরে জোরে পড়া হয়েছে এমন টেক্সট শুনুন</translation>
+<translation id="9066773882585798925">'টেক্সট পড়ে শোনানো'র বৈশিষ্ট্যটি চালু করুন</translation>
 <translation id="9066782832737749352">পাঠ্য থেকে ভাষ্য</translation>
 <translation id="9070219033670098627">ব্যক্তি পরিবর্তন করুন</translation>
 <translation id="9071637495340542136"><ph name="APP_NAME" /> ইনস্টল করা হচ্ছে…</translation>
@@ -5254,7 +5258,7 @@
 <translation id="9131487537093447019">ব্লুটুথ ডিভাইসগুলি থেকে বার্তা পাঠান ও গ্রহণ করুন।</translation>
 <translation id="9131598836763251128">এক বা একাধিক ফাইল নির্বাচন করুন৷</translation>
 <translation id="9133055936679483811">জিপ করা ব্যর্থ হয়েছে৷ <ph name="ERROR_MESSAGE" /></translation>
-<translation id="9134304429738380103">হ্যাঁ, আমি রয়েছি৷</translation>
+<translation id="9134304429738380103">হ্যাঁ, আমি রাজি৷</translation>
 <translation id="9134524245363717059">Macintosh সফ্টওয়্যার ব্যবহার করে এমন একটি কম্পিউটারের জন্য এই ফাইলটি ডিজাইন করা হয়েছে৷ Chrome OS দ্বারা চালিত আপনার ডিভাইসটির সাথে এটি সামঞ্জস্যপূর্ণ নয়৷ একটি উপযুক্ত প্রতিস্থাপনযোগ্য অ্যাপ্লিকেশানের জন্য দয়া করে Chrome ওয়েব স্টোর এ সার্চ করুন৷</translation>
 <translation id="9137013805542155359">প্রকৃত রূপ দেখান</translation>
 <translation id="9137916601698928395"><ph name="USER" /> হিসেবে লিঙ্ক খুলুন</translation>
@@ -5323,6 +5327,7 @@
 <translation id="952992212772159698">সক্রিয় নেই</translation>
 <translation id="957960681186851048">এই সাইটটি নিজে থেকে একাধিক ফাইল ডাউনলোড করার চেষ্টা করেছে</translation>
 <translation id="9580706199804957">Google পরিষেবাগুলির সাথে সংযুক্ত করা যায়নি</translation>
+<translation id="958416628331784386">এই ট্যাবটি ছবির-মধ্যে-ছবি মোডে একটি ভিডিও চালাচ্ছে।</translation>
 <translation id="958515377357646513">এগিয়ে যেতে টাচ করুন।</translation>
 <translation id="960719561871045870">অপারেটরের কোড</translation>
 <translation id="960987915827980018">প্রায় 1 ঘণ্টা বাকি</translation>

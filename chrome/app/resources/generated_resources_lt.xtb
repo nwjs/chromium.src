@@ -1018,6 +1018,7 @@ Nemanau, kad ši svetainė turėtų būti užblokuota!</translation>
 <translation id="2544853746127077729">Autentifikavimo sertifikatą atmetė tinklas</translation>
 <translation id="2547921442987553570">Pridėti prie „<ph name="EXTENSION_NAME" />“</translation>
 <translation id="2550212893339833758">Sukeista atmintis</translation>
+<translation id="2550596535588364872">Leisti „<ph name="EXTENSION_NAME" />“ atidaryti <ph name="FILE_NAME" /> failą?</translation>
 <translation id="2553340429761841190">„<ph name="PRODUCT_NAME" />“ nepavyko prisijungti prie <ph name="NETWORK_ID" />. Pasirinkite kitą tinklą arba bandykite dar kartą.</translation>
 <translation id="2553440850688409052">Slėpti šį papildinį</translation>
 <translation id="2554553592469060349">Pasirinktas failas per didelis (maks. dydis: 3 MB).</translation>
@@ -3570,6 +3571,7 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="6474884162850599008">Atjungti „Google“ disko paskyrą</translation>
 <translation id="6475697075626596525">Programa „<ph name="APP_NAME" />“ nori bendrinti ekrano turinį. Pasirinkite, ką norite bendrinti.</translation>
 <translation id="6478248366783946499">Palikti pavojingą failą?</translation>
+<translation id="6483485061007832714">Atidarykite atsisiųstą failą</translation>
 <translation id="6483805311199035658">Atidaroma <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Nepavyko nuskaityti vietos informacijos</translation>
 <translation id="648637985389593741">Įjungti sinchronizavimo ir suasmeninimo funkcijas</translation>

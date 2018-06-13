@@ -1015,6 +1015,7 @@ Ich glaube nicht, dass diese Website blockiert werden sollte.</translation>
 <translation id="2544853746127077729">Ablehnung des Authentifizierungszertifikats durch das Netzwerk</translation>
 <translation id="2547921442987553570">Zu <ph name="EXTENSION_NAME" /> hinzufügen</translation>
 <translation id="2550212893339833758">Swap-Speicher</translation>
+<translation id="2550596535588364872">Zulassen, dass <ph name="EXTENSION_NAME" /> <ph name="FILE_NAME" /> öffnet?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> konnte keine Verbindung zu <ph name="NETWORK_ID" /> herstellen. Wählen Sie ein anderes Netzwerk oder versuchen Sie es erneut.</translation>
 <translation id="2553440850688409052">Dieses Plug-in ausblenden</translation>
 <translation id="2554553592469060349">Die ausgewählte Datei ist zu groß. Maximale Größe: 3 MB</translation>
@@ -3565,6 +3566,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="6474884162850599008">Verbindung zu Google Drive-Konto aufheben</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> möchte den Inhalt Ihres Bildschirms teilen. Wählen Sie aus, was geteilt werden soll.</translation>
 <translation id="6478248366783946499">Schädliche Datei beibehalten?</translation>
+<translation id="6483485061007832714">Heruntergeladene Datei öffnen</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> wird geöffnet...</translation>
 <translation id="6485131920355264772">Angaben zum Speicherplatz konnten nicht abgerufen werden.</translation>
 <translation id="648637985389593741">Synchronisierung und Personalisierung aktivieren</translation>

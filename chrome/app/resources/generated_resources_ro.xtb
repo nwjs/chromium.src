@@ -1018,6 +1018,7 @@ Nu cred că acest site ar trebui blocat!</translation>
 <translation id="2544853746127077729">Certificatul de autentificare a fost respins de rețea</translation>
 <translation id="2547921442987553570">Adaugă la <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Dimensiunea memoriei de swap</translation>
+<translation id="2550596535588364872">Permiți ca <ph name="EXTENSION_NAME" /> să deschidă <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> nu s-a putut conecta la <ph name="NETWORK_ID" />. Selectează altă rețea sau încearcă din nou.</translation>
 <translation id="2553440850688409052">Ascunde acest plugin</translation>
 <translation id="2554553592469060349">Fișierul selectat este prea mare (dimensiune maximă: 3 MB).</translation>
@@ -3569,6 +3570,7 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="6474884162850599008">Deconectează contul Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> încearcă să trimită conținut de pe ecran. Alege ce dorești să trimiți.</translation>
 <translation id="6478248366783946499">Păstrezi fișierul periculos?</translation>
+<translation id="6483485061007832714">Deschide descărcarea</translation>
 <translation id="6483805311199035658">Se deschide <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Nu s-au putut prelua informațiile despre spațiu</translation>
 <translation id="648637985389593741">Activează funcțiile de sincronizare și personalizare</translation>

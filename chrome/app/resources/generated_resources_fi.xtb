@@ -1018,6 +1018,7 @@ Tämän sivuston ei pitäisi olla estetty.</translation>
 <translation id="2544853746127077729">Verkko on hylännyt todennusvarmenteen</translation>
 <translation id="2547921442987553570">Lisää laajennukseen <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Vaihdettu muisti</translation>
+<translation id="2550596535588364872">Saako <ph name="EXTENSION_NAME" /> avata tiedoston <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> ei voinut yhdistää verkkoon <ph name="NETWORK_ID" />. Valitse toinen verkko tai yritä uudelleen.</translation>
 <translation id="2553440850688409052">Piilota tämä laajennus</translation>
 <translation id="2554553592469060349">Valittu tiedosto on liian iso (enimmäiskoko: 3 Mt).</translation>
@@ -3569,6 +3570,7 @@ Julkinen eksponentti (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bittiä):
 <translation id="6474884162850599008">Katkaise yhteys Google Drive -tiliin.</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> haluaa jakaa näyttösi sisällön. Valitse, mitä haluat jakaa.</translation>
 <translation id="6478248366783946499">Pidetäänkö haitallinen tiedosto?</translation>
+<translation id="6483485061007832714">Avaa lataus</translation>
 <translation id="6483805311199035658">Avataan tiedostoa <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Tilatietojen noutaminen epäonnistui</translation>
 <translation id="648637985389593741">Ota synkronointi- ja räätälöintiominaisuudet käyttöön</translation>

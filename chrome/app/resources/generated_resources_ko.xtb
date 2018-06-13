@@ -1019,6 +1019,7 @@
 <translation id="2544853746127077729">인증서가 네트워크에 의해 거부됨</translation>
 <translation id="2547921442987553570"><ph name="EXTENSION_NAME" />에 추가</translation>
 <translation id="2550212893339833758">교체된 메모리</translation>
+<translation id="2550596535588364872"><ph name="EXTENSION_NAME" />에서 <ph name="FILE_NAME" />을(를) 열도록 허용하시겠습니까?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" />에서 <ph name="NETWORK_ID" />에 연결할 수 없습니다. 다른 네트워크를 선택하거나 다시 시도하세요.</translation>
 <translation id="2553440850688409052">이 플러그인 숨기기</translation>
 <translation id="2554553592469060349">선택한 파일이 너무 큽니다(최대 크기: 3MB).</translation>
@@ -2478,6 +2479,7 @@
 <translation id="4856478137399998590">모바일 데이터 서비스가 활성화되었으며 사용할 준비가 되었습니다.</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{시크릿 창에서 모두 열기(I)}=1{시크릿 창에서 열기(I)}other{시크릿 창에서 #개 모두 열기(I)}}</translation>
 <translation id="4858913220355269194">축구왕</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - PIP 모드로 동영상 재생 중</translation>
 <translation id="4862050643946421924">기기 추가 중...</translation>
 <translation id="4862642413395066333">OCSP 응답 서명</translation>
 <translation id="4863769717153320198"><ph name="WIDTH" />x<ph name="HEIGHT" />(권장)처럼 보입니다.</translation>
@@ -3568,6 +3570,7 @@
 <translation id="6474884162850599008">Google 드라이브 계정을 연결 해제합니다.</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" />에서 내 화면의 콘텐츠를 공유하려고 합니다. 공유할 항목을 선택하세요.</translation>
 <translation id="6478248366783946499">위험한 파일을 보관하시겠습니까?</translation>
+<translation id="6483485061007832714">다운로드된 파일 열기</translation>
 <translation id="6483805311199035658"><ph name="FILE" /> 파일 여는 중...</translation>
 <translation id="6485131920355264772">남은 용량을 알 수 없습니다.</translation>
 <translation id="648637985389593741">동기화 및 맞춤설정 기능 사용 설정</translation>
@@ -4458,6 +4461,7 @@
 <translation id="7839051173341654115">미디어 보기/백업</translation>
 <translation id="7839192898639727867">인증서 대상 키 ID</translation>
 <translation id="7839804798877833423">이 파일을 가져오는 데 약 <ph name="FILE_SIZE" />의 모바일 데이터가 사용됩니다.</translation>
+<translation id="7844553762889824470">듣고 싶은 항목을 강조표시한 다음 검색 + S를 누릅니다. 또는 검색 키를 길게 누르거나 프로필 이미지 근처에 있는 텍스트 읽어주기 아이콘을 탭하여 선택할 수 있습니다.</translation>
 <translation id="7844992432319478437">diff 업데이트 중</translation>
 <translation id="7846076177841592234">선택 취소</translation>
 <translation id="7846634333498149051">키보드</translation>
@@ -5366,6 +5370,7 @@
 <translation id="952992212772159698">활성화되지 않음</translation>
 <translation id="957960681186851048">이 사이트에서 여러 파일을 자동으로 다운로드하려고 함</translation>
 <translation id="9580706199804957">Google 서비스에 연결할 수 없음</translation>
+<translation id="958416628331784386">이 탭에서는 PIP 모드로 동영상이 재생되고 있습니다.</translation>
 <translation id="958515377357646513">앞으로 이동하려면 터치하세요.</translation>
 <translation id="960719561871045870">운영자 코드</translation>
 <translation id="960987915827980018">약 1시간 남음</translation>

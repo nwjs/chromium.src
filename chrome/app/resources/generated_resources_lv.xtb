@@ -1018,6 +1018,7 @@ Es uzskatu, ka šai vietnei nav jābūt bloķētai.</translation>
 <translation id="2544853746127077729">Tīkls noraidīja autentifikācijas sertifikātu.</translation>
 <translation id="2547921442987553570">Pievienot paplašinājumam <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Apmainītā atmiņa</translation>
+<translation id="2550596535588364872">Vai atļaut paplašinājumam <ph name="EXTENSION_NAME" /> atvērt failu <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> nevarēja pievienoties tīklam <ph name="NETWORK_ID" />. Lūdzu, izvēlieties citu tīklu vai mēģiniet vēlreiz.</translation>
 <translation id="2553440850688409052">Slēpt šo spraudni</translation>
 <translation id="2554553592469060349">Atlasītais fails ir pārāk liels (maksimālais lielums: 3 MB).</translation>
@@ -3569,6 +3570,7 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="6474884162850599008">Atspējot Google diska kontu</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> vēlas kopīgot jūsu ekrāna saturu. Izvēlieties kopīgojamo saturu.</translation>
 <translation id="6478248366783946499">Vai paturēt bīstamo failu?</translation>
+<translation id="6483485061007832714">Lejupielādes atvēršana</translation>
 <translation id="6483805311199035658">Tiek atvērts fails <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Neizdevās izgūt informāciju par brīvo vietu</translation>
 <translation id="648637985389593741">Ieslēgt sinhronizāciju un personalizācijas funkcijas</translation>

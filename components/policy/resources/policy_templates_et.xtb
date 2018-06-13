@@ -680,7 +680,7 @@ Reegli iga loendiüksus on string, mis sisaldab laienduse ID-d ja valikuliselt k
 
       Kui reegel on seadistamata või seatud väärtusele <ph name="BR_DISABLED" />, on Androidi varundamine ja taastamine keelatud ning kasutaja ei saa seda lubada.
 
-      Kui reegel on määratud väärtusele <ph name="BR_UNDER_USER_CONTROL" />, palutakse kasutajal valida, kas ta soovib Androidi varundus- ja taasteteenust kasutada. Kui kasutaja lubab varundamise ja taastamise, laaditakse ühilduvate Androidi rakenduste andmed üles Android varundusserveritesse ja need taastatakse rakenduste uuesti installimisel.</translation>
+      Kui reegel on määratud väärtusele <ph name="BR_UNDER_USER_CONTROL" />, palutakse kasutajal valida, kas ta soovib Androidi varundus- ja taasteteenust kasutada. Kui kasutaja lubab varundamise ja taastamise, laaditakse ühilduvate Androidi rakenduste andmed üles Androidi varundusserveritesse ja need taastatakse rakenduste uuesti installimisel.</translation>
 <translation id="2757054304033424106">Laienduste/rakenduste tüübid, mille installimine on lubatud</translation>
 <translation id="2759224876420453487">Kasutaja käitumise kontrollimine multiprofiili seansis</translation>
 <translation id="2761483219396643566">Tegevusetuse hoiatuse viivitus akutoite kasutamisel</translation>
@@ -1296,16 +1296,16 @@ IsolateOrigins ja SitePerProcess testid keelatakse. Kasutajad saavad reegli Isol
 <translation id="4567137030726189378">Arendaja tööriistade kasutamise lubamine</translation>
 <translation id="4600786265870346112">Suure kursori lubamine</translation>
 <translation id="4604931264910482931">Omasõnumside musta nimekirja seadistamine</translation>
-<translation id="4613261833393532156">Võimaldab lukustada kasutaja seansi kliendi aja või igapäevase kasutuskvoodi alusel.
+<translation id="4613261833393532156">Võimaldab lukustada kasutajaseansi kliendi aja või igapäevase kasutuskvoodi alusel.
 
-          Atribuut |time_window_limit| määrab igapäevase ajavahemiku, mil kasutaja seanss lukustatakse. Iga nädalapäeva puhul toetatakse ainult üht reeglit, seega võib massiivi |entries| suurus varieeruda vahemikus 0–7. Atribuudid |starts_at| ja |ends_at| määravad ajavahemiku alguse ja lõpu. Kui |ends_at| on väiksem kui |starts_at|, tähendab see, et |time_limit_window| lõpeb järgmisel päeval. Atribuut |last_updated_millis| on UTC ajatempel, mis näitab kirje viimase värskendamise aega. See saadetakse stringina, kuna ajatemplit ei saa täisarvuna esitada.
+          Atribuut |time_window_limit| määrab igapäevase ajavahemiku, mil kasutajaseanss lukustatakse. Iga nädalapäeva puhul toetatakse ainult üht reeglit, seega võib massiivi |entries| suurus varieeruda vahemikus 0–7. Atribuudid |starts_at| ja |ends_at| määravad ajavahemiku alguse ja lõpu. Kui |ends_at| on väiksem kui |starts_at|, tähendab see, et |time_limit_window| lõpeb järgmisel päeval. Atribuut |last_updated_millis| on UTC ajatempel, mis näitab kirje viimase värskendamise aega. See saadetakse stringina, kuna ajatemplit ei saa täisarvuna esitada.
 
-          Atribuut |time_usage_limit| määrab igapäevase kasutuskvoodi, mille täitumisel kasutaja seanss lukustatakse. Iga nädalapäeva jaoks on eraldi atribuut ja see tuleks määrata ainult juhul, kui teatud päeval kehtib aktiivne kvoot. Atribuut |usage_quota_mins| määrab, kui kaua tohib hallatud seadet päeva jooksul kasutada, ja |reset_at| määrab, millal kasutuskvooti uuendatakse. Atribuudi |reset_at| vaikeväärtus on südaöö ({'hour': 0, 'minute': 0}). Atribuut |last_updated_millis| on UTC ajatempel, mis näitab kirje viimase värskendamise aega. See saadetakse stringina, kuna ajatemplit ei saa täisarvuna esitada.
+          Atribuut |time_usage_limit| määrab igapäevase kasutuskvoodi, mille täitumisel kasutajaseanss lukustatakse. Iga nädalapäeva jaoks on eraldi atribuut ja see tuleks määrata ainult juhul, kui teatud päeval kehtib aktiivne kvoot. Atribuut |usage_quota_mins| määrab, kui kaua tohib hallatud seadet päeva jooksul kasutada, ja |reset_at| määrab, millal kasutuskvooti uuendatakse. Atribuudi |reset_at| vaikeväärtus on südaöö ({'hour': 0, 'minute': 0}). Atribuut |last_updated_millis| on UTC ajatempel, mis näitab kirje viimase värskendamise aega. See saadetakse stringina, kuna ajatemplit ei saa täisarvuna esitada.
 
           Atribuut |overrides| võimaldab ühe või mitu eelmist reeglit ajutiselt tühistada.
           * Kui atribuudid time_window_limit ja time_usage_limit ei ole aktiivsed, saab seadme lukustamiseks kasutada atribuuti |LOCK|.
-          * |LOCK| lukustab kasutaja seansi ajutiselt kuni järgmise atribuudi time_window_limit või time_usage_limit alguseni.
-          * |UNLOCK| avab kasutaja seansi, mis lukustati atribuudiga time_window_limit või time_usage_limit.
+          * |LOCK| lukustab kasutajaseansi ajutiselt kuni järgmise atribuudi time_window_limit või time_usage_limit alguseni.
+          * |UNLOCK| avab kasutajaseansi, mis lukustati atribuudiga time_window_limit või time_usage_limit.
           Atribuut |created_time_millis| on alistuse loomise UTC ajatempel. See saadetakse stringina, kuna ajatemplit ei saa täisarvuna esitada. Selle alusel määratakse, kas alistus tuleks rakendada. Kui praegune aktiivne ajapiirangu funktsioon (time_usage_limit või time_window_limit) algas pärast alistuse loomist, ei tohiks see aktiveeruda. Seda ei tohiks rakendada ka juhul, kui alistus loodi enne atribuutide time_window_limit või time_usage_window viimast muutmist.</translation>
 <translation id="4613508646038788144">Kui reegel on määratud väärtusele Väär, on kolmanda osapoole tarkvaral lubatud sisestada Chrome'i protsessidesse täitmiskoodi. Kui reegel on määramata või seatud väärtusele Tõene, on kolmandal osapoolel keelatud täitmiskoodi Chrome'i protsessidesse sisestada.</translation>
 <translation id="4617338332148204752">Metasildi kontrollimise vahelejätmine teenuses <ph name="PRODUCT_FRAME_NAME" /></translation>
@@ -2071,7 +2071,7 @@ IsolateOrigins ja SitePerProcess testid keelatakse. Kasutajad saavad reegli Isol
 
       MÄRKUS. Androidis on saidi isoleerimine katseline. Aja jooksul täiustatakse tuge, kuid praegu võib see toimivuses probleeme põhjustada.
 
-      MÄRKUS. See reegel kehtib ainult Androidile mõeldud Chrome'is. Reegli rakendamiseks muudel platvormidel kasutage seadet SitePerProcess.
+      MÄRKUS. See reegel kehtib ainult Chrome'i Androidi versiooni puhul seadmetes, millel on rohkem kui 1 GB muutmälu. Reegli rakendamiseks muudel platvormidel kasutage seadet SitePerProcess.
       </translation>
 <translation id="6922040258551909078">
       Kui selle reegli väärtuseks on määratud Tõene, alistavad pilve-eeskirjad konflikti puhul seadme-eeskirjad.

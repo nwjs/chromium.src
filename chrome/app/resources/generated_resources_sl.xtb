@@ -1019,6 +1019,7 @@ To spletno mesto ne sme biti blokirano.</translation>
 <translation id="2544853746127077729">Omrežje je zavrnilo potrdilo za preverjanje pristnosti</translation>
 <translation id="2547921442987553570">Dodajanje za: <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Zamenjan pomnilnik</translation>
+<translation id="2550596535588364872">Dovolite razširitvi <ph name="EXTENSION_NAME" /> odpiranje datoteke <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> ni uspel vzpostaviti povezave z omrežjem <ph name="NETWORK_ID" />. Izberite drugo omrežje ali poskusite znova.</translation>
 <translation id="2553440850688409052">Skrij ta vtičnik</translation>
 <translation id="2554553592469060349">Izbrana datoteka je prevelika (največja velikost: 3 MB).</translation>
@@ -3570,6 +3571,7 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="6474884162850599008">Prekinitev povezave z računom za Google Drive</translation>
 <translation id="6475697075626596525">Aplikacija <ph name="APP_NAME" /> želi deliti vsebine vašega zaslona z drugimi. Izberite, kaj želite deliti.</translation>
 <translation id="6478248366783946499">Želite obdržati nevarno datoteko?</translation>
+<translation id="6483485061007832714">Odpiranje prenosa</translation>
 <translation id="6483805311199035658">Odpiranje datoteke <ph name="FILE" /> ...</translation>
 <translation id="6485131920355264772">Podatkov o prostoru ni bilo mogoče prenesti</translation>
 <translation id="648637985389593741">Vklopite funkcije sinhronizacije in prilagajanja</translation>

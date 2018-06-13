@@ -1018,6 +1018,7 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="2544853746127077729">Certificado de autenticação rejeitado pela rede</translation>
 <translation id="2547921442987553570">Adicionar à extensão <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memória trocada</translation>
+<translation id="2550596535588364872">Permitir que <ph name="EXTENSION_NAME" /> abra <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> não pôde se conectar a <ph name="NETWORK_ID" />. Selecione outra rede ou tente novamente.</translation>
 <translation id="2553440850688409052">Ocultar este plug-in</translation>
 <translation id="2554553592469060349">O arquivo selecionado é muito grande (tamanho máximo: 3 MB).</translation>
@@ -2478,6 +2479,7 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="4856478137399998590">Seu serviço de dados móveis foi ativado e está pronto para ser usado</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Abrir tudo em &amp;Janela anônima}=1{Abrir em &amp;Janela anônima}one{Abrir tudo (#) em &amp;Janela anônima}other{Abrir tudo (#) em &amp;Janela anônima}}</translation>
 <translation id="4858913220355269194">Pelé</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - Vídeo reproduzido em picture-in-picture</translation>
 <translation id="4862050643946421924">Adicionando um dispositivo...</translation>
 <translation id="4862642413395066333">Respostas OCSP de assinatura</translation>
 <translation id="4863769717153320198">Resolução: <ph name="WIDTH" /> x <ph name="HEIGHT" /> (padrão)</translation>
@@ -3570,6 +3572,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6474884162850599008">Desconectar a conta do Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> quer compartilhar o conteúdo da sua tela. Escolha o que você gostaria de compartilhar.</translation>
 <translation id="6478248366783946499">Manter arquivo perigoso?</translation>
+<translation id="6483485061007832714">Abrir o download</translation>
 <translation id="6483805311199035658">Abrindo <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Falha ao recuperar informações sobre espaço</translation>
 <translation id="648637985389593741">Ative os recursos de sincronização e personalização</translation>
@@ -4461,6 +4464,7 @@ A instalação do <ph name="APP_NAME" /> faz o download de <ph name="DOWNLOAD_SI
 <translation id="7839051173341654115">Ver/fazer backup de mídia</translation>
 <translation id="7839192898639727867">ID da chave do requerente do certificado</translation>
 <translation id="7839804798877833423">A busca destes arquivos usará aproximadamente <ph name="FILE_SIZE" /> de dados móveis.</translation>
+<translation id="7844553762889824470">Destaque o que você quer ouvir e pressione Pesquisar + S. Você também pode tocar na tecla de pesquisa e mantê-la pressionada ou tocar no ícone "Selecionar para ouvir", ao lado da sua imagem de perfil, para selecionar.</translation>
 <translation id="7844992432319478437">Atualizando diff</translation>
 <translation id="7846076177841592234">Cancelar seleção</translation>
 <translation id="7846634333498149051">Teclado</translation>
@@ -5370,6 +5374,7 @@ Pessoas com conexões mais lentas talvez não vejam seu conteúdo.</translation>
 <translation id="952992212772159698">Desativado</translation>
 <translation id="957960681186851048">Este site tentou fazer o download de vários arquivos automaticamente</translation>
 <translation id="9580706199804957">Não foi possível conectar-se aos serviços do Google</translation>
+<translation id="958416628331784386">Esta guia está reproduzindo um vídeo em picture-in-picture.</translation>
 <translation id="958515377357646513">Toque para avançar.</translation>
 <translation id="960719561871045870">Código da operadora</translation>
 <translation id="960987915827980018">Cerca de 1 hora restante</translation>

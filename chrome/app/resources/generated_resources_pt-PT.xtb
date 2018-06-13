@@ -88,7 +88,7 @@
 <translation id="1123187597739372905">Mostrar definições de sincronização</translation>
 <translation id="1123316951456119629">Ao desligar a sua Conta do Google do <ph name="PRODUCT_NAME" />, os dados permanecerão no computador, mas as alterações já não serão sincronizadas com a sua Conta do Google. Os dados já armazenados na Conta do Google permanecerão lá até que os remova através do <ph name="BEGIN_LINK" />Painel de Controlo Google<ph name="END_LINK" />.</translation>
 <translation id="1124772482545689468">Utilizador</translation>
-<translation id="1125550662859510761">Parece <ph name="WIDTH" /> x <ph name="HEIGHT" /> (nativo)</translation>
+<translation id="1125550662859510761">Parece ter <ph name="WIDTH" /> x <ph name="HEIGHT" /> (nativo)</translation>
 <translation id="1128109161498068552">Não permitir que os sites utilizem mensagens exclusivas do sistema para aceder a dispositivos MIDI</translation>
 <translation id="1128128132059598906">EAP-TTLS</translation>
 <translation id="1128591060186966949">Editar motor de pesquisa</translation>
@@ -209,7 +209,7 @@
 <translation id="1296497012903089238">Tipo de certificado</translation>
 <translation id="1297175357211070620">Destino</translation>
 <translation id="1297922636971898492">De momento, o Google Drive não está disponível. O carregamento será reiniciado automaticamente assim que o Google Drive voltar a estar disponível.</translation>
-<translation id="1300415640239881824"><ph name="DOMAIN" /> pretende que a identidade do seu dispositivo seja validada pela Google de forma a determinar a elegibilidade para reprodução melhorada de conteúdo protegido.</translation>
+<translation id="1300415640239881824"><ph name="DOMAIN" /> pretende que a identidade do seu dispositivo seja validada pela Google para determinar a elegibilidade para a reprodução melhorada de conteúdo protegido.</translation>
 <translation id="1300806585489372370">Para alterar esta definição, <ph name="BEGIN_LINK" />ative os identificadores<ph name="END_LINK" /> em primeiro lugar.</translation>
 <translation id="1302227299132585524">Permitir JavaScript de eventos Apple</translation>
 <translation id="1303101771013849280">Ficheiro HTML de marcadores</translation>
@@ -771,7 +771,7 @@
 <translation id="2151576029659734873">Introduzido índice de separador inválido.</translation>
 <translation id="2154484045852737596">Editar cartão</translation>
 <translation id="2154710561487035718">Copiar URL</translation>
-<translation id="2155772377859296191">Parece <ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
+<translation id="2155772377859296191">Parece ter <ph name="WIDTH" /> x <ph name="HEIGHT" /></translation>
 <translation id="215753907730220065">Sair do modo de ecrã inteiro</translation>
 <translation id="2157875535253991059">Esta página está agora em ecrã inteiro.</translation>
 <translation id="216169395504480358">Adicionar Wi-Fi...</translation>
@@ -930,7 +930,7 @@
 <translation id="2408955596600435184">Introduza o PIN</translation>
 <translation id="241082044617551207">Plug-in desconhecido</translation>
 <translation id="2413749388954403953">Alterar a interface de utilizador dos marcadores</translation>
-<translation id="2419706071571366386">Por motivos de segurança, termine sessão quando não estiver a utilizar o computador.</translation>
+<translation id="2419706071571366386">Por motivos de segurança, termine a sessão quando não estiver a utilizar o computador.</translation>
 <translation id="2422426094670600218">&lt;sem nome&gt;</translation>
 <translation id="2423578206845792524">Guard&amp;ar imagem como...</translation>
 <translation id="2425665904502185219">Tamanho total do ficheiro</translation>
@@ -1019,6 +1019,7 @@ Acho que este site não deveria estar bloqueado.</translation>
 <translation id="2544853746127077729">Certificado de autenticação rejeitado pela rede</translation>
 <translation id="2547921442987553570">Adicionar a <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Memória trocada</translation>
+<translation id="2550596535588364872">Pretende permitir que <ph name="EXTENSION_NAME" /> abra <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190">O <ph name="PRODUCT_NAME" /> não conseguiu estabelecer ligação a <ph name="NETWORK_ID" />. Seleccione outra rede ou tente novamente.</translation>
 <translation id="2553440850688409052">Ocultar este plug-in</translation>
 <translation id="2554553592469060349">O ficheiro selecionado é demasiado grande (tamanho máx.: 3 MB).</translation>
@@ -2480,9 +2481,10 @@ Pretende pará-lo?</translation>
 <translation id="4856478137399998590">O seu serviço de dados móveis está ativado e pronto a utilizar</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Abrir todos numa janela de &amp;navegação anónima}=1{Abrir numa janela de &amp;navegação anónima}other{Abrir todos (#) numa janela de &amp;navegação anónima}}</translation>
 <translation id="4858913220355269194">Fritz</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – vídeo em reprodução no modo ecrã no ecrã</translation>
 <translation id="4862050643946421924">A adicionar dispositivo…</translation>
 <translation id="4862642413395066333">Respostas OCSP de assinatura</translation>
-<translation id="4863769717153320198">Parece <ph name="WIDTH" /> x <ph name="HEIGHT" /> (predefinição)</translation>
+<translation id="4863769717153320198">Parece ter <ph name="WIDTH" /> x <ph name="HEIGHT" /> (predefinição)</translation>
 <translation id="4864369630010738180">A iniciar sessão...</translation>
 <translation id="486635084936119914">Abrir determinados tipos de ficheiro automaticamente após a transferência</translation>
 <translation id="4869142322204669043">A Google pode utilizar conteúdo nos sites que visita, a atividade de navegação e as interações para personalizar o <ph name="IDS_SHORT_PRODUCT_NAME" /> e outros serviços Google, como o Tradutor, a Pesquisa e os anúncios. Pode personalizar isto a qualquer momento nas Definições.</translation>
@@ -3571,6 +3573,7 @@ Certifique-se de que não revela informações confidenciais.</translation>
 <translation id="6474884162850599008">Desligar a conta do Google Drive</translation>
 <translation id="6475697075626596525">O <ph name="APP_NAME" /> pretende partilhar o conteúdo do seu ecrã. Escolha o que pretende partilhar.</translation>
 <translation id="6478248366783946499">Pretende manter este ficheiro perigoso?</translation>
+<translation id="6483485061007832714">Abrir transferência</translation>
 <translation id="6483805311199035658">A abrir <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Falha ao obter informações de espaço</translation>
 <translation id="648637985389593741">Ativar as funcionalidades de sincronização e de personalização</translation>
@@ -4461,6 +4464,7 @@ A instalação da aplicação <ph name="APP_NAME" /> implica uma transferência 
 <translation id="7839051173341654115">Ver/fazer cópia de segurança de multimédia</translation>
 <translation id="7839192898639727867">ID da chave de requerente do certificado</translation>
 <translation id="7839804798877833423">A obtenção destes ficheiros utilizará aproximadamente <ph name="FILE_SIZE" /> de dados móveis.</translation>
+<translation id="7844553762889824470">Realce o que pretende ouvir e, em seguida, prima Pesquisar + S. Também pode premir sem soltar a tecla de pesquisa ou tocar no ícone Selecionar para falar junto à sua imagem do perfil para fazer uma seleção.</translation>
 <translation id="7844992432319478437">A atualizar dif.</translation>
 <translation id="7846076177841592234">Cancelar seleção</translation>
 <translation id="7846634333498149051">Teclado</translation>
@@ -5369,6 +5373,7 @@ Mantenha o seu ficheiro de chave num local seguro, pois irá precisar dele para 
 <translation id="952992212772159698">Não activado</translation>
 <translation id="957960681186851048">Este site tentou transferir vários ficheiros automaticamente</translation>
 <translation id="9580706199804957">Não foi possível estabelecer ligação aos serviços Google.</translation>
+<translation id="958416628331784386">Este separador está a reproduzir um vídeo no modo ecrã no ecrã.</translation>
 <translation id="958515377357646513">Toque para avançar.</translation>
 <translation id="960719561871045870">Código do operador</translation>
 <translation id="960987915827980018">Falta cerca de 1 hora</translation>

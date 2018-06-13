@@ -673,6 +673,7 @@
 <translation id="1997484222658892567">يريد <ph name="URL" /> تخزين حجم كبير من البيانات على جهاز الكمبيوتر المحلي بشكل دائم.</translation>
 <translation id="1997616988432401742">شهاداتك</translation>
 <translation id="1999115740519098545">عند بدء التشغيل</translation>
+<translation id="2001796770603320721">‏الإدارة في Drive</translation>
 <translation id="200544492091181894">يمكنك تغيير هذا الخيار من الإعدادات متى شئت.</translation>
 <translation id="2006638907958895361">فتح الرابط في <ph name="APP" /></translation>
 <translation id="2007404777272201486">الإبلاغ عن مشكلة...</translation>
@@ -1018,6 +1019,7 @@
 <translation id="2544853746127077729">تمّ رفض شهادة المصادقة بواسطة الشبكة</translation>
 <translation id="2547921442987553570">إضافة إلى <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">ذاكرة مساحة التبديل</translation>
+<translation id="2550596535588364872">هل تريد السماح لـ <ph name="EXTENSION_NAME" /> بفتح <ph name="FILE_NAME" />؟</translation>
 <translation id="2553340429761841190">تعذر على <ph name="PRODUCT_NAME" /> الاتصال بـ <ph name="NETWORK_ID" />. يُرجى تحديد شبكة أخرى أو إعادة المحاولة.</translation>
 <translation id="2553440850688409052">إخفاء هذا المكون الإضافي</translation>
 <translation id="2554553592469060349">الملف المحدد كبير جدًا (الحد الأقصى للحجم: 3 ميغابايت).</translation>
@@ -2100,6 +2102,7 @@
 <translation id="42137655013211669">الدخول إلى هذا المورد محظور  من الخادم</translation>
 <translation id="4215350869199060536">عفوًا، يشتمل الاسم على رموز غير مسموح بها!</translation>
 <translation id="4215448920900139318">جارٍ الاحتفاظ بنسخة احتياطية من <ph name="FILE_COUNT" /></translation>
+<translation id="4217571870635786043">إملاء</translation>
 <translation id="4225397296022057997">على جميع المواقع</translation>
 <translation id="4235200303672858594">الشاشة بالكامل</translation>
 <translation id="4235813040357936597">إضافة حساب لـ <ph name="PROFILE_NAME" /></translation>
@@ -2212,6 +2215,7 @@
 <translation id="4425149324548788773">ملفاتي</translation>
 <translation id="4430019312045809116">مستوى الصوت</translation>
 <translation id="4430369329743628066">تمت إضافة إشارة</translation>
+<translation id="4434045419905280838">النوافذ المنبثقة وإعادة التوجيه</translation>
 <translation id="443454694385851356">قديم (غير آمن)</translation>
 <translation id="443464694732789311">متابعة</translation>
 <translation id="443475966875174318">تحديث التطبيقات غير المتوافقة أو إزالتها</translation>
@@ -2471,6 +2475,7 @@
 <translation id="4856478137399998590">تم تفعيل خدمة بيانات الجوال وهي جاهزة للاستخدام.</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{فتح الكل في &amp;نافذة التصفح المتخفي}=1{فتح في &amp;نافذة التصفح المتخفي}two{فتح كلا العنوانين (#) في &amp;نافذة التصفح المتخفي}few{فتح كل الـ (#) عناوين في &amp;نافذة التصفح المتخفي}many{فتح كل الـ (#) عنوانًا في &amp;نافذة التصفح المتخفي}other{فتح كل الـ (#) عنوان في &amp;نافذة التصفح المتخفي}}</translation>
 <translation id="4858913220355269194">فريتز</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> - تشغيل الفيديو في وضع "نافذة ضمن نافذة"</translation>
 <translation id="4862050643946421924">جارٍ إضافة جهاز...</translation>
 <translation id="4862642413395066333">‏توقيع استجابات OCSP</translation>
 <translation id="4863769717153320198">‏تبدو كـ <ph name="WIDTH" /> x <ph name="HEIGHT" /> (تلقائية)</translation>
@@ -3561,6 +3566,7 @@
 <translation id="6474884162850599008">‏إلغاء ربط حساب Google Drive</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> يود أن يشارك محتويات شاشتك. اختر ما ترغب في مشاركته.</translation>
 <translation id="6478248366783946499">هل تريد الاحتفاظ بالملف الضار؟</translation>
+<translation id="6483485061007832714">فتح التنزيل</translation>
 <translation id="6483805311199035658">يجري فتح <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">تعذّر جلب معلومات المساحة</translation>
 <translation id="648637985389593741">أجل، أريد تفعيل ميزات المزامنة والتخصيص</translation>
@@ -3922,6 +3928,7 @@
 <translation id="7052237160939977163">إرسال بيانات تتبع مستوى الأداء</translation>
 <translation id="7052633198403197513">F1</translation>
 <translation id="7053983685419859001">منع</translation>
+<translation id="7055152154916055070">تم حظر إعادة توجيه:</translation>
 <translation id="7056526158851679338">&amp;فحص الأجهزة</translation>
 <translation id="7059858479264779982">ضبط على تشغيل تلقائي</translation>
 <translation id="7059893117020417984">للتصفُّح بخصوصية تامّة، انقر على القائمة المشار إليها برمز النقاط لفتح نافذة للتصفُّح المتخفي</translation>
@@ -4292,6 +4299,7 @@
 <translation id="7617366389578322136">جارٍ الاتصال بـ "<ph name="DEVICE_NAME" />"</translation>
 <translation id="7622114377921274169">جارٍ الشحن.</translation>
 <translation id="7624337243375417909">‏مفتاح caps lock متوقف</translation>
+<translation id="7625568159987162309">عرض الأذونات والبيانات المُخزَّنة على المواقع</translation>
 <translation id="7627790789328695202">عذرًا، <ph name="FILE_NAME" /> موجود من قبل. يمكنك إعادة تسميته وإعادة المحاولة.</translation>
 <translation id="7628127343934101653">‏فتح ملفات PDF في تطبيق عارض PDF التلقائي.</translation>
 <translation id="7629827748548208700">علامة التبويب: <ph name="TAB_NAME" /></translation>
@@ -4450,6 +4458,7 @@
 <translation id="7839051173341654115">وسائط العرض/النسخ الاحتياطي</translation>
 <translation id="7839192898639727867">معرّف مفتاح صاحب الشهادة</translation>
 <translation id="7839804798877833423">سيؤدي جلب هذه الملفات إلى استخدام حوالي <ph name="FILE_SIZE" /> من بيانات الجوال.</translation>
+<translation id="7844553762889824470">‏يمكنك تحديد ما تريد سماعه، ثم الضغط على زر "البحث + S". كما يمكنك أيضًا الضغط مع الاستمرار على زر "البحث" أو النقر على رمز "سماع الاختيار" بالقرب من صورة ملفك الشخصي لإجراء اختيار.</translation>
 <translation id="7844992432319478437">تحديث الاختلافات</translation>
 <translation id="7846076177841592234">إلغاء التحديد</translation>
 <translation id="7846634333498149051">لوحة المفاتيح</translation>
@@ -4619,6 +4628,7 @@
 <translation id="806812017500012252">إعادة الترتيب بحسب العنوان</translation>
 <translation id="8068253693380742035">المس لتسجيل الدخول</translation>
 <translation id="8069615408251337349">‏الطباعة السحابية من Google</translation>
+<translation id="806972267388474605">‏ملفات نظام التشغيل Linux</translation>
 <translation id="8071432093239591881">الطباعة كصورة</translation>
 <translation id="8072988827236813198">تثبيت علامات التبويب</translation>
 <translation id="8074127646604999664">السماح للمواقع الإلكترونية التي تم إغلاقها مؤخرًا بإنهاء إرسال البيانات واستلامها</translation>
@@ -5357,6 +5367,7 @@
 <translation id="952992212772159698">غير نشطة</translation>
 <translation id="957960681186851048">حاول هذا الموقع تنزيل عدة ملفات تلقائيًا</translation>
 <translation id="9580706199804957">‏تعذر الاتصال بخدمات Google</translation>
+<translation id="958416628331784386">تشغِّل علامة التبويب هذه فيديو في وضع "نافذة ضمن نافذة".</translation>
 <translation id="958515377357646513">المس للانتقال إلى الأمام.</translation>
 <translation id="960719561871045870">رمز مشغل شبكة الجوال</translation>
 <translation id="960987915827980018">تتبقى ساعة واحدة تقريبًا</translation>

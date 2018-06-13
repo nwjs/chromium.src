@@ -1017,6 +1017,7 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="2544853746127077729">Autentiseringscertifikatet godkändes inte av nätverket</translation>
 <translation id="2547921442987553570">Lägg till i <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Växlingsminne</translation>
+<translation id="2550596535588364872">Tillåter du att <ph name="FILE_NAME" /> öppnas med <ph name="EXTENSION_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> kunde inte ansluta till <ph name="NETWORK_ID" />. Välj ett annat nätverk eller försök igen.</translation>
 <translation id="2553440850688409052">Dölj det här plugin-programmet</translation>
 <translation id="2554553592469060349">Den valda filen är för stor (största storlek: 3 MB).</translation>
@@ -2477,6 +2478,7 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="4856478137399998590">Datatjänsten har aktiverats och är klar att användas</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Öppna alla i ett &amp;inkognitofönster}=1{Öppna i ett &amp;inkognitofönster}other{Öppna alla (#) i ett &amp;inkognitofönster}}</translation>
 <translation id="4858913220355269194">Fotboll</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" />– video spelas upp bild-i-bild</translation>
 <translation id="4862050643946421924">Enheten läggs till …</translation>
 <translation id="4862642413395066333">Signera OCSP-svar</translation>
 <translation id="4863769717153320198">Ser ut som <ph name="WIDTH" /> × <ph name="HEIGHT" /> (standard)</translation>
@@ -3567,6 +3569,7 @@ Jag tycker inte att den här webbplatsen ska blockeras!</translation>
 <translation id="6474884162850599008">Koppla från Google Drive-konto</translation>
 <translation id="6475697075626596525"><ph name="APP_NAME" /> vill dela det som visas på skärmen. Välj vad du vill dela.</translation>
 <translation id="6478248366783946499">Vill du behålla den farliga filen?</translation>
+<translation id="6483485061007832714">Öppna nedladdning</translation>
 <translation id="6483805311199035658">Öppnar <ph name="FILE" />...</translation>
 <translation id="6485131920355264772">Det gick inte att hämta information om lagringsutrymme</translation>
 <translation id="648637985389593741">Aktivera synkronisering och anpassning</translation>
@@ -4456,6 +4459,7 @@ När du installerar <ph name="APP_NAME" /> laddas <ph name="DOWNLOAD_SIZE" /> da
 <translation id="7839051173341654115">Visa/säkerhetskopiera media</translation>
 <translation id="7839192898639727867">Certifikatämnets nyckel-ID</translation>
 <translation id="7839804798877833423">Att hämta dessa filer kräver ungefär <ph name="FILE_SIZE" /> mobildata.</translation>
+<translation id="7844553762889824470">Markera texten som ska läsas upp och tryck på söktangenten + S. Du kan även hålla söktangenten nedtryckt eller trycka på textuppläsningsikonen nära profilbilden och markera ett område.</translation>
 <translation id="7844992432319478437">Uppdaterar skillnaden</translation>
 <translation id="7846076177841592234">Rensa val</translation>
 <translation id="7846634333498149051">Tangentbord</translation>
@@ -5364,6 +5368,7 @@ Spara nyckelfilen på ett säkert ställe. Den behövs om du ska skapa nya versi
 <translation id="952992212772159698">Inte aktiverat</translation>
 <translation id="957960681186851048">Den här webbplatsen försökte ladda ned flera filer automatiskt</translation>
 <translation id="9580706199804957">Det gick inte att ansluta till Googles tjänster</translation>
+<translation id="958416628331784386">På den här fliken spelas en video upp bild-i-bild</translation>
 <translation id="958515377357646513">Fortsätt till nästa genom att trycka här.</translation>
 <translation id="960719561871045870">Operatörskod</translation>
 <translation id="960987915827980018">Ca 1 timme kvar</translation>
