@@ -15,6 +15,12 @@ extern const char kAutofillCacheQueryResponsesDescription[];
 extern const char kAutofillCreditCardUploadName[];
 extern const char kAutofillCreditCardUploadDescription[];
 
+// Title and description for the flag to control the updated prompt explanation
+// when offering credit card upload.
+extern const char kEnableAutofillCreditCardUploadUpdatePromptExplanationName[];
+extern const char
+    kEnableAutofillCreditCardUploadUpdatePromptExplanationDescription[];
+
 // Title and description for the flag to control the dynamic autofill.
 extern const char kAutofillDynamicFormsName[];
 extern const char kAutofillDynamicFormsDescription[];

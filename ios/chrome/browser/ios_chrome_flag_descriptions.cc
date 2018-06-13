@@ -23,6 +23,12 @@ const char kAutofillCreditCardUploadDescription[] =
     "Offers uploading Autofilled credit cards to Google Payments after form "
     "submission.";
 
+const char kEnableAutofillCreditCardUploadUpdatePromptExplanationName[] =
+    "Enable updated prompt explanation when offering credit card upload";
+const char kEnableAutofillCreditCardUploadUpdatePromptExplanationDescription[] =
+    "If enabled, changes the server save card prompt's explanation to mention "
+    "the saving of the billing address.";
+
 const char kAutofillDynamicFormsName[] = "Autofill dynamic forms";
 const char kAutofillDynamicFormsDescription[] =
     "Refills forms that dynamically change after an initial fill";
