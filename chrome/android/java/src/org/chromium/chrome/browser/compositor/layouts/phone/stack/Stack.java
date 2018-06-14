@@ -150,8 +150,6 @@ public abstract class Stack {
     protected int mSpacing;
     protected StackTab[] mStackTabs; // mStackTabs can be null if there are no tabs
 
-    private int mLongPressSelected = -1;
-
     // Overscroll
     protected StackScroller mScroller;
     private float mOverScrollOffset;
@@ -497,7 +495,7 @@ public abstract class Stack {
      * @param sourceIndex The source index needed by some animation types.
      * @param finishImmediately Whether the animation jumps straight to the end.
      */
-    private void startAnimation(
+    protected void startAnimation(
             long time, OverviewAnimationType type, int sourceIndex, boolean finishImmediately) {
         startAnimation(time, type, mTabList.index(), sourceIndex, finishImmediately);
     }
@@ -1011,14 +1009,7 @@ public abstract class Stack {
      * @param x The x coordinate in pixel inside the stack view.
      * @param y The y coordinate in pixel inside the stack view.
      */
-    public void onLongPress(long time, float x, float y) {
-        if (mOverviewAnimationType == OverviewAnimationType.NONE) {
-            mLongPressSelected = getTabIndexAtPositon(x, y);
-            if (mLongPressSelected >= 0) {
-                startAnimation(time, OverviewAnimationType.VIEW_MORE, mLongPressSelected, false);
-            }
-        }
-    }
+    public abstract void onLongPress(long time, float x, float y);
 
     /**
      * Called when at least 2 touch events are detected.
@@ -1953,7 +1944,6 @@ public abstract class Stack {
     protected void resetInputActionIndices() {
         mScrollingTab = null;
         mDiscardingTab = null;
-        mLongPressSelected = -1;
     }
 
     /**
