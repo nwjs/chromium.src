@@ -436,7 +436,7 @@ public class ToolbarTablet
     @Override
     public void updateButtonVisibility() {
         if (FeatureUtilities.isNewTabPageButtonEnabled()) {
-            mHomeButton.setVisibility(mVisibleNtp != null ? GONE : VISIBLE);
+            mHomeButton.setVisibility(mVisibleNtp != null || isIncognito() ? GONE : VISIBLE);
         }
         mLocationBar.updateButtonVisibility();
     }
