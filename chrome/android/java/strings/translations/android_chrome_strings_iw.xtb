@@ -126,8 +126,6 @@
 <translation id="2038563949887743358">הפעל את 'בקש אתר עבור מחשב שולחני'</translation>
 <translation id="2045104531052923016">‏‎<ph name="GIGABYTES" /> GB ליישומים אחרים</translation>
 <translation id="2063713494490388661">הקש כדי לחפש</translation>
-<translation id="2065944887543506430">{FILE_COUNT,plural, =1{הורדה אחת נכשלה}two{# הורדות נכשלו}many{# הורדות נכשלו}other{# הורדות נכשלו}}</translation>
-<translation id="2074837478271106772">הורדה של <ph name="COUNT" /> קבצים (<ph name="MEGABYTES" />)</translation>
 <translation id="2079545284768500474">בטל פעולה</translation>
 <translation id="2082238445998314030">תוצאה <ph name="RESULT_NUMBER" /> מתוך <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2086652334978798447">‏כדי לקבל מ-Google הצעות לתוכן מותאם אישית, היכנס אל Chrome.</translation>
@@ -247,7 +245,6 @@
 <translation id="3137521801621304719">צא ממצב גלישה בסתר</translation>
 <translation id="3148434565183091099">‏כדי שהסימניות שלך יופיעו בכל המכשירים, היכנס ל-Chrome.</translation>
 <translation id="3157842584138209013">בעזרת הלחצן 'אפשרויות נוספות' אפשר לבדוק את החיסכון בצריכת נתונים</translation>
-<translation id="3165725985537150202">מתבצעת הורדה של קובץ (<ph name="MEGABYTES" />)</translation>
 <translation id="3166827708714933426">מקשי קיצור לכרטיסיות ולחלונות</translation>
 <translation id="3190152372525844641">‏הפעל הרשאות בשביל Chrome ב<ph name="BEGIN_LINK" />הגדרות Android<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905">נתונים מאוחסנים בנפח <ph name="STORAGE_AMOUNT" /></translation>
@@ -595,7 +592,6 @@
 <translation id="618555311922999635">חלונית הניווט נפתחה בגובה מלא</translation>
 <translation id="6192333916571137726">קובץ הורדה</translation>
 <translation id="6192792657125177640">יוצאי דופן</translation>
-<translation id="6196868727350051527">הדפדפן מאיץ את ההורדה</translation>
 <translation id="6210748933810148297">אינך <ph name="EMAIL" />?</translation>
 <translation id="6216432067784365534">אפשרויות בשביל <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6221633008163990886">יש לבטל את הנעילה כדי לייצא סיסמאות</translation>
@@ -717,7 +713,6 @@
 <translation id="7189372733857464326">‏המערכת ממתינה שיסתיים העדכון של שירותי Google Play</translation>
 <translation id="7189598951263744875">שיתוף...</translation>
 <translation id="7191430249889272776">הכרטיסייה נפתחה ברקע.</translation>
-<translation id="7227218174981371415">{FILE_COUNT,plural, =1{הורדה אחת בהמתנה}two{# הורדות בהמתנה}many{# הורדות בהמתנה}other{# הורדות בהמתנה}}</translation>
 <translation id="723171743924126238">בחר תמונות</translation>
 <translation id="7243308994586599757">אפשרויות הזמינות באזור החלק התחתון של המסך</translation>
 <translation id="7250468141469952378">נבחרו <ph name="ITEM_COUNT" /></translation>
@@ -793,7 +788,6 @@
 <translation id="7882131421121961860">לא נמצאה היסטוריה</translation>
 <translation id="7882806643839505685">מתן הרשאה להשמעת צלילים באתר ספציפי.</translation>
 <translation id="7929962904089429003">פתח את התפריט</translation>
-<translation id="7939459033526903956">{FILE_COUNT,plural, =1{הורדה אחת הושלמה}two{# הורדות הושלמו}many{# הורדות הושלמו}other{# הורדות הושלמו}}</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> אינו מעודכן.</translation>
 <translation id="7947953824732555851">קבל והיכנס</translation>
 <translation id="7963646190083259054">ספק:</translation>
@@ -926,7 +920,6 @@
 <translation id="9139068048179869749">שאל לפני שתאפשר לאתרים לשלוח הודעות (מומלץ)</translation>
 <translation id="9155898266292537608">אפשר גם להתחיל חיפוש על-ידי הקשה קצרה על מילה</translation>
 <translation id="9188680907066685419">צא מהחשבון המנוהל</translation>
-<translation id="9201987247565328043">{FILE_COUNT,plural, =1{מתבצעת הורדה של הקובץ}two{הורדה של # קבצים}many{הורדה של # קבצים}other{הורדה של # קבצים}}</translation>
 <translation id="9204836675896933765">נותר קובץ אחד</translation>
 <translation id="9206873250291191720">א</translation>
 <translation id="9219103736887031265">תמונות</translation>

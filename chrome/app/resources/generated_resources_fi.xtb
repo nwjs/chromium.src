@@ -2477,7 +2477,7 @@ Tämän sivuston ei pitäisi olla estetty.</translation>
 <translation id="4856478137399998590">Tiedonsiirtopalvelu on aktivoitu ja valmis käyttöön</translation>
 <translation id="4857506433977877623">{COUNT,plural, =0{Avaa kaikki incognito-ikkunassa}=1{Avaa incognito-ikkunassa}other{Avaa kaikki # incognito-ikkunassa}}</translation>
 <translation id="4858913220355269194">Litti</translation>
-<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – Video toistetaan Kuva kuvassa ‑tilassa</translation>
+<translation id="4862042298115071399"><ph name="WINDOW_TITLE" /> – Video toistetaan kuva kuvassa ‑tilassa</translation>
 <translation id="4862050643946421924">Laitetta lisätään…</translation>
 <translation id="4862642413395066333">OCSP-vastauksien allekirjoittaminen</translation>
 <translation id="4863769717153320198">Näyttää olevan <ph name="WIDTH" /> x <ph name="HEIGHT" /> (oletus)</translation>

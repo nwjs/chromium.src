@@ -1019,7 +1019,7 @@
 <translation id="2544853746127077729">인증서가 네트워크에 의해 거부됨</translation>
 <translation id="2547921442987553570"><ph name="EXTENSION_NAME" />에 추가</translation>
 <translation id="2550212893339833758">교체된 메모리</translation>
-<translation id="2550596535588364872"><ph name="EXTENSION_NAME" />에서 <ph name="FILE_NAME" />을(를) 열도록 허용하시겠습니까?</translation>
+<translation id="2550596535588364872"><ph name="EXTENSION_NAME" />에서 <ph name="FILE_NAME" /> 파일을 열도록 허용하시겠습니까?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" />에서 <ph name="NETWORK_ID" />에 연결할 수 없습니다. 다른 네트워크를 선택하거나 다시 시도하세요.</translation>
 <translation id="2553440850688409052">이 플러그인 숨기기</translation>
 <translation id="2554553592469060349">선택한 파일이 너무 큽니다(최대 크기: 3MB).</translation>
@@ -2866,7 +2866,7 @@
 <translation id="542872847390508405">손님으로 로그인 중</translation>
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" />(업데이트 사용 가능)</translation>
 <translation id="5431318178759467895">컬러</translation>
-<translation id="5431825016875453137">OpenVPN / L2TP</translation>
+<translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="5432996274932278848">기기, 앱, 웹을 검색합니다. 앱을 탐색하려면 화살표 키를 사용하세요.</translation>
 <translation id="543381445212956829">WiMAX 사용</translation>
 <translation id="5434065355175441495">PKCS #1 RSA 암호화</translation>

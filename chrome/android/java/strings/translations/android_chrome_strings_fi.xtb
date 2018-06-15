@@ -15,6 +15,7 @@
 <translation id="1121094540300013208">Käyttö- ja virheraportit</translation>
 <translation id="11221688409173367">Kosketa aloitusnäyttöpainiketta nähdäksesi juuri sinulle valittuja artikkeleita</translation>
 <translation id="1129510026454351943">Tiedot: <ph name="ERROR_DESCRIPTION" /></translation>
+<translation id="1141800923049248244">{FILE_COUNT,plural, =1{1 lataus odottaa}other{# latausta odottaa}}</translation>
 <translation id="1145536944570833626">Poistaa olemassa olevat tiedot.</translation>
 <translation id="1146678959555564648">Siirry VR-tilaan</translation>
 <translation id="114721135501989771">Googlen älykkäitä ratkaisuja Chromeen</translation>
@@ -117,6 +118,7 @@
 <translation id="1966710179511230534">Päivitä kirjautumistietosi.</translation>
 <translation id="1974060860693918893">Lisäasetukset</translation>
 <translation id="1984937141057606926">Sallittu, paitsi kolmannen osapuolen evästeet</translation>
+<translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" />-painike</translation>
 <translation id="1989112275319619282">Selaa</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> haluaa muodostaa laiteparin</translation>
 <translation id="1994173015038366702">Sivuston URL-osoite</translation>
@@ -126,8 +128,6 @@
 <translation id="2038563949887743358">Ota käyttöön Käytä tietokoneversiota</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> Gt muita sovelluksia</translation>
 <translation id="2063713494490388661">Hae napauttamalla</translation>
-<translation id="2065944887543506430">{FILE_COUNT,plural, =1{1 lataus epäonnistui}other{# latausta epäonnistui}}</translation>
-<translation id="2074837478271106772">Ladataan <ph name="COUNT" /> tiedostoa (<ph name="MEGABYTES" />)</translation>
 <translation id="2079545284768500474">Kumoa</translation>
 <translation id="2082238445998314030">Tulos <ph name="RESULT_NUMBER" />/<ph name="TOTAL_RESULTS" /></translation>
 <translation id="2086652334978798447">Kirjaudu Chromeen, niin voit lisätä Googlen suosittelemaa sisältöä.</translation>
@@ -247,7 +247,6 @@
 <translation id="3137521801621304719">Poistu incognito-tilasta</translation>
 <translation id="3148434565183091099">Kirjaudu sisään Chromeen, niin voit käyttää kirjanmerkkejäsi kaikilla laitteilla.</translation>
 <translation id="3157842584138209013">Lisäasetukset-painiketta klikkaamalla voit katsoa, kuinka paljon dataa olet säästänyt.</translation>
-<translation id="3165725985537150202">Ladataan tiedostoa (<ph name="MEGABYTES" />)</translation>
 <translation id="3166827708714933426">Välilehti- ja ikkunapikanäppäimet</translation>
 <translation id="3190152372525844641">Ota käyttöoikeudet käyttöön Chromelle <ph name="BEGIN_LINK" />Android-asetuksissa<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> tallennettua tietoa</translation>
@@ -422,6 +421,7 @@ Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toiminta
 <translation id="4738836084190194332">Viimeisin synkronointi: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Uuden välilehden avaaminen</translation>
 <translation id="4759238208242260848">Lataukset</translation>
+<translation id="4763829664323285145">{FILE_COUNT,plural, =1{1 lataus on valmis}other{# latausta on valmiina}}</translation>
 <translation id="4766369052440583386">Data Saver on käytössä.</translation>
 <translation id="4797039098279997504">Palaa osoitteeseen <ph name="URL_OF_THE_CURRENT_TAB" /> koskettamalla.</translation>
 <translation id="4807098396393229769">Kortissa oleva nimi</translation>
@@ -448,6 +448,7 @@ Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toiminta
 <translation id="4961334780091921942">Salasanasi, historiasi ja paljon muuta kaikilla laitteilla</translation>
 <translation id="4961700429721424617">Olet kirjautumassa ulos verkkotunnuksen <ph name="MANAGED_DOMAIN" /> hallinnoimalta tililtä. Chrome-tietosi poistetaan tältä laitteelta, mutta tietosi säilyvät Google-tililläsi.</translation>
 <translation id="497421865427891073">Siirry eteenpäin</translation>
+<translation id="4988210275050210843">Ladataan tiedostoa (<ph name="MEGABYTES" />)</translation>
 <translation id="4988526792673242964">Sivut</translation>
 <translation id="4996978546172906250">Jaa tällä palvelulla:</translation>
 <translation id="5004339818306944878">Vähennä datankäyttöä 60 % ja selaa verkkoa nopeammin. Googlen palvelimet optimoivat sivut, joilla käyt.</translation>
@@ -467,6 +468,7 @@ Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toiminta
 <translation id="515227803646670480">Poista tallennetut tiedot</translation>
 <translation id="5152843274749979095">Ei asennettuja tuettuja sovelluksia</translation>
 <translation id="5161254044473106830">Nimike vaaditaan</translation>
+<translation id="5162754098604580781">{FILE_COUNT,plural, =1{1 lataus epäonnistui}other{# latausta epäonnistui}}</translation>
 <translation id="5168917394043976756">Avaa navigoinnin vetopaneeli</translation>
 <translation id="5171365962177408781">Napauta ladataksesi uusi välilehti ‑sivu ja nähdäksesi ehdotettuja artikkeleita</translation>
 <translation id="5184329579814168207">Avaa Chromessa</translation>
@@ -496,9 +498,11 @@ Google-tililläsi voi olla muita selaushistoriatietoja, kuten hakuja ja toiminta
 <translation id="5423934151118863508">Käydyimmät sivusi näkyvät täällä</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> Gt käytettävissä</translation>
 <translation id="5433691172869980887">Käyttäjänimi kopioitu</translation>
+<translation id="543509235395288790">Ladataan <ph name="COUNT" /> tiedostoa (<ph name="MEGABYTES" />)</translation>
 <translation id="5441522332038954058">Siirry osoitepalkkiin</translation>
 <translation id="5447201525962359567">Kaikki tallennetut sivustotiedot, mukaan lukien evästeet ja muut paikallisesti tallennetut tiedot</translation>
 <translation id="5447765697759493033">Sivustoa ei käännetä.</translation>
+<translation id="545042621069398927">Lataustasi nopeutetaan</translation>
 <translation id="5456381639095306749">Lataa sivu</translation>
 <translation id="548278423535722844">Avaa karttasovelluksessa</translation>
 <translation id="5487521232677179737">Poista tiedot</translation>
@@ -595,7 +599,6 @@ Et ole kuitenkaan näkymätön. Incognito-tila ei piilota selaustietojasi työna
 <translation id="618555311922999635">Navigointipalkki avattu koko näytön korkeudelle</translation>
 <translation id="6192333916571137726">Lataaminen-tiedosto</translation>
 <translation id="6192792657125177640">Poikkeukset</translation>
-<translation id="6196868727350051527">Nopeutetaan latausta</translation>
 <translation id="6210748933810148297">Etkö ole <ph name="EMAIL" />?</translation>
 <translation id="6216432067784365534">Vaihtoehdot: <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6221633008163990886">Avaa lukitus viedäksesi salasanoja.</translation>
@@ -717,7 +720,6 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7189372733857464326">Odotetaan Google Play Palveluiden päivittymistä</translation>
 <translation id="7189598951263744875">Jaa...</translation>
 <translation id="7191430249889272776">Välilehti avattiin taustalla.</translation>
-<translation id="7227218174981371415">{FILE_COUNT,plural, =1{1 lataus odottaa}other{# latausta odottaa}}</translation>
 <translation id="723171743924126238">Valitse kuvat</translation>
 <translation id="7243308994586599757">Asetukset löytyvät näytön alalaidasta.</translation>
 <translation id="7250468141469952378"><ph name="ITEM_COUNT" /> valittu</translation>
@@ -730,6 +732,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Jaa 1 valittu kohde}other{Jaa # valittua kohdetta}}</translation>
 <translation id="7366340029385295517">Suoratoistetaan näytöllä <ph name="SCREEN_NAME" />.</translation>
 <translation id="7375125077091615385">Tyyppi:</translation>
+<translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL-osoite</translation>
 <translation id="7403691278183511381">Chromen ensimmäinen käyttökerta</translation>
 <translation id="741204030948306876">Kyllä</translation>
@@ -792,8 +795,8 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="7876243839304621966">Poista kaikki</translation>
 <translation id="7882131421121961860">Historiaa ei löytynyt.</translation>
 <translation id="7882806643839505685">Salli tietyn sivuston äänet.</translation>
+<translation id="7925590027513907933">{FILE_COUNT,plural, =1{Ladataan tiedostoa}other{Ladataan # tiedostoa}}</translation>
 <translation id="7929962904089429003">Avaa valikko</translation>
-<translation id="7939459033526903956">{FILE_COUNT,plural, =1{1 lataus on valmis}other{# latausta on valmiina}}</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> on vanhentunut.</translation>
 <translation id="7947953824732555851">Hyväksy ja kirjaudu sisään</translation>
 <translation id="7963646190083259054">Toimittaja:</translation>
@@ -839,7 +842,7 @@ Jotkin verkkosivustot voivat vastata tähän pyyntöön esimerkiksi näyttämäl
 <translation id="8313455859591948645">Muokkaa aloitussivua</translation>
 <translation id="8316092324682955408"><ph name="DOMAIN_NAME" /> ja muita sivustoja</translation>
 <translation id="8339163506404995330">Kielellä <ph name="LANGUAGE" /> kirjoitettuja sivuja ei käännetä.</translation>
-<translation id="8349013245300336738">Lajittele käytetyn datan määrän mukaa</translation>
+<translation id="8349013245300336738">Lajittele käytetyn datan määrän mukaan</translation>
 <translation id="8363501664269050863">Navigointipaneeli. Sulje pyyhkäisemällä alas.</translation>
 <translation id="8372893542064058268">Salli taustasynkronointi tietyllä sivustolla.</translation>
 <translation id="8374821112118309944">TalkBack täytyy päivittää uudempaan versioon.</translation>
@@ -928,7 +931,6 @@ Hanki uudet käyttöoik. muodostam. verkkoyhteys ja toistamalla ladattu sisält�
 <translation id="9139068048179869749">Pyydä lupaa, kun sivustot yrittävät lähettää ilmoituksia (suositus).</translation>
 <translation id="9155898266292537608">Voit hakea myös napauttamalla sanaa nopeasti.</translation>
 <translation id="9188680907066685419">Kirjaudu ulos hallinnoidulta tililtä</translation>
-<translation id="9201987247565328043">{FILE_COUNT,plural, =1{Ladataan tiedostoa}other{Ladataan # tiedostoa}}</translation>
 <translation id="9204836675896933765">1 tiedosto jäljellä</translation>
 <translation id="9206873250291191720">A</translation>
 <translation id="9219103736887031265">Kuvat</translation>

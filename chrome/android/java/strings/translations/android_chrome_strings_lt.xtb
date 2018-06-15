@@ -126,8 +126,6 @@
 <translation id="2038563949887743358">Įjungti stalinio kompiuterio svetainės užklausą</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB užima kitos programos</translation>
 <translation id="2063713494490388661">Paliesti ir ieškoti</translation>
-<translation id="2065944887543506430">{FILE_COUNT,plural, =1{Nepavyko atlikti 1 atsisiuntimo}one{Nepavyko atlikti # atsisiuntimo}few{Nepavyko atlikti # atsisiuntimų}many{Nepavyko atlikti # atsisiuntimo}other{Nepavyko atlikti # atsisiuntimų}}</translation>
-<translation id="2074837478271106772">Atsisiunčiami failai: <ph name="COUNT" /> (<ph name="MEGABYTES" />)</translation>
 <translation id="2079545284768500474">Anuliuoti</translation>
 <translation id="2082238445998314030">Rezultatų: <ph name="RESULT_NUMBER" /> iš <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2086652334978798447">Jei norite gauti „Google“ siūlomo suasmeninto turinio, prisijunkite prie „Chrome“.</translation>
@@ -247,7 +245,6 @@
 <translation id="3137521801621304719">Išjungti inkognito režimą</translation>
 <translation id="3148434565183091099">Prisijunkite naršyklėje „Chrome“, kad pasiektumėte žymes visuose įrenginiuose.</translation>
 <translation id="3157842584138209013">Žr., kiek duomenų sutaupėte, spustelėję mygtuką „Daugiau parinkčių“</translation>
-<translation id="3165725985537150202">Atsisiunčiamas failas (<ph name="MEGABYTES" />)</translation>
 <translation id="3166827708714933426">Skirtukų ir langų spartieji klavišai</translation>
 <translation id="3190152372525844641">Įjunkite „Chrome“ leidimus <ph name="BEGIN_LINK" />„Android“ nustatymuose<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905">Išsaugota duomenų: <ph name="STORAGE_AMOUNT" /></translation>
@@ -595,7 +592,6 @@ Tačiau nesate nematomi. Kai naudojate inkognito režimą, jūsų darbdavys, int
 <translation id="618555311922999635">Naršymo skydelis atidarytas (visas aukštis)</translation>
 <translation id="6192333916571137726">Atsisiųsti failą</translation>
 <translation id="6192792657125177640">Išimtys</translation>
-<translation id="6196868727350051527">Pagreitinamas atsisiuntimas</translation>
 <translation id="6210748933810148297">Ne <ph name="EMAIL" />?</translation>
 <translation id="6216432067784365534">„<ph name="NAME_OF_LIST_ITEM" />“ parinktys</translation>
 <translation id="6221633008163990886">Atrakinkite, kad galėtumėte eksportuoti slaptažodžius</translation>
@@ -717,7 +713,6 @@ Pavyzdžiui, kai kurios svetainės gali atsakyti į šią užklausą rodydamos j
 <translation id="7189372733857464326">Laukiama, kol bus baigtas „Google Play“ paslaugų atnaujinimas</translation>
 <translation id="7189598951263744875">Bendrinti...</translation>
 <translation id="7191430249889272776">Skirtuko lapas atidarytas fone.</translation>
-<translation id="7227218174981371415">{FILE_COUNT,plural, =1{Laukiama 1 atsisiuntimo}one{Laukiama # atsisiuntimo}few{Laukiama # atsisiuntimų}many{Laukiama # atsisiuntimo}other{Laukiama # atsisiuntimų}}</translation>
 <translation id="723171743924126238">Pasirinkti vaizdus</translation>
 <translation id="7243308994586599757">Parinktys pasiekiamos netoli ekrano apačios</translation>
 <translation id="7250468141469952378">Pasirinkta: <ph name="ITEM_COUNT" /></translation>
@@ -793,7 +788,6 @@ Pavyzdžiui, kai kurios svetainės gali atsakyti į šią užklausą rodydamos j
 <translation id="7882131421121961860">Nerasta istorijos</translation>
 <translation id="7882806643839505685">Konkrečios svetainės garso leidimas.</translation>
 <translation id="7929962904089429003">Atidaryti meniu</translation>
-<translation id="7939459033526903956">{FILE_COUNT,plural, =1{Baigtas 1 atsisiuntimas}one{Baigtas # atsisiuntimas}few{Baigti # atsisiuntimai}many{Baigta # atsisiuntimo}other{Baigta # atsisiuntimų}}</translation>
 <translation id="7942131818088350342">„<ph name="PRODUCT_NAME" />“ pasenęs.</translation>
 <translation id="7947953824732555851">Sutikti ir prisij.</translation>
 <translation id="7963646190083259054">Paslaugos teikėjas:</translation>
@@ -928,7 +922,6 @@ Jei norite gauti naujas licencijas, prisijunkite prie interneto ir leiskite atsi
 <translation id="9139068048179869749">Klausti prieš leidžiant svetainėms siųsti pranešimus (rekomenduojama)</translation>
 <translation id="9155898266292537608">Taip pat galite ieškoti greitai paliesdami žodį</translation>
 <translation id="9188680907066685419">Atsijungimas nuo valdomos paskyros</translation>
-<translation id="9201987247565328043">{FILE_COUNT,plural, =1{Atsisiunčiamas failas}one{Atsisiunčiamas # failas}few{Atsisiunčiami # failai}many{Atsisiunčiama # failo}other{Atsisiunčiama # failų}}</translation>
 <translation id="9204836675896933765">Liko failų: 1</translation>
 <translation id="9206873250291191720">A</translation>
 <translation id="9219103736887031265">Vaizdai</translation>

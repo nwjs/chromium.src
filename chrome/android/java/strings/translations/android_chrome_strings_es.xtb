@@ -126,8 +126,6 @@
 <translation id="2038563949887743358">Activar opción para ver como ordenador</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB de otras aplicaciones</translation>
 <translation id="2063713494490388661">Tocar para buscar</translation>
-<translation id="2065944887543506430">{FILE_COUNT,plural, =1{No se ha podido descargar 1 archivo}other{No se han podido descargar # archivos}}</translation>
-<translation id="2074837478271106772">Descargando <ph name="COUNT" /> archivos (<ph name="MEGABYTES" />)</translation>
 <translation id="2079545284768500474">Deshacer</translation>
 <translation id="2082238445998314030">Resultado <ph name="RESULT_NUMBER" /> de <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2086652334978798447">Para obtener contenido personalizado sugerido por Google, inicia sesión en Chrome.</translation>
@@ -247,7 +245,6 @@
 <translation id="3137521801621304719">Salir del modo incógnito</translation>
 <translation id="3148434565183091099">Inicia sesión en Chrome para ver tus marcadores en todos tus dispositivos.</translation>
 <translation id="3157842584138209013">Consulta la cantidad de datos que has ahorrado con el botón Más opciones</translation>
-<translation id="3165725985537150202">Descargando archivo (<ph name="MEGABYTES" />)</translation>
 <translation id="3166827708714933426">Combinaciones de teclas de pestañas y ventanas</translation>
 <translation id="3190152372525844641">Activa los permisos para Chrome en los <ph name="BEGIN_LINK" />ajustes de Android<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> de datos almacenados</translation>
@@ -595,7 +592,6 @@ No obstante, tus acciones no serán totalmente invisibles. El uso del modo incó
 <translation id="618555311922999635">El panel de navegación ocupa toda la pantalla</translation>
 <translation id="6192333916571137726">Descargar archivo</translation>
 <translation id="6192792657125177640">Excepciones</translation>
-<translation id="6196868727350051527">Acelerando descarga</translation>
 <translation id="6210748933810148297">¿No eres <ph name="EMAIL" />?</translation>
 <translation id="6216432067784365534">Opciones de <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6221633008163990886">Desbloquea el dispositivo para exportar las contraseñas</translation>
@@ -717,7 +713,6 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anu
 <translation id="7189372733857464326">Esperando a que Servicios de Google Play termine de actualizarse</translation>
 <translation id="7189598951263744875">Compartir...</translation>
 <translation id="7191430249889272776">Pestaña abierta en segundo plano.</translation>
-<translation id="7227218174981371415">{FILE_COUNT,plural, =1{1 descarga pendiente}other{# descargas pendientes}}</translation>
 <translation id="723171743924126238">Seleccionar imágenes</translation>
 <translation id="7243308994586599757">Opciones disponibles cerca de la parte inferior de la pantalla</translation>
 <translation id="7250468141469952378">Elementos seleccionados: <ph name="ITEM_COUNT" /></translation>
@@ -794,7 +789,6 @@ Por ejemplo, algunos sitios web pueden responder a la solicitud mostrándote anu
 <translation id="7882131421121961860">No se ha encontrado el elemento buscado en el historial</translation>
 <translation id="7882806643839505685">Permite que se reproduzcan sonidos en un sitio web específico.</translation>
 <translation id="7929962904089429003">Abre el menú</translation>
-<translation id="7939459033526903956">{FILE_COUNT,plural, =1{1 descarga completada}other{# descargas completadas}}</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> está obsoleto.</translation>
 <translation id="7947953824732555851">Aceptar y acceder</translation>
 <translation id="7963646190083259054">Proveedor:</translation>
@@ -929,7 +923,6 @@ Para obtener nuevas licencias, conéctate a Internet y reproduce el contenido de
 <translation id="9139068048179869749">Preguntar antes de permitir que los sitios web envíen notificaciones (recomendado)</translation>
 <translation id="9155898266292537608">También puedes tocar rápidamente una palabra para hacer búsquedas</translation>
 <translation id="9188680907066685419">Cierra sesión en la cuenta gestionada</translation>
-<translation id="9201987247565328043">{FILE_COUNT,plural, =1{Descargando archivo}other{Descargando # archivos}}</translation>
 <translation id="9204836675896933765">1 archivo restante</translation>
 <translation id="9206873250291191720">A</translation>
 <translation id="9219103736887031265">Imágenes</translation>

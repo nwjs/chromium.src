@@ -1018,7 +1018,7 @@ Ma arvan, et see sait ei tohiks olla blokeeritud.</translation>
 <translation id="2544853746127077729">Võrk lükkas autentimissertifikaadi tagasi</translation>
 <translation id="2547921442987553570">Lisa laiendusse <ph name="EXTENSION_NAME" /></translation>
 <translation id="2550212893339833758">Saalitud mälu</translation>
-<translation id="2550596535588364872">Kas soovite lubada laiendil <ph name="EXTENSION_NAME" /> avada faili <ph name="FILE_NAME" />?</translation>
+<translation id="2550596535588364872">Kas soovite lubada laiendusel <ph name="EXTENSION_NAME" /> avada faili <ph name="FILE_NAME" />?</translation>
 <translation id="2553340429761841190"><ph name="PRODUCT_NAME" /> ei suutnud ühenduda võrku <ph name="NETWORK_ID" />. Valige muu võrk või proovige uuesti.</translation>
 <translation id="2553440850688409052">Peida pistikprogramm</translation>
 <translation id="2554553592469060349">Valitud fail on liiga suur (max suurus on 3 MB).</translation>

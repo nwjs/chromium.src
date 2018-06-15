@@ -126,8 +126,6 @@
 <translation id="2038563949887743358">Włącz opcję „Wersja na komputer”</translation>
 <translation id="2045104531052923016"><ph name="GIGABYTES" /> GB innych aplikacji</translation>
 <translation id="2063713494490388661">Kliknij, by wyszukać</translation>
-<translation id="2065944887543506430">{FILE_COUNT,plural, =1{Nie udało się pobrać 1 pliku}few{Nie udało się pobrać # plików}many{Nie udało się pobrać # plików}other{Nie udało się pobrać # pliku}}</translation>
-<translation id="2074837478271106772">Pobieram pliki: <ph name="COUNT" /> (<ph name="MEGABYTES" />)</translation>
 <translation id="2079545284768500474">Cofnij</translation>
 <translation id="2082238445998314030">Wynik <ph name="RESULT_NUMBER" /> z <ph name="TOTAL_RESULTS" /></translation>
 <translation id="2086652334978798447">Aby uzyskać dostęp do spersonalizowanej treści proponowanej przez Google, zaloguj się w Chrome.</translation>
@@ -247,7 +245,6 @@
 <translation id="3137521801621304719">Wyłącz tryb incognito</translation>
 <translation id="3148434565183091099">Aby korzystać ze swoich zakładek na wszystkich urządzeniach, zaloguj się w Chrome.</translation>
 <translation id="3157842584138209013">Sprawdź ilość zaoszczędzonych danych, używając przycisku Więcej opcji</translation>
-<translation id="3165725985537150202">Pobieram plik (<ph name="MEGABYTES" />)</translation>
 <translation id="3166827708714933426">Skróty kart i okien</translation>
 <translation id="3190152372525844641">Przyznaj Chrome uprawnienia w <ph name="BEGIN_LINK" />ustawieniach Androida<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> zapisanych danych</translation>
@@ -595,7 +592,6 @@ To jednak nie oznacza, że Cię nie widać. Nawet gdy przejdziesz w tryb incogni
 <translation id="618555311922999635">Panel użytkownika otwarty na całą wysokość</translation>
 <translation id="6192333916571137726">Pobranie pliku</translation>
 <translation id="6192792657125177640">Wyjątki</translation>
-<translation id="6196868727350051527">Przyspieszam pobieranie</translation>
 <translation id="6210748933810148297"><ph name="EMAIL" /> to nie Ty?</translation>
 <translation id="6216432067784365534"><ph name="NAME_OF_LIST_ITEM" /> – opcje</translation>
 <translation id="6221633008163990886">Odblokuj, by wyeksportować hasła</translation>
@@ -717,7 +713,6 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="7189372733857464326">Czekam na zakończenie aktualizacji Usług Google Play</translation>
 <translation id="7189598951263744875">Udostępnij...</translation>
 <translation id="7191430249889272776">Karta otwarta w tle.</translation>
-<translation id="7227218174981371415">{FILE_COUNT,plural, =1{1 plik oczekuje na pobranie}few{# pliki oczekują na pobranie}many{# plików oczekuje na pobranie}other{# pliku oczekuje na pobranie}}</translation>
 <translation id="723171743924126238">Wybierz zdjęcia</translation>
 <translation id="7243308994586599757">Opcje dostępne u dołu ekranu</translation>
 <translation id="7250468141469952378">Wybrano <ph name="ITEM_COUNT" /></translation>
@@ -794,7 +789,6 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="7882131421121961860">Brak historii</translation>
 <translation id="7882806643839505685">Zezwalaj na dźwięk na określonej stronie.</translation>
 <translation id="7929962904089429003">Otwórz menu</translation>
-<translation id="7939459033526903956">{FILE_COUNT,plural, =1{Ukończono pobieranie 1 pliku}few{Ukończono pobieranie # plików}many{Ukończono pobieranie # plików}other{Ukończono pobieranie # pliku}}</translation>
 <translation id="7942131818088350342">Przeglądarka <ph name="PRODUCT_NAME" /> jest nieaktualna.</translation>
 <translation id="7947953824732555851">Zaakceptuj i zaloguj się</translation>
 <translation id="7963646190083259054">Dostawca:</translation>
@@ -929,7 +923,6 @@ Aby otrzymać nowe licencje, połącz się z internetem i odtwórz pobrane treś
 <translation id="9139068048179869749">Pytaj, zanim zezwolisz stronom na wysyłanie powiadomień (zalecane)</translation>
 <translation id="9155898266292537608">Możesz też wyszukiwać szybkim kliknięciem słowa</translation>
 <translation id="9188680907066685419">Wyloguj się z konta zarządzanego</translation>
-<translation id="9201987247565328043">{FILE_COUNT,plural, =1{Pobieram plik}few{Pobieram # pliki}many{Pobieram # plików}other{Pobieram # pliku}}</translation>
 <translation id="9204836675896933765">Pozostał jeden plik</translation>
 <translation id="9206873250291191720">A</translation>
 <translation id="9219103736887031265">Grafika</translation>
