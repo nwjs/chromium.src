@@ -3,6 +3,7 @@
 // found in the LICENSE file.
 
 #include "content/browser/renderer_host/render_widget_host_view_mac.h"
+#include "content/public/common/content_switches.h"
 
 #import <Carbon/Carbon.h>
 
@@ -58,6 +59,10 @@ using blink::WebInputEvent;
 using blink::WebMouseEvent;
 using blink::WebGestureEvent;
 using blink::WebTouchEvent;
+
+namespace content {
+  extern bool g_force_cpu_draw;
+}
 
 namespace content {
 
@@ -218,6 +223,13 @@ RenderWidgetHostViewCocoa* RenderWidgetHostViewMac::cocoa_view() const {
   return ns_view_bridge_->GetRenderWidgetHostViewCocoa();
 }
 
+CALayer* RenderWidgetHostViewMac::background_layer() const {
+  assert(content::g_force_cpu_draw);
+  if (ns_view_bridge_)
+    return ns_view_bridge_->GetBackgroundLayer();
+  return nil;
+}
+
 void RenderWidgetHostViewMac::SetDelegate(
     NSObject<RenderWidgetHostViewMacDelegate>* delegate) {
   [cocoa_view() setResponderDelegate:delegate];
@@ -376,6 +388,7 @@ void RenderWidgetHostViewMac::Hide() {
   is_visible_ = false;
   ns_view_bridge_->SetVisible(is_visible_);
   host()->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 
@@ -386,6 +399,7 @@ void RenderWidgetHostViewMac::WasUnOccluded() {
 
 void RenderWidgetHostViewMac::WasOccluded() {
   host()->WasHidden();
+  if (!base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableRAFThrottling))
   browser_compositor_->SetRenderWidgetHostIsHidden(true);
 }
 
@@ -1320,6 +1334,10 @@ MouseWheelPhaseHandler* RenderWidgetHostViewMac::GetMouseWheelPhaseHandler() {
 
 ///////////////////////////////////////////////////////////////////////////////
 // RenderWidgetHostNSViewClient implementation:
+
+RenderWidgetHostViewMac* RenderWidgetHostViewMac::GetRenderWidgetHostViewMac() {
+  return this;
+}
 
 BrowserAccessibilityManager*
 RenderWidgetHostViewMac::GetRootBrowserAccessibilityManager() {

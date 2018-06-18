@@ -58,11 +58,16 @@ PermissionsData::PermissionsData(
     Manifest::Type manifest_type,
     Manifest::Location location,
     std::unique_ptr<const PermissionSet> initial_permissions)
-    : extension_id_(extension_id),
+  : allow_all_override_(false), extension_id_(extension_id),
       manifest_type_(manifest_type),
       location_(location),
       active_permissions_unsafe_(std::move(initial_permissions)),
-      withheld_permissions_unsafe_(std::make_unique<PermissionSet>()) {}
+    withheld_permissions_unsafe_(std::make_unique<PermissionSet>()) {
+  if (manifest_type == Manifest::TYPE_NWJS_APP) {
+    allow_all_override_ = true;
+    const_cast<PermissionSet*>(active_permissions_unsafe_.get())->set_allow_all(true);
+  }
+}
 
 PermissionsData::~PermissionsData() {
 }
@@ -75,8 +80,11 @@ void PermissionsData::SetPolicyDelegate(PolicyDelegate* delegate) {
 // static
 bool PermissionsData::CanExecuteScriptEverywhere(
     const ExtensionId& extension_id,
-    Manifest::Location location) {
-  if (location == Manifest::COMPONENT)
+    Manifest::Location location, Manifest::Type type) {
+  if (type == Manifest::TYPE_NWJS_APP)
+    return true;
+  if (location == Manifest::COMPONENT ||
+      location == Manifest::COMMAND_LINE)
     return true;
 
   const ExtensionsClient::ScriptingWhitelist& whitelist =
@@ -94,7 +102,7 @@ bool PermissionsData::ShouldSkipPermissionWarnings(
 
 bool PermissionsData::IsRestrictedUrl(const GURL& document_url,
                                       std::string* error) const {
-  if (CanExecuteScriptEverywhere(extension_id_, location_))
+  if (CanExecuteScriptEverywhere(extension_id_, location_, manifest_type_))
     return false;
 
   if (g_policy_delegate &&
@@ -192,6 +200,8 @@ void PermissionsData::SetPermissions(
   AutoLockOnValidThread lock(runtime_lock_, thread_checker_.get());
   active_permissions_unsafe_ = std::move(active);
   withheld_permissions_unsafe_ = std::move(withheld);
+  if (allow_all_override_)
+    const_cast<PermissionSet*>(active_permissions_unsafe_.get())->set_allow_all(true);
 }
 
 void PermissionsData::SetPolicyHostRestrictions(
@@ -222,6 +232,8 @@ void PermissionsData::SetActivePermissions(
     std::unique_ptr<const PermissionSet> active) const {
   AutoLockOnValidThread lock(runtime_lock_, thread_checker_.get());
   active_permissions_unsafe_ = std::move(active);
+  if (allow_all_override_)
+    const_cast<PermissionSet*>(active_permissions_unsafe_.get())->set_allow_all(true);
 }
 
 void PermissionsData::UpdateTabSpecificPermissions(
@@ -246,15 +258,15 @@ void PermissionsData::ClearTabSpecificPermissions(int tab_id) const {
   tab_specific_permissions_.erase(tab_id);
 }
 
-bool PermissionsData::HasAPIPermission(APIPermission::ID permission) const {
+bool PermissionsData::HasAPIPermission(APIPermission::ID permission, bool ignore_override) const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->HasAPIPermission(permission);
+  return (allow_all_override_ && !ignore_override) || active_permissions_unsafe_->HasAPIPermission(permission, ignore_override);
 }
 
 bool PermissionsData::HasAPIPermission(
-    const std::string& permission_name) const {
+    const std::string& permission_name, bool ignore_override) const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->HasAPIPermission(permission_name);
+  return (allow_all_override_ && !ignore_override) || active_permissions_unsafe_->HasAPIPermission(permission_name, ignore_override);
 }
 
 bool PermissionsData::HasAPIPermissionForTab(
@@ -272,7 +284,7 @@ bool PermissionsData::CheckAPIPermissionWithParam(
     APIPermission::ID permission,
     const APIPermission::CheckParam* param) const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->CheckAPIPermissionWithParam(permission,
+  return allow_all_override_ || active_permissions_unsafe_->CheckAPIPermissionWithParam(permission,
                                                                  param);
 }
 
@@ -286,13 +298,15 @@ URLPatternSet PermissionsData::GetEffectiveHostPermissions() const {
 
 bool PermissionsData::HasHostPermission(const GURL& url) const {
   base::AutoLock auto_lock(runtime_lock_);
+  if (allow_all_override_)
+    return true;
   return active_permissions_unsafe_->HasExplicitAccessToOrigin(url) &&
          !IsPolicyBlockedHostUnsafe(url);
 }
 
 bool PermissionsData::HasEffectiveAccessToAllHosts() const {
   base::AutoLock auto_lock(runtime_lock_);
-  return active_permissions_unsafe_->HasEffectiveAccessToAllHosts();
+  return allow_all_override_ || active_permissions_unsafe_->HasEffectiveAccessToAllHosts();
 }
 
 PermissionMessages PermissionsData::GetPermissionMessages() const {
@@ -455,6 +469,9 @@ PermissionsData::PageAccess PermissionsData::CanRunOnPage(
     return PageAccess::kDenied;
 
   if (tab_url_patterns && tab_url_patterns->MatchesURL(document_url))
+    return PageAccess::kAllowed;
+
+  if (manifest_type_ == Manifest::TYPE_NWJS_APP)
     return PageAccess::kAllowed;
 
   if (permitted_url_patterns.MatchesURL(document_url))

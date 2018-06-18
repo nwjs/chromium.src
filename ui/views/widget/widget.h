@@ -486,7 +486,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   void SetShape(std::unique_ptr<ShapeRects> shape);
 
   // Hides the widget then closes it after a return to the message loop.
-  virtual void Close();
+  virtual void Close(bool force = false);
 
   // TODO(beng): Move off public API.
   // Closes the widget immediately. Compare to |Close|. This will destroy the
@@ -790,6 +790,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
   bool IsAlwaysRenderAsActive() const override;
   void SetAlwaysRenderAsActive(bool always_render_as_active) override;
   bool OnNativeWidgetActivationChanged(bool active) override;
+  bool NWCanClose(bool user_force = false) const override;
   void OnNativeFocus() override;
   void OnNativeBlur() override;
   void OnNativeWidgetVisibilityChanging(bool visible) override;

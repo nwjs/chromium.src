@@ -655,7 +655,11 @@ ExtensionFunction::ResponseAction GetPreferenceFunction::Run() {
   auto result = std::make_unique<base::DictionaryValue>();
 
   // Retrieve level of control.
-  std::string level_of_control = helpers::GetLevelOfControl(
+  std::string level_of_control;
+  if (extension()->is_nwjs_app())
+    level_of_control = "controllable_by_this_extension";
+  else
+    level_of_control = helpers::GetLevelOfControl(
       profile, extension_id(), browser_pref, incognito);
   result->SetString(keys::kLevelOfControl, level_of_control);
 

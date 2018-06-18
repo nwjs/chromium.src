@@ -12,6 +12,8 @@
 #include "ui/gfx/geometry/size.h"
 #include "ui/gfx/native_widget_types.h"
 
+class SkCanvas;
+
 namespace ui {
 
 // A class through which an AcceleratedWidget may be bound to draw the contents
@@ -62,7 +64,7 @@ class ACCELERATED_WIDGET_MAC_EXPORT AcceleratedWidgetMac
   // attached to an NSView.
   static NSView* GetNSView(gfx::AcceleratedWidget widget);
 
- private:
+ public:
   // For CALayerFrameSink::FromAcceleratedWidget to access Get.
   friend class CALayerFrameSink;
 
@@ -73,6 +75,9 @@ class ACCELERATED_WIDGET_MAC_EXPORT AcceleratedWidgetMac
 
   // gfx::CALayerFrameSink implementation:
   void UpdateCALayerTree(const gfx::CALayerParams& ca_layer_params) override;
+
+  void GotSoftwareFrame(float scale_factor,
+                        SkCanvas* canvas);
 
   // The AcceleratedWidgetMacNSView that is using this as its internals.
   AcceleratedWidgetMacNSView* view_ = nullptr;
@@ -90,6 +95,10 @@ class ACCELERATED_WIDGET_MAC_EXPORT AcceleratedWidgetMac
 
   DISALLOW_COPY_AND_ASSIGN(AcceleratedWidgetMac);
 };
+
+ACCELERATED_WIDGET_MAC_EXPORT
+void AcceleratedWidgetMacGotSoftwareFrame(
+    gfx::AcceleratedWidget widget, float scale_factor, SkCanvas* canvas);
 
 }  // namespace ui
 

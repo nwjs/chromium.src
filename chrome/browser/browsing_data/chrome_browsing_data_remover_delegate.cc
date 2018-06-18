@@ -152,6 +152,7 @@ base::OnceClosure UIThreadTrampoline(base::OnceClosure callback) {
 }
 #endif  // BUILDFLAG(ENABLE_NACL)
 
+
 template <typename T>
 void IgnoreArgumentHelper(base::OnceClosure callback, T unused_argument) {
   std::move(callback).Run();
@@ -254,12 +255,14 @@ bool DoesOriginMatchEmbedderMask(int origin_type_mask,
 // Callback for when cookies have been deleted. Invokes NotifyIfDone.
 // Receiving |cookie_manager| as a parameter so that the receive pipe is
 // not deleted before the response is received.
+#if 0
 void OnClearedCookies(base::OnceClosure done,
                       network::mojom::CookieManagerPtr cookie_manager,
                       uint32_t num_deleted) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   std::move(done).Run();
 }
+#endif
 
 }  // namespace
 
@@ -644,6 +647,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
     // hours/days to the safebrowsing cookies since they aren't the result of
     // any user action.
     if (delete_begin_ == base::Time()) {
+#if 0
       safe_browsing::SafeBrowsingService* sb_service =
           g_browser_process->safe_browsing_service();
       if (sb_service) {
@@ -666,6 +670,7 @@ void ChromeBrowsingDataRemoverDelegate::RemoveEmbedderData(
                            CreatePendingTaskCompletionClosure(),
                            std::move(cookie_manager)));
       }
+#endif
     }
 
     MediaDeviceIDSalt::Reset(profile_->GetPrefs());

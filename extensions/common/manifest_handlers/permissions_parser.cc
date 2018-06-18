@@ -62,7 +62,7 @@ bool CanSpecifyHostPermission(const Extension* extension,
 
     // Component extensions can have access to all of chrome://*.
     if (PermissionsData::CanExecuteScriptEverywhere(extension->id(),
-                                                    extension->location())) {
+                                                    extension->location(), extension->GetType())) {
       return true;
     }
 
@@ -161,7 +161,7 @@ bool ParseHelper(Extension* extension,
 
   bool can_execute_script_everywhere =
       PermissionsData::CanExecuteScriptEverywhere(extension->id(),
-                                                  extension->location());
+                                                  extension->location(), extension->GetType());
 
   // Parse host pattern permissions.
   const int kAllowedSchemes = can_execute_script_everywhere

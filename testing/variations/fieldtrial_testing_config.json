@@ -3536,24 +3536,6 @@
             ]
         }
     ],
-    "SitePerProcess": [
-        {
-            "platforms": [
-                "chromeos",
-                "linux",
-                "win",
-                "mac"
-            ],
-            "experiments": [
-                {
-                    "name": "SitePerProcess_Enabled",
-                    "enable_features": [
-                        "site-per-process"
-                    ]
-                }
-            ]
-        }
-    ],
     "SocketReadIfReady": [
         {
             "platforms": [

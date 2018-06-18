@@ -2,6 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+#include "content/nw/src/nw_base.h"
+
 #include "services/service_manager/embedder/main.h"
 
 #include "base/allocator/buildflags.h"
@@ -178,7 +180,7 @@ void CommonSubprocessInit() {
   setlocale(LC_NUMERIC, "C");
 #endif
 
-#if !defined(OFFICIAL_BUILD) && defined(OS_WIN)
+#if 0
   base::RouteStdioToConsole(false);
   LoadLibraryA("dbghelp.dll");
 #endif
@@ -352,7 +354,7 @@ int Main(const MainParams& params) {
 
   base::EnableTerminationOnHeapCorruption();
 
-  SetProcessTitleFromCommandLine(argv);
+  //SetProcessTitleFromCommandLine(argv);
 #endif  // !defined(OS_ANDROID)
 
 // On Android setlocale() is not supported, and we don't override the signal
@@ -385,10 +387,10 @@ int Main(const MainParams& params) {
 #endif
 
   mojo::edk::Configuration mojo_config;
+  std::string type_switch =
+        command_line.GetSwitchValueASCII(switches::kProcessType);
   ProcessType process_type = delegate->OverrideProcessType();
   if (process_type == ProcessType::kDefault) {
-    std::string type_switch =
-        command_line.GetSwitchValueASCII(switches::kProcessType);
     if (type_switch == switches::kProcessTypeServiceManager) {
       mojo_config.is_broker_process = true;
       process_type = ProcessType::kServiceManager;
@@ -416,7 +418,7 @@ int Main(const MainParams& params) {
     return exit_code;
   }
 
-#if defined(OS_WIN)
+#if 0 //defined(OS_WIN)
   // Route stdio to parent console (if any) or create one.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kEnableLogging)) {
@@ -459,7 +461,8 @@ int Main(const MainParams& params) {
       exit_code = delegate->RunEmbedderProcess();
       break;
   }
-
+  if (type_switch == "renderer")
+    exit_code = nw::ExitCodeHook();
   if (tracker) {
     if (exit_code == 0) {
       tracker->SetProcessPhaseIfEnabled(
