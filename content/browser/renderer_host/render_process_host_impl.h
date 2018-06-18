@@ -304,7 +304,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
     kMismatchedStoragePartition = 2,
     kRefusedByEmbedder = 3,
     kSpareTaken = 4,
-    kMaxValue = kSpareTaken
+    kRefusedBySiteInstance = 5,
+    kMaxValue = kRefusedBySiteInstance
   };
 
   static base::MessageLoop* GetInProcessRendererThreadForTesting();
