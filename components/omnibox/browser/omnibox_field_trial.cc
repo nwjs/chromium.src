@@ -27,7 +27,6 @@
 #include "components/variations/variations_associated_data.h"
 #include "third_party/metrics_proto/omnibox_event.pb.h"
 #include "ui/base/material_design/material_design_controller.h"
-#include "ui/base/ui_base_features.h"
 
 using metrics::OmniboxEventProto;
 
@@ -640,10 +639,8 @@ int OmniboxFieldTrial::KeywordScoreForSufficientlyCompleteMatch() {
 OmniboxFieldTrial::EmphasizeTitlesCondition
 OmniboxFieldTrial::GetEmphasizeTitlesConditionForInput(
     const AutocompleteInput& input) {
-  if (base::FeatureList::IsEnabled(omnibox::kUIExperimentSwapTitleAndUrl) ||
-      base::FeatureList::IsEnabled(features::kExperimentalUi)) {
+  if (base::FeatureList::IsEnabled(omnibox::kUIExperimentSwapTitleAndUrl))
     return EMPHASIZE_WHEN_NONEMPTY;
-  }
 
   // Touch-optimized UI and MD Refresh also always swap title and URL.
   if (ui::MaterialDesignController::is_mode_initialized() &&
@@ -680,13 +677,11 @@ OmniboxFieldTrial::GetEmphasizeTitlesConditionForInput(
 }
 
 bool OmniboxFieldTrial::IsNewAnswerLayoutEnabled() {
-  return base::FeatureList::IsEnabled(omnibox::kOmniboxNewAnswerLayout) ||
-         base::FeatureList::IsEnabled(features::kExperimentalUi);
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxNewAnswerLayout);
 }
 
 bool OmniboxFieldTrial::IsTabSwitchSuggestionsEnabled() {
-  return base::FeatureList::IsEnabled(omnibox::kOmniboxTabSwitchSuggestions) ||
-         base::FeatureList::IsEnabled(features::kExperimentalUi);
+  return base::FeatureList::IsEnabled(omnibox::kOmniboxTabSwitchSuggestions);
 }
 
 bool OmniboxFieldTrial::IsHideSteadyStateUrlSchemeAndSubdomainsEnabled() {
@@ -703,20 +698,15 @@ bool OmniboxFieldTrial::IsHideSteadyStateUrlSchemeAndSubdomainsEnabled() {
 #endif  // defined(OS_MACOSX)
 
   return base::FeatureList::IsEnabled(
-             omnibox::kUIExperimentHideSteadyStateUrlSchemeAndSubdomains) ||
-         base::FeatureList::IsEnabled(features::kExperimentalUi);
+      omnibox::kUIExperimentHideSteadyStateUrlSchemeAndSubdomains);
 }
 
 bool OmniboxFieldTrial::IsShowSuggestionFaviconsEnabled() {
   return base::FeatureList::IsEnabled(
-             omnibox::kUIExperimentShowSuggestionFavicons) ||
-         base::FeatureList::IsEnabled(features::kExperimentalUi);
+      omnibox::kUIExperimentShowSuggestionFavicons);
 }
 
 int OmniboxFieldTrial::GetSuggestionVerticalMargin() {
-  if (base::FeatureList::IsEnabled(features::kExperimentalUi))
-    return 10;
-
   using Md = ui::MaterialDesignController;
   return base::GetFieldTrialParamByFeatureAsInt(
       omnibox::kUIExperimentVerticalMargin, kUIVerticalMarginParam,
