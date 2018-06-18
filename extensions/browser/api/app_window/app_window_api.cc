@@ -47,7 +47,7 @@ namespace app_window = extensions::api::app_window;
 namespace Create = app_window::Create;
 
 namespace content {
-  extern bool g_support_transparency;
+  DISPLAY_EXPORT extern bool g_support_transparency;
 }
 namespace extensions {
 
