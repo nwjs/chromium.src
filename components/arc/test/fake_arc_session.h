@@ -21,9 +21,7 @@ class FakeArcSession : public ArcSession {
 
   // ArcSession overrides:
   void StartMiniInstance() override;
-  void RequestUpgrade(
-      const std::string& locale,
-      const std::vector<std::string>& preferred_languages) override;
+  void RequestUpgrade() override;
   void Stop() override;
   bool IsStopRequested() override;
   void OnShutdown() override;

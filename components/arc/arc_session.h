@@ -6,8 +6,6 @@
 #define COMPONENTS_ARC_ARC_SESSION_H_
 
 #include <memory>
-#include <string>
-#include <vector>
 
 #include "base/macros.h"
 #include "base/observer_list.h"
@@ -50,12 +48,8 @@ class ArcSession {
 
   // Sends a D-Bus message to upgrade to a full instance if
   // possible. This might be done asynchronously; the message might only be sent
-  // after other operations have completed. |locale| and |preferred_languages|
-  // define language configuration set during Android container boot.
-  // |preferred_languages| may be empty.
-  virtual void RequestUpgrade(
-      const std::string& locale,
-      const std::vector<std::string>& preferred_languages) = 0;
+  // after other operations have completed.
+  virtual void RequestUpgrade() = 0;
 
   // Requests to stop the currently-running instance regardless of its mode.
   // The completion is notified via OnSessionStopped() of the Observer.

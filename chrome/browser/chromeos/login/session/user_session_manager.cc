@@ -1503,8 +1503,6 @@ bool UserSessionManager::InitializeUserSession(Profile* profile) {
     return false;
   }
 
-  ProfileHelper::Get()->ProfileStartup(profile);
-
   if (start_session_type_ == PRIMARY_USER_SESSION) {
     UserFlow* user_flow = ChromeUserManager::Get()->GetCurrentUserFlow();
     WizardController* oobe_controller = WizardController::default_controller();

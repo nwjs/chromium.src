@@ -272,15 +272,10 @@ void ArcSessionImpl::StartMiniInstance() {
                               weak_factory_.GetWeakPtr()));
 }
 
-void ArcSessionImpl::RequestUpgrade(
-    const std::string& locale,
-    const std::vector<std::string>& preferred_languages) {
+void ArcSessionImpl::RequestUpgrade() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
-  DCHECK(!locale.empty());
 
   upgrade_requested_ = true;
-  locale_ = locale;
-  preferred_languages_ = preferred_languages;
 
   switch (state_) {
     case State::NOT_STARTED:
@@ -369,10 +364,6 @@ void ArcSessionImpl::DoUpgrade() {
     VLOG(2) << "Invalid packages cache mode switch "
             << packages_cache_mode_string << ".";
   }
-
-  request.set_locale(locale_);
-  for (const std::string& language : preferred_languages_)
-    request.add_preferred_languages(language);
 
   chromeos::SessionManagerClient* client = GetSessionManagerClient();
   client->UpgradeArcContainer(
