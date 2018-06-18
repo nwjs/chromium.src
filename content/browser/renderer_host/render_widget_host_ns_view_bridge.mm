@@ -191,6 +191,10 @@ void RenderWidgetHostViewNSViewBridgeLocal::SetBounds(const gfx::Rect& rect) {
 void RenderWidgetHostViewNSViewBridgeLocal::SetCALayerParams(
     const gfx::CALayerParams& ca_layer_params) {
   display_ca_layer_tree_->UpdateCALayerTree(ca_layer_params);
+  if (content::g_force_cpu_draw) {
+    // this is to tell parent window, that the window content has been updated
+    [[cocoa_view_ superview] setNeedsDisplay:YES];
+  }
 }
 
 void RenderWidgetHostViewNSViewBridgeLocal::SetBackgroundColor(SkColor color) {

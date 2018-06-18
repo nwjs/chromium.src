@@ -10,41 +10,9 @@
 #include "ui/gfx/ca_layer_params.h"
 #include "ui/gfx/mac/io_surface.h"
 #include "ui/gfx/skia_util.h"
-#include "ui/compositor/compositor.h"
-
-namespace content {
-extern bool g_force_cpu_draw;
-} //namespace content
-
-namespace ui {
-void AcceleratedWidgetMacGotSoftwareFrame(
-    gfx::AcceleratedWidget widget, float scale_factor, SkCanvas* canvas);
-}
 
 namespace viz {
 
-  
-SoftwareOutputDeviceForceCPUMac::SoftwareOutputDeviceForceCPUMac(gfx::AcceleratedWidget widget)
-    : widget_(widget), scale_factor_(1) {
-  // this class should be created for g_force_cpu_draw
-  assert(content::g_force_cpu_draw);
-}
-
-SoftwareOutputDeviceForceCPUMac::~SoftwareOutputDeviceForceCPUMac() {
-}
-
-void SoftwareOutputDeviceForceCPUMac::Resize(const gfx::Size& pixel_size,
-                                     float scale_factor) {
-  scale_factor_ = scale_factor;
-  SoftwareOutputDevice::Resize(pixel_size, scale_factor);
-}
-
-void SoftwareOutputDeviceForceCPUMac::EndPaint() {
-  SoftwareOutputDevice::EndPaint();
-  ui::AcceleratedWidgetMacGotSoftwareFrame(
-      widget_, scale_factor_, surface_->getCanvas());
-}
-  
 SoftwareOutputDeviceMac::Buffer::Buffer() = default;
 SoftwareOutputDeviceMac::Buffer::~Buffer() = default;
 
