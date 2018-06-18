@@ -402,7 +402,6 @@ RenderWidgetHostImpl::RenderWidgetHostImpl(RenderWidgetHostDelegate* delegate,
   latency_tracker_.Initialize(routing_id_, GetProcess()->GetID());
 
   SetupInputRouter();
-  touch_emulator_.reset();
   SetWidget(std::move(widget));
 
   const auto* command_line = base::CommandLine::ForCurrentProcess();
@@ -971,8 +970,8 @@ void RenderWidgetHostImpl::SetPageFocus(bool focused) {
     if (IsKeyboardLocked())
       UnlockKeyboard();
 
-    if (touch_emulator_)
-      touch_emulator_->CancelTouch();
+    if (auto* touch_emulator = GetExistingTouchEmulator())
+      touch_emulator->CancelTouch();
   } else if (keyboard_lock_allowed_) {
     LockKeyboard();
   }
@@ -986,8 +985,8 @@ void RenderWidgetHostImpl::SetPageFocus(bool focused) {
 }
 
 void RenderWidgetHostImpl::LostCapture() {
-  if (touch_emulator_)
-    touch_emulator_->CancelTouch();
+  if (auto* touch_emulator = GetExistingTouchEmulator())
+    touch_emulator->CancelTouch();
 
   GetWidgetInputHandler()->MouseCaptureLost();
 
@@ -1188,8 +1187,11 @@ void RenderWidgetHostImpl::ForwardMouseEventWithLatencyInfo(
   if (ShouldDropInputEvents())
     return;
 
-  if (touch_emulator_ && touch_emulator_->HandleMouseEvent(mouse_event))
+  auto* touch_emulator = GetExistingTouchEmulator();
+  if (touch_emulator &&
+      touch_emulator->HandleMouseEvent(mouse_event, GetView())) {
     return;
+  }
 
   MouseEventWithLatencyInfo mouse_with_latency(mouse_event, latency);
   DispatchInputEventWithLatencyInfo(mouse_event, &mouse_with_latency.latency);
@@ -1211,7 +1213,8 @@ void RenderWidgetHostImpl::ForwardWheelEventWithLatencyInfo(
   if (ShouldDropInputEvents())
     return;
 
-  if (touch_emulator_ && touch_emulator_->HandleMouseWheelEvent(wheel_event))
+  auto* touch_emulator = GetExistingTouchEmulator();
+  if (touch_emulator && touch_emulator->HandleMouseWheelEvent(wheel_event))
     return;
 
   MouseWheelEventWithLatencyInfo wheel_with_latency(wheel_event, latency);
@@ -1352,12 +1355,11 @@ void RenderWidgetHostImpl::ForwardGestureEventWithLatencyInfo(
 }
 
 void RenderWidgetHostImpl::ForwardEmulatedTouchEvent(
-      const blink::WebTouchEvent& touch_event) {
+    const blink::WebTouchEvent& touch_event,
+    RenderWidgetHostViewBase* target) {
   TRACE_EVENT0("input", "RenderWidgetHostImpl::ForwardEmulatedTouchEvent");
-  ui::LatencyInfo latency_info(ui::SourceEventType::TOUCH);
-  TouchEventWithLatencyInfo touch_with_latency(touch_event, latency_info);
-  DispatchInputEventWithLatencyInfo(touch_event, &touch_with_latency.latency);
-  input_router_->SendTouchEvent(touch_with_latency);
+  ForwardTouchEventWithLatencyInfo(touch_event,
+                                   ui::LatencyInfo(ui::SourceEventType::TOUCH));
 }
 
 void RenderWidgetHostImpl::ForwardTouchEventWithLatencyInfo(
@@ -1369,15 +1371,6 @@ void RenderWidgetHostImpl::ForwardTouchEventWithLatencyInfo(
   // ignored if appropriate in FilterInputEvent().
 
   TouchEventWithLatencyInfo touch_with_latency(touch_event, latency);
-  if (touch_emulator_ &&
-      touch_emulator_->HandleTouchEvent(touch_with_latency.event)) {
-    if (view_) {
-      view_->ProcessAckedTouchEvent(
-          touch_with_latency, INPUT_EVENT_ACK_STATE_CONSUMED);
-    }
-    return;
-  }
-
   DispatchInputEventWithLatencyInfo(touch_event, &touch_with_latency.latency);
   input_router_->SendTouchEvent(touch_with_latency);
 }
@@ -1479,7 +1472,8 @@ void RenderWidgetHostImpl::ForwardKeyboardEventWithCommands(
       suppress_events_until_keydown_ = false;
   }
 
-  if (touch_emulator_ && touch_emulator_->HandleKeyboardEvent(key_event))
+  auto* touch_emulator = GetExistingTouchEmulator();
+  if (touch_emulator && touch_emulator->HandleKeyboardEvent(key_event))
     return;
   NativeWebKeyboardEventWithLatencyInfo key_event_with_latency(key_event,
                                                                latency);
@@ -1713,9 +1707,14 @@ void RenderWidgetHostImpl::NotifyScreenInfoChanged() {
   // factor).
   SynchronizeVisualProperties();
 
-  if (touch_emulator_) {
-    touch_emulator_->SetDeviceScaleFactor(GetScaleFactorForView(view_.get()));
-  }
+  // The device scale factor will be same for all the views contained by the
+  // MainFrame, so just set it once.
+  if (delegate_ && !delegate_->IsWidgetForMainFrame(this))
+    return;
+
+  // The delegate may not have an input event router in tests.
+  if (auto* touch_emulator = GetExistingTouchEmulator())
+    touch_emulator->SetDeviceScaleFactor(GetScaleFactorForView(view_.get()));
 }
 
 void RenderWidgetHostImpl::GetSnapshotFromBrowser(
@@ -2236,11 +2235,19 @@ void RenderWidgetHostImpl::OnAutoscrollEnd() {
 }
 
 TouchEmulator* RenderWidgetHostImpl::GetTouchEmulator() {
-  if (!touch_emulator_) {
-    touch_emulator_.reset(
-        new TouchEmulator(this, GetScaleFactorForView(view_.get())));
+  if (!delegate_ || !delegate_->GetInputEventRouter())
+    return nullptr;
+
+  return delegate_->GetInputEventRouter()->GetTouchEmulator();
+}
+
+TouchEmulator* RenderWidgetHostImpl::GetExistingTouchEmulator() {
+  if (!delegate_ || !delegate_->GetInputEventRouter() ||
+      !delegate_->GetInputEventRouter()->has_touch_emulator()) {
+    return nullptr;
   }
-  return touch_emulator_.get();
+
+  return delegate_->GetInputEventRouter()->GetTouchEmulator();
 }
 
 void RenderWidgetHostImpl::OnTextInputStateChanged(
@@ -2548,8 +2555,10 @@ void RenderWidgetHostImpl::OnGestureEventAck(
   for (auto& input_event_observer : input_event_observers_)
     input_event_observer.OnInputEventAck(ack_source, ack_result, event.event);
 
-  if (touch_emulator_)
-    touch_emulator_->OnGestureEventAck(event.event);
+  // If the TouchEmulator didn't exist when this GestureEvent was sent, we
+  // shouldn't create it here.
+  if (auto* touch_emulator = GetExistingTouchEmulator())
+    touch_emulator->OnGestureEventAck(event.event, GetView());
 
   if (view_)
     view_->GestureEventAck(event.event, ack_result);
@@ -2563,8 +2572,9 @@ void RenderWidgetHostImpl::OnTouchEventAck(
   for (auto& input_event_observer : input_event_observers_)
     input_event_observer.OnInputEventAck(ack_source, ack_result, event.event);
 
-  if (touch_emulator_ &&
-      touch_emulator_->HandleTouchEventAck(event.event, ack_result)) {
+  auto* touch_emulator = GetExistingTouchEmulator();
+  if (touch_emulator &&
+      touch_emulator->HandleTouchEventAck(event.event, ack_result)) {
     return;
   }
 
@@ -3141,8 +3151,8 @@ void RenderWidgetHostImpl::OnRenderFrameMetadataChanged() {
       render_frame_metadata_provider_.LastRenderFrameMetadata()
           .is_mobile_optimized;
   input_router_->NotifySiteIsMobileOptimized(is_mobile_optimized);
-  if (touch_emulator_)
-    touch_emulator_->SetDoubleTapSupportForPageEnabled(!is_mobile_optimized);
+  if (auto* touch_emulator = GetExistingTouchEmulator())
+    touch_emulator->SetDoubleTapSupportForPageEnabled(!is_mobile_optimized);
 }
 
 void RenderWidgetHostImpl::OnLocalSurfaceIdChanged(
