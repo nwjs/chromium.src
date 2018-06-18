@@ -12,6 +12,7 @@
 #include "content/browser/indexed_db/indexed_db_internals_ui.h"
 #include "content/browser/media/media_internals_ui.h"
 #include "content/browser/net/network_errors_listing_ui.h"
+#include "content/browser/process_internals/process_internals_ui.h"
 #include "content/browser/service_worker/service_worker_internals_ui.h"
 #include "content/browser/tracing/tracing_ui.h"
 #include "content/browser/webrtc/webrtc_internals_ui.h"
@@ -39,7 +40,8 @@ WebUI::TypeID ContentWebUIControllerFactory::GetWebUIType(
       url.host_piece() == kChromeUIServiceWorkerInternalsHost ||
       url.host_piece() == kChromeUIAccessibilityHost ||
       url.host_piece() == kChromeUIAppCacheInternalsHost ||
-      url.host_piece() == kChromeUINetworkErrorsListingHost) {
+      url.host_piece() == kChromeUINetworkErrorsListingHost ||
+      url.host_piece() == kChromeUIProcessInternalsHost) {
     return const_cast<ContentWebUIControllerFactory*>(this);
   }
   return WebUI::kNoWebUI;
@@ -82,6 +84,8 @@ WebUIController* ContentWebUIControllerFactory::CreateWebUIControllerForURL(
 #endif
   if (url.host_piece() == kChromeUIWebRTCInternalsHost)
     return new WebRTCInternalsUI(web_ui);
+  if (url.host_piece() == kChromeUIProcessInternalsHost)
+    return new ProcessInternalsUI(web_ui);
 
   return nullptr;
 }
