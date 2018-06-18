@@ -15,6 +15,7 @@
 <translation id="1121094540300013208">Správy o použití a o zlyhaní</translation>
 <translation id="11221688409173367">Ak chcete zobraziť články vybrané iba pre vás, klepnite na tlačidlo plochy</translation>
 <translation id="1129510026454351943">Podrobnosti: <ph name="ERROR_DESCRIPTION" /></translation>
+<translation id="1141800923049248244">{FILE_COUNT,plural, =1{Na stiahnutie čaká 1 položka.}few{Na stiahnutie čakajú # položky.}many{# downloads pending.}other{Na stiahnutie čaká # položiek.}}</translation>
 <translation id="1145536944570833626">Odstrániť existujúce dáta.</translation>
 <translation id="1146678959555564648">Zadať VR</translation>
 <translation id="114721135501989771">Získajte inteligentné doplnky Googlu v Chrome</translation>
@@ -117,6 +118,7 @@
 <translation id="1966710179511230534">Aktualizujte svoje prihlasovacie údaje.</translation>
 <translation id="1974060860693918893">Rozšírené</translation>
 <translation id="1984937141057606926">Povolené (okrem tretích strán)</translation>
+<translation id="1987739130650180037"><ph name="MESSAGE" /> tlačidlo <ph name="LINK_NAME" /></translation>
 <translation id="1989112275319619282">Prehliadať</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> žiada o spárovanie</translation>
 <translation id="1994173015038366702">Webová adresa stránok</translation>
@@ -419,6 +421,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="4738836084190194332">Posledná synchronizácia: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Otvorenie novej karty</translation>
 <translation id="4759238208242260848">Stiahnuté</translation>
+<translation id="4763829664323285145">{FILE_COUNT,plural, =1{Dokončilo sa sťahovanie 1 položky.}few{Dokončilo sa sťahovanie # položiek.}many{# downloads complete.}other{Dokončilo sa sťahovanie # položiek.}}</translation>
 <translation id="4766369052440583386">Šetrič dát je zapnutý</translation>
 <translation id="4797039098279997504">Klepnutím sa vrátite na kartu <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="4807098396393229769">Meno na karte</translation>
@@ -445,6 +448,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="4961334780091921942">Vaše heslá, história a ďalší obsah vo všetkých zariadeniach</translation>
 <translation id="4961700429721424617">Odhlasujete sa z účtu spravovaného doménou <ph name="MANAGED_DOMAIN" />. Týmto odstránite údaje Chromu z tohto zariadenia, avšak zostanú naďalej vo vašom účte Google.</translation>
 <translation id="497421865427891073">Ďalej</translation>
+<translation id="4988210275050210843">Sťahuje sa súbor (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Stránky</translation>
 <translation id="4996978546172906250">Zdieľať prostredníctvom</translation>
 <translation id="5004339818306944878">Ušetrite až 60 % dát a načítajte weby rýchlejšie. Servery Google budú optimalizovať stránky, ktoré navštívite.</translation>
@@ -464,6 +468,7 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="515227803646670480">Vymazanie uložených údajov</translation>
 <translation id="5152843274749979095">Nie sú nainštalované žiadne podporované aplikácie</translation>
 <translation id="5161254044473106830">Musíte zadať názov</translation>
+<translation id="5162754098604580781">{FILE_COUNT,plural, =1{Nepodarilo sa stiahnuť 1 položku.}few{Nepodarilo sa stiahnuť # položky.}many{# downloads failed.}other{Nepodarilo sa stiahnuť # položiek.}}</translation>
 <translation id="5168917394043976756">Otvoriť navigačný vysúvací panel</translation>
 <translation id="5171365962177408781">Klepnutím načítate stránku na novej karte a zobrazíte navrhované články</translation>
 <translation id="5184329579814168207">Otvoriť v prehliadači Chrome</translation>
@@ -493,9 +498,11 @@ Váš účet Google môže mať na adrese <ph name="BEGIN_LINK" />myactivity.goo
 <translation id="5423934151118863508">Tu sa zobrazia vaše najnavštevovanejšie stránky.</translation>
 <translation id="5424588387303617268">K dispozícii je <ph name="GIGABYTES" /> GB</translation>
 <translation id="5433691172869980887">Používateľské meno bolo skopírované</translation>
+<translation id="543509235395288790">Sťahuje sa niekoľko súborov (<ph name="COUNT" />) s celkovou veľkosťou <ph name="MEGABYTES" />.</translation>
 <translation id="5441522332038954058">Prechod na panel s adresou</translation>
 <translation id="5447201525962359567">Celé úložisko webu vrátane súborov cookie a ďalších lokálne uložených dát</translation>
 <translation id="5447765697759493033">Tento web nebude preložený</translation>
+<translation id="545042621069398927">Sťahovanie sa zrýchľuje.</translation>
 <translation id="5456381639095306749">Stránka sťahovania</translation>
 <translation id="548278423535722844">Otvorte v aplikácii pre mapy</translation>
 <translation id="5487521232677179737">Vymazať údaje</translation>
@@ -723,8 +730,10 @@ Niektoré weby môžu napríklad na túto žiadosť reagovať tak, že vám zobr
 <translation id="7333031090786104871">Pridávanie predchádzajúceho webu stále prebieha</translation>
 <translation id="7352939065658542140">VIDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Zdieľať 1 vybranú položku}few{Zdieľať # vybrané položky}many{Zdieľať # vybranej položky}other{Zdieľať # vybraných položiek}}</translation>
+<translation id="7359002509206457351">Poskytnúť prístup k spôsobom platby</translation>
 <translation id="7366340029385295517">Prenáša sa na obrazovku <ph name="SCREEN_NAME" /></translation>
 <translation id="7375125077091615385">Typ:</translation>
+<translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">Webová adresa</translation>
 <translation id="7403691278183511381">Skúsenosť pri prvom spustení Chromu</translation>
 <translation id="741204030948306876">Áno, súhlasím</translation>
@@ -787,6 +796,7 @@ Niektoré weby môžu napríklad na túto žiadosť reagovať tak, že vám zobr
 <translation id="7876243839304621966">Odstrániť všetko</translation>
 <translation id="7882131421121961860">Nenašla sa žiadna história</translation>
 <translation id="7882806643839505685">Povoľte zvuk pre konkrétny web.</translation>
+<translation id="7925590027513907933">{FILE_COUNT,plural, =1{Sťahuje sa súbor.}few{Sťahujú sa # súbory.}many{Downloading # files.}other{Sťahuje sa # súborov.}}</translation>
 <translation id="7929962904089429003">Otvorenie ponuky</translation>
 <translation id="7942131818088350342">Aplikácia <ph name="PRODUCT_NAME" /> je zastaraná.</translation>
 <translation id="7947953824732555851">Prijať a prihl. sa</translation>

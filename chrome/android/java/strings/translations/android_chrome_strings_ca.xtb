@@ -15,6 +15,7 @@
 <translation id="1121094540300013208">Informes d'ús i d'error</translation>
 <translation id="11221688409173367">Toca el botó d'inici per veure els articles seleccionats expressament per a tu</translation>
 <translation id="1129510026454351943">Detalls: <ph name="ERROR_DESCRIPTION" /></translation>
+<translation id="1141800923049248244">{FILE_COUNT,plural, =1{Hi ha 1 baixada pendent.}other{Hi ha # baixades pendents.}}</translation>
 <translation id="1145536944570833626">Suprimeix les dades existents.</translation>
 <translation id="1146678959555564648">Activa el mode RV</translation>
 <translation id="114721135501989771">Gaudeix de les eines intel·ligents de Google a Chrome</translation>
@@ -117,6 +118,7 @@
 <translation id="1966710179511230534">Actualitzeu les dades d'inici de sessió.</translation>
 <translation id="1974060860693918893">Configuració avançada</translation>
 <translation id="1984937141057606926">Permeses, excepte les de tercers</translation>
+<translation id="1987739130650180037"><ph name="MESSAGE" /> (botó <ph name="LINK_NAME" />)</translation>
 <translation id="1989112275319619282">Examina</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> es vol vincular</translation>
 <translation id="1994173015038366702">URL del lloc</translation>
@@ -419,6 +421,7 @@ Per ajustar el terme de cerca, mantén-lo premut per seleccionar-lo. Per definir
 <translation id="4738836084190194332">Última sincronització: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Obre una pestanya nova</translation>
 <translation id="4759238208242260848">Baixades</translation>
+<translation id="4763829664323285145">{FILE_COUNT,plural, =1{S'ha completat 1 baixada.}other{S'han completat # baixades.}}</translation>
 <translation id="4766369052440583386">L'extensió Economitzador de dades està activada</translation>
 <translation id="4797039098279997504">Toqueu per tornar a <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="4807098396393229769">Titular de la targeta</translation>
@@ -445,6 +448,7 @@ Per ajustar el terme de cerca, mantén-lo premut per seleccionar-lo. Per definir
 <translation id="4961334780091921942">Tindràs les contrasenyes, l'historial i altres elements en tots els dispositius</translation>
 <translation id="4961700429721424617">Estàs tancant la sessió d'un compte gestionat per <ph name="MANAGED_DOMAIN" />. Se suprimiran les teves dades de Chrome en aquest dispositiu, però continuaran al teu compte de Google.</translation>
 <translation id="497421865427891073">Ves endavant</translation>
+<translation id="4988210275050210843">S'està baixant el fitxer (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Pàgines</translation>
 <translation id="4996978546172906250">Compartir mitjançant</translation>
 <translation id="5004339818306944878">Utilitza fins a un 60% menys de dades i navega més de pressa. Els servidors de Google optimitzaran les pàgines que visitis.</translation>
@@ -464,6 +468,7 @@ Per ajustar el terme de cerca, mantén-lo premut per seleccionar-lo. Per definir
 <translation id="515227803646670480">Esborrar les dades emmagatzemades</translation>
 <translation id="5152843274749979095">No hi ha cap aplicació admesa instal·lada</translation>
 <translation id="5161254044473106830">Cal indicar un títol</translation>
+<translation id="5162754098604580781">{FILE_COUNT,plural, =1{No s'ha pogut completar 1 baixada.}other{No s'han pogut completar # baixades.}}</translation>
 <translation id="5168917394043976756">Obre el tauler de navegació</translation>
 <translation id="5171365962177408781">Toca per carregar la pàgina Pestanya nova i veure els articles suggerits</translation>
 <translation id="5184329579814168207">Obre a Chrome</translation>
@@ -493,9 +498,11 @@ Per ajustar el terme de cerca, mantén-lo premut per seleccionar-lo. Per definir
 <translation id="5423934151118863508">Les pàgines més visitades es mostraran aquí</translation>
 <translation id="5424588387303617268">GB disponibles: <ph name="GIGABYTES" /></translation>
 <translation id="5433691172869980887">S'ha copiat el nom d'usuari</translation>
+<translation id="543509235395288790">S'estan baixant <ph name="COUNT" /> fitxers (<ph name="MEGABYTES" />).</translation>
 <translation id="5441522332038954058">Ves a la barra d'adreces</translation>
 <translation id="5447201525962359567">Tot l'emmagatzematge del lloc, com ara les galetes i altres dades emmagatzemades localment</translation>
 <translation id="5447765697759493033">Aquest lloc web no es traduirà</translation>
+<translation id="545042621069398927">S'està accelerant la baixada.</translation>
 <translation id="5456381639095306749">Baixa la pàgina</translation>
 <translation id="548278423535722844">Obre en una aplicació de mapes</translation>
 <translation id="5487521232677179737">Esborra les dades</translation>
@@ -723,8 +730,10 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="7333031090786104871">Encara s'hi està afegint el lloc anterior</translation>
 <translation id="7352939065658542140">VÍDEO</translation>
 <translation id="7353894246028566792">{NUM_SELECTED,plural, =1{Comparteix 1 element seleccionat}other{Comparteix # elements seleccionats}}</translation>
+<translation id="7359002509206457351">Accedeix a les formes de pagament</translation>
 <translation id="7366340029385295517">S'està emetent a <ph name="SCREEN_NAME" /></translation>
 <translation id="7375125077091615385">Tipus:</translation>
+<translation id="7396940094317457632"><ph name="FILE_NAME" /></translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">Experiència de primera execució de Chrome</translation>
 <translation id="741204030948306876">Sí, ho accepto</translation>
@@ -787,6 +796,7 @@ Per exemple, és possible que alguns llocs web responguin a aquesta sol·licitud
 <translation id="7876243839304621966">Suprimeix-ho tot</translation>
 <translation id="7882131421121961860">No s'ha trobat cap historial</translation>
 <translation id="7882806643839505685">Permet el so d'un lloc web concret.</translation>
+<translation id="7925590027513907933">{FILE_COUNT,plural, =1{S'està baixant el fitxer.}other{S'estan baixant # fitxers.}}</translation>
 <translation id="7929962904089429003">Obre el menú</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> no està actualitzat.</translation>
 <translation id="7947953824732555851">Acc. i inicia sessió</translation>

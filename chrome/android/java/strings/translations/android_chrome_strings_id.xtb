@@ -15,6 +15,7 @@
 <translation id="1121094540300013208">Laporan kerusakan dan penggunaan</translation>
 <translation id="11221688409173367">Tap tombol beranda untuk melihat artikel yang dipilih khusus untuk Anda</translation>
 <translation id="1129510026454351943">Detail: <ph name="ERROR_DESCRIPTION" /></translation>
+<translation id="1141800923049248244">{FILE_COUNT,plural, =1{1 download tertunda.}other{# download tertunda.}}</translation>
 <translation id="1145536944570833626">Hapus data yang sudah ada.</translation>
 <translation id="1146678959555564648">Masuki VR</translation>
 <translation id="114721135501989771">Dapatkan perangkat smart Google di Chrome</translation>
@@ -117,6 +118,7 @@
 <translation id="1966710179511230534">Perbarui detail ID masuk Anda.</translation>
 <translation id="1974060860693918893">Lanjutan</translation>
 <translation id="1984937141057606926">Diizinkan, kecuali pihak ketiga</translation>
+<translation id="1987739130650180037">Tombol <ph name="MESSAGE" /> <ph name="LINK_NAME" /></translation>
 <translation id="1989112275319619282">Jelajahi</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> ingin menyandingkan</translation>
 <translation id="1994173015038366702">URL situs</translation>
@@ -419,6 +421,7 @@ Akun Google Anda mungkin memiliki bentuk histori browsing lain seperti penelusur
 <translation id="4738836084190194332">Terakhir disinkronkan: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Membuka tab baru</translation>
 <translation id="4759238208242260848">Download</translation>
+<translation id="4763829664323285145">{FILE_COUNT,plural, =1{1 download selesai.}other{# download selesai.}}</translation>
 <translation id="4766369052440583386">Penghemat Kuota Internet aktif</translation>
 <translation id="4797039098279997504">Sentuh untuk kembali ke <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="4807098396393229769">Nama di kartu</translation>
@@ -445,6 +448,7 @@ Akun Google Anda mungkin memiliki bentuk histori browsing lain seperti penelusur
 <translation id="4961334780091921942">Sandi, histori dan lainnya di semua perangkat</translation>
 <translation id="4961700429721424617">Anda akan keluar dari akun yang dikelola oleh <ph name="MANAGED_DOMAIN" />. Tindakan ini akan menghapus data Chrome dari perangkat ini, namun data tetap tersedia di Akun Google Anda.</translation>
 <translation id="497421865427891073">Maju</translation>
+<translation id="4988210275050210843">Mendownload file (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Halaman</translation>
 <translation id="4996978546172906250">Bagikan dengan</translation>
 <translation id="5004339818306944878">Hemat data hingga 60% dan waktu loading lebih cepat. Server Google akan mengoptimalkan halaman yang Anda kunjungi.</translation>
@@ -464,6 +468,7 @@ Akun Google Anda mungkin memiliki bentuk histori browsing lain seperti penelusur
 <translation id="515227803646670480">Hapus data tersimpan</translation>
 <translation id="5152843274749979095">Aplikasi yang didukung tidak terinstal</translation>
 <translation id="5161254044473106830">Perlu judul</translation>
+<translation id="5162754098604580781">{FILE_COUNT,plural, =1{1 download gagal.}other{# download gagal.}}</translation>
 <translation id="5168917394043976756">Buka panel samping navigasi</translation>
 <translation id="5171365962177408781">Tap untuk memuat halaman tab baru dan melihat artikel yang disarankan</translation>
 <translation id="5184329579814168207">Buka di Chrome</translation>
@@ -493,9 +498,11 @@ Akun Google Anda mungkin memiliki bentuk histori browsing lain seperti penelusur
 <translation id="5423934151118863508">Halaman yang paling sering dikunjungi akan muncul di sini</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB tersedia</translation>
 <translation id="5433691172869980887">Nama pengguna disalin</translation>
+<translation id="543509235395288790">Mendownload <ph name="COUNT" /> file (<ph name="MEGABYTES" />).</translation>
 <translation id="5441522332038954058">Beralih ke bilah alamat</translation>
 <translation id="5447201525962359567">Semua penyimpanan situs, termasuk cookie dan data lain yang tersimpan secara lokal</translation>
 <translation id="5447765697759493033">Situs ini tidak diterjemahkan</translation>
+<translation id="545042621069398927">Mempercepat download.</translation>
 <translation id="5456381639095306749">Download halaman</translation>
 <translation id="548278423535722844">Buka di aplikasi peta</translation>
 <translation id="5487521232677179737">Hapus data</translation>
@@ -726,6 +733,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="7359002509206457351">Akses metode pembayaran</translation>
 <translation id="7366340029385295517">Mentransmisikan ke <ph name="SCREEN_NAME" /></translation>
 <translation id="7375125077091615385">Jenis:</translation>
+<translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">Pengalaman Penggunaan Pertama Chrome</translation>
 <translation id="741204030948306876">Ya, saya ikut</translation>
@@ -788,6 +796,7 @@ Misalnya, beberapa situs web mungkin menanggapi permintaan ini dengan menayangka
 <translation id="7876243839304621966">Hapus semua</translation>
 <translation id="7882131421121961860">Tidak ada histori</translation>
 <translation id="7882806643839505685">Mengizinkan suara untuk situs tertentu.</translation>
+<translation id="7925590027513907933">{FILE_COUNT,plural, =1{Mendownload file.}other{Mendownload # file.}}</translation>
 <translation id="7929962904089429003">Membuka menu</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> sudah usang.</translation>
 <translation id="7947953824732555851">Terima dan masuk</translation>
