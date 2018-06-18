@@ -78,6 +78,7 @@ const base::Feature* kFeaturesExposedToJava[] = {
     &kChromeHomeSwipeLogicVelocity,
     &kChromeSmartSelection,
     &kChromeMemexFeature,
+    &kChromeModernAlternateCardLayout,
     &kChromeModernDesign,
     &kCommandLineOnNonRooted,
     &kContentSuggestionsScrollToLoad,
@@ -206,6 +207,9 @@ const base::Feature kChromeHomeSwipeLogicVelocity{
 
 const base::Feature kChromeMemexFeature{"ChromeMemex",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
+
+const base::Feature kChromeModernAlternateCardLayout{
+    "ChromeModernAlternateCardLayout", base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kChromeModernDesign{"ChromeModernDesign",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
