@@ -405,6 +405,11 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void BindCacheStorage(blink::mojom::CacheStorageRequest request,
                         const url::Origin& origin);
 
+  // Ensures that this process is kept alive for the specified amount of time.
+  // This is used to ensure that unload handlers have a chance to execute
+  // before the process shuts down.
+  void DelayProcessShutdownForUnload(const base::TimeDelta& timeout);
+
  protected:
   // A proxy for our IPC::Channel that lives on the IO thread.
   std::unique_ptr<IPC::ChannelProxy> channel_;
@@ -606,6 +611,10 @@ class CONTENT_EXPORT RenderProcessHostImpl
         BrowserThread::GetTaskRunnerForThread(BrowserThread::UI));
   }
 
+  // Callback to unblock process shutdown after waiting for unload handlers to
+  // execute.
+  void CancelProcessShutdownDelayForUnload();
+
   std::unique_ptr<mojo::edk::OutgoingBrokerClientInvitation>
       broker_client_invitation_;
 
@@ -619,7 +628,7 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   // TODO(panicker): Remove these after investigation in
   // https://crbug.com/823482.
-  static const size_t kNumKeepAliveClients = 3;
+  static const size_t kNumKeepAliveClients = 4;
   size_t keep_alive_client_count_[kNumKeepAliveClients];
   base::TimeTicks keep_alive_client_start_time_[kNumKeepAliveClients];
 
