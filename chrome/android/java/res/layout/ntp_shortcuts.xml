@@ -22,6 +22,7 @@
         android:layout_weight="1"
         android:layout_height="wrap_content"
         android:minHeight="48dp"
+        android:background="?attr/selectableItemBackground"
         android:paddingTop="4dp"
         android:paddingBottom="4dp" >
 
@@ -45,6 +46,7 @@
         android:layout_weight="1"
         android:layout_height="wrap_content"
         android:minHeight="48dp"
+        android:background="?attr/selectableItemBackground"
         android:paddingTop="4dp"
         android:paddingBottom="4dp" >
 
