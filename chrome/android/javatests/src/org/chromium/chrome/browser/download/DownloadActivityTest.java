@@ -23,7 +23,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.junit.rules.TestRule;
 import org.junit.runner.RunWith;
 
 import org.chromium.base.ContextUtils;
@@ -32,6 +31,7 @@ import org.chromium.base.test.util.CallbackHelper;
 import org.chromium.base.test.util.Restriction;
 import org.chromium.base.test.util.RetryOnFailure;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ChromeFeatureList;
 import org.chromium.chrome.browser.download.ui.DownloadHistoryAdapter;
 import org.chromium.chrome.browser.download.ui.DownloadHistoryItemViewHolder;
 import org.chromium.chrome.browser.download.ui.DownloadHistoryItemWrapper;
@@ -41,12 +41,12 @@ import org.chromium.chrome.browser.download.ui.DownloadManagerToolbar;
 import org.chromium.chrome.browser.download.ui.DownloadManagerUi;
 import org.chromium.chrome.browser.download.ui.SpaceDisplay;
 import org.chromium.chrome.browser.download.ui.StubbedProvider;
+import org.chromium.chrome.browser.preferences.PrefServiceBridge;
 import org.chromium.chrome.browser.snackbar.SnackbarManager;
 import org.chromium.chrome.browser.util.IntentUtils;
 import org.chromium.chrome.browser.widget.ListMenuButton.Item;
 import org.chromium.chrome.browser.widget.selection.SelectionDelegate.SelectionObserver;
 import org.chromium.chrome.test.ChromeJUnit4ClassRunner;
-import org.chromium.chrome.test.util.browser.Features;
 import org.chromium.chrome.test.util.browser.Features.DisableFeatures;
 import org.chromium.chrome.test.util.browser.Features.EnableFeatures;
 import org.chromium.components.offline_items_collection.OfflineItem;
@@ -66,9 +66,6 @@ public class DownloadActivityTest {
     @Rule
     public ActivityTestRule<DownloadActivity> mActivityTestRule =
             new ActivityTestRule<>(DownloadActivity.class);
-
-    @Rule
-    public TestRule mProcessor = new Features.InstrumentationProcessor();
 
     private static class TestObserver extends RecyclerView.AdapterDataObserver
             implements SelectionObserver<DownloadHistoryItemWrapper>,
@@ -128,6 +125,16 @@ public class DownloadActivityTest {
     public void setUp() throws Exception {
         Editor editor = ContextUtils.getAppSharedPreferences().edit();
         editor.putBoolean(PREF_SHOW_STORAGE_INFO_HEADER, true).apply();
+
+        ThreadUtils.runOnUiThreadBlocking(() -> {
+            PrefServiceBridge.getInstance().setPromptForDownloadAndroid(
+                    DownloadPromptStatus.DONT_SHOW);
+        });
+
+        HashMap<String, Boolean> features = new HashMap<String, Boolean>();
+        features.put(ChromeFeatureList.DOWNLOADS_LOCATION_CHANGE, false);
+        features.put(ChromeFeatureList.DOWNLOAD_HOME_SHOW_STORAGE_INFO, false);
+        ChromeFeatureList.setTestFeatures(features);
 
         mStubbedProvider = new StubbedProvider();
         DownloadManagerUi.setProviderForTests(mStubbedProvider);
@@ -632,6 +639,7 @@ public class DownloadActivityTest {
 
     @Test
     @MediumTest
+    @DisableFeatures(ChromeFeatureList.DOWNLOADS_LOCATION_CHANGE)
     public void testToggleSelection() throws Exception {
         // The selection toolbar should not be showing.
         Assert.assertTrue(mAdapterObserver.mOnSelectionItems.isEmpty());
@@ -686,6 +694,7 @@ public class DownloadActivityTest {
 
     @Test
     @MediumTest
+    @DisableFeatures(ChromeFeatureList.DOWNLOADS_LOCATION_CHANGE)
     public void testSearchView() throws Exception {
         final DownloadManagerToolbar toolbar = mUi.getDownloadManagerToolbarForTests();
         View toolbarSearchView = toolbar.getSearchViewForTests();
