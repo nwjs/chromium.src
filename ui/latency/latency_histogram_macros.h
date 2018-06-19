@@ -12,9 +12,9 @@
   DCHECK(!start.first_event_time.is_null());  \
   DCHECK(!end.last_event_time.is_null());
 
-// Event latency that is mostly under 2 seconds. We should only use 100 buckets
+// Event latency that is mostly under 5 seconds. We should only use 100 buckets
 // when needed.
-#define UMA_HISTOGRAM_INPUT_LATENCY_BROADER_RANGE_MICROSECONDS(name, start, \
+#define UMA_HISTOGRAM_INPUT_LATENCY_5_SECONDS_MAX_MICROSECONDS(name, start, \
                                                                end)         \
   CONFIRM_EVENT_TIMES_EXIST(start, end)                                     \
   base::UmaHistogramCustomCounts(                                           \
@@ -22,7 +22,7 @@
       std::max(                                                             \
           static_cast<int64_t>(0),                                          \
           (end.last_event_time - start.first_event_time).InMicroseconds()), \
-      1, 2000000, 100);
+      1, 5000000, 100);
 
 // Event latency that is mostly under 1 second. We should only use 100 buckets
 // when needed.
