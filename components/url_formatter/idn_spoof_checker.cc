@@ -179,7 +179,7 @@ IDNSpoofChecker::IDNSpoofChecker() {
   //   - {U+050D (ԍ), U+100c (ဌ)} => g
   //   - {U+0D1F (ട), U+0E23 (ร)} => s
   //   - U+1042 (၂) => j
-  //   - {U+0437 (з), U+0499 (ҙ), U+04E1 (ӡ)} => 3
+  //   - {U+0437 (з), U+0499 (ҙ), U+04E1 (ӡ), U+10D5 (ვ), U+1012 (ဒ)} => 3
   extra_confusable_mapper_.reset(icu::Transliterator::createFromRules(
       UNICODE_STRING_SIMPLE("ExtraConf"),
       icu::UnicodeString::fromUTF8(
@@ -189,7 +189,7 @@ IDNSpoofChecker::IDNSpoofChecker() {
           "[мӎ] > m; [єҽҿၔ] > e; ґ > r; [ғӻ] > f;"
           "[ҫင] > c; ұ > y; [χҳӽӿ] > x;"
           "ԃ  > d; [ԍဌ] > g; [ടร] > s; ၂ > j;"
-          "[зҙӡ] > 3"),
+          "[зҙӡვဒ] > 3"),
       UTRANS_FORWARD, parse_error, status));
   DCHECK(U_SUCCESS(status))
       << "Spoofchecker initalization failed due to an error: "
