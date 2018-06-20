@@ -17,6 +17,7 @@
 namespace content {
 class BrowserContext;
 class RenderFrameHost;
+class WebContents;
 }
 
 namespace extensions {
@@ -29,13 +30,15 @@ struct DraggableRegion;
 class AppWindowContentsImpl : public AppWindowContents,
                               public content::WebContentsObserver {
  public:
-  explicit AppWindowContentsImpl(AppWindow* host);
+   explicit AppWindowContentsImpl(AppWindow* host, std::unique_ptr<content::WebContents> web_contents = nullptr);
   ~AppWindowContentsImpl() override;
 
   // AppWindowContents
   void Initialize(content::BrowserContext* context,
                   content::RenderFrameHost* creator_frame,
-                  const GURL& url) override;
+                  const GURL& url,
+                  const Extension* extension,
+                  bool skip_blocking_parser) override;
   void LoadContents(int32_t creator_process_id) override;
   void NativeWindowChanged(NativeAppWindow* native_app_window) override;
   void NativeWindowClosed(bool send_onclosed) override;
@@ -53,6 +56,7 @@ class AppWindowContentsImpl : public AppWindowContents,
 
   AppWindow* host_;  // This class is owned by |host_|
   GURL url_;
+
   std::unique_ptr<content::WebContents> web_contents_;
 
   DISALLOW_COPY_AND_ASSIGN(AppWindowContentsImpl);

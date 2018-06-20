@@ -5,6 +5,7 @@
 // Implements the Chrome Extensions Cookies API.
 
 #include "chrome/browser/extensions/api/cookies/cookies_api.h"
+#include "base/strings/string_number_conversions.h"
 
 #include <memory>
 #include <utility>
@@ -25,6 +26,7 @@
 #include "chrome/common/extensions/api/cookies.h"
 #include "content/public/browser/browser_context.h"
 #include "content/public/browser/browser_thread.h"
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
 #include "content/public/browser/notification_service.h"
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/event_router.h"
@@ -69,11 +71,56 @@ bool ParseUrl(ChromeAsyncExtensionFunction* function,
   return true;
 }
 
+std::vector<std::string> Split(std::string str, const std::string delim) {
+  std::vector<std::string> result;
+  size_t position = 0;
+  while ((position = str.find(delim)) != std::string::npos)
+  {
+    result.push_back(str.substr(0, position));
+    str.erase(0, position + delim.length());
+  }
+
+  result.push_back(str);
+  return result;
+}
+
+content::StoragePartition* GetStoragePartitionFromWebview(const std::string& store_id) {
+  if (store_id.find(",") == std::string::npos)
+    return nullptr;
+
+  std::vector<std::string> processGuestIds = Split(store_id, ",");
+  if (processGuestIds.size() != 2)
+    return nullptr;
+
+  int processId, guessId;
+  if (!base::StringToInt(processGuestIds[0], &processId)
+    || !base::StringToInt(processGuestIds[1], &guessId))
+    return nullptr;
+
+  extensions::WebViewGuest* guest = extensions::WebViewGuest::From(
+    processId, guessId);
+
+  if (!guest)
+    return nullptr;
+
+  content::StoragePartition* partition =
+    content::BrowserContext::GetStoragePartition(
+      guest->web_contents()->GetBrowserContext(),
+      guest->web_contents()->GetSiteInstance());
+
+  return partition;
+}
+
 network::mojom::CookieManager* ParseStoreCookieManager(
     ChromeAsyncExtensionFunction* function,
     std::string* store_id) {
   Profile* store_profile = NULL;
   if (!store_id->empty()) {
+    content::StoragePartition* partition = GetStoragePartitionFromWebview(*store_id);
+    if (partition) {
+      return partition->GetCookieManagerForBrowserProcess();
+    }
+
     store_profile = cookies_helpers::ChooseProfileFromStoreId(
         *store_id, function->GetProfile(), function->include_incognito());
     if (!store_profile) {

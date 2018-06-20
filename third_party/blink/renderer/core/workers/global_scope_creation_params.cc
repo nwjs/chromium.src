@@ -10,6 +10,7 @@
 namespace blink {
 
 GlobalScopeCreationParams::GlobalScopeCreationParams(
+    bool isNodeJS, const std::string& main_script,
     const KURL& script_url,
     ScriptType script_type,
     const String& user_agent,
@@ -29,6 +30,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     BeginFrameProviderParams begin_frame_provider_params)
     : script_url(script_url.Copy()),
       script_type(script_type),
+      nodejs_(isNodeJS), main_script_(main_script),
       user_agent(user_agent.IsolatedCopy()),
       referrer_policy(referrer_policy),
       starter_origin(starter_origin ? starter_origin->IsolatedCopy() : nullptr),

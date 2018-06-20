@@ -22,6 +22,9 @@
 
 namespace content {
 
+extern bool g_support_transparency;
+extern bool g_force_cpu_draw;
+
 namespace {
 
 // Bridge to a locally-hosted NSView -- this is always instantiated in the same
@@ -60,6 +63,8 @@ class RenderWidgetHostViewNSViewBridgeLocal
       gfx::Point baseline_point) override;
   void LockKeyboard(base::Optional<base::flat_set<ui::DomCode>> codes) override;
   void UnlockKeyboard() override;
+
+  CALayer* GetBackgroundLayer() override;
 
  private:
   bool IsPopup() const {
@@ -101,10 +106,18 @@ RenderWidgetHostViewNSViewBridgeLocal::RenderWidgetHostViewNSViewBridgeLocal(
   cocoa_view_.reset([[RenderWidgetHostViewCocoa alloc] initWithClient:client]);
 
   background_layer_.reset([[CALayer alloc] init]);
+
   display_ca_layer_tree_ =
       std::make_unique<ui::DisplayCALayerTree>(background_layer_.get());
+
+  bool isOpaque = [cocoa_view_ isOpaque];
+  if (content::g_support_transparency) {
+    [background_layer_ setBackgroundColor: (isOpaque || !content::g_support_transparency) ?
+      CGColorGetConstantColor(kCGColorWhite) : CGColorGetConstantColor(kCGColorClear)];
+  }
+
   [cocoa_view_ setLayer:background_layer_];
-  [cocoa_view_ setWantsLayer:YES];
+  [cocoa_view_ setWantsLayer:!g_force_cpu_draw];
 }
 
 RenderWidgetHostViewNSViewBridgeLocal::
@@ -193,6 +206,10 @@ void RenderWidgetHostViewNSViewBridgeLocal::SetCALayerParams(
   if (display_disabled_)
     return;
   display_ca_layer_tree_->UpdateCALayerTree(ca_layer_params);
+  if (content::g_force_cpu_draw) {
+    // this is to tell parent window, that the window content has been updated
+    [[cocoa_view_ superview] setNeedsDisplay:YES];
+  }
 }
 
 void RenderWidgetHostViewNSViewBridgeLocal::SetBackgroundColor(SkColor color) {
@@ -273,6 +290,11 @@ void RenderWidgetHostViewNSViewBridgeLocal::OnDisplayMetricsChanged(
   // NSWindowDidChangeBackingPropertiesNotification (some of these calls
   // will be redundant).
   [cocoa_view_ updateScreenProperties];
+}
+
+CALayer* RenderWidgetHostViewNSViewBridgeLocal::GetBackgroundLayer() {
+  assert(content::g_force_cpu_draw);
+  return background_layer_;
 }
 
 void RenderWidgetHostViewNSViewBridgeLocal::DisplayCursor(

@@ -161,7 +161,7 @@ bool UserScriptSet::UpdateUserScripts(base::SharedMemoryHandle shared_memory,
         RendererExtensionRegistry::Get()->GetByID(script->extension_id());
     if (whitelisted_only &&
         (!extension || !PermissionsData::CanExecuteScriptEverywhere(
-                           extension->id(), extension->location()))) {
+                                                                    extension->id(), extension->location(), extension->GetType()))) {
       continue;
     }
 
@@ -215,10 +215,16 @@ std::unique_ptr<ScriptInjection> UserScriptSet::GetInjectionForScript(
   if (web_frame->Parent() && !script->match_all_frames())
     return injection;  // Only match subframes if the script declared it.
 
-  GURL effective_document_url = ScriptContext::GetEffectiveDocumentURL(
+  // nwjs#6324: move the upstream logic of GetEffectiveDocumentURL() here
+  // in upstream is not matched first with empty invalid url for iframe
+  GURL effective_document_url;
+  if (!script->match_about_blank() || !document_url.SchemeIs(url::kAboutScheme))
+    effective_document_url = document_url;
+  else
+    effective_document_url = ScriptContext::GetEffectiveDocumentURL(
       web_frame, document_url, script->match_about_blank());
 
-  if (!script->MatchesURL(effective_document_url))
+  if (!script->MatchesURL(effective_document_url) || !effective_document_url.is_valid())
     return injection;
 
   std::unique_ptr<ScriptInjector> injector(

@@ -261,8 +261,10 @@ bool ChromeOmniboxClient::ProcessExtensionKeyword(
 void ChromeOmniboxClient::OnInputStateChanged() {
   if (!controller_->GetWebContents())
     return;
+#if 0
   SearchTabHelper::FromWebContents(
       controller_->GetWebContents())->OmniboxInputStateChanged();
+#endif
 }
 
 void ChromeOmniboxClient::OnFocusChanged(
@@ -270,8 +272,10 @@ void ChromeOmniboxClient::OnFocusChanged(
     OmniboxFocusChangeReason reason) {
   if (!controller_->GetWebContents())
     return;
+#if 0
   SearchTabHelper::FromWebContents(
       controller_->GetWebContents())->OmniboxFocusChanged(state, reason);
+#endif
 }
 
 void ChromeOmniboxClient::OnResultChanged(

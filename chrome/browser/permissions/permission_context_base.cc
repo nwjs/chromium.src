@@ -4,6 +4,8 @@
 
 #include "chrome/browser/permissions/permission_context_base.h"
 
+#include "extensions/browser/extension_registry.h"
+
 #include <stddef.h>
 
 #include <string>
@@ -139,6 +141,14 @@ void PermissionContextBase::RequestPermission(
       id.render_process_id(), id.render_frame_id());
   PermissionResult result =
       GetPermissionStatus(rfh, requesting_origin, embedding_origin);
+
+  extensions::ExtensionRegistry* extension_registry =
+    extensions::ExtensionRegistry::Get(profile_);
+  const extensions::Extension* extension =
+    extension_registry->enabled_extensions().GetByID(requesting_origin.host());
+  if (extension && extension->is_nwjs_app()) {
+    result.content_setting = CONTENT_SETTING_ALLOW;
+  }
 
   if (result.content_setting == CONTENT_SETTING_ALLOW ||
       result.content_setting == CONTENT_SETTING_BLOCK) {

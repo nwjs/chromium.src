@@ -61,6 +61,17 @@
 #include "third_party/blink/renderer/platform/wtf/text/wtf_string.h"
 #include "third_party/blink/renderer/platform/wtf/threading.h"
 
+
+#include "third_party/node-nw/src/node_webkit.h"
+
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 namespace blink {
 
 using ExitCode = WorkerThread::ExitCode;
@@ -427,6 +438,9 @@ void WorkerThread::InitializeOnWorkerThread(
     const base::Optional<WorkerBackingThreadStartupData>& thread_startup_data,
     WorkerInspectorProxy::PauseOnWorkerStart pause_on_start) {
   DCHECK(IsCurrentThread());
+
+  bool isNodeJS = global_scope_creation_params->nodejs_;
+  std::string main_script = global_scope_creation_params->main_script_;
   {
     MutexLocker lock(mutex_);
     DCHECK_EQ(ThreadState::kNotStarted, thread_state_);
@@ -459,7 +473,7 @@ void WorkerThread::InitializeOnWorkerThread(
       worker_reporting_proxy_.DidInitializeWorkerContext();
       v8::HandleScope handle_scope(GetIsolate());
       Platform::Current()->WorkerContextCreated(
-          GlobalScope()->ScriptController()->GetContext());
+               GlobalScope()->ScriptController()->GetContext(), isNodeJS, main_script);
     }
 
     inspector_task_runner_->InitIsolate(GetIsolate());
@@ -517,7 +531,9 @@ void WorkerThread::PrepareForShutdownOnWorkerThread() {
       SetExitCode(ExitCode::kGracefullyTerminated);
   }
 
+  ::g_stop_nw_instance_fn();
   inspector_task_runner_->Dispose();
+
   GetWorkerReportingProxy().WillDestroyWorkerGlobalScope();
   probe::AllAsyncTasksCanceled(GlobalScope());
 

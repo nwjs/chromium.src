@@ -38,6 +38,8 @@
 #include "ui/views/linux_ui/linux_ui.h"
 #endif
 
+#include "content/nw/src/common/nw_content_common_hooks.h"
+
 namespace {
 
 // Parses a string |range| with a port range in the form "<min>-<max>".
@@ -169,6 +171,9 @@ void UpdateFromSystemSettings(content::RendererPreferences* prefs,
   prefs->plugin_fullscreen_allowed =
       pref_service->GetBoolean(prefs::kFullscreenAllowed);
 #endif
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    prefs->user_agent_override = user_agent;
 }
 
 }  // namespace renderer_preferences_util

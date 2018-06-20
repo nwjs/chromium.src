@@ -43,6 +43,10 @@ using blink::WebMouseEvent;
 using blink::WebMouseWheelEvent;
 using blink::WebGestureEvent;
 
+namespace content {
+  extern bool g_force_cpu_draw;
+}
+
 namespace {
 
 // No-op client used to avoid scattering of nullptr checks (see comments in
@@ -53,6 +57,9 @@ class NoopClient : public RenderWidgetHostNSViewClient {
   ~NoopClient() override{};
 
   // RenderWidgetHostNSViewClient implementation:
+  content::RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() override {
+    return nullptr;
+  }
   BrowserAccessibilityManager* GetRootBrowserAccessibilityManager() override {
     return nullptr;
   }
@@ -349,6 +356,19 @@ void ExtractUnderlines(NSAttributedString* string,
     return responderDelegate_.get();
 
   return [super forwardingTargetForSelector:selector];
+}
+
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    //High Sierra 10.13 fix, previously we use [self layer],
+    //since we have set the layer to nil in AcceleratedWidgetMac::GotSoftwareFrame,
+    //we access the layer "directly" which is the "background_layer()" (see RenderWidgetHostViewMac constructor)
+    [client_->GetRenderWidgetHostViewMac()->background_layer() renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
 }
 
 - (void)setCanBeKeyView:(BOOL)can {
@@ -1187,8 +1207,17 @@ void ExtractUnderlines(NSAttributedString* string,
 }
 
 - (void)setFrameSize:(NSSize)newSize {
+  //High Sierra 10.13 fix, RenderWidgetHostViewCocoa CALayer must be nil
+  //so we can do drawRect "manually"
+  //here, we temporarily assign back the layer during resize, so the background_layer() can be resized properly
+  if (content::g_force_cpu_draw)
+    [self setLayer:client_->GetRenderWidgetHostViewMac()->background_layer()];
+
   [super setFrameSize:newSize];
   [self sendViewBoundsInWindowToClient];
+
+  if (content::g_force_cpu_draw)
+    [self setLayer:nil];
 }
 
 - (BOOL)canBecomeKeyView {

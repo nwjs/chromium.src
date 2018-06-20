@@ -356,6 +356,9 @@ bool ChromeAutofillClient::IsContextSecure() {
   if (!navigation_entry)
      return false;
 
+  if (navigation_entry->GetURL().SchemeIs("chrome-extension"))
+    return true;
+
   ssl_status = navigation_entry->GetSSL();
   // Note: If changing the implementation below, also change
   // AwAutofillClient::IsContextSecure. See crbug.com/505388

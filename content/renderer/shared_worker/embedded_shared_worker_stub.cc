@@ -189,7 +189,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
     : binding_(this, std::move(request)),
       host_(std::move(host)),
       name_(info->name),
-      url_(info->url) {
+      url_(info->url), nodejs_(info->is_node_js), root_path_(info->root_path) {
   impl_ = blink::WebSharedWorker::Create(this);
   if (pause_on_start) {
     // Pause worker context when it starts and wait until either DevTools client
@@ -200,7 +200,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
   service_worker_provider_info_ = std::move(service_worker_provider_info);
   script_loader_factory_info_ = std::move(script_loader_factory_info);
 
-  impl_->StartWorkerContext(
+  impl_->StartWorkerContext(nodejs_, root_path_,
       url_, blink::WebString::FromUTF8(name_),
       blink::WebString::FromUTF8(info->content_security_policy),
       info->content_security_policy_type, info->creation_address_space,
