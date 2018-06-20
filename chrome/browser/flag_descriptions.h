@@ -1958,9 +1958,6 @@ extern const char kVrBrowsingExperimentalRenderingDescription[];
 extern const char kVrBrowsingInCustomTabName[];
 extern const char kVrBrowsingInCustomTabDescription[];
 
-extern const char kVrIconInDaydreamHomeName[];
-extern const char kVrIconInDaydreamHomeDescription[];
-
 extern const char kWebVrAutopresentFromIntentName[];
 extern const char kWebVrAutopresentFromIntentDescription[];
 

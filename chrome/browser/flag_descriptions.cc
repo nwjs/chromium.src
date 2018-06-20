@@ -3176,10 +3176,6 @@ const char kVrBrowsingInCustomTabName[] = "VR browsing in Custom Tabs";
 const char kVrBrowsingInCustomTabDescription[] =
     "Allow browsing within a VR headset while in a Custom Tab.";
 
-const char kVrIconInDaydreamHomeName[] = "Chrome icon in Daydream Home";
-const char kVrIconInDaydreamHomeDescription[] =
-    "Adds an icon to Daydream Home that allows launching Chrome in VR.";
-
 const char kWebVrAutopresentFromIntentName[] =
     "WebVR auto presentation from intents";
 const char kWebVrAutopresentFromIntentDescription[] =

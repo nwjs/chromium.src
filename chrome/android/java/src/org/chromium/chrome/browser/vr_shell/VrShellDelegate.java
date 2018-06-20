@@ -9,12 +9,10 @@ import android.app.ActivityManager;
 import android.app.ActivityOptions;
 import android.app.PendingIntent;
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
 import android.content.res.Configuration;
 import android.graphics.Color;
 import android.graphics.PointF;
@@ -113,9 +111,6 @@ public class VrShellDelegate
     static final String VR_ENTRY_RESULT_ACTION =
             "org.chromium.chrome.browser.vr_shell.VrEntryResult";
 
-    private static final String VR_INTENT_DISPATCHER_COMPONENT =
-            "com.google.android.apps.chrome.VrIntentDispatcher";
-
     private static final long REENTER_VR_TIMEOUT_MS = 1000;
     private static final int EXPECT_DON_TIMEOUT_MS = 2000;
 
@@ -153,7 +148,6 @@ public class VrShellDelegate
     private static boolean sRegisteredDaydreamHook;
     private static boolean sAddedBlackOverlayView;
     private static boolean sRegisteredVrAssetsComponent;
-    private static Boolean sIconComponentEnabled;
 
     private ChromeActivity mActivity;
 
@@ -495,7 +489,6 @@ public class VrShellDelegate
                 protected Integer doInBackground(Void... params) {
                     VrClassesWrapper wrapper = getVrClassesWrapper();
                     if (wrapper == null) return VrSupportLevel.VR_NOT_AVAILABLE;
-                    updateDayreamIconComponentState(activity);
                     int vrSupportLevel = getVrSupportLevel(null);
                     return vrSupportLevel;
                 }
@@ -741,19 +734,6 @@ public class VrShellDelegate
         ThreadUtils.assertOnUiThread();
         sInstance = new VrShellDelegate(activity);
         return sInstance;
-    }
-
-    private static void updateDayreamIconComponentState(ChromeActivity activity) {
-        boolean enabled = ChromeFeatureList.isEnabled(ChromeFeatureList.VR_ICON_IN_DAYDREAM_HOME);
-
-        if (sIconComponentEnabled != null && enabled == sIconComponentEnabled) return;
-
-        int componentState = enabled ? PackageManager.COMPONENT_ENABLED_STATE_ENABLED
-                                     : PackageManager.COMPONENT_ENABLED_STATE_DISABLED;
-        ComponentName component = new ComponentName(activity, VR_INTENT_DISPATCHER_COMPONENT);
-        activity.getPackageManager().setComponentEnabledSetting(
-                component, componentState, PackageManager.DONT_KILL_APP);
-        sIconComponentEnabled = enabled;
     }
 
     private static boolean activitySupportsPresentation(Activity activity) {
@@ -1715,7 +1695,6 @@ public class VrShellDelegate
                     if (!sRegisteredVrAssetsComponent) {
                         registerVrAssetsComponentIfDaydreamUser(isDaydreamCurrentViewerInternal());
                     }
-                    updateDayreamIconComponentState(mActivity);
                 }
             });
         }
