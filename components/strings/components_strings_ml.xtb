@@ -102,7 +102,6 @@
 <translation id="1594030484168838125">തിരഞ്ഞെടുക്കുക</translation>
 <translation id="1620510694547887537">ക്യാമറ</translation>
 <translation id="1623104350909869708">കൂടുതൽ ഡയലോഗുകൾ സൃഷ്‌ടിക്കുന്നതിൽ നിന്നും ഈ പേജിനെ തടയുക</translation>
-<translation id="1629803312968146339">Chrome ഈ കാർഡ് സംരക്ഷിക്കണോ?</translation>
 <translation id="1639239467298939599">ലോഡുചെയ്യുന്നു</translation>
 <translation id="1640180200866533862">ഉപയോക്തൃ നയങ്ങൾ</translation>
 <translation id="1640244768702815859"><ph name="BEGIN_LINK" />സൈറ്റിന്റെ ഹോം പേജ് സന്ദർശിക്കുന്നത്<ph name="END_LINK" /> പരീക്ഷിച്ചുനോക്കൂ.</translation>
@@ -458,7 +457,6 @@
 <translation id="4148925816941278100">American Express</translation>
 <translation id="4151403195736952345">ആഗോള സ്ഥിരശൈലി ഉപയോഗിക്കുക (കണ്ടെത്തുക)</translation>
 <translation id="4165986682804962316">സൈറ്റ് ക്രമീകരണങ്ങൾ</translation>
-<translation id="4169947484918424451">Chromium ഈ കാർഡ് സംരക്ഷിക്കണോ?</translation>
 <translation id="4171400957073367226">മോശം പരിശോധിച്ചുറപ്പിക്കൽ സിഗ്‌നേച്ചർ</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{<ph name="ITEM_COUNT" /> ഇനം കൂടി}other{<ph name="ITEM_COUNT" /> ഇനങ്ങൾ കൂടി}}</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
@@ -1111,6 +1109,7 @@
 <translation id="9148507642005240123">&amp;എഡിറ്റുചെയ്യുന്നത് പഴയപടിയാക്കുക</translation>
 <translation id="9154194610265714752">അപ്‌ഡേറ്റുചെയ്‌തു</translation>
 <translation id="9157595877708044936">സജ്ജീകരിക്കുന്നു...</translation>
+<translation id="9168814207360376865">നിങ്ങൾ പേയ്‌മെന്റ് രീതികൾ സംരക്ഷിച്ചിട്ടുണ്ടോ എന്ന് പരിശോധിക്കാൻ സൈറ്റുകളെ അനുവദിക്കുക</translation>
 <translation id="9169664750068251925">ഈ സൈറ്റിൽ എല്ലായ്‌പ്പോഴും തടയുക</translation>
 <translation id="9170848237812810038">‍&amp;പൂര്‍വാവസ്ഥയിലാക്കുക</translation>
 <translation id="917450738466192189">സെര്‍വറിന്‍റെ സര്‍ട്ടിഫിക്കറ്റ് അസാധുവാണ്.</translation>

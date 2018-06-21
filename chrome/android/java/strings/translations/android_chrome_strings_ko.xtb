@@ -15,6 +15,7 @@
 <translation id="1121094540300013208">사용 및 비정상 종료 보고서</translation>
 <translation id="11221688409173367">홈 버튼을 탭하여 나를 위해 맞춤 선정된 기사를 확인하세요.</translation>
 <translation id="1129510026454351943">세부정보: <ph name="ERROR_DESCRIPTION" /></translation>
+<translation id="1141800923049248244">{FILE_COUNT,plural, =1{다운로드 1개 대기 중}other{다운로드 #개 대기 중}}</translation>
 <translation id="1145536944570833626">기존 데이터 삭제</translation>
 <translation id="1146678959555564648">VR 시작</translation>
 <translation id="114721135501989771">Chrome에서 스마트한 Google 사용</translation>
@@ -117,6 +118,7 @@
 <translation id="1966710179511230534">로그인 세부정보를 업데이트하세요.</translation>
 <translation id="1974060860693918893">고급</translation>
 <translation id="1984937141057606926">타사 쿠키만 제외하고 허용</translation>
+<translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" /> 버튼</translation>
 <translation id="1989112275319619282">찾아보기</translation>
 <translation id="1993768208584545658"><ph name="SITE" />에서 페어링하려고 함</translation>
 <translation id="1994173015038366702">사이트 URL</translation>
@@ -419,6 +421,7 @@
 <translation id="4738836084190194332">마지막 동기화 시간: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">새 탭 열기</translation>
 <translation id="4759238208242260848">다운로드</translation>
+<translation id="4763829664323285145">{FILE_COUNT,plural, =1{다운로드 1개 완료}other{다운로드 #개 완료}}</translation>
 <translation id="4766369052440583386">데이터 절약 모드 사용</translation>
 <translation id="4797039098279997504">터치하여 <ph name="URL_OF_THE_CURRENT_TAB" />(으)로 돌아가기</translation>
 <translation id="4807098396393229769">카드 명의</translation>
@@ -445,6 +448,7 @@
 <translation id="4961334780091921942">모든 기기의 비밀번호, 방문 기록 등</translation>
 <translation id="4961700429721424617"><ph name="MANAGED_DOMAIN" />에서 관리하는 계정에서 로그아웃합니다. 이렇게 하면 내 Chrome 데이터가 이 기기에서 삭제되지만 Google 계정에는 그대로 유지됩니다.</translation>
 <translation id="497421865427891073">앞으로 이동</translation>
+<translation id="4988210275050210843">파일 다운로드 중(<ph name="MEGABYTES" />MB)</translation>
 <translation id="4988526792673242964">페이지</translation>
 <translation id="4996978546172906250">공유 방법</translation>
 <translation id="5004339818306944878">데이터 사용량을 최대 60%까지 절약하고 웹 속도를 높이세요. Google 서버에서 내가 방문하는 페이지를 최적화합니다.</translation>
@@ -464,6 +468,7 @@
 <translation id="515227803646670480">저장된 데이터 삭제</translation>
 <translation id="5152843274749979095">지원되는 앱이 설치되어 있지 않음</translation>
 <translation id="5161254044473106830">제목이 필요합니다.</translation>
+<translation id="5162754098604580781">{FILE_COUNT,plural, =1{다운로드 1개 실패}other{다운로드 #개 실패}}</translation>
 <translation id="5168917394043976756">탐색 창 열기</translation>
 <translation id="5171365962177408781">탭하여 새 탭 페이지를 로드하고 추천 기사를 확인하세요.</translation>
 <translation id="5184329579814168207">Chrome에서 열기</translation>
@@ -493,9 +498,11 @@
 <translation id="5423934151118863508">자주 방문한 페이지가 여기에 표시됩니다.</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB 사용 가능</translation>
 <translation id="5433691172869980887">사용자 이름 복사됨</translation>
+<translation id="543509235395288790">파일 <ph name="COUNT" />개(<ph name="MEGABYTES" />MB) 다운로드 중</translation>
 <translation id="5441522332038954058">검색주소창으로 이동</translation>
 <translation id="5447201525962359567">쿠키 및 기타 로컬에 저장된 데이터 등 모든 사이트 저장공간</translation>
 <translation id="5447765697759493033">이 사이트는 번역되지 않습니다.</translation>
+<translation id="545042621069398927">다운로드 속도 향상</translation>
 <translation id="5456381639095306749">다운로드 페이지</translation>
 <translation id="548278423535722844">지도 앱에서 열기</translation>
 <translation id="5487521232677179737">인터넷 사용 기록 삭제</translation>
@@ -726,6 +733,7 @@
 <translation id="7359002509206457351">결제 수단 액세스</translation>
 <translation id="7366340029385295517"><ph name="SCREEN_NAME" />(으)로 전송 중</translation>
 <translation id="7375125077091615385">유형:</translation>
+<translation id="7396940094317457632"><ph name="FILE_NAME" />(이)가 다운로드되었습니다.</translation>
 <translation id="7400418766976504921">URL</translation>
 <translation id="7403691278183511381">Chrome 첫 실행</translation>
 <translation id="741204030948306876">사용</translation>
@@ -788,6 +796,7 @@
 <translation id="7876243839304621966">모두 삭제</translation>
 <translation id="7882131421121961860">방문 기록이 없습니다.</translation>
 <translation id="7882806643839505685">특정 사이트가 소리를 재생하도록 허용합니다.</translation>
+<translation id="7925590027513907933">{FILE_COUNT,plural, =1{파일 다운로드 중}other{파일 #개 다운로드 중}}</translation>
 <translation id="7929962904089429003">메뉴 열기</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" />이(가) 이전 버전입니다.</translation>
 <translation id="7947953824732555851">수락 및 로그인</translation>
