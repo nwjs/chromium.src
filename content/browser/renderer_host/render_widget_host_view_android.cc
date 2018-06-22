@@ -1289,16 +1289,6 @@ bool RenderWidgetHostViewAndroid::UpdateControls(
     float top_controls_shown_ratio,
     float bottom_controls_height,
     float bottom_controls_shown_ratio) {
-  // TODO(carlosil, https://crbug.com/825765): Remove the IsInVR() check here,
-  // which is a temporary hack. Interstitial pages are not committed navigations
-  // and their metadata updates never leave the content layer, so Chrome and the
-  // content layer end up mismatched and hit testing is offset. They rely on the
-  // previous (erroneous) behavior of ignoring the initial control offset update
-  // if offset is 0. The fix is still crucial for VR as VR needs the top
-  // controls to be initially hidden correctly (so we don't want the offset of 0
-  // to get ignored. Tracking bug for the interstitial work to fix this by
-  // converting interstitials to committed navigations is
-  // https://crbug.com/755632.
   float to_pix = IsUseZoomForDSFEnabled() ? 1.f : dip_scale;
   float top_controls_pix = top_controls_height * to_pix;
   // |top_content_offset| is in physical pixels if --use-zoom-for-dsf is
