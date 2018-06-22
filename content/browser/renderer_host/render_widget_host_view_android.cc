@@ -1309,6 +1309,8 @@ bool RenderWidgetHostViewAndroid::UpdateControls(
   float top_shown_pix = top_content_offset * to_pix;
   float top_translate = top_shown_pix - top_controls_pix;
   bool top_changed = !FloatEquals(top_shown_pix, prev_top_shown_pix_);
+  // TODO(mthiesse, https://crbug.com/853686): Remove the IsInVR check once
+  // there are no use cases for ignoring the initial update.
   if (top_changed || (!controls_initialized_ && IsInVR()))
     view_.OnTopControlsChanged(top_translate, top_shown_pix);
   prev_top_shown_pix_ = top_shown_pix;
@@ -1871,7 +1873,7 @@ void RenderWidgetHostViewAndroid::SetIsInVR(bool is_in_vr) {
   }
 
   if (is_in_vr_ && controls_initialized_) {
-    // TODO(carlosil, https://crbug.com/825765): See the TODO in
+    // TODO(mthiesse, https://crbug.com/825765): See the TODO in
     // RenderWidgetHostViewAndroid::OnFrameMetadataUpdated. RWHVA isn't
     // initialized with VR state so the initial frame metadata top controls
     // height can be dropped when a new RWHVA is created.
