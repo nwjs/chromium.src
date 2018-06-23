@@ -7,6 +7,9 @@
 
 namespace features {
 
+const base::Feature kNWNewWin{
+    "NWNewWin", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // All features in alphabetical order.
 
 // Enables the allowActivationDelegation attribute on iframes.

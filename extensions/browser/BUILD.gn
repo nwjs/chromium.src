@@ -392,6 +392,10 @@ jumbo_source_set("browser_sources") {
     "//ui/display",
   ]
 
+  include_dirs = [
+    "//third_party/WebKit",
+  ]
+
   public_deps = [
     "//content/public/common",
     "//extensions/browser/install",

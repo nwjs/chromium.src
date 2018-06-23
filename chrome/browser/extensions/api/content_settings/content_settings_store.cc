@@ -106,6 +106,22 @@ void ContentSettingsStore::SetExtensionContentSetting(
   {
     base::AutoLock lock(lock_);
     OriginIdentifierValueMap* map = GetValueMap(ext_id, scope);
+    if (!map) {
+      ExtensionEntry* entry = new ExtensionEntry;
+      entry->install_time = base::Time::Now();
+ 
+      auto unique_entry = base::WrapUnique(entry);
+      auto location =
+        std::upper_bound(entries_.begin(), entries_.end(), unique_entry,
+                         [](const std::unique_ptr<ExtensionEntry>& a,
+                            const std::unique_ptr<ExtensionEntry>& b) {
+                           return a->install_time > b->install_time;
+                         });
+      entries_.insert(location, std::move(unique_entry));
+      entry->id = ext_id;
+      entry->enabled = true;
+      map = GetValueMap(ext_id, scope);
+    }
     if (setting == CONTENT_SETTING_DEFAULT) {
       map->DeleteValue(primary_pattern, secondary_pattern, type, identifier);
     } else {

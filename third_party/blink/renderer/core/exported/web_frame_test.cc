@@ -7583,7 +7583,8 @@ class TestNewWindowWebViewClient : public FrameTestHelpers::TestWebViewClient {
                       const WebString&,
                       WebNavigationPolicy,
                       bool,
-                      WebSandboxFlags) override {
+                      WebSandboxFlags,
+                      WebString*) override {
     EXPECT_TRUE(false);
     return nullptr;
   }
