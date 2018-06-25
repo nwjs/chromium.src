@@ -134,21 +134,12 @@ class CORE_EXPORT V8ScriptRunner final {
   static uint32_t TagForTimeStamp(SingleCachedMetadataHandler*);
   static void SetCacheTimeStamp(SingleCachedMetadataHandler*);
 
-  // Utilities for calling functions added to the V8 extras binding object.
-
+  // Calls a function on the V8 extras binding object.
   template <size_t N>
   static v8::MaybeLocal<v8::Value> CallExtra(ScriptState* script_state,
                                              const char* name,
                                              v8::Local<v8::Value> (&args)[N]) {
     return CallExtraHelper(script_state, name, N, args);
-  }
-
-  template <size_t N>
-  static v8::Local<v8::Value> CallExtraOrCrash(
-      ScriptState* script_state,
-      const char* name,
-      v8::Local<v8::Value> (&args)[N]) {
-    return CallExtraHelper(script_state, name, N, args).ToLocalChecked();
   }
 
   // Reports an exception to the message handler, as if it were an uncaught
