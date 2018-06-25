@@ -87,7 +87,7 @@
 <translation id="3251381707915721925">ในการตั้งค่าเว็บไซต์ที่ <ph name="NEW_PROFILE_NAME" /> สามารถเข้าดูได้ คุณสามารถกำหนดค่าข้อจำกัดและการตั้งค่าโดยไปที่ <ph name="BEGIN_LINK_1" /><ph name="DISPLAY_LINK" /><ph name="END_LINK_1" /> หากคุณไม่เปลี่ยนการตั้งค่าเริ่มต้น <ph name="NEW_PROFILE_NAME" /> จะสามารถเรียกดูทุกอย่างบนเว็บได้
 
 หากต้องการป้องกันไม่ให้ <ph name="NEW_PROFILE_NAME" /> สามารถเข้าถึงบัญชีของคุณ โปรดตรวจสอบว่าคุณได้ล็อกโปรไฟล์เวลาที่ไม่ได้ใช้ Chrome โดยทำดังนี้ คลิกชื่อโปรไฟล์ของคุณที่มุมขวาบนของเบราว์เซอร์ แล้วเลือก "ออกและล็อกป้องกันเด็ก"
-<ph name="BEGIN_LINK_2" />เรียนรู้เพิ่มเติม<ph name="END_LINK_2" />
+<ph name="BEGIN_LINK_2" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK_2" />
 
 โปรดตรวจสอบอีเมลของคุณที่ <ph name="ACCOUNT_EMAIL" /> สำหรับคำแนะนำเพิ่มเติม</translation>
 <translation id="3282568296779691940">ลงชื่อเข้าใช้ Chrome</translation>
@@ -262,7 +262,7 @@
 <translation id="8556340503434111824">มี Chrome รุ่นใหม่ให้ใช้งานแล้วและเร็วกว่าเดิม</translation>
 <translation id="8568392309447938879">คุณจะต้องลงชื่อเข้าใช้ Chrome เพื่อใช้แอป ซึ่งจะช่วยให้ Chrome สามารถซิงค์แอป บุ๊กมาร์ก ประวัติ รหัสผ่าน และการตั้งค่าอื่นๆ ระหว่างอุปกรณ์ได้</translation>
 <translation id="859960207076826247">{0,plural, =0{มีการอัปเดต Chrome}=1{มีการอัปเดต Chrome}other{อัปเดต Chrome พร้อมให้ใช้งานมาแล้ว # วัน}}</translation>
-<translation id="8606668294522778825">Google Chrome อาจใช้บริการเว็บเพื่อปรับปรุงประสบการณ์การท่องเว็บของคุณ คุณสามารถเลือกปิดบริการเหล่านี้ได้ <ph name="BEGIN_LINK" />เรียนรู้เพิ่มเติม<ph name="END_LINK" /></translation>
+<translation id="8606668294522778825">Google Chrome อาจใช้บริการเว็บเพื่อปรับปรุงประสบการณ์การท่องเว็บของคุณ คุณสามารถเลือกปิดบริการเหล่านี้ได้ <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome ไม่ตอบสนอง เปิดใช้งานใหม่ตอนนี้หรือไม่</translation>
 <translation id="8667808506758191620"><ph name="DEVICE_TYPE" /> ของคุณเป็นเวอร์ชันล่าสุดแล้ว</translation>
 <translation id="8669527147644353129">ตัวช่วยเหลือของ Google Chrome</translation>

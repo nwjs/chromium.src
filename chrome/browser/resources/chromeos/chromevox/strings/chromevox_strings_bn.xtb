@@ -179,6 +179,7 @@
 <translation id="2717271541250958000">tabpnl</translation>
 <translation id="2723001399770238859">অডিও</translation>
 <translation id="2732718972699418926">AM</translation>
+<translation id="2737520612859577214">সুপারস্ক্রিপ্ট শেষ</translation>
 <translation id="2749275490991666823">চেক করা</translation>
 <translation id="27527859628328957">পরবর্তী ফোকাসযোগ্য আইটেমে জাম্প করুন</translation>
 <translation id="276402504937943375">বিষয় সূচি</translation>
@@ -203,6 +204,7 @@
 <translation id="288178314850623291">নির্দিষ্ট ধরনের উপাদানে যাওয়ার জন্য জাম্প কমান্ডগুলি ব্যবহার করুন। শিরোনামের মধ্যে জাম্প করে অগ্রবর্তী হতে সার্চ + H, পিছনে জাম্প করতে সার্চ + Shift + H টিপুন।</translation>
 <translation id="2894654529758326923">তথ্য</translation>
 <translation id="2899328121302785497">{COUNT,plural, =1{বাঁ দ্বিতীয় বন্ধনী}one{#টি বাঁ দ্বিতীয় বন্ধনী}other{#টি বাঁ দ্বিতীয় বন্ধনী}}</translation>
+<translation id="2909478709401302630">সুপারস্ক্রিপ্ট শুরু</translation>
 <translation id="2911433807131383493">ChromeVox টিউটোরিয়াল খুলুন</translation>
 <translation id="2932083475399492303">গঠনগত বা লেআউট রেখার প্রকারের মধ্যে টগল করুন</translation>
 <translation id="2944762337049891859">পৃষ্ঠা লোড হওয়ার পর সেটি স্বয়ংক্রিয়ভাবে পড়ুন</translation>
@@ -384,6 +386,7 @@
 <translation id="4148180433151187540">{COUNT,plural, =1{ডান দ্বিতীয় বন্ধনী}one{#টি ডান দ্বিতীয় বন্ধনী}other{#টি ডান দ্বিতীয় বন্ধনী}}</translation>
 <translation id="4158704014418536539">কেস সংবেদনশীল।</translation>
 <translation id="4161663686871496107">ChromeVox কথ্য প্রতিক্রিয়া প্রস্তুত</translation>
+<translation id="4166192625054637755">সাবস্ক্রিপ্ট শেষ</translation>
 <translation id="4173994908659439270">কোনো পরবর্তী সম্পাদনযোগ্য পাঠ্য ক্ষেত্র নেই৷</translation>
 <translation id="4176463684765177261">অক্ষম</translation>
 <translation id="4188530942454211480">পূর্ববর্তী বাক্য</translation>
@@ -527,6 +530,7 @@
 <translation id="5330443287809544590"><ph name="NAME" />, লিঙ্ক</translation>
 <translation id="5336381510091010269">autoinl+lst</translation>
 <translation id="5349770431644471053">ফিরে যাওয়ার লিঙ্ক</translation>
+<translation id="5350654862897073517">সাবস্ক্রিপ্ট শুরু</translation>
 <translation id="536031132345979795">একটানা পড়ার সময় ছেড়ে পিছনে যান</translation>
 <translation id="5368000168321181111">Earcons বন্ধ আছে</translation>
 <translation id="5374320867641260420">কোনো পরবর্তী বোতাম নেই৷</translation>

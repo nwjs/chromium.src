@@ -938,7 +938,7 @@ Si no se establece esta política, el teclado en pantalla estará inhabilitado i
 <translation id="3577251398714997599">Configuración de anuncios de sitios web con anuncios invasivos</translation>
 <translation id="3591584750136265240">Configurar el comportamiento de la autenticación de inicio de sesión</translation>
 <translation id="3627678165642179114">Habilitar o inhabilitar el servicio web de corrección ortográfica</translation>
-<translation id="3646859102161347133">Establecer el tipo de aumento de pantalla</translation>
+<translation id="3646859102161347133">Establecer el tipo de lupa</translation>
 <translation id="3653237928288822292">Icono del proveedor de búsquedas predeterminadas</translation>
 <translation id="3660562134618097814">Transferir las cookies del proveedor de identidad SAML durante el inicio de sesión</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (el campo de una línea está obsoleto y desaparecerá en el futuro; a partir de ahora, debes utilizar el campo de varias líneas que aparece más abajo).</translation>
@@ -1446,7 +1446,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
       Si se inhabilita, no se importará el historial de navegación.
 
       Si no se establece, es posible que se le pida al usuario que haga la importación o que el historial de navegación se importe automáticamente.</translation>
-<translation id="5056708224511062314">Aumento de pantalla inhabilitado</translation>
+<translation id="5056708224511062314">Lupa inhabilitada</translation>
 <translation id="5058573563327660283">Seleccionar la estrategia utilizada para liberar espacio en disco durante la limpieza automática (obsoleta)</translation>
 <translation id="5067143124345820993">Lista de admisión de usuarios con permiso para iniciar sesión</translation>
 <translation id="5068140065960598044">La política de la nube de <ph name="PRODUCT_NAME" /> anula la política del equipo.</translation>
@@ -1464,7 +1464,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 <translation id="5105313908130842249">Retraso de bloqueo de pantalla cuando el dispositivo funciona con la batería</translation>
 <translation id="5108031557082757679">Impresoras de dispositivos de empresa inhabilitadas</translation>
 <translation id="5130288486815037971">Indicar si se han habilitado los conjuntos de cifrado de RC4 en TLS</translation>
-<translation id="5141670636904227950">Establecer el tipo de aumento de pantalla predeterminado habilitado en la pantalla de inicio de sesión</translation>
+<translation id="5141670636904227950">Establecer el tipo de lupa predeterminada habilitada en la pantalla de inicio de sesión</translation>
 <translation id="5142301680741828703">Mostrar siempre los patrones de URL indicados a continuación en <ph name="PRODUCT_FRAME_NAME" /></translation>
 <translation id="5147665094011258322">Determina el nombre de host del dispositivo que se utiliza en las solicitudes DHCP.
 
@@ -2202,13 +2202,13 @@ Estas políticas te permiten configurar el comportamiento de <ph name="PRODUCT_O
           Si no se asigna ningún valor a esta política, el usuario puede cambiar esta configuración manualmente.</translation>
 <translation id="723103540848640830">Configurar la longitud mínima del PIN para la pantalla de bloqueo</translation>
 <translation id="7234280155140786597">Nombres de hosts de mensajes nativos no permitidos (o * para todos)</translation>
-<translation id="7236775576470542603">Establece el tipo predeterminado de aumento de pantalla que se ha habilitado en la pantalla de inicio de sesión.
+<translation id="7236775576470542603">Establece el tipo predeterminado de lupa que se ha habilitado en la pantalla de inicio de sesión.
 
-          Si se establece esta política, controla el tipo de aumento de pantalla que se habilita cuando se muestra la pantalla de inicio de sesión. Si la política se establece como ninguna, se inhabilitará el aumento de pantalla.
+          Si se establece esta política, controla el tipo de lupa que se habilita cuando se muestra la pantalla de inicio de sesión. Si la política se establece como ninguna, se inhabilitará la lupa.
 
-          Si estableces esta política, los usuarios podrán anularla temporalmente habilitando o inhabilitando el aumento de pantalla. No obstante, la selección del usuario no es permanente, y se restablecerá la opción predeterminada cuando se vuelva a mostrar la pantalla de inicio de sesión o el usuario permanezca inactivo en la pantalla de inicio de sesión durante un minuto.
+          Si estableces esta política, los usuarios podrán anularla temporalmente habilitando o inhabilitando la lupa. No obstante, la selección del usuario no es permanente, y se restablecerá la opción predeterminada cuando se vuelva a mostrar la pantalla de inicio de sesión o el usuario permanezca inactivo en la pantalla de inicio de sesión durante un minuto.
 
-          Si no se establece esta política, se inhabilitará el aumento de pantalla la primera vez que se muestre la pantalla de inicio de sesión. Los usuarios pueden habilitar o inhabilitar el aumento de pantalla en cualquier momento, y su estado en la pantalla de inicio de sesión permanecerá entre usuarios.</translation>
+          Si no se establece esta política, se inhabilitará la lupa la primera vez que se muestre la pantalla de inicio de sesión. Los usuarios pueden habilitar o inhabilitar la lupa en cualquier momento, y su estado en la pantalla de inicio de sesión permanecerá entre usuarios.</translation>
 <translation id="7249828445670652637">Habilitar los certificados de CA de <ph name="PRODUCT_OS_NAME" /> a las aplicaciones ARC</translation>
 <translation id="7258823566580374486">Activar modo de cortina en hosts de acceso remoto</translation>
 <translation id="7260277299188117560">Conexión P2P para actualizaciones automáticas habilitada</translation>
@@ -2646,7 +2646,7 @@ Te recomendamos que utilices GPO para configurar la política en Windows, aunque
       False es que produzca un problema de compatibilidad relacionado con las secuencias de comandos de PAC.
 
       Lo ideal es eliminar esta anulación en el futuro.</translation>
-<translation id="8285435910062771358">Aumento de pantalla completa habilitado</translation>
+<translation id="8285435910062771358">Lupa de pantalla completa habilitada</translation>
 <translation id="8288199156259560552">Habilitar los servicios de ubicación de Google para aplicaciones Android</translation>
 <translation id="8294750666104911727">Normalmente, las páginas con X-UA-Compatible establecido en chrome=1 se mostrarán en <ph name="PRODUCT_FRAME_NAME" />, independientemente de la política ChromeFrameRendererSettings.
 

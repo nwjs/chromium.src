@@ -421,7 +421,7 @@ V Google Računu so morda druge vrste zgodovine brskanja, kot so iskanja in deja
 <translation id="4738836084190194332">Zadnja sinhronizacija: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Odpiranje novega zavihka</translation>
 <translation id="4759238208242260848">Prenosi</translation>
-<translation id="4763829664323285145">{FILE_COUNT,plural, =1{1 prenos končan.}one{# prenos končan.}two{# prenosa končana.}few{# prenosi končani.}other{# prenosov končanih.}}</translation>
+<translation id="4763829664323285145">{FILE_COUNT,plural, =1{1 prenos je končan.}one{# prenos je končan.}two{# prenosa sta končana.}few{# prenosi so končani.}other{# prenosov je končanih.}}</translation>
 <translation id="4766369052440583386">Varčevanje s podatki je vklopljeno</translation>
 <translation id="4797039098279997504">Dotaknite se, če se želite vrniti na <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="4807098396393229769">Ime na kartici</translation>

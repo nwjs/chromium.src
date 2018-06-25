@@ -665,6 +665,7 @@
 <translation id="1997484222658892567"><ph name="URL" /> તમારા સ્થાનિક કમ્પ્યુટર પર કાયમી ધોરણે વિશાળ ડેટા સ્ટોર કરવા માગે છે</translation>
 <translation id="1997616988432401742">તમારા પ્રમાણપત્રો</translation>
 <translation id="1999115740519098545">સ્ટાર્ટઅપ પર</translation>
+<translation id="2001796770603320721">ડ્રાઇવમાં મેનેજ કરો</translation>
 <translation id="200544492091181894">તમે થોડા સમય પછી સેટિંગમાં જઈને હંમેશાં આને બદલી શકો છો</translation>
 <translation id="2006638907958895361"><ph name="APP" />માં લિંક ખોલો</translation>
 <translation id="2007404777272201486">સમસ્યાની જાણ કરો...</translation>
@@ -2091,6 +2092,7 @@
 <translation id="42137655013211669">સર્વર દ્વારા આ સંસાધનની અ‍ૅક્સેસ નિષિદ્ધ હતી.</translation>
 <translation id="4215350869199060536">ઉફ્ફ, નામમાં ગેરકાનૂની પ્રતીકો!</translation>
 <translation id="4215448920900139318"><ph name="FILE_COUNT" />નો બૅકઅપ લઈ રહ્યાં છીએ</translation>
+<translation id="4217571870635786043">ડિક્ટેશન</translation>
 <translation id="4225397296022057997">બધી સાઇટ પર</translation>
 <translation id="4235200303672858594">સમગ્ર સ્ક્રીન</translation>
 <translation id="4235813040357936597"><ph name="PROFILE_NAME" /> માટે એકાઉન્ટ ઉમેરો</translation>
@@ -2203,6 +2205,7 @@
 <translation id="4425149324548788773">મારી ડ્રાઇવ</translation>
 <translation id="4430019312045809116">વૉલ્યૂમ</translation>
 <translation id="4430369329743628066">બુકમાર્ક ઉમેરાયો</translation>
+<translation id="4434045419905280838">પૉપ-અપ અને રીડાયરેક્ટ</translation>
 <translation id="443454694385851356">લેગસી (અસુરક્ષિત)</translation>
 <translation id="443464694732789311">ચાલુ રાખો</translation>
 <translation id="443475966875174318">અસંગત ઍપ્લિકેશનોને અપડેટ કરો અથવા કાઢી નાખો</translation>
@@ -3908,6 +3911,7 @@
 <translation id="7052237160939977163">પ્રદર્શન ટ્રેસ ડેટા મોકલો</translation>
 <translation id="7052633198403197513">F1</translation>
 <translation id="7053983685419859001">અવરોધિત કરો</translation>
+<translation id="7055152154916055070">રીડાયરેક્ટ કરવાનું બ્લૉક કરવામાં આવ્યું છે:</translation>
 <translation id="7056526158851679338">&amp;ઉપકરણોની તપાસ કરો</translation>
 <translation id="7059858479264779982">સ્વતઃ-લોંચ સેટ કરો</translation>
 <translation id="7059893117020417984">ખાનગી રીતે બ્રાઉઝ કરવા માટે, છુપી વિંડો ખોલવા માટે બિંદુના આઇકનવાળા મેનૂ પર ક્લિક કરો</translation>
@@ -4275,6 +4279,7 @@
 <translation id="7617366389578322136">"<ph name="DEVICE_NAME" />" થી કનેક્ટ કરી રહ્યું છે</translation>
 <translation id="7622114377921274169">ચાર્જ થઈ રહ્યું છે.</translation>
 <translation id="7624337243375417909">caps lock બંધ છે</translation>
+<translation id="7625568159987162309">પરવાનગીઓ અને બધી સાઇટ પર સ્ટોર કરેલો ડેટા જુઓ</translation>
 <translation id="7627790789328695202">ઉફ્ફ, <ph name="FILE_NAME" /> પહેલાંથી અસ્તિત્વમાં છે. તેનું નામ બદલો અને ફરી પ્રયાસ કરો.</translation>
 <translation id="7628127343934101653">PDF ફાઇલોને ડિફૉલ્ટ PDF દર્શક ઍપ્લિકેશનમાં ખોલો.</translation>
 <translation id="7629827748548208700">ટૅબ: <ph name="TAB_NAME" /></translation>
@@ -4595,6 +4600,7 @@
 <translation id="806812017500012252">શીર્ષકથી પુનઃક્રમાંકિત કરો</translation>
 <translation id="8068253693380742035">સાઇન ઇન કરવા માટે ટચ કરો</translation>
 <translation id="8069615408251337349">Google મેઘ મુદ્રણ</translation>
+<translation id="806972267388474605">Linuxની ફાઇલો</translation>
 <translation id="8071432093239591881">છબી તરીકે છાપો</translation>
 <translation id="8072988827236813198">ટૅબ્સ પિન કરો</translation>
 <translation id="8074127646604999664">ડેટા મોકલવાનું અને પ્રાપ્ત કરવાનું સમાપ્ત કરવા માટે તાજેતરમાં બંધ કરેલ સાઇટ્સને મંજૂરી આપો</translation>

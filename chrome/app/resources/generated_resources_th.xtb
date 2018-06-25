@@ -75,7 +75,7 @@
 <translation id="1112420131909513020">แท็บพื้นหลังกำลังใช้บลูทูธ</translation>
 <translation id="1114102982691049955"><ph name="PRINTER_MANUFACTURER" /> <ph name="PRINTER_MODEL" /> (USB)</translation>
 <translation id="1114202307280046356">เพชร</translation>
-<translation id="1114335938027186412">คอมพิวเตอร์ของคุณมีอุปกรณ์รักษาความปลอดภัย Trusted Platform Module (TPM) ซึ่งใช้เพื่อนำฟีเจอร์การรักษาความปลอดภัยที่สำคัญจำนวนมากมาใช้ใน Chrome OS โปรดไปที่ศูนย์ช่วยเหลือของ Chromebook เพื่อเรียนรู้เพิ่มเติม: https://support.google.com/chromebook/?p=tpm</translation>
+<translation id="1114335938027186412">คอมพิวเตอร์ของคุณมีอุปกรณ์รักษาความปลอดภัย Trusted Platform Module (TPM) ซึ่งใช้เพื่อนำฟีเจอร์การรักษาความปลอดภัยที่สำคัญจำนวนมากมาใช้ใน Chrome OS โปรดไปที่ศูนย์ช่วยเหลือของ Chromebook เพื่อดูข้อมูลเพิ่มเติม: https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="1114525161406758033">เข้าสู่โหมดสลีปเมื่อปิดฝา</translation>
 <translation id="1115018219887494029">Smart Lock สำหรับ Chromebook (เบต้า)</translation>
 <translation id="1116694919640316211">เกี่ยวกับ</translation>
@@ -274,7 +274,7 @@
 <translation id="1397854323885047133">การซิงค์และการปรับเปลี่ยนในแบบของคุณ</translation>
 <translation id="1398853756734560583">ย่อ</translation>
 <translation id="1399511500114202393">ไม่มีใบรับรองของผู้ใช้</translation>
-<translation id="140250605646987970">พบโทรศัพท์ แต่Smart Lock จะทำงานบนอุปกรณ์ที่ใช้ Android 5.0 ขึ้นไปเท่านั้น &lt;a&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="140250605646987970">พบโทรศัพท์ แต่Smart Lock จะทำงานบนอุปกรณ์ที่ใช้ Android 5.0 ขึ้นไปเท่านั้น &lt;a&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (อยู่ภายใต้การดูแล)</translation>
 <translation id="1405476660552109915">คุณต้องการให้ <ph name="PASSWORD_MANAGER_BRAND" /> บันทึกบัญชีของคุณสำหรับเว็บไซต์นี้ไหม</translation>
 <translation id="1406500794671479665">กำลังยืนยันความถูกต้อง...</translation>
@@ -560,7 +560,7 @@
 <translation id="1815083418640426271">วางเป็นข้อความธรรมดา</translation>
 <translation id="1815579292149538864">ตั้งค่าหรือจัดการเครื่องพิมพ์ CUPS</translation>
 <translation id="181577467034453336">และอีก <ph name="NUMBER_OF_VIEWS" /> ครั้ง...</translation>
-<translation id="1815861158988915678"><ph name="BEGIN_BOLD" />ข้อควรระวัง:<ph name="END_BOLD" /> ไฟล์เหล่านี้ใช้ชั่วคราวและอาจถูกลบโดยอัตโนมัติเพื่อเพิ่มพื้นที่ว่างในดิสก์ <ph name="BEGIN_LINK" />เรียนรู้เพิ่มเติม<ph name="END_LINK" /></translation>
+<translation id="1815861158988915678"><ph name="BEGIN_BOLD" />ข้อควรระวัง:<ph name="END_BOLD" /> ไฟล์เหล่านี้ใช้ชั่วคราวและอาจถูกลบโดยอัตโนมัติเพื่อเพิ่มพื้นที่ว่างในดิสก์ <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="1817310072033858383">ตั้งค่า Smart Lock สำหรับ <ph name="DEVICE_TYPE" /></translation>
 <translation id="1817871734039893258">การกู้คืนไฟล์ของ Microsoft</translation>
 <translation id="1818007989243628752">ลบรหัสผ่านสำหรับ <ph name="USERNAME" /></translation>
@@ -960,7 +960,7 @@
 <translation id="2462752602710430187">เพิ่ม <ph name="PRINTER_NAME" /> แล้ว</translation>
 <translation id="2464089476039395325">พร็อกซี HTTP</translation>
 <translation id="2468205691404969808">ใช้คุกกี้เพื่อให้จดจำค่ากำหนดของคุณ แม้ว่าคุณไม่ได้เข้าชมหน้าเว็บเหล่านั้น</translation>
-<translation id="2468902267404883140">ไม่สามารถเชื่อมต่อกับโทรศัพท์ของคุณ โปรดตรวจสอบว่าคุณใช้โทรศัพท์ Android ที่เข้ากันได้ซึ่งเปิดอยู่และอยู่ใกล้ๆ มือคุณ &lt;a&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="2468902267404883140">ไม่สามารถเชื่อมต่อกับโทรศัพท์ของคุณ โปรดตรวจสอบว่าคุณใช้โทรศัพท์ Android ที่เข้ากันได้ซึ่งเปิดอยู่และอยู่ใกล้ๆ มือคุณ &lt;a&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="2470702053775288986">ปิดใช้ส่วนขยายที่ไม่สนับสนุนแล้ว</translation>
 <translation id="2473195200299095979">แปลหน้านี้</translation>
 <translation id="2475982808118771221">มีข้อผิดพลาดเกิดขึ้น</translation>
@@ -972,7 +972,7 @@
 <translation id="2485056306054380289">ใบรับรอง CA ของเซิร์ฟเวอร์:</translation>
 <translation id="2485422356828889247">ถอนการติดตั้ง</translation>
 <translation id="2487067538648443797">เพิ่มบุ๊กมาร์กใหม่</translation>
-<translation id="248861575772995840">ไม่พบโทรศัพท์ของคุณ โปรดตรวจสอบว่า <ph name="DEVICE_TYPE" /> เปิดบลูทูธอยู่ &lt;a&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="248861575772995840">ไม่พบโทรศัพท์ของคุณ โปรดตรวจสอบว่า <ph name="DEVICE_TYPE" /> เปิดบลูทูธอยู่ &lt;a&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="2489918096470125693">เพิ่ม&amp;โฟลเดอร์...</translation>
 <translation id="249113932447298600">ขออภัย อุปกรณ์ <ph name="DEVICE_LABEL" /> ไม่ได้รับการสนับสนุนในขณะนี้</translation>
 <translation id="2493021387995458222">เลือก "ทีละคำ"</translation>
@@ -1035,7 +1035,7 @@
 <translation id="2572032849266859634">ได้รับสิทธิ์ในการอ่าน <ph name="VOLUME_NAME" /> เท่านั้นแล้ว</translation>
 <translation id="2573269395582837871">เลือกรูปภาพและชื่อ</translation>
 <translation id="2575247648642144396">ไอคอนนี้จะปรากฏเมื่อส่วนขยายสามารถทำงานบนหน้าเว็บปัจจุบัน ใช้ส่วนขยายนี้โดยคลิกที่ไอคอน หรือกด <ph name="EXTENSION_SHORTCUT" /></translation>
-<translation id="2575268751393592580">ไม่พบโทรศัพท์ของคุณ โปรดตรวจสอบว่า <ph name="DEVICE_TYPE" /> เชื่อมต่อ Wi-Fi หรือเครือข่ายมือถืออยู่ &lt;a&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="2575268751393592580">ไม่พบโทรศัพท์ของคุณ โปรดตรวจสอบว่า <ph name="DEVICE_TYPE" /> เชื่อมต่อ Wi-Fi หรือเครือข่ายมือถืออยู่ &lt;a&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="257779572837908839">ตั้งค่าเป็น Chromebox วิดีโอคอนเฟอเรนซ์</translation>
 <translation id="2579575372772932244">กำลังสร้างโปรไฟล์อีกครั้ง โปรดรอสักครู่...</translation>
 <translation id="2580889980133367162">อนุญาตให้ <ph name="HOST" /> ดาวน์โหลดไฟล์หลายไฟล์เสมอ</translation>
@@ -1319,7 +1319,7 @@
 <translation id="2993517869960930405">ข้อมูลแอป</translation>
 <translation id="2994669386200004489">สำรอง <ph name="FILE_NAME" /> ไม่ได้</translation>
 <translation id="299483336428448530">ติดตั้งโดยผู้ปกครอง</translation>
-<translation id="3002017044809397427">พบ <ph name="PHONE_TYPE" /> แต่ Smart Lock จะทำงานบนอุปกรณ์ที่ใช้ Android 5.0 ขึ้นไปเท่านั้น &lt;a&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="3002017044809397427">พบ <ph name="PHONE_TYPE" /> แต่ Smart Lock จะทำงานบนอุปกรณ์ที่ใช้ Android 5.0 ขึ้นไปเท่านั้น &lt;a&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="3003144360685731741">เครือข่ายที่ต้องการ</translation>
 <translation id="3003623123441819449">แคช CSS</translation>
 <translation id="3003633581067744647">เปลี่ยนเป็นมุมมองภาพขนาดย่อ</translation>
@@ -1548,7 +1548,7 @@
 <translation id="3353984535370177728">เลือกโฟลเดอร์ที่จะอัปโหลด</translation>
 <translation id="3355936511340229503">ข้อผิดพลาดในการเชื่อมต่อ</translation>
 <translation id="3356797067524893661">คุณพร้อมที่จะเข้าการประชุม Hangouts แล้ว</translation>
-<translation id="3358935496594837302">ไม่พบโทรศัพท์ของคุณ โปรดตรวจสอบว่าคุณใช้โทรศัพท์ Android ที่เข้ากันได้ซึ่งเปิดอยู่และอยู่ใกล้ๆ มือคุณ &lt;a&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="3358935496594837302">ไม่พบโทรศัพท์ของคุณ โปรดตรวจสอบว่าคุณใช้โทรศัพท์ Android ที่เข้ากันได้ซึ่งเปิดอยู่และอยู่ใกล้ๆ มือคุณ &lt;a&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="3359256513598016054">ข้อจำกัดนโยบายใบรับรอง</translation>
 <translation id="3360297538363969800">การพิมพ์ล้มเหลว โปรดตรวจสอบเครื่องพิมพ์และลองอีกครั้ง</translation>
 <translation id="3364721542077212959">เครื่องมือสไตลัส</translation>
@@ -1700,7 +1700,7 @@
 <translation id="358796204584394954">พิมพ์รหัสนี้บน "<ph name="DEVICE_NAME" />" เพื่อจับคู่:</translation>
 <translation id="3589766037099229847">บล็อกเนื้อหาที่ไม่ปลอดภัย</translation>
 <translation id="3590194807845837023">ปลดล็อกโปรไฟล์และเปิดใหม่</translation>
-<translation id="3592260987370335752">&amp;เรียนรู้เพิ่มเติม</translation>
+<translation id="3592260987370335752">&amp;ดูข้อมูลเพิ่มเติม</translation>
 <translation id="359283478042092570">ป้อน</translation>
 <translation id="3593965109698325041">ข้อจำกัดของชื่อใบรับรอง</translation>
 <translation id="3594089623005973443">จำนวนหน้าต่อแผ่น</translation>
@@ -1710,7 +1710,7 @@
 <translation id="3602290021589620013">ดูตัวอย่าง</translation>
 <translation id="3603533104205588786">คุณสามารถคลิกดาวเพื่อบุ๊กมาร์กหน้า</translation>
 <translation id="3603622770190368340">รับใบรับรองเครือข่าย</translation>
-<translation id="3604048165392640554">ไม่พบการเชื่อมต่อมือถือ เปิดการเชื่อมต่ออินเทอร์เน็ตผ่านมือถือแบบด่วนในอุปกรณ์เครื่องอื่นๆ แล้วลองอีกครั้ง &lt;a target="_blank" href="<ph name="URL" />"&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="3604048165392640554">ไม่พบการเชื่อมต่อมือถือ เปิดการเชื่อมต่ออินเทอร์เน็ตผ่านมือถือแบบด่วนในอุปกรณ์เครื่องอื่นๆ แล้วลองอีกครั้ง &lt;a target="_blank" href="<ph name="URL" />"&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="3605780360466892872">บัตเทิ่นดาวน์</translation>
 <translation id="3608454375274108141">F10</translation>
 <translation id="3608576286259426129">ตัวอย่างภาพผู้ใช้</translation>
@@ -2015,7 +2015,7 @@
 <translation id="4058720513957747556">AppSocket (TCP/IP)</translation>
 <translation id="4058793769387728514">ตรวจสอบเอกสารทันที</translation>
 <translation id="406070391919917862">แอปพลิเคชันพื้นหลัง</translation>
-<translation id="4063283930106169759">โปรดตรวจสอบว่าโทรศัพท์อยู่ใกล้ๆ ระบบจะเปิดบลูทูธในอุปกรณ์ทุกเครื่องที่มีบัญชีของคุณเพื่อหาโทรศัพท์ &lt;a&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="4063283930106169759">โปรดตรวจสอบว่าโทรศัพท์อยู่ใกล้ๆ ระบบจะเปิดบลูทูธในอุปกรณ์ทุกเครื่องที่มีบัญชีของคุณเพื่อหาโทรศัพท์ &lt;a&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="4065876735068446555">เครือข่ายที่คุณใช้ (<ph name="NETWORK_ID" />) อาจต้องการให้คุณไปที่หน้าการเข้าสู่ระบบของตน</translation>
 <translation id="4068506536726151626">หน้าเว็บนี้มีองค์ประกอบจากไซต์ต่อไปนี้ ซึ่งกำลังติดตามตำแหน่งของคุณ:</translation>
 <translation id="4068776064906523561">ลายนิ้วมือที่บันทึกไว้</translation>
@@ -2032,7 +2032,7 @@
 <translation id="4087089424473531098">สร้างส่วนขยายแล้ว:
 
 <ph name="EXTENSION_FILE" /></translation>
-<translation id="4087470595660267445">ติดตั้งแอปและเกมจาก Google Play ใน Chromebook &lt;a target="_blank" href="<ph name="URL" />"&gt;เรียนรู้เพิ่มเติม&lt;/a&gt;</translation>
+<translation id="4087470595660267445">ติดตั้งแอปและเกมจาก Google Play ใน Chromebook &lt;a target="_blank" href="<ph name="URL" />"&gt;ดูข้อมูลเพิ่มเติม&lt;/a&gt;</translation>
 <translation id="4088095054444612037">ยอมรับสำหรับกลุ่ม</translation>
 <translation id="4089235344645910861">บันทึกการตั้งค่าและเริ่มซิงค์แล้ว</translation>
 <translation id="4090103403438682346">เปิดใช้การเข้าถึงที่ได้รับการยืนยัน</translation>
@@ -2171,7 +2171,7 @@
 <translation id="4340515029017875942"><ph name="ORIGIN" /> ต้องการสื่อสารกับแอป "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="4342311272543222243">อ๊ะ เกิดข้อผิดพลาด TPM</translation>
 <translation id="4345587454538109430">กำหนดค่า...</translation>
-<translation id="4345703751611431217">ความเข้ากันไม่ได้ของซอฟต์แวร์: เรียนรู้เพิ่มเติม</translation>
+<translation id="4345703751611431217">ความเข้ากันไม่ได้ของซอฟต์แวร์: ดูข้อมูลเพิ่มเติม</translation>
 <translation id="4348766275249686434">รวบรวมข้อผิดพลาด</translation>
 <translation id="4350019051035968019">ไม่สามารถลงทะเบียนอุปกรณ์นี้กับโดเมนที่บัญชีของคุณใช้อยู่ได้ เนื่องจากอุปกรณ์มีการทำเครื่องหมายไว้ว่าได้รับการจัดการจากโดเมนอื่น</translation>
 <translation id="4354266305752237763">ปกป้องคุณและอุปกรณ์จากเว็บไซต์ที่เป็นอันตราย (Safe Browsing)</translation>
@@ -2389,7 +2389,7 @@
 <translation id="4708849949179781599">ออกจาก <ph name="PRODUCT_NAME" /></translation>
 <translation id="4710251968215868702">ใช้เนื้อหาในเว็บไซต์ที่คุณเข้าชม รวมถึงกิจกรรมและการโต้ตอบในเบราว์เซอร์</translation>
 <translation id="4711638718396952945">กู้คืนการตั้งค่า</translation>
-<translation id="4713544552769165154">ไฟล์นี้ออกแบบมาสำหรับคอมพิวเตอร์ที่ใช้ซอฟต์แวร์บน Macintosh ซึ่งไม่สามารถเข้ากันได้กับอุปกรณ์ของคุณซึ่งใช้ Chrome OS โปรดค้นหาแอปทดแทนที่เหมาะสมบน <ph name="BEGIN_LINK" />Chrome เว็บสโตร์<ph name="END_LINK" /> <ph name="BEGIN_LINK_HELP" />เรียนรู้เพิ่มเติม<ph name="END_LINK_HELP" /></translation>
+<translation id="4713544552769165154">ไฟล์นี้ออกแบบมาสำหรับคอมพิวเตอร์ที่ใช้ซอฟต์แวร์บน Macintosh ซึ่งไม่สามารถเข้ากันได้กับอุปกรณ์ของคุณซึ่งใช้ Chrome OS โปรดค้นหาแอปทดแทนที่เหมาะสมบน <ph name="BEGIN_LINK" />Chrome เว็บสโตร์<ph name="END_LINK" /> <ph name="BEGIN_LINK_HELP" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK_HELP" /></translation>
 <translation id="4714531393479055912"><ph name="PRODUCT_NAME" /> สามารถซิงค์รหัสผ่านของคุณได้แล้วในตอนนี้</translation>
 <translation id="4715553623069266137">สั้นมาก (0.8 วินาที)</translation>
 <translation id="4716483597559580346">Powerwash เพื่อเพิ่มความปลอดภัย</translation>
@@ -2457,7 +2457,7 @@
 <translation id="4828937774870308359">ออสเตรเลีย</translation>
 <translation id="4829768588131278040">ตั้งค่า PIN</translation>
 <translation id="4830502475412647084">กำลังติดตั้งอัปเดตระบบปฏิบัติการ</translation>
-<translation id="4830573902900904548"><ph name="DEVICE_TYPE" /> ของคุณไม่สามารถเชื่อมต่ออินเทอร์เน็ตโดยใช้ <ph name="NETWORK_NAME" /> โปรดเลือกเครือข่ายอื่น <ph name="LEARN_MORE_LINK_START" />เรียนรู้เพิ่มเติม<ph name="LEARN_MORE_LINK_END" /></translation>
+<translation id="4830573902900904548"><ph name="DEVICE_TYPE" /> ของคุณไม่สามารถเชื่อมต่ออินเทอร์เน็ตโดยใช้ <ph name="NETWORK_NAME" /> โปรดเลือกเครือข่ายอื่น <ph name="LEARN_MORE_LINK_START" />ดูข้อมูลเพิ่มเติม<ph name="LEARN_MORE_LINK_END" /></translation>
 <translation id="4835385943915508971">Chrome ไม่มีสิทธิ์เข้าถึงทรัพยากรที่ขอ</translation>
 <translation id="4835836146030131423">เกิดข้อผิดพลาดในการลงชื่อเข้าใช้</translation>
 <translation id="4837926214103741331">คุณไม่ได้รับอนุญาตให้ใช้อุปกรณ์นี้ โปรดติดต่อเจ้าของอุปกรณ์เพื่อขออนุญาตลงชื่อเข้าใช้</translation>
@@ -2761,7 +2761,7 @@
 <translation id="527605982717517565">อนุญาตให้เรียกใช้ JavaScript บน <ph name="HOST" /> เสมอ</translation>
 <translation id="5280426389926346830">สร้างทางลัดไหม</translation>
 <translation id="528208740344463258">คุณต้องติดตั้งอัปเดตที่จำเป็นนี้ก่อนจึงจะดาวน์โหลดและใช้แอป Android ได้ และจะใช้ <ph name="DEVICE_TYPE" /> ขณะกำลังอัปเดตไม่ได้ <ph name="DEVICE_TYPE" /> จะรีสตาร์ทหลังการติดตั้งเสร็จสมบูรณ์</translation>
-<translation id="5282733140964383898">การเปิดใช้ "ไม่ติดตาม" จะทำให้คำขอหนึ่งๆ ไปรวมอยู่กับการรับส่งข้อมูลในการท่องเว็บของคุณ ผลที่จะเกิดขึ้นขึ้นอยู่กับว่าเว็บไซต์ตอบสนองต่อคำขอหรือไม่และมีการตีความคำขอนั้นอย่างไร ตัวอย่างเช่น บางเว็บไซต์อาจตอบสนองต่อคำขอนี้ด้วยการแสดงโฆษณาที่ไม่ได้อยู่ในเว็บไซต์อื่นๆ ที่คุณเคยเข้าชมให้คุณเห็น เว็บไซต์จำนวนมากจะยังคงเก็บรวบรวมข้อมูลการท่องเว็บของคุณไว้เพื่อใช้ปรับปรุงความปลอดภัย จัดเตรียมเนื้อหา บริการ โฆษณา และคำแนะนำในเว็บไซต์ รวมทั้งเพื่อสร้างสถิติการรายงาน เป็นต้น <ph name="BEGIN_LINK" />เรียนรู้เพิ่มเติม<ph name="END_LINK" /></translation>
+<translation id="5282733140964383898">การเปิดใช้ "ไม่ติดตาม" จะทำให้คำขอหนึ่งๆ ไปรวมอยู่กับการรับส่งข้อมูลในการท่องเว็บของคุณ ผลที่จะเกิดขึ้นขึ้นอยู่กับว่าเว็บไซต์ตอบสนองต่อคำขอหรือไม่และมีการตีความคำขอนั้นอย่างไร ตัวอย่างเช่น บางเว็บไซต์อาจตอบสนองต่อคำขอนี้ด้วยการแสดงโฆษณาที่ไม่ได้อยู่ในเว็บไซต์อื่นๆ ที่คุณเคยเข้าชมให้คุณเห็น เว็บไซต์จำนวนมากจะยังคงเก็บรวบรวมข้อมูลการท่องเว็บของคุณไว้เพื่อใช้ปรับปรุงความปลอดภัย จัดเตรียมเนื้อหา บริการ โฆษณา และคำแนะนำในเว็บไซต์ รวมทั้งเพื่อสร้างสถิติการรายงาน เป็นต้น <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="5283677936944177147">อ๊ะ!  ระบบไม่สามารถระบุรุ่นหรือหมายเลขซีเรียลของอุปกรณ์</translation>
 <translation id="5284445933715251131">ดาวน์โหลดต่อ</translation>
 <translation id="528468243742722775">End</translation>
@@ -3157,7 +3157,7 @@
 <translation id="5849212445710944278">เพิ่มแล้ว</translation>
 <translation id="5849570051105887917">รหัสผู้ให้บริการหน้าแรก</translation>
 <translation id="5850516540536751549">ไม่สนับสนุนไฟล์ประเภทนี้ โปรดไปที่ <ph name="BEGIN_LINK" />Chrome เว็บสโตร์<ph name="END_LINK" />เพื่อหาแอปที่สามารถเปิดไฟล์ประเภทนี้
-    <ph name="BEGIN_LINK_HELP" />เรียนรู้เพิ่มเติม<ph name="END_LINK_HELP" /></translation>
+    <ph name="BEGIN_LINK_HELP" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK_HELP" /></translation>
 <translation id="5851063901794976166">ไม่มีอะไรอยู่ในนี้...</translation>
 <translation id="5851868085455377790">ผู้ออกใบรับรอง</translation>
 <translation id="5852112051279473187">อ๊ะ! เกิดข้อผิดพลาดขึ้นในขณะลงทะเบียนอุปกรณ์นี้ โปรดลองอีกครั้งหรือติดต่อตัวแทนการสนับสนุนของคุณ</translation>
@@ -3847,7 +3847,7 @@
 <translation id="6915804003454593391">ผู้ใช้:</translation>
 <translation id="6916590542764765824">จัดการส่วนขยาย</translation>
 <translation id="6920989436227028121">เปิดเป็นแท็บทั่วไป</translation>
-<translation id="6922128026973287222">บันทึกข้อมูลและท่องเว็บเร็วขึ้นโดยใช้ Google โปรแกรมประหยัดอินเทอร์เน็ต คลิกเพื่อเรียนรู้เพิ่มเติม</translation>
+<translation id="6922128026973287222">บันทึกข้อมูลและท่องเว็บเร็วขึ้นโดยใช้ Google โปรแกรมประหยัดอินเทอร์เน็ต คลิกเพื่อดูข้อมูลเพิ่มเติม</translation>
 <translation id="6923132443355966645">เลื่อน/คลิก</translation>
 <translation id="6929835486583850209">เกิดข้อผิดพลาดขณะติดตั้ง <ph name="APP_NAME" />...</translation>
 <translation id="6930242544192836755">ระยะเวลา</translation>
@@ -4002,7 +4002,7 @@
 <translation id="7152478047064750137">ส่วนขยายนี้ไม่จำเป็นต้องมีสิทธิ์พิเศษ</translation>
 <translation id="7154130902455071009">เปลี่ยนหน้าเริ่มต้นของคุณเป็น: <ph name="START_PAGE" /></translation>
 <translation id="7155171745945906037">รูปภาพที่มีอยู่จากกล้องหรือไฟล์</translation>
-<translation id="7156235233373189579">ไฟล์นี้ออกแบบมาสำหรับพีซีที่ใช้ซอฟต์แวร์บน Windows ซึ่งไม่สามารถเข้ากันได้กับอุปกรณ์ของคุณซึ่งใช้ Chrome OS โปรดค้นหาแอปทดแทนที่เหมาะสมบน <ph name="BEGIN_LINK" />Chrome เว็บสโตร์<ph name="END_LINK" /> <ph name="BEGIN_LINK_HELP" />เรียนรู้เพิ่มเติม<ph name="END_LINK_HELP" /></translation>
+<translation id="7156235233373189579">ไฟล์นี้ออกแบบมาสำหรับพีซีที่ใช้ซอฟต์แวร์บน Windows ซึ่งไม่สามารถเข้ากันได้กับอุปกรณ์ของคุณซึ่งใช้ Chrome OS โปรดค้นหาแอปทดแทนที่เหมาะสมบน <ph name="BEGIN_LINK" />Chrome เว็บสโตร์<ph name="END_LINK" /> <ph name="BEGIN_LINK_HELP" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK_HELP" /></translation>
 <translation id="7165320105431587207">ล้มเหลวในการกำหนดค่าเครือข่าย</translation>
 <translation id="716640248772308851">"<ph name="EXTENSION" />" สามารถอ่านรูปภาพ วิดีโอ และไฟล์เสียงในตำแหน่งที่เลือก</translation>
 <translation id="7167486101654761064">เปิดไฟล์ประเภทนี้เ&amp;สมอ</translation>
@@ -4057,7 +4057,7 @@
 <translation id="7246339268451149667">หากต้องการเปิดใช้การปลดล็อกด้วยลายนิ้วมือ</translation>
 <translation id="7246947237293279874">พร็อกซี FTP</translation>
 <translation id="725109152065019550">ขออภัย ผู้ดูแลระบบของคุณได้ปิดใช้งานพื้นที่เก็บข้อมูลภายนอกกับบัญชีของคุณ</translation>
-<translation id="7253521419891527137">&amp;เรียนรู้เพิ่มเติม</translation>
+<translation id="7253521419891527137">&amp;ดูข้อมูลเพิ่มเติม</translation>
 <translation id="7254554697254365959">หน้านี้ไม่สามารถแปลได้</translation>
 <translation id="7254951428499890870">คุณแน่ใจไหมว่าต้องการเปิด "<ph name="APP_NAME" />" ในโหมดการวินิจฉัย</translation>
 <translation id="7255220508626648026">กำลังแคสต์: <ph name="ROUTETITLE" /></translation>
@@ -4841,7 +4841,7 @@
 <translation id="843760761634048214">บันทึกบัตรเครดิต</translation>
 <translation id="8438328416656800239">เปลี่ยนเป็นเบราว์เซอร์ที่มีประสิทธิภาพ</translation>
 <translation id="8439506636278576865">เสนอที่จะแปลหน้าต่างๆ ที่เป็นภาษานี้</translation>
-<translation id="8446884382197647889">เรียนรู้เพิ่มเติม</translation>
+<translation id="8446884382197647889">ดูข้อมูลเพิ่มเติม</translation>
 <translation id="8447409163267621480">รวมปุ่ม Ctrl หรือ Alt</translation>
 <translation id="8448729345478502352">ทำให้รายการในหน้าจอมีขนาดเล็กลงหรือใหญ่ขึ้น</translation>
 <translation id="8449008133205184768">วางและจับคู่รูปแบบ</translation>
@@ -4954,7 +4954,7 @@
 <translation id="8628085465172583869">ชื่อโฮสต์เซิร์ฟเวอร์:</translation>
 <translation id="8630903300770275248">นำเข้าผู้ใช้ภายใต้การดูแล</translation>
 <translation id="8631032106121706562">พีทอล</translation>
-<translation id="8637542770513281060">คอมพิวเตอร์ของคุณมีโมดูลความปลอดภัย ซึ่งใช้เพื่อนำฟีเจอร์การรักษาความปลอดภัยที่สำคัญจำนวนมากมาใช้ใน Chrome OS โปรดไปที่ศูนย์ช่วยเหลือของ Chromebook เพื่อเรียนรู้เพิ่มเติม: https://support.google.com/chromebook/?p=sm</translation>
+<translation id="8637542770513281060">คอมพิวเตอร์ของคุณมีโมดูลความปลอดภัย ซึ่งใช้เพื่อนำฟีเจอร์การรักษาความปลอดภัยที่สำคัญจำนวนมากมาใช้ใน Chrome OS โปรดไปที่ศูนย์ช่วยเหลือของ Chromebook เพื่อดูข้อมูลเพิ่มเติม: https://support.google.com/chromebook/?p=sm</translation>
 <translation id="8637688295594795546">มีอัปเดตระบบพร้อมใช้งาน กำลังเตรียมการดาวน์โหลด…</translation>
 <translation id="8639047128869322042">กำลังตรวจหาซอฟต์แวร์ที่เป็นอันตราย...</translation>
 <translation id="8639963783467694461">การตั้งค่าป้อนอัตโนมัติ</translation>
@@ -5060,7 +5060,7 @@
 <translation id="8757803915342932642">อุปกรณ์ใน "อุปกรณ์ Google Cloud"</translation>
 <translation id="8758418656925882523">เปิดใช้การพิมพ์ตามคำบอก (พูดเพื่อพิมพ์)</translation>
 <translation id="8759408218731716181">ไม่สามารถตั้งค่าการลงชื่อเข้าสู่ระบบพร้อมกันหลายบัญชีได้</translation>
-<translation id="8759753423332885148">เรียนรู้เพิ่มเติม</translation>
+<translation id="8759753423332885148">ดูข้อมูลเพิ่มเติม</translation>
 <translation id="8762207669047572135">อนุญาตให้เข้าถึง</translation>
 <translation id="8767621466733104912">อัปเดต Chrome สำหรับผู้ใช้ทุกคนโดยอัตโนมัติ</translation>
 <translation id="8770406935328356739">ไดเรกทอรีหลักของส่วนขยาย</translation>
@@ -5280,7 +5280,7 @@
 <translation id="9103868373786083162">กดเพื่อย้อนกลับไปที่เมนูตามบริบทเพื่อดูประวัติ</translation>
 <translation id="9105212490906037469">F2</translation>
 <translation id="9109122242323516435">หากต้องการเพิ่มพื้นที่ว่าง ให้ลบไฟล์ออกจากพื้นที่เก็บข้อมูลของอุปกรณ์</translation>
-<translation id="9110990317705400362">เรายังคงค้นหาวิธีที่จะทำให้การท่องเว็บของคุณปลอดภัยยิ่งขึ้นอย่างสม่ำเสมอ ก่อนหน้านี้ทุกเว็บไซต์สามารถแสดงข้อความแจ้งให้คุณเพิ่มส่วนขยายในเบราว์เซอร์ แต่ใน Google Chrome เวอร์ชันล่าสุด คุณจะต้องแจ้งให้ Chrome ทราบอย่างชัดเจนว่าคุณต้องการติดตั้งส่วนขยายเหล่านี้โดยการเพิ่มส่วนขยายผ่านหน้า "ส่วนขยาย" <ph name="BEGIN_LINK" />เรียนรู้เพิ่มเติม<ph name="END_LINK" /></translation>
+<translation id="9110990317705400362">เรายังคงค้นหาวิธีที่จะทำให้การท่องเว็บของคุณปลอดภัยยิ่งขึ้นอย่างสม่ำเสมอ ก่อนหน้านี้ทุกเว็บไซต์สามารถแสดงข้อความแจ้งให้คุณเพิ่มส่วนขยายในเบราว์เซอร์ แต่ใน Google Chrome เวอร์ชันล่าสุด คุณจะต้องแจ้งให้ Chrome ทราบอย่างชัดเจนว่าคุณต้องการติดตั้งส่วนขยายเหล่านี้โดยการเพิ่มส่วนขยายผ่านหน้า "ส่วนขยาย" <ph name="BEGIN_LINK" />ดูข้อมูลเพิ่มเติม<ph name="END_LINK" /></translation>
 <translation id="9111102763498581341">ปลดล็อก</translation>
 <translation id="9111395131601239814"><ph name="NETWORKDEVICE" />: <ph name="STATUS" /></translation>
 <translation id="9112748030372401671">เปลี่ยนวอลเปเปอร์ของคุณ</translation>

@@ -2235,7 +2235,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
 
           En el cas dels URL no inclosos als patrons que s'especifiquen, o de tots els URL si no es defineix aquesta política, s'utilitzarà el valor global predeterminat indicat a la política DefaultCookiesSetting (si s'ha definit) o el valor personalitzat que hagi definit l'usuari.
 
-          Tingues en compte que, si <ph name="PRODUCT_NAME" /> s'executa en "mode de segon pla", pot ser que la sessió no es tanqui quan es tanqui l'última finestra del navegador, sinó que continuarà activa fins que es tanqui el navegador. Consulta la política BackgroundModeEnabled per obtenir més informació sobre com pots configurar aquest comportament.
+          Tingues en compte que, si <ph name="PRODUCT_NAME" /> s'executa en "mode de segon pla", pot ser que la sessió no es tanqui quan es tanqui l'última finestra del navegador, sinó que continuï activa fins que es tanqui el navegador. Consulta la política BackgroundModeEnabled per obtenir més informació sobre com pots configurar aquest comportament.
 
           Consulta també les polítiques CookiesAllowedForUrls i CookiesBlockedForUrls. Tingues en compte que no pot haver-hi conflictes entre els patrons d'URL d'aquestes tres polítiques. No s'ha especificat quina té prioritat.
 
