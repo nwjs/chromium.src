@@ -14,7 +14,6 @@
 #include "third_party/blink/renderer/core/fetch/request_init.h"
 #include "third_party/blink/renderer/core/fileapi/public_url_manager.h"
 #include "third_party/blink/renderer/core/loader/threadable_loader.h"
-#include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/v8_private_property.h"
 #include "third_party/blink/renderer/platform/loader/cors/cors.h"
 #include "third_party/blink/renderer/platform/loader/fetch/fetch_utils.h"
@@ -732,9 +731,7 @@ Request* Request::clone(ScriptState* script_state,
     return nullptr;
   }
 
-  FetchRequestData* request = request_->Clone(script_state, exception_state);
-  if (exception_state.HadException())
-    return nullptr;
+  FetchRequestData* request = request_->Clone(script_state);
   RefreshBody(script_state);
   Headers* headers = Headers::Create(request->HeaderList());
   headers->SetGuard(headers_->GetGuard());
