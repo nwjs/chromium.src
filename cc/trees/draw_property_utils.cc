@@ -506,11 +506,12 @@ static void UpdatePageScaleFactorInternal(PropertyTrees* property_trees,
                                           float page_scale_factor,
                                           float device_scale_factor,
                                           gfx::Transform device_transform) {
-  if (property_trees->transform_tree.page_scale_factor() == page_scale_factor)
+  if (property_trees->transform_tree.page_scale_factor() == page_scale_factor ||
+      !page_scale_layer) {
     return;
+  }
 
   property_trees->transform_tree.set_page_scale_factor(page_scale_factor);
-  DCHECK(page_scale_layer);
   DCHECK_GE(page_scale_layer->transform_tree_index(),
             TransformTree::kRootNodeId);
   TransformNode* node = property_trees->transform_tree.Node(
