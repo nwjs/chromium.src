@@ -5,6 +5,7 @@
 #include "third_party/blink/renderer/core/fetch/fetch_response_data.h"
 
 #include "third_party/blink/public/platform/modules/serviceworker/web_service_worker_response.h"
+#include "third_party/blink/renderer/bindings/core/v8/exception_state.h"
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
 #include "third_party/blink/renderer/core/fetch/fetch_header_list.h"
 #include "third_party/blink/renderer/core/typed_arrays/dom_array_buffer.h"
@@ -171,7 +172,8 @@ const Vector<KURL>& FetchResponseData::InternalURLList() const {
   return url_list_;
 }
 
-FetchResponseData* FetchResponseData::Clone(ScriptState* script_state) {
+FetchResponseData* FetchResponseData::Clone(ScriptState* script_state,
+                                            ExceptionState& exception_state) {
   FetchResponseData* new_response = Create();
   new_response->type_ = type_;
   if (termination_reason_) {
@@ -194,7 +196,9 @@ FetchResponseData* FetchResponseData::Clone(ScriptState* script_state) {
       DCHECK_EQ(buffer_, internal_response_->buffer_);
       DCHECK_EQ(internal_response_->type_, Type::kDefault);
       new_response->internal_response_ =
-          internal_response_->Clone(script_state);
+          internal_response_->Clone(script_state, exception_state);
+      if (exception_state.HadException())
+        return nullptr;
       buffer_ = internal_response_->buffer_;
       new_response->buffer_ = new_response->internal_response_->buffer_;
       break;
@@ -203,7 +207,9 @@ FetchResponseData* FetchResponseData::Clone(ScriptState* script_state) {
       if (buffer_) {
         BodyStreamBuffer* new1 = nullptr;
         BodyStreamBuffer* new2 = nullptr;
-        buffer_->Tee(&new1, &new2);
+        buffer_->Tee(&new1, &new2, exception_state);
+        if (exception_state.HadException())
+          return nullptr;
         buffer_ = new1;
         new_response->buffer_ = new2;
       }
@@ -219,7 +225,9 @@ FetchResponseData* FetchResponseData::Clone(ScriptState* script_state) {
       DCHECK(!buffer_);
       DCHECK_EQ(internal_response_->type_, Type::kDefault);
       new_response->internal_response_ =
-          internal_response_->Clone(script_state);
+          internal_response_->Clone(script_state, exception_state);
+      if (exception_state.HadException())
+        return nullptr;
       break;
   }
   return new_response;

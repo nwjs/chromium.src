@@ -521,3 +521,7 @@ crbug.com/825170 external/wpt/css/css-transitions/transitioncancel-001.html [ Sl
 crbug.com/826957 fast/peerconnection/RTCPeerConnection-manyCandidates.html [ Slow ]
 
 crbug.com/842995 external/wpt/html/semantics/scripting-1/the-script-element/execution-timing/078.html [ Slow ]
+
+# These tests take 90 seconds on MSAN due to a large amount of JS execution.
+crbug.com/853977 [ Linux ] http/tests/fetch/chromium/call-extra-crash-tee.html [ Slow ]
+crbug.com/853977 [ Linux ] http/tests/fetch/chromium/release-handle-crash.html [ Slow ]
