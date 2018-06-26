@@ -609,6 +609,7 @@ class CONTENT_EXPORT RenderFrameImpl
       override;
   void SetHasReceivedUserGesture() override;
   void SetHasReceivedUserGestureBeforeNavigation(bool value) override;
+  void SetMouseCapture(bool capture) override;
   bool ShouldReportDetailedMessageForSource(
       const blink::WebString& source) override;
   void DidAddMessageToConsole(const blink::WebConsoleMessage& message,

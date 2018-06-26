@@ -273,6 +273,8 @@ class LocalFrameClientImpl final : public LocalFrameClient {
 
   void FrameRectsChanged(const IntRect&) override;
 
+  void SetMouseCapture(bool capture) override;
+
  private:
   explicit LocalFrameClientImpl(WebLocalFrameImpl*);
 

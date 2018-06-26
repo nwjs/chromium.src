@@ -1123,4 +1123,8 @@ void LocalFrameClientImpl::FrameRectsChanged(const IntRect& frame_rect) {
   web_frame_->Client()->FrameRectsChanged(frame_rect);
 }
 
+void LocalFrameClientImpl::SetMouseCapture(bool capture) {
+  web_frame_->Client()->SetMouseCapture(capture);
+}
+
 }  // namespace blink
