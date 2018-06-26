@@ -176,6 +176,7 @@ enum AppListPageSwitcherSource {
   kMaxAppListPageSwitcherSource = 7,
 };
 
+ASH_PUBLIC_EXPORT extern const char kAppContextMenuExecuteCommandFromApp[];
 ASH_PUBLIC_EXPORT extern const char kAppListAppLaunched[];
 ASH_PUBLIC_EXPORT extern const char kAppListAppLaunchedFullscreen[];
 ASH_PUBLIC_EXPORT extern const char kAppListCreationTimeHistogram[];

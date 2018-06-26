@@ -177,6 +177,11 @@ const ui::ResourceBundle::FontStyle kItemTextFontStyle =
 const float kAllAppsOpacityStartPx = 8.0f;
 const float kAllAppsOpacityEndPx = 144.0f;
 
+// The UMA histogram that logs usage of context menu commands for app context
+// menus.
+const char kAppContextMenuExecuteCommandFromApp[] =
+    "Apps.ContextMenuExecuteCommand.FromApp";
+
 // The UMA histogram that logs usage of suggested and regular apps.
 const char kAppListAppLaunched[] = "Apps.AppListAppLaunched";
 

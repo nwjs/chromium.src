@@ -12,6 +12,7 @@
 #include "ash/app_list/model/app_list_item.h"
 #include "ash/public/cpp/app_list/app_list_constants.h"
 #include "ash/public/cpp/app_list/app_list_switches.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/strings/utf_string_conversions.h"
 #include "build/build_config.h"
@@ -336,6 +337,7 @@ void AppListItemView::ShowContextMenuForView(views::View* source,
 
 void AppListItemView::ExecuteCommand(int command_id, int event_flags) {
   if (item_weak_) {
+    base::UmaHistogramSparse(kAppContextMenuExecuteCommandFromApp, command_id);
     delegate_->ContextMenuItemSelected(item_weak_->id(), command_id,
                                        event_flags);
   }

@@ -13,6 +13,7 @@
 #include "ash/public/cpp/app_list/vector_icons/vector_icons.h"
 #include "base/bind.h"
 #include "base/i18n/number_formatting.h"
+#include "base/metrics/histogram_functions.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/metrics/user_metrics.h"
 #include "base/strings/utf_string_conversions.h"
@@ -429,6 +430,7 @@ void SearchResultTileItemView::OnGetContextMenuModel(
 
 void SearchResultTileItemView::ExecuteCommand(int command_id, int event_flags) {
   if (item_) {
+    base::UmaHistogramSparse(kAppContextMenuExecuteCommandFromApp, command_id);
     view_delegate_->SearchResultContextMenuItemSelected(item_->id(), command_id,
                                                         event_flags);
   }
