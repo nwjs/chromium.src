@@ -1934,6 +1934,7 @@ enum WebFeature {
   kHTMLFrameSetElementAnonymousNamedGetter = 2464,
   kPerformanceEventTimingBuffer = 2468,
   kPerformanceEventTimingConstructor = 2469,
+  kEventTimingExplicitlyRequested = 2487,
 
   // Add new features immediately above this line. Don't change assigned
   // numbers of any item, and don't reuse removed slots.
