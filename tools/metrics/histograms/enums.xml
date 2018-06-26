@@ -18921,6 +18921,25 @@ Called by update_net_error_codes.py.-->
   <int value="2464" label="HTMLFrameSetElementAnonymousNamedGetter"/>
   <int value="2468" label="PerformanceEventTimingBuffer"/>
   <int value="2469" label="PerformanceEventTimingConstructor"/>
+  <int value="2470" label="ReverseIterateDOMStorage"/>
+  <int value="2471" label="TextToSpeech_Speak"/>
+  <int value="2472" label="TextToSpeech_SpeakCrossOrigin"/>
+  <int value="2473" label="TextToSpeech_SpeakDisallowedByAutoplay"/>
+  <int value="2474" label="StaleWhileRevalidateEnabled"/>
+  <int value="2475" label="MediaElementSourceOnOfflineContext"/>
+  <int value="2476" label="MediaStreamDestinationOnOfflineContext"/>
+  <int value="2477" label="MediaStreamSourceOnOfflineContext"/>
+  <int value="2478" label="RTCDataChannelInitMaxRetransmitTime"/>
+  <int value="2479"
+      label="RTCPeerConnectionCreateDataChannelMaxPacketLifeTime"/>
+  <int value="2480" label="V8SpeechGrammarList_AddFromUri_Method"/>
+  <int value="2481"
+      label="V8SpeechRecognitionEvent_Interpretation_AttributeGetter"/>
+  <int value="2482" label="V8SpeechRecognitionEvent_Emma_AttributeGetter"/>
+  <int value="2483" label="V8SpeechSynthesis_Speak_Method"/>
+  <int value="2484" label="LegacySymantecCertMainFrameResource"/>
+  <int value="2485" label="LegacySymantecCertInSubresource"/>
+  <int value="2486" label="LegacySymantecCertInSubframeMainResource"/>
   <int value="2487" label="EventTimingExplicitlyRequested"/>
 </enum>
 
