@@ -258,7 +258,7 @@ class CONTENT_EXPORT BrowserMainLoop {
   void InitStartupTracingForDuration();
   void EndStartupTracing();
 
-  void CreateAudioManager();
+  void InitializeAudio();
 
   bool UsingInProcessGpu() const;
 

@@ -124,6 +124,7 @@
 #include "net/ssl/ssl_config_service.h"
 #include "ppapi/buildflags/buildflags.h"
 #include "services/audio/public/cpp/audio_system_factory.h"
+#include "services/audio/public/mojom/constants.mojom.h"
 #include "services/resource_coordinator/public/cpp/memory_instrumentation/client_process_impl.h"
 #include "services/resource_coordinator/public/mojom/memory_instrumentation/memory_instrumentation.mojom.h"
 #include "services/resource_coordinator/public/mojom/service_constants.mojom.h"
@@ -1275,7 +1276,7 @@ int BrowserMainLoop::BrowserThreadsStarted() {
 
   {
     TRACE_EVENT0("startup", "BrowserThreadsStarted::Subsystem:AudioMan");
-    CreateAudioManager();
+    InitializeAudio();
   }
 
   {
@@ -1609,7 +1610,7 @@ void BrowserMainLoop::EndStartupTracing() {
           base::Bind(OnStoppedStartupTracing, startup_trace_file_)));
 }
 
-void BrowserMainLoop::CreateAudioManager() {
+void BrowserMainLoop::InitializeAudio() {
   DCHECK(!audio_manager_);
 
   audio_manager_ = GetContentClient()->browser()->CreateAudioManager(
@@ -1638,6 +1639,12 @@ void BrowserMainLoop::CreateAudioManager() {
     TRACE_EVENT_INSTANT0("startup", "Starting Audio service task runner",
                          TRACE_EVENT_SCOPE_THREAD);
     audio_service_runner_->StartWithTaskRunner(audio_manager_->GetTaskRunner());
+  }
+
+  if (base::FeatureList::IsEnabled(features::kAudioServiceLaunchOnStartup)) {
+    content::ServiceManagerConnection::GetForProcess()
+        ->GetConnector()
+        ->StartService(audio::mojom::kServiceName);
   }
 
   audio_system_ = audio::CreateAudioSystem(
