@@ -347,7 +347,7 @@ bool ToolbarView::SetPaneFocus(views::View* initial_focus) {
   if (!AccessiblePaneView::SetPaneFocus(initial_focus))
     return false;
 
-  location_bar_->SetShowFocusRect(true);
+  location_bar_->SetFullKeyboardAcessibilityMode(true);
   return true;
 }
 
@@ -638,7 +638,7 @@ bool ToolbarView::SetPaneFocusAndFocusDefault() {
 
 void ToolbarView::RemovePaneFocus() {
   AccessiblePaneView::RemovePaneFocus();
-  location_bar_->SetShowFocusRect(false);
+  location_bar_->SetFullKeyboardAcessibilityMode(false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

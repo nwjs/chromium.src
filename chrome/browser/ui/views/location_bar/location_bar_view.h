@@ -189,10 +189,10 @@ class LocationBarView : public LocationBar,
   // comments on |ime_inline_autocomplete_view_|.
   void SetImeInlineAutocompletion(const base::string16& text);
 
-  // Set if we should show a focus rect while the location entry field is
-  // focused. Used when the toolbar is in full keyboard accessibility mode.
-  // Repaints if necessary.
-  virtual void SetShowFocusRect(bool show);
+  // Paints a custom focus ring on platforms that normally do not show focus
+  // rings if |full_keyboard_accessibility_mode| is set to true.
+  // TODO(tommycli): Remove this after after Material Refresh is launched.
+  void SetFullKeyboardAcessibilityMode(bool full_keyboard_accessibility_mode);
 
   // Select all of the text. Needed when the user tabs through controls
   // in the toolbar in full keyboard accessibility mode.
@@ -319,6 +319,9 @@ class LocationBarView : public LocationBar,
   // Updates the color of the icon for the "clear all" button.
   void RefreshClearAllButtonIcon();
 
+  // Updates the focus ring.
+  void RefreshFocusRing();
+
   // Returns text to be placed in the location icon view.
   // - For secure/insecure pages, returns text describing the URL's security
   // level.
@@ -386,6 +389,7 @@ class LocationBarView : public LocationBar,
   void AnimationEnded(const gfx::Animation* animation) override;
 
   // ChromeOmniboxEditController:
+  void OnInputInProgress(bool in_progress) override;
   void OnChanged() override;
   void OnPopupVisibilityChanged() override;
   const ToolbarModel* GetToolbarModel() const override;
@@ -396,9 +400,6 @@ class LocationBarView : public LocationBar,
   // Returns the total amount of space reserved above or below the content,
   // which is the vertical edge thickness plus the padding next to it.
   static int GetTotalVerticalPadding();
-
-  // Returns the path to draw this LocationBarView's focus ring around.
-  SkPath GetFocusRingPath() const;
 
   // The Browser this LocationBarView is in.  Note that at least
   // chromeos::SimpleWebViewDialog uses a LocationBarView outside any browser
@@ -473,9 +474,11 @@ class LocationBarView : public LocationBar,
   // The theme tint. Updated based on the profile and theme settings.
   OmniboxTint tint_;
 
-  // True if we should show a focus rect while the location entry field is
-  // focused. Used when the toolbar is in full keyboard accessibility mode.
-  bool show_focus_rect_ = false;
+  // True if we are in full keyboard accessibility mode. This causes us to show
+  // an internally drawn focus ring on platforms that normally don't display any
+  // focus rings. This custom ring is only drawn if |focus_ring_| is nullptr.
+  // TODO(tommycli): Remove this after after Material Refresh is launched.
+  bool full_keyboard_accessibility_mode_ = false;
 
   // Tracks this preference to determine whether bookmark editing is allowed.
   BooleanPrefMember edit_bookmarks_enabled_;

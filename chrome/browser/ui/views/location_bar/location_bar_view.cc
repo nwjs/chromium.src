@@ -120,12 +120,6 @@ using views::View;
 
 namespace {
 
-// Returns true when a views::FocusRing should be used.
-bool ShouldUseFocusRingView(bool show_focus_ring) {
-  return (show_focus_ring && LocationBarView::IsRounded()) ||
-         ChromePlatformStyle::ShouldOmniboxUseFocusRing();
-}
-
 // Helper function to create a rounded rect background (no stroke).
 std::unique_ptr<views::Background> CreateRoundRectBackground(SkColor bg_color,
                                                              float radius) {
@@ -352,19 +346,13 @@ void LocationBarView::SetImeInlineAutocompletion(const base::string16& text) {
   ime_inline_autocomplete_view_->SetVisible(!text.empty());
 }
 
-void LocationBarView::SetShowFocusRect(bool show) {
-  show_focus_rect_ = show;
-  if (ShouldUseFocusRingView(show)) {
-    focus_ring_ = views::FocusRing::Install(this);
-    focus_ring_->SetPath(GetFocusRingPath());
-    focus_ring_->SetHasFocusPredicate([](View* view) -> bool {
-      auto* v = static_cast<LocationBarView*>(view);
-      return v->omnibox_view_->HasFocus();
-    });
-  } else {
-    focus_ring_.reset();
-  }
-  SchedulePaint();
+void LocationBarView::SetFullKeyboardAcessibilityMode(
+    bool full_keyboard_accessibility_mode) {
+  full_keyboard_accessibility_mode_ = full_keyboard_accessibility_mode;
+
+  // If there is not already a focus ring View, we will draw one in OnPaint.
+  if (!focus_ring_)
+    SchedulePaint();
 }
 
 void LocationBarView::SelectAll() {
@@ -751,12 +739,6 @@ int LocationBarView::GetAvailableTextHeight() {
   return std::max(0, GetLayoutConstant(LOCATION_BAR_HEIGHT) -
                          2 * GetTotalVerticalPadding());
 }
-SkPath LocationBarView::GetFocusRingPath() const {
-  SkPath path;
-  path.addRRect(SkRRect::MakeRectXY(RectToSkRect(GetLocalBounds()),
-                                    GetBorderRadius(), GetBorderRadius()));
-  return path;
-}
 
 // static
 int LocationBarView::GetAvailableDecorationTextHeight() {
@@ -807,9 +789,6 @@ void LocationBarView::RefreshBackground() {
       background_color = border_color =
           GetColor(OmniboxPart::RESULTS_BACKGROUND);
     }
-    // Remove the focus ring if the omnibox popup is open.
-    if (focus_ring_)
-      focus_ring_->SetVisible(!GetOmniboxPopupView()->IsOpen());
   }
 
   if (is_popup_mode_) {
@@ -932,6 +911,37 @@ void LocationBarView::RefreshClearAllButtonIcon() {
                          GetColor(OmniboxPart::LOCATION_BAR_CLEAR_ALL));
   clear_all_button_->SetBorder(views::CreateEmptyBorder(
       gfx::Insets(GetLayoutConstant(LOCATION_BAR_ICON_INTERIOR_PADDING))));
+}
+
+void LocationBarView::RefreshFocusRing() {
+  // Install a focus ring if the Omnibox is rounded, or if the system style uses
+  // a focus ring (i.e. Mac). Early exit if neither of those cases apply.
+  if (!LocationBarView::IsRounded() &&
+      !ChromePlatformStyle::ShouldOmniboxUseFocusRing())
+    return;
+
+  // We may not have a usable path during initialization before first layout.
+  // This will be called again once there is a usable path, so early exit.
+  SkPath path;
+  path.addRRect(SkRRect::MakeRectXY(RectToSkRect(GetLocalBounds()),
+                                    GetBorderRadius(), GetBorderRadius()));
+  if (!views::FocusRing::IsPathUseable(path))
+    return;
+
+  // Install a focus ring if it's not already there.
+  if (!focus_ring_) {
+    focus_ring_ = views::FocusRing::Install(this);
+    focus_ring_->SetHasFocusPredicate([](View* view) -> bool {
+      auto* v = static_cast<LocationBarView*>(view);
+
+      // Show focus ring when the Omnibox is focused and the popup is closed.
+      return v->omnibox_view_->HasFocus() &&
+             !v->GetOmniboxPopupView()->IsOpen();
+    });
+  }
+
+  // Update the focus ring path.
+  focus_ring_->SetPath(path);
 }
 
 base::string16 LocationBarView::GetLocationIconText() const {
@@ -1121,9 +1131,7 @@ void LocationBarView::OnBoundsChanged(const gfx::Rect& previous_bounds) {
   if (popup->IsOpen())
     popup->UpdatePopupAppearance();
   RefreshBackground();
-  // Update the focus rect if needed.
-  if (!bounds().IsEmpty())
-    SetShowFocusRect(show_focus_rect_);
+  RefreshFocusRing();
 }
 
 void LocationBarView::OnFocus() {
@@ -1133,7 +1141,11 @@ void LocationBarView::OnFocus() {
 void LocationBarView::OnPaint(gfx::Canvas* canvas) {
   View::OnPaint(canvas);
 
-  if (show_focus_rect_ && omnibox_view_->HasFocus() && !focus_ring_) {
+  // Internally draw a focus ring only if we don't have an external focus ring
+  // View, we are in full keyboard accessibility mode, and we have focus.
+  // TODO(tommycli): Remove this after after Material Refresh is launched.
+  if (!focus_ring_ && full_keyboard_accessibility_mode_ &&
+      omnibox_view_->HasFocus()) {
     static_cast<BackgroundWith1PxBorder*>(background())
         ->PaintFocusRing(canvas, GetNativeTheme(), GetLocalBounds());
   }
@@ -1198,6 +1210,13 @@ void LocationBarView::AnimationEnded(const gfx::Animation* animation) {
 
 ////////////////////////////////////////////////////////////////////////////////
 // LocationBarView, private OmniboxEditController implementation:
+
+void LocationBarView::OnInputInProgress(bool in_progress) {
+  ChromeOmniboxEditController::OnInputInProgress(in_progress);
+
+  if (ui::MaterialDesignController::IsRefreshUi())
+    RefreshFocusRing();
+}
 
 void LocationBarView::OnChanged() {
   RefreshLocationIcon();
