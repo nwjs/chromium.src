@@ -7,7 +7,6 @@
 #include "third_party/blink/public/platform/modules/serviceworker/web_service_worker_request.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/renderer/bindings/core/v8/dictionary.h"
-#include "third_party/blink/renderer/bindings/core/v8/exception_state.h"
 #include "third_party/blink/renderer/core/dom/abort_signal.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
@@ -732,9 +731,7 @@ Request* Request::clone(ScriptState* script_state,
     return nullptr;
   }
 
-  FetchRequestData* request = request_->Clone(script_state, exception_state);
-  if (exception_state.HadException())
-    return nullptr;
+  FetchRequestData* request = request_->Clone(script_state);
   RefreshBody(script_state);
   Headers* headers = Headers::Create(request->HeaderList());
   headers->SetGuard(headers_->GetGuard());

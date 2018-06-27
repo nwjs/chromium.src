@@ -6,7 +6,6 @@
 
 #include "third_party/blink/public/platform/modules/serviceworker/web_service_worker_request.h"
 #include "third_party/blink/public/platform/web_url_request.h"
-#include "third_party/blink/renderer/bindings/core/v8/exception_state.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/fetch/blob_bytes_consumer.h"
 #include "third_party/blink/renderer/core/fetch/body_stream_buffer.h"
@@ -81,15 +80,12 @@ FetchRequestData* FetchRequestData::CloneExceptBody() {
   return request;
 }
 
-FetchRequestData* FetchRequestData::Clone(ScriptState* script_state,
-                                          ExceptionState& exception_state) {
+FetchRequestData* FetchRequestData::Clone(ScriptState* script_state) {
   FetchRequestData* request = FetchRequestData::CloneExceptBody();
   if (buffer_) {
     BodyStreamBuffer* new1 = nullptr;
     BodyStreamBuffer* new2 = nullptr;
-    buffer_->Tee(&new1, &new2, exception_state);
-    if (exception_state.HadException())
-      return nullptr;
+    buffer_->Tee(&new1, &new2);
     buffer_ = new1;
     request->buffer_ = new2;
   }
