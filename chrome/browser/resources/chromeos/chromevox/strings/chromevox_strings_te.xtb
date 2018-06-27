@@ -179,6 +179,7 @@
 <translation id="2717271541250958000">tabpnl</translation>
 <translation id="2723001399770238859">ఆడియో</translation>
 <translation id="2732718972699418926">AM</translation>
+<translation id="2737520612859577214">సూపర్‌స్క్రిప్ట్ ముగింపు</translation>
 <translation id="2749275490991666823">తనిఖీ చేయబడింది</translation>
 <translation id="27527859628328957">తదుపరి ఫోకస్ చేయగల అంశానికి వెళ్లండి</translation>
 <translation id="276402504937943375">విషయ పట్టిక</translation>
@@ -203,6 +204,7 @@
 <translation id="288178314850623291">నిర్దిష్ట రకాల మూలకాలకు దాటవేయడానికి దాటవేసే ఆదేశాలను ఉపయోగించండి. ముఖ్య శీర్షికల మధ్య ముందుకు మారడానికి, శోధన + H నొక్కండి లేదా వెనుకకు వెళ్లడానికి, శోధన + Shift + H నొక్కండి.</translation>
 <translation id="2894654529758326923">సమాచారం</translation>
 <translation id="2899328121302785497">{COUNT,plural, =1{ఎడమ ధనుర్బంధ గుర్తు}other{# ఎడమ ధనుర్బంధ గుర్తులు}}</translation>
+<translation id="2909478709401302630">సూపర్‌స్క్రిప్ట్ ప్రారంభం</translation>
 <translation id="2911433807131383493">ChromeVox ట్యుటోరియల్‌ను తెరవండి</translation>
 <translation id="2932083475399492303">ఆకృతీకరణ లేదా లేఅవుట్ మధ్య పంక్తి రకాన్ని టోగుల్ చేయండి</translation>
 <translation id="2944762337049891859">పేజీ పూర్తిగా లోడ్ అయిన తర్వాత స్వయంచాలకంగా చదువుతుంది.</translation>
@@ -384,6 +386,7 @@
 <translation id="4148180433151187540">{COUNT,plural, =1{కుడి ధనుర్బంధ గుర్తు}other{# కుడి ధనుర్బంధ గుర్తులు}}</translation>
 <translation id="4158704014418536539">కేస్ ఆధారితం.</translation>
 <translation id="4161663686871496107">ChromeVox చదివి వినిపించే అభిప్రాయం సిద్ధంగా ఉంది</translation>
+<translation id="4166192625054637755">సబ్‌స్క్రిప్ట్ ముగింపు</translation>
 <translation id="4173994908659439270">తదుపరి సవరించగల వచనం ఫీల్డ్ లేదు.</translation>
 <translation id="4176463684765177261">ఆపివేయబడింది</translation>
 <translation id="4188530942454211480">మునుపటి వాక్యం</translation>
@@ -527,6 +530,7 @@
 <translation id="5330443287809544590"><ph name="NAME" />, లింక్</translation>
 <translation id="5336381510091010269">autoinl+lst</translation>
 <translation id="5349770431644471053">వెనుకకు తీసుకువెళ్లే లింక్‌</translation>
+<translation id="5350654862897073517">సబ్‌స్క్రిప్ట్ ప్రారంభం</translation>
 <translation id="536031132345979795">నిరంతరంగా చదివేటప్పుడు వెనుకకు దాటవేయండి</translation>
 <translation id="5368000168321181111">శబ్ద హెచ్చరికలు ఆపివేయబడ్డాయి</translation>
 <translation id="5374320867641260420">తదుపరి బటన్ లేదు.</translation>
