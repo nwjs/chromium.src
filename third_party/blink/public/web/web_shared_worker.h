@@ -40,6 +40,10 @@
 #include "third_party/blink/public/platform/web_common.h"
 #include "third_party/blink/public/platform/web_content_security_policy.h"
 
+namespace base {
+  class FilePath;
+}
+
 namespace blink {
 
 class MessagePortChannel;
@@ -57,6 +61,7 @@ class BLINK_EXPORT WebSharedWorker {
   static std::unique_ptr<WebSharedWorker> Create(WebSharedWorkerClient*);
 
   virtual void StartWorkerContext(
+                                  bool nodejs, const base::FilePath& root_path,
       const WebURL& script_url,
       const WebString& name,
       const WebString& content_security_policy,

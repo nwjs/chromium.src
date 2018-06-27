@@ -44,6 +44,8 @@ class RenderWidgetHostNSViewClient {
   RenderWidgetHostNSViewClient() {}
   virtual ~RenderWidgetHostNSViewClient() {}
 
+  virtual RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() = 0;
+
   // Return the RenderWidget's BrowserAccessibilityManager.
   // TODO(ccameron): This returns nullptr for non-local NSViews. A scheme for
   // non-local accessibility needs to be developed.

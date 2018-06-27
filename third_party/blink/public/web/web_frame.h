@@ -84,6 +84,12 @@ class BLINK_EXPORT WebFrame {
   virtual WebRemoteFrame* ToWebRemoteFrame() = 0;
 
   bool Swap(WebFrame*);
+  virtual bool isNwFakeTop() const {return false;}
+  virtual void setNodeJS(bool) {}
+  virtual bool isNodeJS() const {return false;}
+  virtual bool isNwDisabledChildFrame() const {return false;}
+  virtual void setDevtoolsJail(WebFrame*) {}
+  virtual WebFrame* getDevtoolsJail() {return nullptr;}
 
   // This method closes and deletes the WebFrame. This is typically called by
   // the embedder in response to a frame detached callback to the WebFrame
@@ -191,9 +197,8 @@ class BLINK_EXPORT WebFrame {
   // the given node is not a frame, iframe or if the frame is empty.
   static WebFrame* FromFrameOwnerElement(const WebNode&);
 
-#if INSIDE_BLINK
-  // TODO(mustaq): Should be named FromCoreFrame instead.
   static WebFrame* FromFrame(Frame*);
+#if INSIDE_BLINK
   static Frame* ToCoreFrame(const WebFrame&);
 
   bool InShadowTree() const { return scope_ == WebTreeScopeType::kShadow; }

@@ -66,9 +66,14 @@ template("libgtkui") {
               ]
 
     configs += [
-      "//build/config/linux/pangocairo",
       "//build/config/linux:x11",
     ]
+
+    if (is_component_build) {
+    configs += [
+      "//build/config/linux/pangocairo",
+    ]
+    }
 
     if (use_gio) {
       sources += [

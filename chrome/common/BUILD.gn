@@ -195,6 +195,8 @@ static_library("common") {
     "web_application_info_provider_param_traits.h",
     "webui_url_constants.cc",
     "webui_url_constants.h",
+    "safe_browsing/pe_image_reader_win.cc",
+    "safe_browsing/pe_image_reader_win.h",
   ]
   defines = []
 
@@ -250,8 +252,8 @@ static_library("common") {
     "//components/safe_browsing/web_ui:constants",
     "//components/services/heap_profiling/public/cpp",
     "//components/strings",
-    "//components/translate/content/common",
-    "//components/translate/core/common",
+    #"//components/translate/content/common",
+    #"//components/translate/core/common",
     "//components/url_formatter",
     "//components/variations",
     "//components/visitedlink/common",
@@ -366,6 +368,7 @@ static_library("common") {
     ]
     public_deps += [
       "//chrome/common/extensions:mojo_bindings",
+      "//content/nw/src/api:nw_api",
       "//chrome/common/extensions/api",
       "//chrome/common/extensions/api:extensions_features",
       "//device/usb",

@@ -77,11 +77,15 @@ class CORE_EXPORT HTMLIFrameElement final
   bool AllowFullscreen() const override { return allow_fullscreen_; }
   bool AllowPaymentRequest() const override { return allow_payment_request_; }
   AtomicString RequiredCsp() const override { return required_csp_; }
+  AtomicString nwuseragent() const override { return nwuseragent_; }
+  bool nwfaketop() const override { return nwfaketop_; }
 
+  AtomicString nwuseragent_;
   AtomicString name_;
   AtomicString required_csp_;
   AtomicString allow_;
   bool allow_fullscreen_;
+  bool nwfaketop_;
   bool allow_payment_request_;
   bool collapsed_by_client_;
   Member<HTMLIFrameElementSandbox> sandbox_;

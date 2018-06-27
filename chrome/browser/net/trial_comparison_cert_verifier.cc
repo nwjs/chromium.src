@@ -79,6 +79,7 @@ void SendTrialVerificationReport(void* profile_id,
                                  const net::CertVerifier::RequestParams& params,
                                  const net::CertVerifyResult& primary_result,
                                  const net::CertVerifyResult& trial_result) {
+#if 0
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (!g_browser_process->profile_manager()->IsValidProfile(profile_id))
     return;
@@ -96,6 +97,7 @@ void SendTrialVerificationReport(void* profile_id,
 
   CertificateReportingServiceFactory::GetForBrowserContext(profile)->Send(
       serialized_report);
+#endif
 }
 
 std::unique_ptr<base::Value> TrialVerificationJobResultCallback(

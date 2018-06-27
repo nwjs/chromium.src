@@ -4,6 +4,8 @@
 
 #include "ui/views/accessibility/native_view_accessibility_auralinux.h"
 
+#include "content/public/browser/browser_thread.h"
+
 #include <algorithm>
 #include <memory>
 #include <vector>
