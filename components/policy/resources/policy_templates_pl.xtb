@@ -1157,7 +1157,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
 <translation id="4309640770189628899">Czy włączone są mechanizmy szyfrowania DHE w TLS</translation>
 <translation id="4322842393287974810">Zezwalaj aplikacji kiosku uruchamianej automatycznie z zerowym opóźnieniem na kontrolowanie wersji <ph name="PRODUCT_OS_NAME" /></translation>
 <translation id="4325690621216251241">Dodaj przycisk wylogowania do paska zadań</translation>
-<translation id="4332177773549877617">Rejestrowanie zdarzeń związanych z instalacją aplikacji na Androida</translation>
+<translation id="4332177773549877617">Rejestruj zdarzenia związane z instalacją aplikacji na Androida</translation>
 <translation id="4346674324214534449">Umożliwia ustawienie blokowania reklam na stronach zawierających uciążliwe reklamy.
 
       Jeśli zasada jest ustawiona na wartość 2, reklamy na stronach zawierających uciążliwe reklamy będą blokowane.
@@ -1565,7 +1565,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
       Nie jest to zalecane, bo może spowodować pominięcie rozszerzenia nameConstraints, które ogranicza nazwy hostów, na których dany certyfikat może być autoryzowany.
 
       Jeśli ta zasada nie jest skonfigurowana lub jest wyłączona, certyfikaty serwera, które nie mają rozszerzenia subjectAlternativeName zawierającego nazwę DNS lub adres IP, nie będą uważane za zaufane.</translation>
-<translation id="5584132346604748282">Kontrolowanie usług lokalizacyjnych Google na Androidzie</translation>
+<translation id="5584132346604748282">Kontroluj usługi lokalizacyjne Google na Androidzie</translation>
 <translation id="5586942249556966598">Nic nie rób</translation>
 <translation id="5630352020869108293">Przywróć ostatnią sesję</translation>
 <translation id="5645779841392247734">Zezwalaj na pliki cookie w tych witrynach</translation>
@@ -2163,7 +2163,7 @@ Zwykle ta zasada jest wyłączona w celu ochrony przed phishingiem. W przypadku 
       </translation>
 <translation id="7443616896860707393">Monity o podstawowe uwierzytelnienie HTTP pochodzące z innych witryn</translation>
 <translation id="7458437477941640506">Nie cofaj do docelowej wersji systemu operacyjnego, jeśli zainstalowana jest wersja nowsza niż docelowa. Aktualizacje też są wyłączone.</translation>
-<translation id="7464991223784276288">Ograniczanie plików cookie z odpowiednich adresów URL tylko do bieżącej sesji</translation>
+<translation id="7464991223784276288">Ogranicz pliki cookie z odpowiednich adresów URL tylko do bieżącej sesji</translation>
 <translation id="7469554574977894907">Włącz propozycje wyszukiwania</translation>
 <translation id="7474249562477552702">Określa, czy są dozwolone certyfikaty z podpisem SHA-1 wydane przez lokalne kotwice zaufania</translation>
 <translation id="7485481791539008776">Reguły wybierania domyślnej drukarki</translation>
