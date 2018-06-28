@@ -11,7 +11,6 @@ import android.content.SharedPreferences;
 import android.content.pm.PackageInfo;
 import android.net.Uri;
 import android.os.Build;
-import android.os.StrictMode;
 import android.os.SystemClock;
 import android.os.UserManager;
 import android.provider.Settings;
@@ -43,6 +42,7 @@ import org.chromium.base.CommandLine;
 import org.chromium.base.ContextUtils;
 import org.chromium.base.PackageUtils;
 import org.chromium.base.PathUtils;
+import org.chromium.base.StrictModeContext;
 import org.chromium.base.ThreadUtils;
 import org.chromium.base.library_loader.NativeLibraries;
 import org.chromium.base.metrics.CachedMetrics.TimesHistogramSample;
@@ -165,7 +165,6 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
     }
 
     private void deleteContentsOnPackageDowngrade(PackageInfo packageInfo) {
-        StrictMode.ThreadPolicy oldPolicy = StrictMode.allowThreadDiskWrites();
         try (ScopedSysTraceEvent e2 = ScopedSysTraceEvent.scoped(
                      "WebViewChromiumFactoryProvider.deleteContentsOnPackageDowngrade")) {
             // Use shared preference to check for package downgrade.
@@ -187,8 +186,6 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
             if (lastVersion != currentVersion) {
                 mWebViewPrefs.edit().putInt(VERSION_CODE_PREF, currentVersion).apply();
             }
-        } finally {
-            StrictMode.setThreadPolicy(oldPolicy);
         }
     }
 
@@ -250,17 +247,19 @@ public class WebViewChromiumFactoryProvider implements WebViewFactoryProvider {
             ThreadUtils.setWillOverrideUiThread();
             BuildInfo.setBrowserPackageInfo(packageInfo);
 
-            try (ScopedSysTraceEvent e2 = ScopedSysTraceEvent.scoped(
-                         "WebViewChromiumFactoryProvider.loadChromiumLibrary")) {
-                AwBrowserProcess.loadLibrary(mWebViewDelegate.getDataDirectorySuffix());
-            }
+            try (StrictModeContext smc = StrictModeContext.allowDiskWrites()) {
+                try (ScopedSysTraceEvent e2 = ScopedSysTraceEvent.scoped(
+                             "WebViewChromiumFactoryProvider.loadChromiumLibrary")) {
+                    AwBrowserProcess.loadLibrary(mWebViewDelegate.getDataDirectorySuffix());
+                }
 
-            try (ScopedSysTraceEvent e2 = ScopedSysTraceEvent.scoped(
-                         "WebViewChromiumFactoryProvider.loadGlueLayerPlatSupportLibrary")) {
-                System.loadLibrary("webviewchromium_plat_support");
-            }
+                try (ScopedSysTraceEvent e2 = ScopedSysTraceEvent.scoped(
+                             "WebViewChromiumFactoryProvider.loadGlueLayerPlatSupportLibrary")) {
+                    System.loadLibrary("webviewchromium_plat_support");
+                }
 
-            deleteContentsOnPackageDowngrade(packageInfo);
+                deleteContentsOnPackageDowngrade(packageInfo);
+            }
 
             // Now safe to use WebView data directory.
 
