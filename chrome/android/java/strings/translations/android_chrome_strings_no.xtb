@@ -15,6 +15,7 @@
 <translation id="1121094540300013208">Bruks- og programstopprapporter</translation>
 <translation id="11221688409173367">Trykk på startsideknappen for å se sider som er spesielt valgt for deg.</translation>
 <translation id="1129510026454351943">Detaljer: <ph name="ERROR_DESCRIPTION" /></translation>
+<translation id="1141800923049248244">{FILE_COUNT,plural, =1{1 nedlasting venter.}other{# nedlastinger venter.}}</translation>
 <translation id="1145536944570833626">Slett eksisterende data.</translation>
 <translation id="1146678959555564648">Slå på VR-modus</translation>
 <translation id="114721135501989771">Få Googles smarte funksjoner i Chrome</translation>
@@ -117,6 +118,7 @@
 <translation id="1966710179511230534">Oppdater påloggingsinformasjonen din.</translation>
 <translation id="1974060860693918893">Avansert</translation>
 <translation id="1984937141057606926">Tillatt – unntatt fra tredjeparter.</translation>
+<translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" />-knapp</translation>
 <translation id="1989112275319619282">Bla gjennom</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> vil koble til</translation>
 <translation id="1994173015038366702">Nettadressen til nettstedet</translation>
@@ -419,6 +421,7 @@ Google-kontoen din kan ha andre former for nettlesingslogg, for eksempel søk og
 <translation id="4738836084190194332">Sist synkronisert: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">Åpne en ny fane</translation>
 <translation id="4759238208242260848">Nedlastinger</translation>
+<translation id="4763829664323285145">{FILE_COUNT,plural, =1{1 nedlasting er fullført.}other{# nedlastinger er fullført.}}</translation>
 <translation id="4766369052440583386">Datasparing er på</translation>
 <translation id="4797039098279997504">Trykk for å gå tilbake til <ph name="URL_OF_THE_CURRENT_TAB" /></translation>
 <translation id="4807098396393229769">Navn som er oppført på kortet</translation>
@@ -445,6 +448,7 @@ Google-kontoen din kan ha andre former for nettlesingslogg, for eksempel søk og
 <translation id="4961334780091921942">Passordene dine, loggen din med mer på alle enheter</translation>
 <translation id="4961700429721424617">Du logger av en konto som administreres av <ph name="MANAGED_DOMAIN" />. Dette fører til at Chrome-dataene dine slettes fra denne enheten. De fortsetter imidlertid å være lagret i Google-kontoen din.</translation>
 <translation id="497421865427891073">Gå til neste</translation>
+<translation id="4988210275050210843">Laster ned fil (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Sider</translation>
 <translation id="4996978546172906250">Del via</translation>
 <translation id="5004339818306944878">Bruk opptil 60 % mindre data, og surf raskere – Google-tjenerne optimaliserer sidene du besøker.</translation>
@@ -464,6 +468,7 @@ Google-kontoen din kan ha andre former for nettlesingslogg, for eksempel søk og
 <translation id="515227803646670480">Sletting av alle lagrede data</translation>
 <translation id="5152843274749979095">Ingen støttede apper er installert</translation>
 <translation id="5161254044473106830">Du må oppgi en tittel</translation>
+<translation id="5162754098604580781">{FILE_COUNT,plural, =1{1 nedlasting mislyktes.}other{# nedlastinger mislyktes.}}</translation>
 <translation id="5168917394043976756">Åpne uttrekksmenyen</translation>
 <translation id="5171365962177408781">Trykk for å laste inn den nye fanesiden og se foreslåtte artiker</translation>
 <translation id="5184329579814168207">Åpne i Chrome</translation>
@@ -493,9 +498,11 @@ Google-kontoen din kan ha andre former for nettlesingslogg, for eksempel søk og
 <translation id="5423934151118863508">Sidene du besøker mest, vises her</translation>
 <translation id="5424588387303617268"><ph name="GIGABYTES" /> GB er tilgjengelig</translation>
 <translation id="5433691172869980887">Brukernavnet er kopiert</translation>
+<translation id="543509235395288790">Laster ned <ph name="COUNT" /> filer (<ph name="MEGABYTES" />).</translation>
 <translation id="5441522332038954058">Gå til adressefeltet</translation>
 <translation id="5447201525962359567">All nettstedslagring, inkludert informasjonskapsler og andre lokalt lagrede data</translation>
 <translation id="5447765697759493033">Dette nettstedet oversettes ikke</translation>
+<translation id="545042621069398927">Øker hastigheten på nedlastingen.</translation>
 <translation id="5456381639095306749">Last ned siden</translation>
 <translation id="548278423535722844">Åpne i en kartapp</translation>
 <translation id="5487521232677179737">Slett data</translation>
@@ -726,6 +733,7 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="7359002509206457351">Gå til betalingsmåter</translation>
 <translation id="7366340029385295517">Caster til <ph name="SCREEN_NAME" /></translation>
 <translation id="7375125077091615385">Type:</translation>
+<translation id="7396940094317457632"><ph name="FILE_NAME" />.</translation>
 <translation id="7400418766976504921">Nettadresse</translation>
 <translation id="7403691278183511381">Førsteinntrykk ved bruk av Chrome</translation>
 <translation id="741204030948306876">Ja, jeg er med</translation>
@@ -788,6 +796,7 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="7876243839304621966">Fjern alle</translation>
 <translation id="7882131421121961860">Fant ingen logg</translation>
 <translation id="7882806643839505685">Tillat lyd for et bestemt nettsted.</translation>
+<translation id="7925590027513907933">{FILE_COUNT,plural, =1{Laster ned filen.}other{Laster ned # filer.}}</translation>
 <translation id="7929962904089429003">Åpne menyen</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> er utdatert.</translation>
 <translation id="7947953824732555851">Godta og logg på</translation>

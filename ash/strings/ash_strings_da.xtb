@@ -56,7 +56,7 @@
 <translation id="2050339315714019657">Stående</translation>
 <translation id="2067602449040652523">Lysstyrke for tastatur</translation>
 <translation id="2081529251031312395">$1 kan stadig logge ind senere.</translation>
-<translation id="2122028596993374965">Stop med at caste <ph name="TAB_NAME" /> til <ph name="RECEIVER_NAME" /></translation>
+<translation id="2122028596993374965">Stop cast <ph name="TAB_NAME" /> til <ph name="RECEIVER_NAME" /></translation>
 <translation id="2127372758936585790">Oplader ved lav kraft</translation>
 <translation id="2135456203358955318">Fastgjort lupvindue</translation>
 <translation id="2144487987174258011">Genstart for at opdatere Adobe Flash Player</translation>
@@ -318,11 +318,11 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7994370417837006925">Samlet login fra flere konti</translation>
 <translation id="8000066093800657092">Intet netværk</translation>
 <translation id="8054466585765276473">Beregner batteritid.</translation>
-<translation id="8098591350844501178">Stop med at caste skærmen til <ph name="RECEIVER_NAME" /></translation>
+<translation id="8098591350844501178">Stop cast skærmen til <ph name="RECEIVER_NAME" /></translation>
 <translation id="8132793192354020517">Forbundet til <ph name="NAME" /></translation>
 <translation id="813913629614996137">Initialiserer...</translation>
 <translation id="8142699993796781067">Privat netværk</translation>
-<translation id="8180896103888046100">Stop med at caste til en ukendt modtager</translation>
+<translation id="8180896103888046100">Stop cast til en ukendt modtager</translation>
 <translation id="8190698733819146287">Tilpas sprog og indtastning...</translation>
 <translation id="8261506727792406068">Slet</translation>
 <translation id="8308637677604853869">Forrige menu</translation>

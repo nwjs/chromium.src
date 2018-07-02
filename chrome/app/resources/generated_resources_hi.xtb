@@ -273,7 +273,7 @@
 <translation id="1396963298126346194">आपने जो उपयोगकर्ता नाम और पासवर्ड डाला है, वो मेल नहीं खाते हैं</translation>
 <translation id="1397854323885047133">सिंक करना और मनमुताबिक बनाना</translation>
 <translation id="1398853756734560583">बड़ा करें</translation>
-<translation id="1399511500114202393">कोई उपयोगकर्ता प्रमाणपत्र नहीं</translation>
+<translation id="1399511500114202393">कोई 'उपयोगकर्ता प्रमाणपत्र' नहीं</translation>
 <translation id="140250605646987970">आपका फ़ोन मिल गया है. लेकिन Smart Lock केवल Android 5.0 और उसके बाद वाले वर्शन चला रहे डिवाइस पर काम करता है. &lt;a&gt;और जानें&lt;/a&gt;</translation>
 <translation id="140520891692800925"><ph name="PROFILE_DISPLAY_NAME" /> (पर्यवेक्षित)</translation>
 <translation id="1405476660552109915">क्या आप चाहते हैं कि <ph name="PASSWORD_MANAGER_BRAND" /> इस साइट के लिए आपका खाता सहेजे?</translation>
@@ -360,7 +360,7 @@
 <translation id="1511388193702657997">आपके वेब पासवर्ड सहेजने का ऑफ़र दें</translation>
 <translation id="1512210426710821809">इसे पहले जैसा करने का अकेला तरीका <ph name="IDS_SHORT_PRODUCT_OS_NAME" /> को फिर से इंस्टॉल करना है</translation>
 <translation id="151501797353681931">Safari से आयातित</translation>
-<translation id="1520605251886806589">Google उन साइटों की सामग्री जिन पर आप जाते हैं और आपकी ब्राउज़िंग गतिविधि और इंटरैक्शन का इस्तेमाल Chrome और दूसरी Google सेवाओं, जैसे कि अनुवाद, खोज और विज्ञापनों को आपकी पसंद के मुताबिक बनाने के लिए कर सकता है. आप इसे सेटिंग में जाकर अपनी पसंद के मुताबिक बना सकते हैं.</translation>
+<translation id="1520605251886806589">Google उन साइटों की सामग्री, जिन पर आप जाते हैं, आपकी ब्राउज़िंग गतिविधि और इंटरैक्शन का इस्तेमाल Chrome और दूसरी 'Google सेवाओं', जैसे कि अनुवाद, खोज और विज्ञापनों को आपकी पसंद के मुताबिक बनाने के लिए कर सकता है. आप सेटिंग में जाकर इसे अपनी पसंद के मुताबिक बना सकते हैं.</translation>
 <translation id="1521442365706402292">प्रमाणपत्र प्रबंधित करें</translation>
 <translation id="152234381334907219">कभी नहीं सहेजा गया</translation>
 <translation id="1524430321211440688">कीबोर्ड</translation>
@@ -434,7 +434,7 @@
 <translation id="1637224376458524414">यह बुकमार्क अपने iPhone पर पाएं</translation>
 <translation id="1637765355341780467">आपकी प्रोफ़ाइल खोलते समय कुछ गलत हो गया. हो सकता है कि कुछ सुविधाएं अनुपलब्ध हों.</translation>
 <translation id="1639239467298939599">लोड हो रहा है</translation>
-<translation id="163993578339087550"><ph name="SERVICE_NAME" /> सेवा यह देखना चाहती है कि क्या आप किसी मंज़ूरी दिए गए Chrome OS डिवाइस का इस्तेमाल कर रहे हैं.</translation>
+<translation id="163993578339087550"><ph name="SERVICE_NAME" /> सेवा यह देखना चाहती है कि क्या आप किसी मंज़ूरी दिए गए 'Chrome OS डिवाइस' का इस्तेमाल कर रहे हैं.</translation>
 <translation id="1640283014264083726">RSA सुरक्षित तरीका के साथ PKCS #1 MD4</translation>
 <translation id="1642494467033190216">डीबग करने वाली अन्‍य सुविधाएं सक्षम करने से पहले rootfs सुरक्षा को निकालने और पुन: प्रारंभ करने की आवश्‍यकता है.</translation>
 <translation id="1643050526526937107">सिर्फ़ सिंक करें</translation>
@@ -2717,7 +2717,7 @@
 <translation id="5227808808023563348">पि‍छला टेक्‍स्‍ट ढूंढें</translation>
 <translation id="5228076606934445476">इस डिवाइस में कुछ गलत है.  इस गड़बड़ी को ठीक के लिए आपको डिवाइस को रीबूट करना होगा और फिर से प्रयास करना होगा.</translation>
 <translation id="5229189185761556138">इनपुट विधियां प्रबंधित करें</translation>
-<translation id="5230516054153933099">विंडो</translation>
+<translation id="5230516054153933099">खिड़की</translation>
 <translation id="5233019165164992427">NaCl डीबग पोर्ट</translation>
 <translation id="5233231016133573565">प्रक्रिया आईडी</translation>
 <translation id="5233638681132016545">नया टैब</translation>
@@ -5374,7 +5374,7 @@
 <translation id="960719561871045870">ऑपरेटर कोड</translation>
 <translation id="960987915827980018">लगभग 1 घंटा शेष है</translation>
 <translation id="962802172452141067">बुकमार्क फ़ोल्डर ट्री</translation>
-<translation id="964286338916298286">आपके आईटी एडमिन ने आपके डिवाइस के लिए 'Chrome आकर्षण' को बंद कर दिया है.</translation>
+<translation id="964286338916298286">आपके आईटी एडमिन ने आपके डिवाइस के लिए 'Chrome के तोहफ़े' रीडीम करने की सुविधा बंद कर दी है.</translation>
 <translation id="964439421054175458">{NUM_APLLICATIONS,plural, =1{ऐप्लिकेशन}one{ऐप्लिकेशन}other{ऐप्लिकेशन}}</translation>
 <translation id="968000525894980488">Google Play सेवाएं चालू करें.</translation>
 <translation id="968174221497644223">अनुप्रयोग संचय</translation>

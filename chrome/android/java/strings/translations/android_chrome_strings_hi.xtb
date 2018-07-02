@@ -114,7 +114,7 @@
 <translation id="1944384637046898011"><ph name="TIME" /> तक का सभी डेटा Google पासवर्ड से एन्‍क्रिप्‍ट करें</translation>
 <translation id="1946005195648379376">नियंत्रित करें कि खोज और अन्य Google सेवाओं को वैयक्तिकृत करने के लिए Google आपके ब्राउज़िंग इतिहास का उपयोग कैसे करता है.</translation>
 <translation id="1952172573699511566">जब संभव होगा, वेबसाइटें आपकी पसंदीदा भाषा में लेख दिखाएंगी.</translation>
-<translation id="195283394249132567">दर्शक के मनमुताबिक बनाई गई Google सेवाएं</translation>
+<translation id="195283394249132567">दर्शकों की पसंद के मुताबिक बनाई गई Google सेवाएं</translation>
 <translation id="1966710179511230534">कृपया अपने प्रवेश विवरण अपडेट करें.</translation>
 <translation id="1974060860693918893">उन्नत</translation>
 <translation id="1984937141057606926">तृतीय-पक्ष को छोड़कर अनुमति है</translation>
@@ -145,7 +145,7 @@
 <translation id="2154484045852737596">कार्ड संपादित करें</translation>
 <translation id="2154710561487035718">URL की कॉपी बनाएं</translation>
 <translation id="2156074688469523661">बाकी साइटें (<ph name="NUMBER_OF_SITES" />)</translation>
-<translation id="2184766556418880456">अपने मौजूदा टैब में नए टैब पेज पर जाने के लिए टैप करें</translation>
+<translation id="2184766556418880456">अपने मौजूदा टैब में 'नया टैब' पेज पर जाने के लिए टैप करें</translation>
 <translation id="219985413780390209">खतरनाक साइटों से आपकी और आपके डिवाइस की सुरक्षा करता है</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, वेब ऐप. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048"><ph name="USER_FULL_NAME" /> के रूप में जारी रखें</translation>
@@ -206,7 +206,7 @@
 <translation id="2709516037105925701">ऑटोमैटिक भरना</translation>
 <translation id="271033894570825754">नया</translation>
 <translation id="2728754400939377704">साइट के हिसाब से क्रम में लगाएं</translation>
-<translation id="2736391366332017384">अपने मौजूदा टैब में नए टैब पेज पर जाने के लिए 'होम' बटन पर टैप करें</translation>
+<translation id="2736391366332017384">अपने मौजूदा टैब में 'नया टैब' पेज पर जाने के लिए 'होम' बटन पर टैप करें</translation>
 <translation id="2744248271121720757">झटपट खोजने या मिलती-जुलती कार्रवाइयां देखने के लिए किसी शब्द पर टैप करें</translation>
 <translation id="2762000892062317888">अभी-अभी</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> सेकंड शेष</translation>
@@ -225,7 +225,7 @@
 <translation id="290376772003165898">क्या पेज <ph name="LANGUAGE" /> भाषा में नहीं है?</translation>
 <translation id="2913331724188855103">साइटों को कुकी डेटा सहेजने और पढ़ने दें (अनुशंसित)</translation>
 <translation id="2932150158123903946">Google <ph name="APP_NAME" /> मेमोरी</translation>
-<translation id="2943166482989655199">सिस्टम और इस्तेमाल डेटा Google को भेजकर Chrome और उसकी सुरक्षा को बेहतर बनाएं</translation>
+<translation id="2943166482989655199">Google को सिस्टम और इस्तेमाल का डेटा भेजकर Chrome और उसकी सुरक्षा को बेहतर बनाएं</translation>
 <translation id="2956410042958133412">यह खाता <ph name="PARENT_NAME_1" /> और <ph name="PARENT_NAME_2" /> के द्वारा प्रबंधित है.</translation>
 <translation id="2960796085439532066">कॉपीराइट <ph name="YEAR" /> Google Inc. सर्वाधिकार सुरक्षित.</translation>
 <translation id="2962095958535813455">गुप्त टैब पर स्विच कर दिया गया</translation>
@@ -278,7 +278,7 @@
 <translation id="3414952576877147120">आकार:</translation>
 <translation id="3443221991560634068">वर्तमान पेज फिर से लोड करें</translation>
 <translation id="3452612588551937789">अपने सभी डिवाइस पर अपने बुकमार्क, इतिहास, पासवर्ड और अन्य सेटिंग प्राप्त करने के लिए अपने Google खाते से प्रवेश करें.</translation>
-<translation id="3485359633434254965">{FILES,plural, =1{%1$d फ़ाइल डाउनलोड की गई}one{%1$d फ़ाइलें डाउनलोड की गईं}other{%1$d फ़ाइलें डाउनलोड की गईं}}</translation>
+<translation id="3485359633434254965">{FILES,plural, =1{%1$d फ़ाइल डाउनलोड हो गई}one{%1$d फ़ाइलें डाउनलोड हो गईं}other{%1$d फ़ाइलें डाउनलोड हो गईं}}</translation>
 <translation id="3487093336331957349">खोज और साइट सुझाव</translation>
 <translation id="3492207499832628349">नया गुप्त टैब</translation>
 <translation id="3493531032208478708">सुझाई गई सामग्री के बारे में <ph name="BEGIN_LINK" />अधिक जानें<ph name="END_LINK" /></translation>
@@ -470,7 +470,7 @@
 <translation id="5161254044473106830">शीर्षक आवश्‍यक</translation>
 <translation id="5162754098604580781">{FILE_COUNT,plural, =1{1 डाउनलोड नहीं हो सका.}one{# डाउनलोड नहीं हो सके.}other{# डाउनलोड नहीं हो सके.}}</translation>
 <translation id="5168917394043976756">मार्गदर्शक ड्रॉवर खोलें</translation>
-<translation id="5171365962177408781">नया टैब पेज लोड करने और सुझाए लेख देखने के लिए टैप करें</translation>
+<translation id="5171365962177408781">'नया टैब' पेज लोड करने और सुझाए गए लेख देखने के लिए टैप करें</translation>
 <translation id="5184329579814168207">Chrome में खोलें</translation>
 <translation id="5199929503336119739">कार्य प्रोफ़ाइल</translation>
 <translation id="5210286577605176222">सीधे पिछले टैब पर जाएं</translation>
@@ -926,7 +926,7 @@
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> केबी डाउलनोड किया गया</translation>
 <translation id="9100505651305367705">अगर सुविधा उपलब्ध है, तो लेखों को सरल बनाए गए व्यू में दिखाना ऑफ़र करें</translation>
 <translation id="9100610230175265781">पासफ़्रेज़ आवश्यक</translation>
-<translation id="9100939710791843300">नया टैब पेज लोड करने और सुझाए गए लेख देखने के लिए 'होम' बटन पर टैप करें</translation>
+<translation id="9100939710791843300">'नया टैब' पेज लोड करने और सुझाए गए लेख देखने के लिए 'होम' बटन पर टैप करें</translation>
 <translation id="9133515669113036225">डिवाइस प्रमाणिकता रीसेट करें</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9139068048179869749">साइट को नोटिफ़िकेशन भेजने देने से पहले अनुमति लेना आवश्यक बनाएं (अनुशंसित)</translation>
