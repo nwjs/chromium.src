@@ -19,7 +19,7 @@ namespace vr {
 
 namespace {
 
-constexpr float kDisplacementScaleFactor = 300.0f;
+constexpr float kDisplacementScaleFactor = 129.0f;
 
 // A slop represents a small rectangular region around the first touch point of
 // a gesture.
