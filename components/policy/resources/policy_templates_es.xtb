@@ -1348,7 +1348,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
       Si se habilita esta política, los sitios web podrán abrir nuevas ventanas y pestañas y navegar de forma simultánea.
       Si se inhabilita esta política o no se configura, los sitios web no podrán abrir ventanas ni pestañas nuevas ni navegar de forma simultánea.</translation>
 <translation id="4680961954980851756">Habilitar Autocompletar</translation>
-<translation id="4722122254122249791">Habilita el aislamiento de sitios web específicos</translation>
+<translation id="4722122254122249791">Habilitar el aislamiento de sitios web específicos</translation>
 <translation id="4722399051042571387">Si se le asigna el valor false, los usuarios no podrán definir ningún PIN que no se considere seguro y que sea fácil de adivinar.
 
           Algunos ejemplos de PIN no seguros son: los que estén compuestos por un solo número (1111), aquellos que sigan una secuencia numérica ascendente (1234), los que sigan una secuencia numérica descendente (4321) y los que sean muy habituales.
