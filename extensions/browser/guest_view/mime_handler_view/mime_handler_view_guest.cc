@@ -195,7 +195,11 @@ void MimeHandlerViewGuest::CreateWebContents(
   params.guest_delegate = this;
   // TODO(erikchen): Fix ownership semantics for guest views.
   // https://crbug.com/832879.
-  callback.Run(WebContents::Create(params).release());
+  callback.Run(
+      WebContents::CreateWithSessionStorage(
+          params,
+          owner_web_contents()->GetController().GetSessionStorageNamespaceMap())
+          .release());
 
   registry_.AddInterface(
       base::Bind(&MimeHandlerServiceImpl::Create, stream_->GetWeakPtr()));
