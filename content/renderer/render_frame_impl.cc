@@ -6992,6 +6992,15 @@ void RenderFrameImpl::ScrollRectToVisibleInParentFrame(
       routing_id_, rect_to_scroll, params));
 }
 
+void RenderFrameImpl::BubbleLogicalScrollInParentFrame(
+    blink::WebScrollDirection direction,
+    blink::WebScrollGranularity granularity) {
+  DCHECK(IsLocalRoot());
+  DCHECK(!IsMainFrame());
+  Send(new FrameHostMsg_BubbleLogicalScrollInParentFrame(routing_id_, direction,
+                                                         granularity));
+}
+
 blink::mojom::PageVisibilityState RenderFrameImpl::GetVisibilityState() const {
   return VisibilityState();
 }

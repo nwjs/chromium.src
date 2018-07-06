@@ -64,6 +64,7 @@
 #include "third_party/blink/public/platform/web_insecure_request_policy.h"
 #include "third_party/blink/public/platform/web_intrinsic_sizing_info.h"
 #include "third_party/blink/public/platform/web_scroll_into_view_params.h"
+#include "third_party/blink/public/platform/web_scroll_types.h"
 #include "third_party/blink/public/platform/web_sudden_termination_disabler_type.h"
 #include "third_party/blink/public/web/web_find_options.h"
 #include "third_party/blink/public/web/web_frame_owner_properties.h"
@@ -137,6 +138,12 @@ IPC_ENUM_TRAITS_MAX_VALUE(content::CSPDisposition,
                           content::CSPDisposition::LAST)
 IPC_ENUM_TRAITS_MAX_VALUE(blink::WebTriggeringEventInfo,
                           blink::WebTriggeringEventInfo::kLast)
+IPC_ENUM_TRAITS_MIN_MAX_VALUE(blink::WebScrollDirection,
+                              blink::kFirstScrollDirection,
+                              blink::kLastScrollDirection)
+IPC_ENUM_TRAITS_MIN_MAX_VALUE(blink::WebScrollGranularity,
+                              blink::kFirstScrollGranularity,
+                              blink::kLastScrollGranularity)
 
 IPC_STRUCT_TRAITS_BEGIN(blink::WebFloatSize)
   IPC_STRUCT_TRAITS_MEMBER(width)
@@ -1146,6 +1153,12 @@ IPC_MESSAGE_ROUTED2(FrameMsg_ScrollRectToVisible,
                     gfx::Rect /* rect_to_scroll */,
                     blink::WebScrollIntoViewParams /* properties */)
 
+// Sent to the parent process of a cross-process frame to continue bubbling
+// a logical scroll.
+IPC_MESSAGE_ROUTED2(FrameMsg_BubbleLogicalScroll,
+                    blink::WebScrollDirection /* direction */,
+                    blink::WebScrollGranularity /* granularity */)
+
 // -----------------------------------------------------------------------------
 // Messages sent from the renderer to the browser.
 
@@ -1726,6 +1739,12 @@ IPC_MESSAGE_ROUTED2(FrameHostMsg_WebUISend,
 IPC_MESSAGE_ROUTED2(FrameHostMsg_ScrollRectToVisibleInParentFrame,
                     gfx::Rect /* rect_to_scroll */,
                     blink::WebScrollIntoViewParams /* properties */)
+
+// Sent by a local root to continue bubbling a logical scroll in its parent
+// process.
+IPC_MESSAGE_ROUTED2(FrameHostMsg_BubbleLogicalScrollInParentFrame,
+                    blink::WebScrollDirection /* direction */,
+                    blink::WebScrollGranularity /* granularity */)
 
 // Sent to notify that a frame called |window.focus()|.
 IPC_MESSAGE_ROUTED0(FrameHostMsg_FrameDidCallFocus)
