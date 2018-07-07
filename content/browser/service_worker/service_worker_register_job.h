@@ -140,6 +140,7 @@ class ServiceWorkerRegisterJob : public ServiceWorkerRegisterJobBase,
 
   // EmbeddedWorkerInstance::Listener implementation:
   void OnScriptLoaded() override;
+  void OnDestroyed() override;
 
   void BumpLastUpdateCheckTimeIfNeeded();
 
