@@ -35,21 +35,21 @@ class DMGIterator {
   // method. If this returns false, it is illegal to call any other methods
   // on this class. If this returns true, the iterator is advanced to an
   // invalid element before the first item.
-  virtual bool Open();
+  bool Open();
 
   // Returns the raw code signature file metadata. This will be empty for DMGs
   // that are not signed.
-  virtual const std::vector<uint8_t>& GetCodeSignature();
+  const std::vector<uint8_t>& GetCodeSignature();
 
   // Advances the iterator to the next file item. Returns true on success
   // and false on end-of-iterator.
-  virtual bool Next();
+  bool Next();
 
   // Returns the full path in a DMG filesystem to the current file item.
-  virtual base::string16 GetPath();
+  base::string16 GetPath();
 
   // Returns a ReadStream for the current file item.
-  virtual std::unique_ptr<ReadStream> GetReadStream();
+  std::unique_ptr<ReadStream> GetReadStream();
 
  private:
   UDIFParser udif_;  // The UDIF parser that accesses the partitions.
