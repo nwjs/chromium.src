@@ -3858,6 +3858,28 @@ TEST_F(HistoryBackendTest, DatabaseError) {
   base::RunLoop().RunUntilIdle();
 }
 
+// Tests that calling DatabaseErrorCallback results in killing the database and
+// notifying the TypedURLSyncBridge at the same time so that no further
+// notification from the backend can lead to the bridge. (Regression test for
+// https://crbug.com/853395)
+TEST_F(HistoryBackendTest, DatabaseErrorSynchronouslyKillAndNotifyBridge) {
+  // Notify the backend that a database error occurred.
+  backend_->DatabaseErrorCallback(SQLITE_CORRUPT, nullptr);
+  // In-between (before the posted task finishes), we can again delete all
+  // history.
+  backend_->ExpireHistoryBetween(/*restrict_urls=*/std::set<GURL>(),
+                                 /*begin_time=*/base::Time(),
+                                 /*end_time=*/base::Time::Max());
+
+  // Run loop to let the posted task to kill the DB run.
+  base::RunLoop().RunUntilIdle();
+  // After DB is destroyed, we can again try to delete all history (with no
+  // effect but it should not crash).
+  backend_->ExpireHistoryBetween(/*restrict_urls=*/std::set<GURL>(),
+                                 /*begin_time=*/base::Time(),
+                                 /*end_time=*/base::Time::Max());
+}
+
 // Common implementation for the two tests below, given that the only difference
 // between them is the type of the notification sent out.
 void InMemoryHistoryBackendTest::TestAddingAndChangingURLRows(
