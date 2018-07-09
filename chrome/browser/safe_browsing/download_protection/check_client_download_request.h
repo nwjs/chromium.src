@@ -133,9 +133,6 @@ class CheckClientDownloadRequest
 
 #if defined(OS_MACOSX)
   std::unique_ptr<std::vector<uint8_t>> disk_image_signature_;
-  google::protobuf::RepeatedPtrField<
-      ClientDownloadRequest_DetachedCodeSignature>
-      detached_code_signatures_;
 #endif
 
   ClientDownloadRequest_SignatureInfo signature_info_;
