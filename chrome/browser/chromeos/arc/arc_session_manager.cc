@@ -742,6 +742,13 @@ void ArcSessionManager::MaybeStartTermsOfServiceNegotiation() {
   }
 
   if (!IsArcTermsOfServiceNegotiationNeeded(profile_)) {
+    if (IsArcStatsReportingEnabled() &&
+        !profile_->GetPrefs()->GetBoolean(prefs::kArcTermsAccepted)) {
+      // Don't enable stats reporting for users who are not shown the reporting
+      // notice during ARC setup.
+      profile_->GetPrefs()->SetBoolean(prefs::kArcSkippedReportingNotice, true);
+    }
+
     // Moves to next state, Android management check, immediately, as if
     // Terms of Service negotiation is done successfully.
     StartAndroidManagementCheck();
