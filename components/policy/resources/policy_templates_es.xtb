@@ -1414,7 +1414,7 @@ Si esta política está configurada, el usuario no puede cambiarla y el acceso d
 
           Esta política solo se respeta si se habilita la política "DefaultSearchProviderEnabled".</translation>
 <translation id="489803897780524242">Parámetro que controla el emplazamiento de los términos de búsqueda para el proveedor de búsquedas predeterminado</translation>
-<translation id="4899708173828500852">Habilitar la Navegación Segura</translation>
+<translation id="4899708173828500852">Habilitar Navegación Segura</translation>
 <translation id="4899802251198446659">Permite controlar si los vídeos se pueden reproducir automáticamente (sin el consentimiento de los usuarios) con contenido de audio en <ph name="PRODUCT_NAME" />.
 
       Si se le asigna el valor "True" a esta política, <ph name="PRODUCT_NAME" /> podrá reproducir contenido multimedia automáticamente.
@@ -1889,7 +1889,7 @@ Si esta opción no está establecida o está establecida en True, los dispositiv
 
           Esta política solo se respeta si se habilita la política "DefaultSearchProviderEnabled".</translation>
 <translation id="6367755442345892511">Posibilidad de configuración del canal de versiones por parte del usuario</translation>
-<translation id="6368011194414932347">Configurar la URL de la página de inicio</translation>
+<translation id="6368011194414932347">Configurar la URL de la página principal</translation>
 <translation id="6368403635025849609">Permitir JavaScript en estos sitios</translation>
 <translation id="6376659517206731212">Puede ser obligatoria</translation>
 <translation id="6378076389057087301">Especificar si la actividad de audio afecta a la administración de energía</translation>

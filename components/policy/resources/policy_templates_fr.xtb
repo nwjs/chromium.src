@@ -1302,14 +1302,13 @@ Si cette règle n'est pas configurée, la valeur par défaut globale est utilis�
 <translation id="4531706050939927436">L'installation des applications Android peut être forcée depuis la Console d'administration Google via Google Play. Elles n'utilisent pas cette règle.</translation>
 <translation id="4534500438517478692">Nom de la restriction Android :</translation>
 <translation id="4541530620466526913">Comptes locaux de l'appareil</translation>
-<translation id="4544079461524242527">Configure les paramètres de gestion d'extension pour <ph name="PRODUCT_NAME" />.
+<translation id="4544079461524242527">Configure les paramètres de gestion des extensions pour <ph name="PRODUCT_NAME" />.
 
           Cette règle contrôle plusieurs paramètres, y compris ceux contrôlés par des règles associées à une extension. Le cas échéant, elle remplace les anciennes règles.
 
           Cette règle fait correspondre un ID d'extension ou une URL de mise à jour avec sa configuration. Avec un ID d'extension, la configuration n'est appliquée qu'à l'extension spécifiée. Une configuration par défaut peut être définie pour l'ID spécial <ph name="DEFAULT_SCOPE" />, lequel s'applique à toutes les extensions dépourvues d'une configuration personnalisée dans cette règle. Avec une URL de mise à jour, la configuration est appliquée à l'ensemble des extensions avec l'URL de mise à jour telle qu'elle est indiquée dans le fichier manifeste de cette extension, comme indiqué sur la page <ph name="LINK_TO_EXTENSION_DOC1" />.
 
-          Pour accéder à une description complète de la structure et des paramètres possibles pour cette règle, veuillez consulter https://www.chromium.org/administrators/policy-list-3/extension-settings-full.
-          </translation>
+          Pour accéder à une description complète de la structure et des paramètres possibles pour cette règle, veuillez consulter https://www.chromium.org/administrators/policy-list-3/extension-settings-full.</translation>
 <translation id="4554651132977135445">Mode de traitement du bouclage pour les règles relatives aux utilisateurs</translation>
 <translation id="4555850956567117258">Activer l'attestation à distance pour l'utilisateur</translation>
 <translation id="4557134566541205630">URL de la page Nouvel onglet du moteur de recherche par défaut</translation>
@@ -1340,7 +1339,7 @@ Si cette règle n'est pas configurée, la valeur par défaut globale est utilis�
 <translation id="4639407427807680016">Noms des hôtes de messagerie native à exclure de la liste noire</translation>
 <translation id="4650759511838826572">Désactiver les schémas de protocole d'URL</translation>
 <translation id="465099050592230505">URL de boutique en ligne d'entreprise (abandonné)</translation>
-<translation id="4665897631924472251">Paramètres de gestion pour les extensions</translation>
+<translation id="4665897631924472251">Paramètres de gestion des extensions</translation>
 <translation id="4668325077104657568">Paramètres d'images par défaut</translation>
 <translation id="4671708336564240458">Vous permet de définir si les sites présentant une expérience abusive doivent être autorisés ou non à ouvrir de nouvelles fenêtres ou de nouveaux onglets.
 

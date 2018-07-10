@@ -5117,7 +5117,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8847988622838149491">USB</translation>
 <translation id="8858798938034909167">Akses sandi Anda dari perangkat apa pun di <ph name="BEGIN_LINK" />passwords.google.com<ph name="END_LINK" /></translation>
 <translation id="8859057652521303089">Pilih bahasa Anda:</translation>
-<translation id="8859174528519900719">Subkerangka: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8859174528519900719">Subframe: <ph name="SUBFRAME_SITE" /></translation>
 <translation id="8860454412039442620">Spreadsheet Excel</translation>
 <translation id="8862003515646449717">Beralih ke browser cepat</translation>
 <translation id="8863753581171631212">Buka link di <ph name="APP" /> baru</translation>
@@ -5151,7 +5151,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8910222113987937043">Perubahan terhadap bookmark, histori, sandi, dan setelan lain sudah tidak disinkronkan ke Akun Google Anda. Namun, data yang sudah ada akan tetap disimpan di Akun Google dan dapat dikelola di <ph name="BEGIN_LINK" />Google Dasbor<ph name="END_LINK" />.</translation>
 <translation id="8912793549644936705">Meregang</translation>
 <translation id="8915370057835397490">Memuat saran</translation>
-<translation id="8916476537757519021">Subkerangka Mode Penyamaran: <ph name="SUBFRAME_SITE" /></translation>
+<translation id="8916476537757519021">Subframe Mode Penyamaran: <ph name="SUBFRAME_SITE" /></translation>
 <translation id="8919275547519617350">Untuk mendapatkan semua sandi di semua perangkat, login dan aktifkan sinkronisasi.</translation>
 <translation id="8922013791253848639">Selalu izinkan iklan di situs ini</translation>
 <translation id="8925458182817574960">&amp;Setelan</translation>

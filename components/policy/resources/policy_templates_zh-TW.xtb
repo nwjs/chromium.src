@@ -740,7 +740,7 @@
 <translation id="2987227569419001736">控制 Web Bluetooth API 使用權限</translation>
 <translation id="3016255526521614822">將「<ph name="PRODUCT_OS_NAME" />」螢幕鎖定畫面允許的筆記應用程式加入許可清單</translation>
 <translation id="3021562480854470924">允許復原的重要事件數</translation>
-<translation id="3030000825273123558">啟用計量報告</translation>
+<translation id="3030000825273123558">啟用計量回報功能</translation>
 <translation id="3034580675120919256">允許你設定是否要讓網站執行 JavaScript。你可以允許或禁止所有網站執行 JavaScript。如果未設定這項政策，系統會使用「AllowJavaScript」，不過使用者可以變更設定。</translation>
 <translation id="3038323923255997294">在 <ph name="PRODUCT_NAME" /> 關閉時繼續執行背景應用程式 </translation>
 <translation id="3046192273793919231">將監控線上狀態所需的網路封包傳送到管理伺服器</translation>

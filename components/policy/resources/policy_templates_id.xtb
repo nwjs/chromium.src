@@ -331,7 +331,7 @@
 <translation id="2077273864382355561">Penundaan mematikan layar saat menggunakan daya baterai</translation>
 <translation id="2082205219176343977">Mengonfigurasi versi minimum Chrome yang diizinkan untuk perangkat.</translation>
 <translation id="209586405398070749">Saluran stabil</translation>
-<translation id="2098658257603918882">Aktifkan laporan data penggunaan dan yang terkait kerusakan</translation>
+<translation id="2098658257603918882">Aktifkan laporan data penggunaan dan yang terkait error</translation>
 <translation id="2111016292707172233">Mengaktifkan ketersediaan Tap untuk Menelusuri di tampilan konten <ph name="PRODUCT_NAME" />.
 
 Jika Anda mengaktifkan setelan ini, Tap untuk Menelusuri akan tersedia untuk pengguna dan mereka dapat memilih untuk mengaktifkan atau menonaktifkannya.
@@ -909,7 +909,7 @@ Jika kebijakan ini tidak disetel, tidak ada aplikasi atau ekstensi yang otomatis
 <translation id="3653237928288822292">Ikon penyedia penelusuran default</translation>
 <translation id="3660562134618097814">Transfer cookie SAML IdP saat proses masuk.</translation>
 <translation id="3702647575225525306"><ph name="POLICY_NAME" /> (Kolom 1 baris sudah tidak digunakan lagi dan akan dihapus di masa mendatang. Mulai gunakan kotak teks multibaris di bawah.)</translation>
-<translation id="3709266154059827597">Konfigurasikan daftar hitam pemasangan ekstensi</translation>
+<translation id="3709266154059827597">Konfigurasikan daftar penginstalan ekstensi yang tidak diizinkan</translation>
 <translation id="3711895659073496551">Tangguhkan</translation>
 <translation id="3715569262675717862">Autentikasi berdasarkan sertifikat klien</translation>
 <translation id="3736879847913515635">Mengaktifkan penambahan orang di pengelola pengguna</translation>
@@ -1479,7 +1479,7 @@ Jika kebijakan ini dinonaktifkan atau tidak disetel, situs tidak akan dapat mena
 
           Jika kebijakan ini disetel ke False, pengguna tidak akan dapat mentransmisikan konten ke perangkat mereka. Jika kebijakan ini disetel ke True, pengguna diizinkan untuk mentransmisikan konten. Jika kebijakan ini tidak disetel, pengguna tidak diizinkan untuk mentransmisikan konten ke perangkat Chrome OS yang terdaftar, namun dapat mentransmisikan ke perangkat yang tidak terdaftar.</translation>
 <translation id="5330684698007383292">Izinkan <ph name="PRODUCT_FRAME_NAME" /> menangani jenis konten berikut</translation>
-<translation id="5365946944967967336">Tampilkan tombol Beranda di bilah alat</translation>
+<translation id="5365946944967967336">Tampilkan tombol Layar Utama di toolbar</translation>
 <translation id="5366745336748853475">Memungkinkan Anda menentukan daftar pola URL yang menetapkan situs tempat sertifikat klien dipilih otomatis pada layar login dalam bingkai yang menjadi host alur SAML, jika situs meminta sertifikat. Contoh penggunaan adalah mengonfigurasi sertifikat tingkat perangkat untuk dimunculkan ke SAML IdP.
 
       Nilai harus berupa rangkaian kamus dengan string JSON. Tiap kamus harus memiliki bentuk { "pattern": "$URL_PATTERN", "filter" : $FILTER }, dengan $URL_PATTERN sebagai pola setelan konten. $FILTER membatasi asal sertifikat klien yang akan dipilih otomatis oleh browser. Terlepas dari filter, hanya sertifikat yang cocok dengan permintaan sertifikat server yang akan dipilih. Jika $FILTER memiliki bentuk { "ISSUER": { "CN": "$ISSUER_CN" } }, hanya sertifikat klein yang diterbitkan oleh sertifikat dengan CommonName $ISSUER_CN yang akan dipilih. Jika $FILTER berupa kamus kosong {}, pemilihan sertifikat klien tidak lagi dibatasi.
@@ -1800,7 +1800,7 @@ Jika kebijakan ini dinonaktifkan atau tidak disetel, situs tidak akan dapat mena
 
           Kebijakan ini hanya dikhususkan jika kebijakan 'DefaultSearchProviderEnabled' diaktifkan.</translation>
 <translation id="6367755442345892511">Apakah saluran rilis dapat dikonfigurasi oleh pengguna atau tidak</translation>
-<translation id="6368011194414932347">Mengonfigurasi URL beranda</translation>
+<translation id="6368011194414932347">Konfigurasikan URL halaman beranda</translation>
 <translation id="6368403635025849609">Izinkan JavaScript di situs ini</translation>
 <translation id="6376659517206731212">Bisa Jadi Wajib</translation>
 <translation id="6378076389057087301">Tentukan apakah aktivitas audio memengaruhi pengelolaan daya</translation>
@@ -2776,7 +2776,7 @@ Cara yang disarankan untuk mengonfigurasi kebijakan di Windows adalah melalui GP
       Menyetel kebijakan ini ke nilai yang lebih rendah akan memiliki dampak permanen: perangkat MUNGKIN tidak dapat dikembalikan ke versi sebelumnya setelah kebijakan disetel ulang ke nilai yang lebih tinggi.
 
       Kemungkinan rollback aktual juga dapat bergantung pada model perangkat dan patch kerentanan kritis.</translation>
-<translation id="913195841488580904">Cekal akses ke daftar URL</translation>
+<translation id="913195841488580904">Blokir akses ke daftar URL</translation>
 <translation id="9135033364005346124">Mengaktifkan proxy <ph name="CLOUD_PRINT_NAME" /></translation>
 <translation id="9136253551939494882">Daftar yang diizinkan mengontrol mode buka kunci cepat mana yang dapat dikonfigurasi dan digunakan oleh pengguna untuk membuka layar kunci.
 

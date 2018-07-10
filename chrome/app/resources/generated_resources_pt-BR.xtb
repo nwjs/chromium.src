@@ -1539,7 +1539,7 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="3335947283844343239">Reabrir guia fechada</translation>
 <translation id="3340978935015468852">configurações</translation>
 <translation id="3341703758641437857">Permitir acesso aos URLs do arquivo</translation>
-<translation id="3342361181740736773">"<ph name="TRIGGERING_EXTENSION_NAME" />" gostaria de remover essa extensão.</translation>
+<translation id="3342361181740736773">"<ph name="TRIGGERING_EXTENSION_NAME" />" quer remover essa extensão.</translation>
 <translation id="3345886924813989455">Não foi encontrado um navegador suportado</translation>
 <translation id="3347086966102161372">C&amp;opiar endereço da imagem</translation>
 <translation id="3348038390189153836">Dispositivo removível detectado</translation>
@@ -1760,7 +1760,7 @@ Não acho que este site deva ser bloqueado.</translation>
 <translation id="3668823961463113931">Manipuladores</translation>
 <translation id="3670229581627177274">Ativar Bluetooth</translation>
 <translation id="3672681487849735243">Foi detectado um erro de fábrica</translation>
-<translation id="367645871420407123">deixe em branco se você deseja definir a senha raiz como o valor da imagem de teste padrão</translation>
+<translation id="367645871420407123">deixe em branco se você quer definir a senha raiz como o valor da imagem de teste padrão</translation>
 <translation id="3677657024345889897">Volume mínimo</translation>
 <translation id="3678156199662914018">Extensão: <ph name="EXTENSION_NAME" /></translation>
 <translation id="3681311097828166361">Agradecemos seu feedback. Você está off-line no momento. Seu relatório será enviado mais tarde.</translation>
@@ -3570,7 +3570,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6473842110411557830">Executar Powerwash na ilustração</translation>
 <translation id="6474706907372204693">Método de entrada anterior</translation>
 <translation id="6474884162850599008">Desconectar a conta do Google Drive</translation>
-<translation id="6475697075626596525"><ph name="APP_NAME" /> quer compartilhar o conteúdo da sua tela. Escolha o que você gostaria de compartilhar.</translation>
+<translation id="6475697075626596525"><ph name="APP_NAME" /> quer compartilhar o conteúdo da sua tela. Escolha o que você quer compartilhar.</translation>
 <translation id="6478248366783946499">Manter arquivo perigoso?</translation>
 <translation id="6483485061007832714">Abrir o download</translation>
 <translation id="6483805311199035658">Abrindo <ph name="FILE" />...</translation>
@@ -3774,7 +3774,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="6790428901817661496">Reproduzir</translation>
 <translation id="6790497603648687708">A extensão <ph name="EXTENSION_NAME" /> foi adicionada remotamente</translation>
 <translation id="6790820461102226165">Adicionar pessoa...</translation>
-<translation id="6792072150955115067">O <ph name="APP_NAME" /> deseja compartilhar o conteúdo da sua tela com <ph name="TARGET_NAME" />. Escolha o que você gostaria de compartilhar.</translation>
+<translation id="6792072150955115067">O <ph name="APP_NAME" /> deseja compartilhar o conteúdo da sua tela com <ph name="TARGET_NAME" />. Escolha o que você quer compartilhar.</translation>
 <translation id="6793604637258913070">Destacar o cursor de texto quando ele aparecer ou se mover</translation>
 <translation id="6797493596609571643">Algo deu errado.</translation>
 <translation id="6798578729981748444">Para terminar a importação, feche todas as janelas do Firefox.</translation>

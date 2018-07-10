@@ -1291,7 +1291,7 @@
       Se esta política estiver ativada, os sites terão permissão para navegar e abrir novas janelas/guias simultaneamente.
       Se esta política estiver desativada ou não for configurada, os sites não terão permissão para navegar e abrir uma nova janela/guia simultaneamente.</translation>
 <translation id="4680961954980851756">Ativar Preenchimento automático</translation>
-<translation id="4722122254122249791">Ativar o Isolamento de site para origens específicas</translation>
+<translation id="4722122254122249791">Ativar o isolamento de sites para origens específicas</translation>
 <translation id="4722399051042571387">Se definida como false, os usuários não conseguirão configurar PINs que sejam fracos e fáceis de adivinhar.
 
           Alguns exemplos de PINs fracos são: PINs que contenham apenas um dígito repetido (1111), PINs alterados em um dígito em ordem crescente (1234) ou decrescente (4321) e PINs muito comuns.

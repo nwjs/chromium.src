@@ -1900,7 +1900,7 @@
 <translation id="687046793986382807">此政策自35版<ph name="PRODUCT_NAME" />起已停止使用。
 
       无论选项值是什么，系统都会向网页报告内存信息，但出于安全考虑，系统会限制所报告的内存大小，并会限制更新率。要获取准确的实时数据，请使用遥测等工具。</translation>
-<translation id="6894178810167845842">“打开新的标签页”页面网址</translation>
+<translation id="6894178810167845842">在新标签页中打开的页面网址</translation>
 <translation id="6899705656741990703">自动检测代理设置</translation>
 <translation id="6903814433019432303">此政策仅在零售模式下有效。
 
