@@ -2277,7 +2277,7 @@ public class AwContents implements SmartClipProvider {
         if (TRACE) Log.i(TAG, "%s flingScroll", this);
         if (isDestroyedOrNoOperation(WARN)) return;
         mWebContents.getEventForwarder().startFling(
-                SystemClock.uptimeMillis(), -velocityX, -velocityY, false);
+                SystemClock.uptimeMillis(), -velocityX, -velocityY, false, true);
     }
 
     /**
