@@ -470,7 +470,7 @@ public class ChildProcessLauncherHelper {
         int newEffectiveImportance;
         if ((foreground && frameDepth == 0) || importance == ChildProcessImportance.IMPORTANT) {
             newEffectiveImportance = ChildProcessImportance.IMPORTANT;
-        } else if ((foreground && frameDepth > 0)
+        } else if ((foreground && frameDepth > 0) || boostForPendingViews
                 || importance == ChildProcessImportance.MODERATE) {
             newEffectiveImportance = ChildProcessImportance.MODERATE;
         } else {
