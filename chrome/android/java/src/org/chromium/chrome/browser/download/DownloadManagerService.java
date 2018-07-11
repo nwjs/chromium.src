@@ -14,7 +14,6 @@ import android.net.ConnectivityManager;
 import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.AsyncTask;
-import android.os.Environment;
 import android.os.Handler;
 import android.support.annotation.Nullable;
 import android.text.TextUtils;
@@ -1526,22 +1525,24 @@ public class DownloadManagerService
         // Only show the missing directory snackbar once.
         if (!prefServiceBridge.getBoolean(Pref.SHOW_MISSING_SD_CARD_ERROR_ANDROID)) return;
 
-        String[] downloadDirs = DownloadUtils.getAllDownloadDirectories();
-        if (downloadDirs.length > 1) return;
+        DownloadDirectoryProvider provider = DownloadDirectoryProvider.getInstance();
+        provider.getAllDirectoriesOptions((ArrayList<DirectoryOption> dirs) -> {
+            if (dirs.size() > 1) return;
+            String externalStorageDir = provider.getExternalStorageDirectory();
 
-        String externalStorageDir = Environment.getExternalStorageDirectory().getAbsolutePath();
-        for (DownloadItem item : list) {
-            boolean missingOnSDCard = isFilePathOnMissingExternalDrive(
-                    item.getDownloadInfo().getFilePath(), externalStorageDir, downloadDirs);
-            if (!isUnresumableOrCancelled(item) && missingOnSDCard) {
-                mHandler.post(() -> {
-                    // TODO(shaktisahu): Show it on infobar in the right way.
-                    mDownloadSnackbarController.onDownloadDirectoryNotFound();
-                });
-                prefServiceBridge.setBoolean(Pref.SHOW_MISSING_SD_CARD_ERROR_ANDROID, false);
-                break;
+            for (DownloadItem item : list) {
+                boolean missingOnSDCard = isFilePathOnMissingExternalDrive(
+                        item.getDownloadInfo().getFilePath(), externalStorageDir, dirs);
+                if (!isUnresumableOrCancelled(item) && missingOnSDCard) {
+                    mHandler.post(() -> {
+                        // TODO(shaktisahu): Show it on infobar in the right way.
+                        mDownloadSnackbarController.onDownloadDirectoryNotFound();
+                    });
+                    prefServiceBridge.setBoolean(Pref.SHOW_MISSING_SD_CARD_ERROR_ANDROID, false);
+                    break;
+                }
             }
-        }
+        });
     }
 
     /**
@@ -1564,20 +1565,20 @@ public class DownloadManagerService
      * @param filePath  The file path to check.
      * @param externalStorageDir  The absolute path of external storage directory for primary
      * storage.
-     * @param downloadDirs  All available download directories including primary storage and
+     * @param directoryOptions  All available download directories including primary storage and
      * secondary storage.
      *
      * @return          Whether this file path is in a directory that is no longer available.
      */
-    private boolean isFilePathOnMissingExternalDrive(
-            String filePath, String externalStorageDir, String[] downloadDirs) {
+    private boolean isFilePathOnMissingExternalDrive(String filePath, String externalStorageDir,
+            ArrayList<DirectoryOption> directoryOptions) {
         if (filePath.contains(externalStorageDir)) {
             return false;
         }
 
-        for (String dir : downloadDirs) {
-            if (TextUtils.isEmpty(dir)) continue;
-            if (filePath.contains(dir)) return false;
+        for (DirectoryOption directory : directoryOptions) {
+            if (TextUtils.isEmpty(directory.location)) continue;
+            if (filePath.contains(directory.location)) return false;
         }
 
         return true;

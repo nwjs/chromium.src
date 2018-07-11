@@ -33,6 +33,8 @@ import org.chromium.chrome.R;
 import org.chromium.chrome.browser.BasicNativePage;
 import org.chromium.chrome.browser.ChromeApplication;
 import org.chromium.chrome.browser.ChromeFeatureList;
+import org.chromium.chrome.browser.download.DirectoryOption;
+import org.chromium.chrome.browser.download.DownloadDirectoryProvider;
 import org.chromium.chrome.browser.download.DownloadManagerService;
 import org.chromium.chrome.browser.download.DownloadUtils;
 import org.chromium.chrome.browser.download.items.OfflineContentAggregatorFactory;
@@ -561,8 +563,15 @@ public class DownloadManagerUi
 
     private void maybeShowDownloadSettingsTextBubble(final Tracker tracker) {
         // If the user doesn't have an SD card don't show the IPH.
-        String[] externalDirs = DownloadUtils.getAllDownloadDirectories();
-        if (externalDirs.length < 2) return;
+        DownloadDirectoryProvider.getInstance().getAllDirectoriesOptions(
+                (ArrayList<DirectoryOption> dirs) -> {
+                    onDirectoryOptionsRetrieved(dirs, tracker);
+                });
+    }
+
+    private void onDirectoryOptionsRetrieved(
+            ArrayList<DirectoryOption> dirs, final Tracker tracker) {
+        if (dirs.size() < 2) return;
 
         // Check to see if the help UI should be triggered.
         if (!tracker.shouldTriggerHelpUI(FeatureConstants.DOWNLOAD_SETTINGS_FEATURE)) return;
