@@ -28,15 +28,6 @@ class TestURLRequestClassifier : public base::SupportsUserData::Data,
  public:
   static const void* const kUserDataKey;
 
-  bool IsUserRequest(const net::URLRequest& request) const override {
-    return request.GetUserData(kUserDataKey) != nullptr;
-  }
-
-  static void MarkAsUserRequest(net::URLRequest* request) {
-    request->SetUserData(kUserDataKey,
-                         std::make_unique<TestURLRequestClassifier>());
-  }
-
   DataUseUserData::DataUseContentType GetContentType(
       const net::URLRequest& request,
       const net::HttpResponseHeaders& response_headers) const override {
@@ -99,6 +90,12 @@ std::unique_ptr<net::URLRequest> RequestURL(
       net::MockRead("HTTP/1.1 200 OK\r\n\r\n"), net::MockRead("response body"),
       net::MockRead(net::SYNCHRONOUS, net::OK),
   };
+  const auto traffic_annotation =
+      from_user ? net::DefineNetworkTrafficAnnotation("blink_resource_loader",
+                                                      "blink resource loaded "
+                                                      "will be treated as "
+                                                      "user-initiated request")
+                : TRAFFIC_ANNOTATION_FOR_TESTS;
   net::StaticSocketDataProvider response_socket_data_provider(
       response_mock_reads, base::span<net::MockWrite>());
   socket_factory->AddSocketDataProvider(&response_socket_data_provider);
@@ -106,11 +103,9 @@ std::unique_ptr<net::URLRequest> RequestURL(
   test_delegate.set_quit_on_complete(true);
   std::unique_ptr<net::URLRequest> request(
       context->CreateRequest(GURL("http://example.com"), net::DEFAULT_PRIORITY,
-                             &test_delegate, TRAFFIC_ANNOTATION_FOR_TESTS));
+                             &test_delegate, traffic_annotation));
 
-  if (from_user) {
-    TestURLRequestClassifier::MarkAsUserRequest(request.get());
-  } else {
+  if (!from_user) {
     request->SetUserData(
         data_use_measurement::DataUseUserData::kUserDataKey,
         std::make_unique<data_use_measurement::DataUseUserData>(
