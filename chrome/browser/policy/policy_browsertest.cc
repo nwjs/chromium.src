@@ -899,7 +899,12 @@ class PolicyTest : public InProcessBrowserTest {
   }
 
   void UpdateProviderPolicy(const PolicyMap& policy) {
-    provider_.UpdateChromePolicy(policy);
+    PolicyMap policy_with_defaults;
+    policy_with_defaults.CopyFrom(policy);
+#if defined(OS_CHROMEOS)
+    SetEnterpriseUsersDefaults(&policy_with_defaults);
+#endif
+    provider_.UpdateChromePolicy(policy_with_defaults);
     DCHECK(base::MessageLoopCurrent::Get());
     base::RunLoop loop;
     loop.RunUntilIdle();
@@ -1300,6 +1305,9 @@ IN_PROC_BROWSER_TEST_F(PolicyTest, SeparateProxyPoliciesMerging) {
   expected_value->SetInteger(key::kProxyServerMode, 3);
   expected.Set(key::kProxySettings, POLICY_LEVEL_MANDATORY, POLICY_SCOPE_USER,
                POLICY_SOURCE_CLOUD, std::move(expected_value), nullptr);
+#if defined(OS_CHROMEOS)
+  SetEnterpriseUsersDefaults(&expected);
+#endif
 
   // Check both the browser and the profile.
   const PolicyMap& actual_from_browser =
@@ -5148,6 +5156,7 @@ IN_PROC_BROWSER_TEST_F(ArcPolicyTest, ArcBackupRestoreServiceEnabled) {
   pref->SetBoolean(arc::prefs::kArcBackupRestoreEnabled, true);
 
   // ARC backup and restore is disabled by policy by default.
+  UpdateProviderPolicy(PolicyMap());
   EXPECT_FALSE(pref->GetBoolean(arc::prefs::kArcBackupRestoreEnabled));
   EXPECT_TRUE(pref->IsManagedPreference(arc::prefs::kArcBackupRestoreEnabled));
 
@@ -5203,6 +5212,7 @@ IN_PROC_BROWSER_TEST_F(ArcPolicyTest, ArcGoogleLocationServicesEnabled) {
   pref->SetBoolean(arc::prefs::kArcLocationServiceEnabled, true);
 
   // The pref is overridden to disabled by policy by default.
+  UpdateProviderPolicy(PolicyMap());
   EXPECT_FALSE(pref->GetBoolean(arc::prefs::kArcBackupRestoreEnabled));
   EXPECT_TRUE(pref->IsManagedPreference(arc::prefs::kArcBackupRestoreEnabled));
 
