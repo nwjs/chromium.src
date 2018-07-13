@@ -470,6 +470,12 @@ void MessageLoopForUI::Abort() {
 }
 #endif  // defined(OS_ANDROID)
 
+#if defined(OS_WIN)
+void MessageLoopForUI::EnableWmQuit() {
+  static_cast<MessagePumpForUI*>(pump_.get())->EnableWmQuit();
+}
+#endif  // defined(OS_WIN)
+
 #endif  // !defined(OS_NACL)
 
 //------------------------------------------------------------------------------

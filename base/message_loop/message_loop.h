@@ -363,6 +363,11 @@ class BASE_EXPORT MessageLoopForUI : public MessageLoop {
   // calling Quit(), in these cases we call Abort().
   void Abort();
 #endif
+
+#if defined(OS_WIN)
+  // See method of the same name in the Windows MessagePumpForUI implementation.
+  void EnableWmQuit();
+#endif
 };
 
 // Do not add any member variables to MessageLoopForUI!  This is important b/c
