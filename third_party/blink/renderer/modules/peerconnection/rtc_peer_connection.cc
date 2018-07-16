@@ -1363,7 +1363,7 @@ ScriptPromise RTCPeerConnection::PromiseBasedGetStats(
       LOG(ERROR) << "Internal error: peer_handler_ has been discarded";
       return ScriptPromise::RejectWithDOMException(
           script_state,
-          DOMException::Create(DOMExceptionCode::kOperationError,
+          DOMException::Create(kOperationError,
                                "Internal error: release in progress"));
     }
     ScriptPromiseResolver* resolver =
