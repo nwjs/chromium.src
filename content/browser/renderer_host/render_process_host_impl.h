@@ -213,6 +213,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void SetIsUsed() override;
 
   bool HostHasNotBeenUsed() override;
+  void BindCacheStorage(blink::mojom::CacheStorageRequest request,
+                        const url::Origin& origin) override;
 
   mojom::RouteProvider* GetRemoteRouteProvider();
 
@@ -399,11 +401,6 @@ class CONTENT_EXPORT RenderProcessHostImpl
   }
 
   bool is_initialized() const { return is_initialized_; }
-
-  // Binds Mojo request to Mojo implementation CacheStorageDispatcherHost
-  // instance, binding is sent to IO thread.
-  void BindCacheStorage(blink::mojom::CacheStorageRequest request,
-                        const url::Origin& origin);
 
   // Ensures that this process is kept alive for the specified amount of time.
   // This is used to ensure that unload handlers have a chance to execute

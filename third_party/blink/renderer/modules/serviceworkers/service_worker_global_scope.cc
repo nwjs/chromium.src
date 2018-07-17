@@ -76,6 +76,7 @@ namespace blink {
 ServiceWorkerGlobalScope* ServiceWorkerGlobalScope::Create(
     ServiceWorkerThread* thread,
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
+    mojom::blink::CacheStoragePtrInfo cache_storage_info,
     double time_origin) {
   // If the script is being loaded via script streaming, the script is not yet
   // loaded.
@@ -89,14 +90,17 @@ ServiceWorkerGlobalScope* ServiceWorkerGlobalScope::Create(
     DCHECK(creation_params->origin_trial_tokens->IsEmpty());
   }
   return new ServiceWorkerGlobalScope(std::move(creation_params), thread,
+                                      std::move(cache_storage_info),
                                       time_origin);
 }
 
 ServiceWorkerGlobalScope::ServiceWorkerGlobalScope(
     std::unique_ptr<GlobalScopeCreationParams> creation_params,
     ServiceWorkerThread* thread,
+    mojom::blink::CacheStoragePtrInfo cache_storage_info,
     double time_origin)
-    : WorkerGlobalScope(std::move(creation_params), thread, time_origin) {}
+    : WorkerGlobalScope(std::move(creation_params), thread, time_origin),
+      cache_storage_info_(std::move(cache_storage_info)) {}
 
 ServiceWorkerGlobalScope::~ServiceWorkerGlobalScope() = default;
 
@@ -386,6 +390,10 @@ void ServiceWorkerGlobalScope::SetIsInstalling(bool is_installing) {
     cache_storage_installed_script_metadata_total_size_histogram.Count(
         cache_storage_installed_script_metadata_total_size_);
   }
+}
+
+mojom::blink::CacheStoragePtrInfo ServiceWorkerGlobalScope::TakeCacheStorage() {
+  return std::move(cache_storage_info_);
 }
 
 }  // namespace blink
