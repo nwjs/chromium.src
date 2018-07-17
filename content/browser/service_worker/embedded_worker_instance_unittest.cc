@@ -12,6 +12,7 @@
 #include "base/macros.h"
 #include "base/run_loop.h"
 #include "base/stl_util.h"
+#include "base/test/scoped_feature_list.h"
 #include "content/browser/service_worker/embedded_worker_registry.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
 #include "content/browser/service_worker/embedded_worker_test_helper.h"
@@ -28,6 +29,7 @@
 #include "mojo/public/cpp/bindings/strong_binding.h"
 #include "testing/gmock/include/gmock/gmock.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/blink/public/common/features.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker.mojom.h"
 #include "third_party/blink/public/mojom/service_worker/service_worker_registration.mojom.h"
 
@@ -1008,6 +1010,71 @@ TEST_F(EmbeddedWorkerInstanceTest, CacheStorageOptimization) {
 
     // Cache storage should have been sent.
     EXPECT_TRUE(helper_rawptr->had_cache_storage());
+
+    // Stop the worker.
+    worker->Stop();
+    base::RunLoop().RunUntilIdle();
+  }
+
+  // Second, test a worker with pause after download.
+  {
+    // Start the worker until paused.
+    ServiceWorkerStatusCode status = SERVICE_WORKER_ERROR_MAX_VALUE;
+    mojom::EmbeddedWorkerStartParamsPtr params =
+        CreateStartParams(version_id, scope, url);
+    params->pause_after_download = true;
+    worker->Start(
+        std::move(params), CreateProviderInfoGetter(),
+        base::BindOnce(&SaveStatusAndCall, &status, base::DoNothing::Once<>()));
+    base::RunLoop().RunUntilIdle();
+
+    // Finish starting.
+    worker->ResumeAfterDownload();
+    base::RunLoop().RunUntilIdle();
+    EXPECT_EQ(SERVICE_WORKER_OK, status);
+
+    // Cache storage should not have been sent.
+    EXPECT_FALSE(helper_rawptr->had_cache_storage());
+
+    // Stop the worker.
+    worker->Stop();
+    base::RunLoop().RunUntilIdle();
+  }
+}
+
+// Test that the worker is not given a CacheStoragePtr during startup when
+// the feature is disabled.
+TEST_F(EmbeddedWorkerInstanceTest, CacheStorageOptimizationIsDisabled) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndDisableFeature(
+      blink::features::kEagerCacheStorageSetupForServiceWorkers);
+
+  const GURL scope("http://example.com/");
+  const GURL url("http://example.com/worker.js");
+  auto helper = std::make_unique<RecordCacheStorageHelper>();
+  auto* helper_rawptr = helper.get();
+  helper_ = std::move(helper);
+
+  RegistrationAndVersionPair pair = PrepareRegistrationAndVersion(scope, url);
+  const int64_t version_id = pair.second->version_id();
+  std::unique_ptr<EmbeddedWorkerInstance> worker =
+      embedded_worker_registry()->CreateWorker(pair.second.get());
+
+  // First, test a worker without pause after download.
+  {
+    // Start the worker.
+    ServiceWorkerStatusCode status = SERVICE_WORKER_ERROR_MAX_VALUE;
+    base::RunLoop run_loop;
+    mojom::EmbeddedWorkerStartParamsPtr params =
+        CreateStartParams(version_id, scope, url);
+    worker->Start(
+        std::move(params), CreateProviderInfoGetter(),
+        base::BindOnce(&SaveStatusAndCall, &status, run_loop.QuitClosure()));
+    run_loop.Run();
+    EXPECT_EQ(SERVICE_WORKER_OK, status);
+
+    // Cache storage should not have been sent.
+    EXPECT_FALSE(helper_rawptr->had_cache_storage());
 
     // Stop the worker.
     worker->Stop();

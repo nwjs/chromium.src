@@ -38,6 +38,7 @@ source_set("headers") {
     "device_memory/approximated_device_memory.h",
     "experiments/memory_ablation_experiment.h",
     "feature_policy/feature_policy.h",
+    "features.h",
     "frame/frame_policy.h",
     "frame/sandbox_flags.h",
     "manifest/manifest.h",
