@@ -38,6 +38,7 @@
 #include "components/autofill/core/browser/phone_number_i18n.h"
 #include "components/autofill/core/browser/validation.h"
 #include "components/autofill/core/common/autofill_clock.h"
+#include "components/autofill/core/common/autofill_constants.h"
 #include "components/autofill/core/common/autofill_features.h"
 #include "components/autofill/core/common/autofill_pref_names.h"
 #include "components/autofill/core/common/autofill_switches.h"
@@ -1271,6 +1272,40 @@ void PersonalDataManager::SetPrefService(PrefService* pref_service) {
   }
 }
 
+void PersonalDataManager::ClearProfileNonSettingsOrigins() {
+  bool has_updated = false;
+
+  for (AutofillProfile* profile : GetProfiles()) {
+    if (profile->origin() != kSettingsOrigin && !profile->origin().empty()) {
+      profile->set_origin(std::string());
+      database_->UpdateAutofillProfile(*profile);
+      has_updated = true;
+    }
+  }
+
+  // Refresh the local cache and send notifications to observers if a changed
+  // was made.
+  if (has_updated)
+    Refresh();
+}
+
+void PersonalDataManager::ClearCreditCardNonSettingsOrigins() {
+  bool has_updated = false;
+
+  for (CreditCard* card : GetLocalCreditCards()) {
+    if (card->origin() != kSettingsOrigin && !card->origin().empty()) {
+      card->set_origin(std::string());
+      database_->UpdateCreditCard(*card);
+      has_updated = true;
+    }
+  }
+
+  // Refresh the local cache and send notifications to observers if a changed
+  // was made.
+  if (has_updated)
+    Refresh();
+}
+
 // TODO(crbug.com/618448): Refactor MergeProfile to not depend on class
 // variables.
 std::string PersonalDataManager::MergeProfile(
@@ -2285,15 +2320,17 @@ bool PersonalDataManager::ShouldSuggestServerCards() const {
 }
 
 void PersonalDataManager::ApplyAddressFixesAndCleanups() {
-  RemoveOrphanAutofillTableRows();  // One-time fix, otherwise NOP.
-  ApplyDedupingRoutine();           // Once per major version, otherwise NOP.
-  DeleteDisusedAddresses();         // Once per major version, otherwise NOP.
-  MaybeCreateTestAddresses();       // Once per user profile startup.
+  RemoveOrphanAutofillTableRows();   // One-time fix, otherwise NOP.
+  ApplyDedupingRoutine();            // Once per major version, otherwise NOP.
+  DeleteDisusedAddresses();          // Once per major version, otherwise NOP.
+  MaybeCreateTestAddresses();        // Once per user profile startup.
+  ClearProfileNonSettingsOrigins();  // Ran everytime it is called.
 }
 
 void PersonalDataManager::ApplyCardFixesAndCleanups() {
   DeleteDisusedCreditCards();    // Once per major version, otherwise NOP.
   MaybeCreateTestCreditCards();  // Once per user profile startup.
+  ClearCreditCardNonSettingsOrigins();  // Ran everytime it is called.
 }
 
 }  // namespace autofill

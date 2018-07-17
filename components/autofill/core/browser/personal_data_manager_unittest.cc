@@ -148,7 +148,7 @@ class PersonalDataManagerTestBase {
   void SetUpReferenceProfile() {
     ASSERT_EQ(0U, personal_data_->GetProfiles().size());
 
-    AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+    AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
     test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                          "johnwayne@me.xyz", "Fox", "123 Zoo St", "unit 5",
                          "Hollywood", "CA", "91601", "US", "12345678910");
@@ -169,7 +169,7 @@ class PersonalDataManagerTestBase {
     ASSERT_EQ(0U, personal_data_->GetCreditCards().size());
 
     CreditCard credit_card0("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                            "https://www.example.com");
+                            test::kEmptyOrigin);
     test::SetCreditCardInfo(&credit_card0, "Clyde Barrow",
                             "378282246310005" /* American Express */, "04",
                             "2999", "1");
@@ -179,7 +179,7 @@ class PersonalDataManagerTestBase {
     personal_data_->AddCreditCard(credit_card0);
 
     CreditCard credit_card1("1141084B-72D7-4B73-90CF-3D6AC154673B",
-                            "https://www.example.com");
+                            test::kEmptyOrigin);
     credit_card1.set_use_count(300);
     credit_card1.set_use_date(AutofillClock::Now() -
                               base::TimeDelta::FromDays(10));
@@ -188,7 +188,7 @@ class PersonalDataManagerTestBase {
     personal_data_->AddCreditCard(credit_card1);
 
     CreditCard credit_card2("002149C1-EE28-4213-A3B9-DA243FFF021B",
-                            "https://www.example.com");
+                            test::kEmptyOrigin);
     credit_card2.set_use_count(1);
     credit_card2.set_use_date(AutofillClock::Now() -
                               base::TimeDelta::FromDays(1));
@@ -259,7 +259,7 @@ class PersonalDataManagerTestBase {
   // and has not been used in last 400 days. This card is supposed to be
   // deleted during a major version upgrade.
   void CreateDeletableExpiredAndDisusedCreditCard() {
-    CreditCard credit_card1(base::GenerateGUID(), "https://www.example.com");
+    CreditCard credit_card1(base::GenerateGUID(), test::kEmptyOrigin);
     test::SetCreditCardInfo(&credit_card1, "Clyde Barrow",
                             "378282246310005" /* American Express */, "04",
                             "1999", "1");
@@ -579,17 +579,17 @@ TEST_F(PersonalDataManagerTest, SaveImportedProfileSetModificationDate) {
 }
 
 TEST_F(PersonalDataManagerTest, AddUpdateRemoveProfiles) {
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
 
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "903 Apple Ct.", nullptr,
                        "Orlando", "FL", "32801", "US", "19482937549");
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
                        "Orlando", "FL", "32801", "US", "19482937549");
@@ -629,16 +629,16 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveProfiles) {
 
 TEST_F(PersonalDataManagerTest, AddUpdateRemoveCreditCards) {
   EnableWalletCardImport();
-  CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "John Dillinger",
                           "4234567890123456" /* Visa */, "01", "2999", "1");
 
-  CreditCard credit_card1(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card1, "Bonnie Parker",
                           "5105105105105100" /* Mastercard */, "12", "2999",
                           "1");
 
-  CreditCard credit_card2(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card2, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
@@ -679,7 +679,7 @@ TEST_F(PersonalDataManagerTest, AddUpdateRemoveCreditCards) {
   ExpectSameElements(cards, personal_data_->GetCreditCards());
 
   // Add a full server card.
-  CreditCard credit_card3(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card3, "Jane Doe",
                           "4111111111111111" /* Visa */, "04", "2999", "1");
   credit_card3.set_record_type(CreditCard::FULL_SERVER_CARD);
@@ -721,7 +721,7 @@ TEST_F(PersonalDataManagerTest, AddCreditCard_BasicInformation) {
   test_clock.SetNow(kArbitraryTime);
 
   // Add a credit card to the database.
-  CreditCard credit_card(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card, "John Dillinger",
                           "4234567890123456" /* Visa */, "01", "2999", "1");
   personal_data_->AddCreditCard(credit_card);
@@ -1040,21 +1040,21 @@ TEST_F(PersonalDataManagerTest, SavesServerCardType) {
 }
 
 TEST_F(PersonalDataManagerTest, AddProfilesAndCreditCards) {
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
 
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "903 Apple Ct.", nullptr,
                        "Orlando", "FL", "32801", "US", "19482937549");
 
-  CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "John Dillinger",
                           "4234567890123456" /* Visa */, "01", "2999", "1");
 
-  CreditCard credit_card1(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card1, "Bonnie Parker",
                           "5105105105105100" /* Mastercard */, "12", "2999",
                           "1");
@@ -1094,7 +1094,7 @@ TEST_F(PersonalDataManagerTest, AddProfilesAndCreditCards) {
 // Test for http://crbug.com/50047. Makes sure that guids are populated
 // correctly on load.
 TEST_F(PersonalDataManagerTest, PopulateUniqueIDsOnLoad) {
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "y", "", "", "", "", "", "", "", "", "", "",
                        "");
 
@@ -1109,7 +1109,7 @@ TEST_F(PersonalDataManagerTest, PopulateUniqueIDsOnLoad) {
   EXPECT_EQ(0, profile0.Compare(*results2[0]));
 
   // Add a new profile.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "z", "", "", "", "", "", "", "", "", "", "",
                        "");
   personal_data_->AddProfile(profile1);
@@ -1125,17 +1125,17 @@ TEST_F(PersonalDataManagerTest, PopulateUniqueIDsOnLoad) {
 }
 
 TEST_F(PersonalDataManagerTest, SetUniqueCreditCardLabels) {
-  CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card0(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card0.SetRawInfo(CREDIT_CARD_NAME_FULL, base::ASCIIToUTF16("John"));
-  CreditCard credit_card1(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card1(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card1.SetRawInfo(CREDIT_CARD_NAME_FULL, base::ASCIIToUTF16("Paul"));
-  CreditCard credit_card2(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card2(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card2.SetRawInfo(CREDIT_CARD_NAME_FULL, base::ASCIIToUTF16("Ringo"));
-  CreditCard credit_card3(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card3(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card3.SetRawInfo(CREDIT_CARD_NAME_FULL, base::ASCIIToUTF16("Other"));
-  CreditCard credit_card4(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card4(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card4.SetRawInfo(CREDIT_CARD_NAME_FULL, base::ASCIIToUTF16("Ozzy"));
-  CreditCard credit_card5(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card5(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card5.SetRawInfo(CREDIT_CARD_NAME_FULL, base::ASCIIToUTF16("Dio"));
 
   // Add the test credit cards to the database.
@@ -1162,7 +1162,7 @@ TEST_F(PersonalDataManagerTest, SetUniqueCreditCardLabels) {
 }
 
 TEST_F(PersonalDataManagerTest, SetEmptyProfile) {
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "", "", "", "", "", "", "", "", "", "", "",
                        "");
 
@@ -1181,7 +1181,7 @@ TEST_F(PersonalDataManagerTest, SetEmptyProfile) {
 }
 
 TEST_F(PersonalDataManagerTest, SetEmptyCreditCard) {
-  CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "", "", "", "", "");
 
   // Add the empty credit card to the database.
@@ -1199,12 +1199,12 @@ TEST_F(PersonalDataManagerTest, SetEmptyCreditCard) {
 }
 
 TEST_F(PersonalDataManagerTest, Refresh) {
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
 
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "903 Apple Ct.", nullptr,
                        "Orlando", "FL", "32801", "US", "19482937549");
@@ -1220,7 +1220,7 @@ TEST_F(PersonalDataManagerTest, Refresh) {
   profiles.push_back(&profile1);
   ExpectSameElements(profiles, personal_data_->GetProfiles());
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
                        "Orlando", "FL", "32801", "US", "19482937549");
@@ -1262,7 +1262,7 @@ TEST_F(PersonalDataManagerTest, Refresh) {
 // overwriting existing unverified profiles.
 TEST_F(PersonalDataManagerTest, SaveImportedProfileWithVerifiedData) {
   // Start with an unverified profile.
-  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
@@ -1337,7 +1337,7 @@ TEST_F(PersonalDataManagerTest, GetNonEmptyTypes) {
   EXPECT_EQ(0U, non_empty_types.size());
 
   // Test with one profile stored.
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "Marion", nullptr, "Morrison",
                        "johnwayne@me.xyz", nullptr, "123 Zoo St.", nullptr,
                        "Hollywood", "CA", "91601", "US", "14155678910");
@@ -1367,12 +1367,12 @@ TEST_F(PersonalDataManagerTest, GetNonEmptyTypes) {
   EXPECT_TRUE(non_empty_types.count(PHONE_HOME_WHOLE_NUMBER));
 
   // Test with multiple profiles stored.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "903 Apple Ct.", nullptr,
                        "Orlando", "FL", "32801", "US", "16502937549");
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
                        "Orlando", "FL", "32801", "US", "16502937549");
@@ -1406,7 +1406,7 @@ TEST_F(PersonalDataManagerTest, GetNonEmptyTypes) {
   EXPECT_TRUE(non_empty_types.count(PHONE_HOME_WHOLE_NUMBER));
 
   // Test with credit card information also stored.
-  CreditCard credit_card(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card, "John Dillinger",
                           "4234567890123456" /* Visa */, "01", "2999", "");
   personal_data_->AddCreditCard(credit_card);
@@ -1451,13 +1451,13 @@ TEST_F(PersonalDataManagerTest, IncognitoReadOnly) {
   ASSERT_TRUE(personal_data_->GetProfiles().empty());
   ASSERT_TRUE(personal_data_->GetCreditCards().empty());
 
-  AutofillProfile steve_jobs(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile steve_jobs(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&steve_jobs, "Steven", "Paul", "Jobs", "sjobs@apple.com",
                        "Apple Computer, Inc.", "1 Infinite Loop", "",
                        "Cupertino", "CA", "95014", "US", "(800) 275-2273");
   personal_data_->AddProfile(steve_jobs);
 
-  CreditCard bill_gates(base::GenerateGUID(), "https://www.example.com");
+  CreditCard bill_gates(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&bill_gates, "William H. Gates", "5555555555554444",
                           "1", "2020", "1");
   personal_data_->AddCreditCard(bill_gates);
@@ -1474,7 +1474,7 @@ TEST_F(PersonalDataManagerTest, IncognitoReadOnly) {
   // Add profiles or credit card shouldn't work.
   personal_data_->AddProfile(test::GetFullProfile());
 
-  CreditCard larry_page(base::GenerateGUID(), "https://www.example.com");
+  CreditCard larry_page(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&larry_page, "Lawrence Page", "4111111111111111",
                           "10", "2025", "1");
   personal_data_->AddCreditCard(larry_page);
@@ -1612,7 +1612,7 @@ TEST_F(PersonalDataManagerTest, DefaultCountryCodeComesFromProfiles) {
 }
 
 TEST_F(PersonalDataManagerTest, UpdateLanguageCodeInProfile) {
-  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox", "123 Zoo St.", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
@@ -1635,7 +1635,7 @@ TEST_F(PersonalDataManagerTest, UpdateLanguageCodeInProfile) {
 }
 
 TEST_F(PersonalDataManagerTest, GetProfileSuggestions) {
-  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1652,7 +1652,7 @@ TEST_F(PersonalDataManagerTest, GetProfileSuggestions) {
 }
 
 TEST_F(PersonalDataManagerTest, GetProfileSuggestions_PhoneSubstring) {
-  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1668,7 +1668,7 @@ TEST_F(PersonalDataManagerTest, GetProfileSuggestions_PhoneSubstring) {
 }
 
 TEST_F(PersonalDataManagerTest, GetProfileSuggestions_HideSubsets) {
-  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1744,7 +1744,7 @@ TEST_F(PersonalDataManagerTest,
 TEST_F(PersonalDataManagerTest, GetProfileSuggestions_Ranking) {
   // Set up the profiles. They are named with number suffixes X so the X is the
   // order in which they should be ordered by frecency.
-  AutofillProfile profile3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile3, "Marion3", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1753,7 +1753,7 @@ TEST_F(PersonalDataManagerTest, GetProfileSuggestions_Ranking) {
   profile3.set_use_count(5);
   personal_data_->AddProfile(profile3);
 
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Marion1", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1762,7 +1762,7 @@ TEST_F(PersonalDataManagerTest, GetProfileSuggestions_Ranking) {
   profile1.set_use_count(10);
   personal_data_->AddProfile(profile1);
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Marion2", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1785,21 +1785,21 @@ TEST_F(PersonalDataManagerTest, GetProfileSuggestions_Ranking) {
 // and only two if the appropriate field trial is set.
 TEST_F(PersonalDataManagerTest, GetProfileSuggestions_NumberOfSuggestions) {
   // Set up 3 different profiles.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Marion1", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
   personal_data_->AddProfile(profile1);
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Marion2", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
   personal_data_->AddProfile(profile2);
 
-  AutofillProfile profile3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile3, "Marion3", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1860,7 +1860,7 @@ TEST_F(PersonalDataManagerTest,
 TEST_F(PersonalDataManagerTest,
        GetProfileSuggestions_SuppressDisusedProfilesOnEmptyField) {
   // Set up 2 different profiles.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Marion1", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1868,7 +1868,7 @@ TEST_F(PersonalDataManagerTest,
   profile1.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(200));
   personal_data_->AddProfile(profile1);
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Marion2", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "456 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1939,7 +1939,7 @@ TEST_F(PersonalDataManagerTest,
 // Tests that suggestions based on invalid data are handled correctly.
 TEST_F(PersonalDataManagerTest, GetProfileSuggestions_InvalidData) {
   // Set up 2 different profiles.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Marion1", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "123 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -1948,7 +1948,7 @@ TEST_F(PersonalDataManagerTest, GetProfileSuggestions_InvalidData) {
   profile1.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(20));
   personal_data_->AddProfile(profile1);
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Marion2", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox",
                        "456 Zoo St.\nSecond Line\nThird line", "unit 5",
@@ -2027,7 +2027,7 @@ TEST_F(PersonalDataManagerTest, IsKnownCard_MatchesLocalCard) {
   EnableWalletCardImport();
   // Add a local card.
   CreditCard credit_card0("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Clyde Barrow",
                           "4234 5678 9012 2110" /* Visa */, "04", "2999", "1");
   personal_data_->AddCreditCard(credit_card0);
@@ -2046,7 +2046,7 @@ TEST_F(PersonalDataManagerTest, IsKnownCard_TypeDoesNotMatch) {
   EnableWalletCardImport();
   // Add a local card.
   CreditCard credit_card0("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Clyde Barrow",
                           "4234 5678 9012 2110" /* Visa */, "04", "2999", "1");
   personal_data_->AddCreditCard(credit_card0);
@@ -2066,7 +2066,7 @@ TEST_F(PersonalDataManagerTest, IsKnownCard_LastFourDoesNotMatch) {
   EnableWalletCardImport();
   // Add a local card.
   CreditCard credit_card0("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Clyde Barrow",
                           "4234 5678 9012 2110" /* Visa */, "04", "2999", "1");
   personal_data_->AddCreditCard(credit_card0);
@@ -2279,7 +2279,7 @@ TEST_F(PersonalDataManagerTest, GetCreditCardSuggestions_ExpiredCards) {
 
   // Add a never used non expired credit card.
   CreditCard credit_card0("002149C1-EE28-4213-A3B9-DA243FFF021B",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Bonnie Parker",
                           "5105105105105100" /* Mastercard */, "04", "2999",
                           "1");
@@ -2287,7 +2287,7 @@ TEST_F(PersonalDataManagerTest, GetCreditCardSuggestions_ExpiredCards) {
 
   // Add an expired card with a higher frecency score.
   CreditCard credit_card1("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card1, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "1999", "1");
@@ -2298,7 +2298,7 @@ TEST_F(PersonalDataManagerTest, GetCreditCardSuggestions_ExpiredCards) {
 
   // Add an expired card with a lower frecency score.
   CreditCard credit_card2("1141084B-72D7-4B73-90CF-3D6AC154673B",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   credit_card2.set_use_count(3);
   credit_card2.set_use_date(AutofillClock::Now() -
                             base::TimeDelta::FromDays(1));
@@ -2333,7 +2333,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Add a never used non expired local credit card.
   CreditCard credit_card0("002149C1-EE28-4213-A3B9-DA243FFF021B",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Bonnie Parker",
                           "5105105105105100" /* Mastercard */, "04", "2999",
                           "1");
@@ -2363,7 +2363,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Add an expired local card last used 180 days ago.
   CreditCard credit_card3("1141084B-72D7-4B73-90CF-3D6AC154673B",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   credit_card3.set_use_date(now - base::TimeDelta::FromDays(182));
   test::SetCreditCardInfo(&credit_card3, "John Dillinger",
                           "378282246310005" /* American Express */, "01",
@@ -2465,7 +2465,7 @@ TEST_F(PersonalDataManagerTest, GetCreditCardSuggestions_NumberMissing) {
   ASSERT_EQ(0U, personal_data_->GetCreditCards().size());
 
   CreditCard credit_card0("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
@@ -2475,7 +2475,7 @@ TEST_F(PersonalDataManagerTest, GetCreditCardSuggestions_NumberMissing) {
   personal_data_->AddCreditCard(credit_card0);
 
   CreditCard credit_card1("1141084B-72D7-4B73-90CF-3D6AC154673B",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   credit_card1.set_use_count(300);
   credit_card1.set_use_date(AutofillClock::Now() -
                             base::TimeDelta::FromDays(10));
@@ -2609,7 +2609,7 @@ TEST_F(PersonalDataManagerTest,
   // Add a second dupe local card to make sure a full server card can be a dupe
   // of more than one local card.
   CreditCard credit_card3("4141084B-72D7-4B73-90CF-3D6AC154673B",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card3, "Clyde Barrow", "", "04", "", "");
   personal_data_->AddCreditCard(credit_card3);
 
@@ -2633,7 +2633,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Add a local card.
   CreditCard credit_card0("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
@@ -2699,7 +2699,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create 3 different local credit cards.
   CreditCard local_card("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                        "https://www.example.com");
+                        test::kEmptyOrigin);
   test::SetCreditCardInfo(&local_card, "Homer Simpson",
                           "4234567890123456" /* Visa */, "01", "2999", "1");
   local_card.set_use_count(3);
@@ -2728,7 +2728,7 @@ TEST_F(PersonalDataManagerTest, DedupeCreditCardToSuggest_LocalShadowsMasked) {
   std::list<CreditCard*> credit_cards;
 
   CreditCard local_card("1141084B-72D7-4B73-90CF-3D6AC154673B",
-                        "https://www.example.com");
+                        test::kEmptyOrigin);
   local_card.set_use_count(300);
   local_card.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(10));
   test::SetCreditCardInfo(&local_card, "Homer Simpson",
@@ -2785,7 +2785,7 @@ TEST_F(PersonalDataManagerTest, DedupeCreditCardToSuggest_DifferentCards) {
   std::list<CreditCard*> credit_cards;
 
   CreditCard credit_card2("002149C1-EE28-4213-A3B9-DA243FFF021B",
-                          "https://www.example.com");
+                          test::kEmptyOrigin);
   credit_card2.set_use_count(1);
   credit_card2.set_use_date(AutofillClock::Now() -
                             base::TimeDelta::FromDays(1));
@@ -2829,7 +2829,7 @@ TEST_F(PersonalDataManagerTest, RecordUseOf) {
   EXPECT_EQ(kArbitraryTime, profile.modification_date());
   personal_data_->AddProfile(profile);
 
-  CreditCard credit_card(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card, "John Dillinger",
                           "4234567890123456" /* Visa */, "01", "2999", "1");
   EXPECT_EQ(1U, credit_card.use_count());
@@ -3100,7 +3100,7 @@ TEST_P(SaveImportedProfileTest, SaveImportedProfile) {
   // Set the time to a bigger value.
   test_clock.SetNow(kSomeLaterTime);
 
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Marion", "Mitchell", "Morrison",
                        "johnwayne@me.xyz", "Fox", "123 Zoo St", "unit 5",
                        "Hollywood", "CA", "91601", "US", "12345678910");
@@ -3415,12 +3415,12 @@ INSTANTIATE_TEST_CASE_P(
 TEST_F(PersonalDataManagerTest, MergeProfile_Frecency) {
   // Create two very similar profiles except with different company names.
   std::unique_ptr<AutofillProfile> profile1 = std::make_unique<AutofillProfile>(
-      base::GenerateGUID(), "https://www.example.com");
+      base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile1.get(), "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "SNP", "742 Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
   AutofillProfile* profile2 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile2, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3434,8 +3434,7 @@ TEST_F(PersonalDataManagerTest, MergeProfile_Frecency) {
   existing_profiles.push_back(base::WrapUnique(profile2));
 
   // Create a new imported profile with no company name.
-  AutofillProfile imported_profile(base::GenerateGUID(),
-                                   "https://www.example.com");
+  AutofillProfile imported_profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&imported_profile, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "US", "12345678910");
@@ -3465,7 +3464,7 @@ TEST_F(PersonalDataManagerTest, MAYBE_MergeProfile_UsageStats) {
   // Create an initial profile with a use count of 10, an old use date and an
   // old modification date of 4 days ago.
   AutofillProfile* profile =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "SNP", "742 Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3481,8 +3480,7 @@ TEST_F(PersonalDataManagerTest, MAYBE_MergeProfile_UsageStats) {
   test_clock.SetNow(kSomeLaterTime);
 
   // Create a new imported profile that will get merged with the existing one.
-  AutofillProfile imported_profile(base::GenerateGUID(),
-                                   "https://www.example.com");
+  AutofillProfile imported_profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&imported_profile, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "US", "12345678910");
@@ -3513,7 +3511,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_ProfilesToDelete) {
   // Create the profile for which to find duplicates. It has the highest
   // frecency.
   AutofillProfile* profile1 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile1, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3521,7 +3519,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_ProfilesToDelete) {
 
   // Create a different profile that should not be deduped (different address).
   AutofillProfile* profile2 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile2, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "Fox", "1234 Other Street", "",
                        "Springfield", "IL", "91601", "US", "12345678910");
@@ -3529,7 +3527,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_ProfilesToDelete) {
 
   // Create a profile similar to profile1 which should be deduped.
   AutofillProfile* profile3 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile3, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "US", "12345678910");
@@ -3538,7 +3536,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_ProfilesToDelete) {
   // Create another different profile that should not be deduped (different
   // name).
   AutofillProfile* profile4 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile4, "Marjorie", "Jacqueline", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3548,7 +3546,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_ProfilesToDelete) {
   // frecency, the result of the merge should be in this profile at the end of
   // the test.
   AutofillProfile* profile5 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile5, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3598,7 +3596,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_GuidsMergeMap) {
   // Create the profile for which to find duplicates. It has the highest
   // frecency.
   AutofillProfile* profile1 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile1, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3606,7 +3604,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_GuidsMergeMap) {
 
   // Create a different profile that should not be deduped (different address).
   AutofillProfile* profile2 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile2, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "Fox", "1234 Other Street", "",
                        "Springfield", "IL", "91601", "US", "12345678910");
@@ -3614,7 +3612,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_GuidsMergeMap) {
 
   // Create a profile similar to profile1 which should be deduped.
   AutofillProfile* profile3 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile3, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "US", "12345678910");
@@ -3623,7 +3621,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_GuidsMergeMap) {
   // Create another different profile that should not be deduped (different
   // name).
   AutofillProfile* profile4 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile4, "Marjorie", "Jacqueline", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3633,7 +3631,7 @@ TEST_F(PersonalDataManagerTest, DedupeProfiles_GuidsMergeMap) {
   // frecency, the result of the merge should be in this profile at the end of
   // the test.
   AutofillProfile* profile5 =
-      new AutofillProfile(base::GenerateGUID(), "https://www.example.com");
+      new AutofillProfile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(profile5, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "US", "12345678910");
@@ -3687,16 +3685,16 @@ TEST_F(PersonalDataManagerTest, UpdateCardsBillingAddressReference) {
 
   // Create cards that use A, D, E and F as their billing address id.
   CreditCard* credit_card1 =
-      new CreditCard(base::GenerateGUID(), "https://www.example.com");
+      new CreditCard(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card1->set_billing_address_id("A");
   CreditCard* credit_card2 =
-      new CreditCard(base::GenerateGUID(), "https://www.example.com");
+      new CreditCard(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card2->set_billing_address_id("D");
   CreditCard* credit_card3 =
-      new CreditCard(base::GenerateGUID(), "https://www.example.com");
+      new CreditCard(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card3->set_billing_address_id("E");
   CreditCard* credit_card4 =
-      new CreditCard(base::GenerateGUID(), "https://www.example.com");
+      new CreditCard(base::GenerateGUID(), test::kEmptyOrigin);
   credit_card4->set_billing_address_id("F");
 
   // Add the credit cards to the database.
@@ -3733,7 +3731,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create a set of 3 profiles to be merged together.
   // Create a profile with a higher frecency score.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -3741,7 +3739,7 @@ TEST_F(PersonalDataManagerTest,
   profile1.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(1));
 
   // Create a profile with a medium frecency score.
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "", "12345678910");
@@ -3749,7 +3747,7 @@ TEST_F(PersonalDataManagerTest,
   profile2.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(3));
 
   // Create a profile with a lower frecency score.
-  AutofillProfile profile3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile3, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -3758,7 +3756,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create a set of two profiles to be merged together.
   // Create a profile with a higher frecency score.
-  AutofillProfile profile4(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile4(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile4, "Marge", "B", "Simpson",
                        "marge.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -3766,7 +3764,7 @@ TEST_F(PersonalDataManagerTest,
   profile4.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(1));
 
   // Create a profile with a lower frecency score.
-  AutofillProfile profile5(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile5(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile5, "Marge", "B", "Simpson",
                        "marge.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -3774,7 +3772,7 @@ TEST_F(PersonalDataManagerTest,
   profile5.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(3));
 
   // Create a unique profile.
-  AutofillProfile profile6(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile6(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile6, "Bart", "J", "Simpson",
                        "bart.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -3784,18 +3782,18 @@ TEST_F(PersonalDataManagerTest,
   // Add three credit cards. Give them a frecency score so that they are
   // suggested in order (1, 2, 3). This will ensure a deterministic order for
   // verifying results.
-  CreditCard credit_card1(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card1, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
   credit_card1.set_use_count(10);
 
-  CreditCard credit_card2(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card2, "John Dillinger",
                           "4234567890123456" /* Visa */, "01", "2999", "1");
   credit_card2.set_use_count(5);
 
-  CreditCard credit_card3(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card3, "Bonnie Parker",
                           "5105105105105100" /* Mastercard */, "12", "2999",
                           "1");
@@ -3864,7 +3862,7 @@ TEST_F(PersonalDataManagerTest,
 // frecency score.
 TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MergedProfileValues) {
   // Create a profile with a higher frecency score.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -3872,7 +3870,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MergedProfileValues) {
   profile1.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(1));
 
   // Create a profile with a medium frecency score.
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "", "12345678910");
@@ -3880,7 +3878,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MergedProfileValues) {
   profile2.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(3));
 
   // Create a profile with a lower frecency score.
-  AutofillProfile profile3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile3, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -3962,7 +3960,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_VerifiedProfileFirst) {
   profile1.set_use_date(kMuchLaterTime);
 
   // Create a similar non verified profile with a medium frecency score.
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -3970,7 +3968,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_VerifiedProfileFirst) {
   profile2.set_use_date(kSomeLaterTime);
 
   // Create a similar non verified profile with a lower frecency score.
-  AutofillProfile profile3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile3, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -4020,7 +4018,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_VerifiedProfileFirst) {
 // frecency score.
 TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_VerifiedProfileLast) {
   // Create a profile to dedupe with a higher frecency score.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -4028,7 +4026,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_VerifiedProfileLast) {
   profile1.set_use_date(kMuchLaterTime);
 
   // Create a similar non verified profile with a medium frecency score.
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -4085,7 +4083,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_VerifiedProfileLast) {
 // a verified profile. Also tests that two verified profiles don't get merged.
 TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleVerifiedProfiles) {
   // Create a profile to dedupe with a higher frecency score.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -4161,7 +4159,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleVerifiedProfiles) {
 TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleDedupes) {
   // Create a Homer home profile with a higher frecency score than other Homer
   // profiles.
-  AutofillProfile Homer1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile Homer1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&Homer1, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -4170,7 +4168,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleDedupes) {
 
   // Create a Homer home profile with a medium frecency score compared to other
   // Homer profiles.
-  AutofillProfile Homer2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile Homer2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&Homer2, "Homer", "Jay", "Simpson",
                        "homer.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "", "12345678910");
@@ -4179,7 +4177,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleDedupes) {
 
   // Create a Homer home profile with a lower frecency score than other Homer
   // profiles.
-  AutofillProfile Homer3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile Homer3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&Homer3, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -4187,7 +4185,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleDedupes) {
   Homer3.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(5));
 
   // Create a Homer work profile (different address).
-  AutofillProfile Homer4(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile Homer4(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&Homer4, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "12 Nuclear Plant.", "",
                        "Springfield", "IL", "91601", "US", "9876543");
@@ -4205,7 +4203,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleDedupes) {
 
   // Create a verified Marge home profile with a lower frecency score that the
   // other Marge profile.
-  AutofillProfile Marge2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile Marge2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&Marge2, "Marjorie", "Jacqueline", "Simpson",
                        "marge.simpson@abc.com", "", "742 Evergreen Terrace", "",
                        "Springfield", "IL", "91601", "", "12345678910");
@@ -4213,7 +4211,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleDedupes) {
   Marge2.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(3));
 
   // Create a Barney profile (guest user).
-  AutofillProfile Barney(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile Barney(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&Barney, "Barney", "", "Gumble", "barney.gumble@abc.com",
                        "ABC", "123 Other Street", "", "Springfield", "IL",
                        "91601", "", "");
@@ -4300,13 +4298,13 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_MultipleDedupes) {
 // Tests that ApplyDedupingRoutine is not run if the feature is disabled.
 TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_FeatureDisabled) {
   // Create a profile to dedupe.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
 
   // Create a similar profile.
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -4334,7 +4332,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_NopIfZeroProfiles) {
 
 TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_NopIfOneProfile) {
   // Create a profile to dedupe.
-  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
@@ -4354,13 +4352,13 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_NopIfOneProfile) {
 // version.
 TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_OncePerVersion) {
   // Create a profile to dedupe.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "", "742. Evergreen Terrace",
                        "", "Springfield", "IL", "91601", "US", "");
 
   // Create a similar profile.
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -4385,7 +4383,7 @@ TEST_F(PersonalDataManagerTest, ApplyDedupingRoutine_OncePerVersion) {
   EXPECT_EQ(1U, profiles.size());
 
   // Add another duplicate profile.
-  AutofillProfile profile3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile3, "Homer", "J", "Simpson",
                        "homer.simpson@abc.com", "Fox", "742 Evergreen Terrace.",
                        "", "Springfield", "IL", "91601", "", "");
@@ -4458,7 +4456,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create unverified/disused/not-used-by-valid-credit-card
   // address(deletable).
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "Alice", "", "Delete", "", "ACME",
                        "1234 Evergreen Terrace", "Bld. 6", "Springfield", "IL",
                        "32801", "US", "15151231234");
@@ -4466,12 +4464,12 @@ TEST_F(PersonalDataManagerTest,
   personal_data_->AddProfile(profile0);
 
   // Create unverified/disused/used-by-expired-credit-card address(deletable).
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Bob", "", "Delete", "", "ACME",
                        "1234 Evergreen Terrace", "Bld. 7", "Springfield", "IL",
                        "32801", "US", "15151231234");
   profile1.set_use_date(now - base::TimeDelta::FromDays(400));
-  CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card0, "Bob",
                           "5105105105105100" /* Mastercard */, "04", "1999",
                           "1");
@@ -4482,7 +4480,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create verified/disused/not-used-by-valid-credit-card address(not
   // deletable).
-  AutofillProfile profile2(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile2, "Charlie", "", "Keep", "", "ACME",
                        "1234 Evergreen Terrace", "Bld. 8", "Springfield", "IL",
                        "32801", "US", "15151231234");
@@ -4492,7 +4490,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create unverified/recently-used/not-used-by-valid-credit-card address(not
   // deletable).
-  AutofillProfile profile3(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile3(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile3, "Dave", "", "Keep", "", "ACME",
                        "1234 Evergreen Terrace", "Bld. 9", "Springfield", "IL",
                        "32801", "US", "15151231234");
@@ -4500,7 +4498,7 @@ TEST_F(PersonalDataManagerTest,
   personal_data_->AddProfile(profile3);
 
   // Create unverified/disused/used-by-valid-credit-card address(not deletable).
-  AutofillProfile profile4(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile4(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile4, "Emma", "", "Keep", "", "ACME",
                        "1234 Evergreen Terrace", "Bld. 10", "Springfield", "IL",
                        "32801", "US", "15151231234");
@@ -4585,7 +4583,7 @@ TEST_F(PersonalDataManagerTest,
   auto now = AutofillClock::Now();
 
   // Create a recently used local card, it is expected to remain.
-  CreditCard credit_card1(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card1, "Alice",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
@@ -4593,7 +4591,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create a local card that was expired 400 days ago, but recently used.
   // It is expected to remain.
-  CreditCard credit_card2(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card2(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card2, "Bob",
                           "378282246310006" /* American Express */, "04",
                           "1999", "1");
@@ -4601,7 +4599,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create a local card expired recently, and last used 400 days ago.
   // It is expected to remain.
-  CreditCard credit_card3(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card3(base::GenerateGUID(), test::kEmptyOrigin);
   base::Time expiry_date = now - base::TimeDelta::FromDays(32);
   base::Time::Exploded exploded;
   expiry_date.UTCExplode(&exploded);
@@ -4613,7 +4611,7 @@ TEST_F(PersonalDataManagerTest,
 
   // Create a local card expired 400 days ago, and last used 400 days ago.
   // It is expected to be deleted.
-  CreditCard credit_card4(base::GenerateGUID(), "https://www.example.com");
+  CreditCard credit_card4(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&credit_card4, "David",
                           "5105105105105100" /* Mastercard */, "04", "1999",
                           "1");
@@ -4688,8 +4686,7 @@ TEST_F(PersonalDataManagerTest,
   // Add two different profiles, a local and a server one. Set the use stats so
   // the server profile has a higher frecency, to have a predictable ordering to
   // validate results.
-  AutofillProfile local_profile(base::GenerateGUID(),
-                                "https://www.example.com");
+  AutofillProfile local_profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&local_profile, "Josephine", "Alicia", "Saenz",
                        "joewayne@me.xyz", "Fox", "1212 Center.", "Bld. 5",
                        "Orlando", "FL", "32801", "US", "19482937549");
@@ -4713,7 +4710,7 @@ TEST_F(PersonalDataManagerTest,
   // Add a server and a local card that have the server address as billing
   // address.
   CreditCard local_card("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                        "https://www.example.com");
+                        test::kEmptyOrigin);
   test::SetCreditCardInfo(&local_card, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
@@ -4794,8 +4791,7 @@ TEST_F(PersonalDataManagerTest,
   // the server card has a higher frecency, to have a predicatble ordering to
   // validate results.
   // Add a local profile.
-  AutofillProfile local_profile(base::GenerateGUID(),
-                                "https://www.example.com");
+  AutofillProfile local_profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&local_profile, "John", "", "Doe", "john@doe.com", "",
                        "1212 Center.", "Bld. 5", "Orlando", "FL", "32801", "US",
                        "19482937549");
@@ -4818,7 +4814,7 @@ TEST_F(PersonalDataManagerTest,
   // Add a server and a local card that have the server address as billing
   // address.
   CreditCard local_card("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                        "https://www.example.com");
+                        test::kEmptyOrigin);
   test::SetCreditCardInfo(&local_card, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
@@ -4949,8 +4945,7 @@ TEST_F(
   // Add a unique local profile and two similar server profiles. Set the use
   // stats to have a predicatble ordering to validate results.
   // Add a local profile.
-  AutofillProfile local_profile(base::GenerateGUID(),
-                                "https://www.example.com");
+  AutofillProfile local_profile(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&local_profile, "Bob", "", "Doe", "", "Fox",
                        "1212 Center.", "Bld. 5", "Orlando", "FL", "32801", "US",
                        "19482937549");
@@ -4986,7 +4981,7 @@ TEST_F(
   // Add a server and a local card that have the first and second Wallet address
   // as a billing address.
   CreditCard local_card("287151C8-6AB1-487C-9095-28E80BE5DA15",
-                        "https://www.example.com");
+                        test::kEmptyOrigin);
   test::SetCreditCardInfo(&local_card, "Clyde Barrow",
                           "378282246310005" /* American Express */, "04",
                           "2999", "1");
@@ -5172,16 +5167,16 @@ TEST_F(PersonalDataManagerTest, RemoveByGUID_ResetsBillingAddress) {
   std::vector<CreditCard> server_cards;
 
   // Add two different profiles
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "Bob", "", "Doe", "", "Fox", "1212 Center.",
                        "Bld. 5", "Orlando", "FL", "32801", "US", "19482937549");
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Seb", "", "Doe", "", "ACME",
                        "1234 Evergreen Terrace", "Bld. 5", "Springfield", "IL",
                        "32801", "US", "15151231234");
 
   // Add a local and a server card that have profile0 as their billing address.
-  CreditCard local_card0(base::GenerateGUID(), "https://www.example.com");
+  CreditCard local_card0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&local_card0, "John Dillinger",
                           "4111111111111111" /* Visa */, "01", "2999",
                           profile0.guid());
@@ -5192,7 +5187,7 @@ TEST_F(PersonalDataManagerTest, RemoveByGUID_ResetsBillingAddress) {
   server_cards.push_back(server_card0);
 
   // Do the same but for profile1.
-  CreditCard local_card1(base::GenerateGUID(), "https://www.example.com");
+  CreditCard local_card1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetCreditCardInfo(&local_card1, "Seb Dillinger",
                           "4111111111111111" /* Visa */, "01", "2999",
                           profile1.guid());
@@ -5261,14 +5256,14 @@ TEST_F(PersonalDataManagerTest, LogStoredProfileMetrics_NoStoredProfiles) {
 
 TEST_F(PersonalDataManagerTest, LogStoredProfileMetrics) {
   // Add a recently used (3 days ago) profile.
-  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile0(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile0, "Bob", "", "Doe", "", "Fox", "1212 Center.",
                        "Bld. 5", "Orlando", "FL", "32801", "US", "19482937549");
   profile0.set_use_date(AutofillClock::Now() - base::TimeDelta::FromDays(3));
   personal_data_->AddProfile(profile0);
 
   // Add a profile used a long time (200 days) ago.
-  AutofillProfile profile1(base::GenerateGUID(), "https://www.example.com");
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
   test::SetProfileInfo(&profile1, "Seb", "", "Doe", "", "ACME",
                        "1234 Evergreen Terrace", "Bld. 5", "Springfield", "IL",
                        "32801", "US", "15151231234");
@@ -6043,5 +6038,167 @@ TEST_F(PersonalDataManagerTest, ExcludeServerSideCards) {
   EXPECT_EQ(2U, personal_data_->GetServerCreditCards().size());
 }
 #endif  // !defined(OS_ANDROID)
+
+// Tests that all the non settings origins of autofill profiles are cleared but
+// that the settings origins are untouched.
+TEST_F(PersonalDataManagerTest, ClearProfileNonSettingsOrigins) {
+  // Create three profile with a nonsettings, non-empty origin.
+  AutofillProfile profile0(base::GenerateGUID(), "https://www.example.com");
+  test::SetProfileInfo(&profile0, "Marion0", "Mitchell", "Morrison",
+                       "johnwayne@me.xyz", "Fox",
+                       "123 Zoo St.\nSecond Line\nThird line", "unit 5",
+                       "Hollywood", "CA", "91601", "US", "12345678910");
+  profile0.set_use_count(10000);
+  personal_data_->AddProfile(profile0);
+
+  AutofillProfile profile1(base::GenerateGUID(), test::kEmptyOrigin);
+  test::SetProfileInfo(&profile1, "Marion1", "Mitchell", "Morrison",
+                       "johnwayne@me.xyz", "Fox",
+                       "123 Zoo St.\nSecond Line\nThird line", "unit 5",
+                       "Hollywood", "CA", "91601", "US", "12345678910");
+  profile1.set_use_count(1000);
+  personal_data_->AddProfile(profile1);
+
+  AutofillProfile profile2(base::GenerateGUID(), "1234");
+  test::SetProfileInfo(&profile2, "Marion2", "Mitchell", "Morrison",
+                       "johnwayne@me.xyz", "Fox",
+                       "123 Zoo St.\nSecond Line\nThird line", "unit 5",
+                       "Hollywood", "CA", "91601", "US", "12345678910");
+  profile2.set_use_count(100);
+  personal_data_->AddProfile(profile2);
+
+  // Create a profile with a settings origin.
+  AutofillProfile profile3(base::GenerateGUID(), kSettingsOrigin);
+  test::SetProfileInfo(&profile3, "Marion3", "Mitchell", "Morrison",
+                       "johnwayne@me.xyz", "Fox",
+                       "123 Zoo St.\nSecond Line\nThird line", "unit 5",
+                       "Hollywood", "CA", "91601", "US", "12345678910");
+  profile3.set_use_count(10);
+  personal_data_->AddProfile(profile3);
+
+  WaitForOnPersonalDataChanged();
+  ASSERT_EQ(4U, personal_data_->GetProfiles().size());
+
+  personal_data_->ClearProfileNonSettingsOrigins();
+
+  WaitForOnPersonalDataChanged();
+  ASSERT_EQ(4U, personal_data_->GetProfiles().size());
+
+  // The first three profiles' origin should be cleared and the fourth one still
+  // be the settings origin.
+  EXPECT_TRUE(personal_data_->GetProfilesToSuggest()[0]->origin().empty());
+  EXPECT_TRUE(personal_data_->GetProfilesToSuggest()[1]->origin().empty());
+  EXPECT_TRUE(personal_data_->GetProfilesToSuggest()[2]->origin().empty());
+  EXPECT_EQ(kSettingsOrigin,
+            personal_data_->GetProfilesToSuggest()[3]->origin());
+}
+
+// Tests that all the non settings origins of autofill credit cards are cleared
+// but that the settings origins are untouched.
+TEST_F(PersonalDataManagerTest, ClearCreditCardNonSettingsOrigins) {
+  // Create three cards with a non settings origin.
+  CreditCard credit_card0(base::GenerateGUID(), "https://www.example.com");
+  test::SetCreditCardInfo(&credit_card0, "Bob0",
+                          "5105105105105100" /* Mastercard */, "04", "1999",
+                          "1");
+  credit_card0.set_use_count(10000);
+  personal_data_->AddCreditCard(credit_card0);
+
+  CreditCard credit_card1(base::GenerateGUID(), test::kEmptyOrigin);
+  test::SetCreditCardInfo(&credit_card1, "Bob1",
+                          "5105105105105101" /* Mastercard */, "04", "1999",
+                          "1");
+  credit_card1.set_use_count(1000);
+  personal_data_->AddCreditCard(credit_card1);
+
+  CreditCard credit_card2(base::GenerateGUID(), "1234");
+  test::SetCreditCardInfo(&credit_card2, "Bob2",
+                          "5105105105105102" /* Mastercard */, "04", "1999",
+                          "1");
+  credit_card2.set_use_count(100);
+  personal_data_->AddCreditCard(credit_card2);
+
+  // Create a card with a settings origin.
+  CreditCard credit_card3(base::GenerateGUID(), kSettingsOrigin);
+  test::SetCreditCardInfo(&credit_card3, "Bob3",
+                          "5105105105105103" /* Mastercard */, "04", "1999",
+                          "1");
+  credit_card3.set_use_count(10);
+  personal_data_->AddCreditCard(credit_card3);
+
+  WaitForOnPersonalDataChanged();
+  ASSERT_EQ(4U, personal_data_->GetCreditCards().size());
+
+  personal_data_->ClearCreditCardNonSettingsOrigins();
+
+  WaitForOnPersonalDataChanged();
+  ASSERT_EQ(4U, personal_data_->GetCreditCards().size());
+
+  // The first three profiles' origin should be cleared and the fourth one still
+  // be the settings origin.
+  EXPECT_TRUE(
+      personal_data_->GetCreditCardsToSuggest(false)[0]->origin().empty());
+  EXPECT_TRUE(
+      personal_data_->GetCreditCardsToSuggest(false)[1]->origin().empty());
+  EXPECT_TRUE(
+      personal_data_->GetCreditCardsToSuggest(false)[2]->origin().empty());
+  EXPECT_EQ(kSettingsOrigin,
+            personal_data_->GetCreditCardsToSuggest(false)[3]->origin());
+}
+
+// Tests that all the non settings origins of autofill profiles are cleared even
+// if Autofill is disabled.
+TEST_F(
+    PersonalDataManagerTest,
+    SyncServiceInitializedWithAutofillDisabled_ClearProfileNonSettingsOrigins) {
+  // Create a profile with a non-settings, non-empty origin.
+  AutofillProfile profile(base::GenerateGUID(), "https://www.example.com");
+  test::SetProfileInfo(&profile, "Marion0", "Mitchell", "Morrison",
+                       "johnwayne@me.xyz", "Fox",
+                       "123 Zoo St.\nSecond Line\nThird line", "unit 5",
+                       "Hollywood", "CA", "91601", "US", "12345678910");
+  personal_data_->AddProfile(profile);
+  WaitForOnPersonalDataChanged();
+
+  EXPECT_CALL(personal_data_observer_, OnPersonalDataChanged()).Times(1);
+  prefs_->SetBoolean(prefs::kAutofillEnabled, false);
+
+  ASSERT_EQ(1U, personal_data_->GetProfiles().size());
+
+  personal_data_->OnSyncServiceInitialized(nullptr);
+
+  WaitForOnPersonalDataChanged();
+  ASSERT_EQ(1U, personal_data_->GetProfiles().size());
+
+  // The profile's origin should be cleared
+  EXPECT_TRUE(personal_data_->GetProfiles()[0]->origin().empty());
+}
+
+// Tests that all the non settings origins of autofill credit cards are cleared
+// even if Autofill is disabled.
+TEST_F(
+    PersonalDataManagerTest,
+    SyncServiceInitializedWithAutofillDisabled_ClearCreditCardNonSettingsOrigins) {
+  // Create a card with a non-settings, non-empty origin.
+  CreditCard credit_card(base::GenerateGUID(), "https://www.example.com");
+  test::SetCreditCardInfo(&credit_card, "Bob0",
+                          "5105105105105100" /* Mastercard */, "04", "1999",
+                          "1");
+  personal_data_->AddCreditCard(credit_card);
+  WaitForOnPersonalDataChanged();
+
+  EXPECT_CALL(personal_data_observer_, OnPersonalDataChanged()).Times(1);
+  prefs_->SetBoolean(prefs::kAutofillEnabled, false);
+
+  ASSERT_EQ(1U, personal_data_->GetCreditCards().size());
+
+  personal_data_->OnSyncServiceInitialized(nullptr);
+
+  WaitForOnPersonalDataChanged();
+  ASSERT_EQ(1U, personal_data_->GetCreditCards().size());
+
+  // The card's origin should be cleared
+  EXPECT_TRUE(personal_data_->GetCreditCards()[0]->origin().empty());
+}
 
 }  // namespace autofill
