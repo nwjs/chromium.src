@@ -882,8 +882,7 @@ bubblePresenterForFeature:(const base::Feature&)feature
 // the selected tab and return it.
 - (Tab*)addSelectedTabWithURL:(const GURL&)url
                      postData:(TemplateURLRef::PostContent*)postData
-                   transition:(ui::PageTransition)transition
-                       opener:(Tab*)parentTab;
+                   transition:(ui::PageTransition)transition;
 // Internal method that all of the similar public and private methods call.
 // Adds a new tab with |url| and |postData| (if not null) at |position| in the
 // tab model (or at the end if |position is NSNotFound|, with |transition| as
@@ -893,7 +892,6 @@ bubblePresenterForFeature:(const base::Feature&)feature
                      postData:(TemplateURLRef::PostContent*)postData
                       atIndex:(NSUInteger)position
                    transition:(ui::PageTransition)transition
-                       opener:(Tab*)parentTab
            tabAddedCompletion:(ProceduralBlock)tabAddedCompletion;
 // Whether the given tab's URL is an application specific URL.
 - (BOOL)isTabNativePage:(Tab*)tab;
@@ -1425,35 +1423,29 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
 }
 
 - (Tab*)addSelectedTabWithURL:(const GURL&)url
-                   transition:(ui::PageTransition)transition
-                       opener:(Tab*)parentTab {
+                   transition:(ui::PageTransition)transition {
   return [self addSelectedTabWithURL:url
                              atIndex:[_model count]
-                          transition:transition
-                              opener:parentTab];
+                          transition:transition];
 }
 
 - (Tab*)addSelectedTabWithURL:(const GURL&)url
                       atIndex:(NSUInteger)position
-                   transition:(ui::PageTransition)transition
-                       opener:(Tab*)parentTab {
+                   transition:(ui::PageTransition)transition {
   return [self addSelectedTabWithURL:url
                              atIndex:position
                           transition:transition
-                              opener:parentTab
                   tabAddedCompletion:nil];
 }
 
 - (Tab*)addSelectedTabWithURL:(const GURL&)url
                       atIndex:(NSUInteger)position
                    transition:(ui::PageTransition)transition
-                       opener:(Tab*)parentTab
            tabAddedCompletion:(ProceduralBlock)tabAddedCompletion {
   return [self addSelectedTabWithURL:url
                             postData:NULL
                              atIndex:position
                           transition:transition
-                              opener:parentTab
                   tabAddedCompletion:tabAddedCompletion];
 }
 
@@ -3006,13 +2998,11 @@ bubblePresenterForFeature:(const base::Feature&)feature
 
 - (Tab*)addSelectedTabWithURL:(const GURL&)url
                      postData:(TemplateURLRef::PostContent*)postData
-                   transition:(ui::PageTransition)transition
-                       opener:(Tab*)parentTab {
+                   transition:(ui::PageTransition)transition {
   return [self addSelectedTabWithURL:url
                             postData:postData
                              atIndex:[_model count]
                           transition:transition
-                              opener:(Tab*)parentTab
                   tabAddedCompletion:nil];
 }
 
@@ -3020,7 +3010,6 @@ bubblePresenterForFeature:(const base::Feature&)feature
                      postData:(TemplateURLRef::PostContent*)postData
                       atIndex:(NSUInteger)position
                    transition:(ui::PageTransition)transition
-                       opener:(Tab*)parentTab
            tabAddedCompletion:(ProceduralBlock)tabAddedCompletion {
   if (position == NSNotFound)
     position = [_model count];
@@ -3052,7 +3041,7 @@ bubblePresenterForFeature:(const base::Feature&)feature
   }
 
   Tab* tab = [_model insertTabWithLoadParams:params
-                                      opener:parentTab
+                                      opener:nil
                                  openedByDOM:NO
                                      atIndex:position
                                 inBackground:NO];
@@ -3813,8 +3802,7 @@ bubblePresenterForFeature:(const base::Feature&)feature
       search_args, templateUrlService->search_terms_data(), &post_content));
   [self addSelectedTabWithURL:result
                      postData:&post_content
-                   transition:ui::PAGE_TRANSITION_TYPED
-                       opener:[_model currentTab]];
+                   transition:ui::PAGE_TRANSITION_TYPED];
 }
 
 // Saves the image at the given URL on the system's album.  The referrer is used
@@ -4726,8 +4714,7 @@ bubblePresenterForFeature:(const base::Feature&)feature
         ->UpdateSnapshot(/*with_overlays=*/true, /*visible_frame_only=*/true);
   }
   [self addSelectedTabWithURL:GURL(kChromeUINewTabURL)
-                   transition:ui::PAGE_TRANSITION_TYPED
-                       opener:currentTab];
+                   transition:ui::PAGE_TRANSITION_TYPED];
 }
 
 - (void)printTab {
@@ -5713,9 +5700,7 @@ nativeContentHeaderHeightForPreloadController:(PreloadController*)controller
 - (void)captivePortalDetectorTabHelper:
             (CaptivePortalDetectorTabHelper*)tabHelper
                  connectWithLandingURL:(const GURL&)landingURL {
-  [self addSelectedTabWithURL:landingURL
-                   transition:ui::PAGE_TRANSITION_TYPED
-                       opener:[_model currentTab]];
+  [self addSelectedTabWithURL:landingURL transition:ui::PAGE_TRANSITION_TYPED];
 }
 
 #pragma mark - PageInfoPresentation
