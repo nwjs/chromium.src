@@ -812,6 +812,22 @@ void NavigatorImpl::OnBeginNavigation(
           std::move(blob_url_loader_factory)));
   NavigationRequest* navigation_request = frame_tree_node->navigation_request();
 
+  // This frame has already run beforeunload before it sent this IPC.  See if
+  // any of its cross-process subframes also need to run beforeunload.  If so,
+  // delay the navigation until receiving beforeunload ACKs from those frames.
+  DCHECK(!FrameMsg_Navigate_Type::IsSameDocument(
+      navigation_request->common_params().navigation_type));
+  bool should_dispatch_beforeunload =
+      frame_tree_node->current_frame_host()->ShouldDispatchBeforeUnload(
+          true /* check_subframes_only */);
+  if (should_dispatch_beforeunload) {
+    frame_tree_node->navigation_request()->SetWaitingForRendererResponse();
+    frame_tree_node->current_frame_host()->DispatchBeforeUnload(
+        RenderFrameHostImpl::BeforeUnloadType::RENDERER_INITIATED_NAVIGATION,
+        FrameMsg_Navigate_Type::IsReload(common_params.navigation_type));
+    return;
+  }
+
   // For main frames, NavigationHandle will be created after the call to
   // |DidStartMainFrameNavigation|, so it receives the most up to date pending
   // entry from the NavigationController.
@@ -968,7 +984,8 @@ void NavigatorImpl::RequestNavigation(
       FrameMsg_Navigate_Type::IsSameDocument(navigation_type);
   bool should_dispatch_beforeunload =
       !is_same_document && !is_history_navigation_in_new_child &&
-      frame_tree_node->current_frame_host()->ShouldDispatchBeforeUnload();
+      frame_tree_node->current_frame_host()->ShouldDispatchBeforeUnload(
+          false /* check_subframes_only */);
   std::unique_ptr<NavigationRequest> scoped_request =
       NavigationRequest::CreateBrowserInitiated(
           frame_tree_node, dest_url, dest_referrer, frame_entry, entry,
@@ -988,7 +1005,8 @@ void NavigatorImpl::RequestNavigation(
   if (should_dispatch_beforeunload) {
     navigation_request->SetWaitingForRendererResponse();
     frame_tree_node->current_frame_host()->DispatchBeforeUnload(
-        true, reload_type != ReloadType::NONE);
+        RenderFrameHostImpl::BeforeUnloadType::BROWSER_INITIATED_NAVIGATION,
+        reload_type != ReloadType::NONE);
   } else {
     navigation_request->BeginNavigation();
     // DO NOT USE |navigation_request| BEYOND THIS POINT. It might have been

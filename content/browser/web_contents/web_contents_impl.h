@@ -961,6 +961,8 @@ class CONTENT_EXPORT WebContentsImpl : public WebContents,
   friend class WebContentsObserver;
   friend class WebContents;  // To implement factory methods.
 
+  friend class RenderFrameHostImplBeforeUnloadBrowserTest;
+
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, NoJSMessageOnInterstitials);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, UpdateTitle);
   FRIEND_TEST_ALL_PREFIXES(WebContentsImplTest, FindOpenerRVHWhenPending);
