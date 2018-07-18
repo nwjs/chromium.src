@@ -1907,7 +1907,6 @@ test("ash_unittests") {
     "//chromeos:power_manager_proto",
     "//chromeos:test_support",
     "//chromeos:test_support_without_gmock",
-    "//chromeos/services/assistant:test_support",
     "//chromeos/services/multidevice_setup/public/mojom",
     "//components/account_id",
     "//components/arc:notification_test_support",
@@ -1965,6 +1964,10 @@ test("ash_unittests") {
     "//ui/wm/public",
     "//url",
   ]
+
+  if (enable_cros_assistant) {
+    deps += [ "//chromeos/services/assistant:test_support" ]
+  }
 
   data_deps = [
     "//ash/resources:ash_test_resources_100_percent",
