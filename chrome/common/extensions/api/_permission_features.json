@@ -300,7 +300,7 @@
     ]
   },
   "enterprise.reportingPrivate": {
-    "channel": "beta",
+    "channel": "stable",
     "extension_types": ["extension"],
     "platforms" : ["win", "mac", "linux"],
     "whitelist" : [
