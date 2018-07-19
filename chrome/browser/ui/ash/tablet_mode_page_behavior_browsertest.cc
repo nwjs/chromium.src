@@ -51,18 +51,12 @@ class TabletModePageBehaviorTest : public InProcessBrowserTest {
   void ValidateWebPrefs(const content::WebPreferences& web_prefs,
                         bool tablet_mode_enabled) const {
     if (tablet_mode_enabled) {
-      EXPECT_TRUE(web_prefs.viewport_enabled);
-      EXPECT_TRUE(web_prefs.viewport_meta_enabled);
       EXPECT_TRUE(web_prefs.shrinks_viewport_contents_to_fit);
-      EXPECT_EQ(web_prefs.viewport_style, content::ViewportStyle::MOBILE);
       EXPECT_TRUE(web_prefs.main_frame_resizes_are_orientation_changes);
       EXPECT_FLOAT_EQ(web_prefs.default_minimum_page_scale_factor, 0.25f);
       EXPECT_FLOAT_EQ(web_prefs.default_maximum_page_scale_factor, 5.0f);
     } else {
-      EXPECT_FALSE(web_prefs.viewport_enabled);
-      EXPECT_FALSE(web_prefs.viewport_meta_enabled);
       EXPECT_FALSE(web_prefs.shrinks_viewport_contents_to_fit);
-      EXPECT_NE(web_prefs.viewport_style, content::ViewportStyle::MOBILE);
       EXPECT_FALSE(web_prefs.main_frame_resizes_are_orientation_changes);
       EXPECT_FLOAT_EQ(web_prefs.default_minimum_page_scale_factor, 1.0f);
       EXPECT_FLOAT_EQ(web_prefs.default_maximum_page_scale_factor, 4.0f);
