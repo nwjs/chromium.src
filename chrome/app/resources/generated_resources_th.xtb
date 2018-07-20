@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">ย่อ</translation>
 <translation id="1830550083491357902">ไม่ได้ลงชื่อเข้าใช้</translation>
 <translation id="1832511806131704864">อัปเดตการเปลี่ยนแปลงของโทรศัพท์แล้ว</translation>
-<translation id="1832685970989658809">ผู้ดูแลระบบปิดใช้วิธีการชำระเงินที่บันทึกไว้</translation>
 <translation id="1834503245783133039">ดาวน์โหลดไม่สำเร็จ: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">ล้างการค้นหา</translation>
 <translation id="1838709767668011582">เว็บไซต์ Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">แสดงรหัสผ่าน</translation>
 <translation id="2436186046335138073">อนุญาตให้ <ph name="HANDLER_HOSTNAME" /> เปิดลิงก์ <ph name="PROTOCOL" /> ทั้งหมดไหม</translation>
 <translation id="2436707352762155834">ขั้นต่ำ</translation>
-<translation id="2437139306601019091">สิ้นสุดการวัดการใช้อินเทอร์เน็ต</translation>
 <translation id="2440604414813129000">ดูโ&amp;ค้ดต้นฉบับ</translation>
 <translation id="2445081178310039857">จำเป็นต้องระบุไดเรกทอรีหลักของส่วนขยาย</translation>
 <translation id="2445484935443597917">สร้างโปรไฟล์ใหม่</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">แพคส่วนขยาย</translation>
 <translation id="3855676282923585394">นำเข้าบุ๊กมาร์กและการตั้งค่า...</translation>
 <translation id="3856800405688283469">เลือกเขตเวลา</translation>
-<translation id="3856921555429624101">สิ้นสุดการวัดการใช้อินเทอร์เน็ตแล้ว</translation>
 <translation id="3857228364945137633">ลองใช้ Smart Lock เพื่อปลดล็อก <ph name="DEVICE_TYPE" /> โดยไม่ต้องใช้รหัสผ่านเมื่อมีโทรศัพท์อยู่ใกล้ๆ</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: การซิงค์หยุดชั่วคราว</translation>
@@ -2511,7 +2508,6 @@
 <translation id="4905417359854579806">พร้อมสำรอง <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">ไฟล์นี้ไม่ได้มีการดาวน์โหลดเป็นที่แพร่หลายและอาจเป็นอันตราย</translation>
 <translation id="4907306957610201395">หมวดหมู่สิทธิ์</translation>
-<translation id="4907824805858067479">ผู้ดูแลระบบปิดใช้การ์ดที่บันทึกไว้</translation>
 <translation id="4908811072292128752">เปิดแท็บใหม่เพื่อเรียกดูไซต์ 2 ไซต์พร้อมกัน</translation>
 <translation id="4909038193460299775">เนื่องจากบัญชีนี้มีการจัดการโดย <ph name="DOMAIN" /> บุ๊กมาร์ก ประวัติการเข้าชม รหัสผ่าน และการตั้งค่าอื่นๆ จะถูกล้างออกจากอุปกรณ์เครื่องนี้ แต่ข้อมูลจะยังจัดเก็บอยู่ในบัญชี Google และสามารถจัดการได้ใน<ph name="BEGIN_LINK" />แดชบอร์ด Google<ph name="END_LINK" /></translation>
 <translation id="4909359680501173791">ลงทะเบียนสำเร็จแล้ว</translation>
@@ -3231,7 +3227,6 @@
 <translation id="5990386583461751448">แปลแล้ว</translation>
 <translation id="5991049340509704927">ขยาย</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{โปรดขอให้ผู้ดูแลระบบนำแอปพลิเคชันนี้ออกเพื่อให้คุณท่องเว็บได้ต่อไป}other{โปรดขอให้ผู้ดูแลระบบนำแอปพลิเคชันนี้ออกเพื่อให้คุณท่องเว็บได้ต่อไป}}</translation>
-<translation id="5993332328670040093">ระบบจะไม่วัดการใช้อินเทอร์เน็ตของคุณอีกต่อไป</translation>
 <translation id="6002458620803359783">เสียงที่ต้องการ</translation>
 <translation id="6005695835120147974">เราเตอร์สื่อ</translation>
 <translation id="6006484371116297560">คลาสสิก</translation>
@@ -3423,7 +3418,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> ไม่ได้ถูกดาวน์โหลดตามปกติและอาจเป็นอันตราย</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{เครื่องพิมพ์ใหม่บนเครือข่ายของคุณ}other{เครื่องพิมพ์ใหม่บนเครือข่ายของคุณ}}</translation>
-<translation id="6286684120317096255">กำลังวัดการใช้อินเทอร์เน็ต</translation>
 <translation id="6286708577777130801">รายละเอียดรหัสผ่านที่บันทึกไว้</translation>
 <translation id="6287852322318138013">เลือกแอปที่จะเปิดไฟล์นี้</translation>
 <translation id="6289452883081499048">บริการของ Google อย่างเช่น Play ที่ปรับเปลี่ยนในแบบของคุณ</translation>
@@ -4988,7 +4982,6 @@
 <translation id="8725066075913043281">ลองอีกครั้ง</translation>
 <translation id="8725178340343806893">รายการโปรด/บุ๊กมาร์ก</translation>
 <translation id="8726206820263995930">เกิดข้อผิดพลาดขณะดึงข้อมูลการตั้งค่านโยบายจากเซิร์ฟเวอร์: <ph name="CLIENT_ERROR" /></translation>
-<translation id="8727142376512517020">ไม่ต้องแสดงข้อความนี้อีก</translation>
 <translation id="8727344521467137076">พบซอฟต์แวร์อันตรายในคอมพิวเตอร์ของคุณ Chrome กำลังนำซอฟต์แวร์ดังกล่าวออกและคืนการตั้งค่าเดิมเพื่อให้เบราว์เซอร์ทำงานเป็นปกติอีกครั้ง</translation>
 <translation id="8730621377337864115">เสร็จสิ้น</translation>
 <translation id="8732030010853991079">ใช้ส่วนขยายนี้โดยคลิกที่ไอคอนนี้</translation>

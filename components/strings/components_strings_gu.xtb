@@ -164,7 +164,6 @@
 <translation id="2064691555167957331">{COUNT,plural, =1{1 સૂચન}one{# સૂચન}other{# સૂચન}}</translation>
 <translation id="2079545284768500474">પૂર્વવત કરો</translation>
 <translation id="20817612488360358">સિસ્ટમ પ્રોક્સી સેટિંગ્સ ઉપયોગમાં લેવા માટે સેટ છે પણ એક સ્પષ્ટ પ્રોક્સી ગોઠવણી પણ ઉલ્લેખિત કરેલી છે.</translation>
-<translation id="2084558088529668945">તમે એવી સાઇટ પર તમારો પાસવર્ડ દાખલ કર્યો કે જે <ph name="ORG_NAME" /> દ્વારા મેનેજ કરવામાં આવતી નથી. તમારા એકાઉન્ટને સુરક્ષિત કરવા માટે, અન્ય ઍપ અને સાઇટ પર તમારા પાસવર્ડનો ફરી ઉપયોગ કરશો નહીં.</translation>
 <translation id="2091887806945687916">ધ્વનિ</translation>
 <translation id="2094505752054353250">ડોમેન મેળ ખાતું નથી</translation>
 <translation id="2096368010154057602">વિભાગ</translation>
@@ -457,7 +456,6 @@
 <translation id="4171400957073367226">ખોટી ચકાસણી સહી</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{વધુ <ph name="ITEM_COUNT" /> આઇટમ}one{વધુ <ph name="ITEM_COUNT" /> આઇટમ}other{વધુ <ph name="ITEM_COUNT" /> આઇટમ}}</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
-<translation id="4192549185358213268">જો તમે અન્ય સાઇટ પર <ph name="ORG_NAME" /> પાસવર્ડનો ફરી ઉપયોગ કર્યો હોય, તો Chrome તેને રીસેટ કરવાની ભલામણ કરે છે.</translation>
 <translation id="4196861286325780578">&amp;ખસેડવું ફરી કરો</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />ફાયરવોલ અને એન્ટીવાઇરસ ગોઠવણી તપાસીને<ph name="END_LINK" /></translation>
 <translation id="4220128509585149162">ક્રેશેસ</translation>
@@ -696,7 +694,6 @@
 <translation id="5869405914158311789">આ સાઇટ પર પહોંચી શકાતું નથી</translation>
 <translation id="5869522115854928033">સાચવેલા પાસવર્ડ્સ</translation>
 <translation id="5893752035575986141">ક્રેડિટ કાર્ડ સ્વીકારવામાં આવે છે.</translation>
-<translation id="5898382028489516745">જો તમે અન્ય સાઇટ પર <ph name="ORG_NAME" /> પાસવર્ડનો ફરી ઉપયોગ કર્યો હોય, તો Chromium તેને રીસેટ કરવાની ભલામણ કરે છે.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (સમન્વયિત)</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{1 ઉપયોગમાં છે}one{# ઉપયોગમાં છે}other{# ઉપયોગમાં છે}}</translation>
 <translation id="5939518447894949180">રીસેટ કરો</translation>
@@ -1040,6 +1037,7 @@
 <translation id="8553075262323480129">ભાષાંતર નિષ્ફળ રહ્યું કારણ કે પૃષ્ઠની ભાષા નિર્ધારિત થઈ શકી નથી.</translation>
 <translation id="8557066899867184262">CVC તમારા કાર્ડની પાછળ હોય છે.</translation>
 <translation id="8559762987265718583"><ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> પર ખાનગી કનેક્શન સ્થાપિત કરી શકાતું નથી કારણ કે તમારા ઉપકરણની તારીખ અને સમય (<ph name="DATE_AND_TIME" />) અયોગ્ય છે.</translation>
+<translation id="8564985650692024650">જો તમે અન્ય સાઇટ પર <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> પાસવર્ડનો ફરી ઉપયોગ કર્યો હોય, તો Chromium તેને રીસેટ કરવાનો સુઝાવ આપે છે.</translation>
 <translation id="8571890674111243710">પૃષ્ઠને <ph name="LANGUAGE" /> માં અનુવાદિત કરી રહ્યું છે...</translation>
 <translation id="858637041960032120">ફોન નંબર ઉમેરો</translation>
 <translation id="859285277496340001">પ્રમાણપત્રને રદ કરવામાં આવ્યું છે કે નહિ તે તપાસવા માટે કોઈપણ મેકેનિઝમ નિર્દિષ્ટ કરતું નથી.</translation>
@@ -1068,6 +1066,7 @@
 <translation id="884264119367021077">શિપિંગ સરનામું</translation>
 <translation id="884923133447025588">રદ કરવાની કોઈ મેકેનિઝમ મળી નથી.</translation>
 <translation id="885730110891505394">Google સાથે શેર કરવું</translation>
+<translation id="8858065207712248076">જો તમે અન્ય સાઇટ પર <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> પાસવર્ડનો ફરી ઉપયોગ કર્યો હોય, તો Chrome તેને રીસેટ કરવાનો સુઝાવ આપે છે.</translation>
 <translation id="8866481888320382733">ભૂલ વિશ્લેષણ નીતિ સેટિંગ્સ</translation>
 <translation id="8870413625673593573">તાજેતરમાં બંધ કરેલા</translation>
 <translation id="8874824191258364635">એક માન્ય કાર્ડ નંબર દાખલ કરો</translation>

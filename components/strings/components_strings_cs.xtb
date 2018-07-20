@@ -164,7 +164,6 @@
 <translation id="2064691555167957331">{COUNT,plural, =1{1 návrh}few{# návrhy}many{# návrhu}other{# návrhů}}</translation>
 <translation id="2079545284768500474" />
 <translation id="20817612488360358">Jako aktivní jsou nakonfigurována systémová nastavení proxy serveru, je však určena i explicitní konfigurace proxy serveru.</translation>
-<translation id="2084558088529668945">Zadali jste heslo na webu, který není spravován organizací <ph name="ORG_NAME" />. Aby byl váš účet chráněn, nepoužívejte jeho heslo u jiných aplikací a webů.</translation>
 <translation id="2091887806945687916">Zvuk</translation>
 <translation id="2094505752054353250">Neshoda domén</translation>
 <translation id="2096368010154057602">Oddělení</translation>
@@ -453,7 +452,6 @@
 <translation id="4171400957073367226">Chybný ověřovací podpis</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{<ph name="ITEM_COUNT" /> další položka}few{<ph name="ITEM_COUNT" /> další položky}many{<ph name="ITEM_COUNT" /> další položky}other{<ph name="ITEM_COUNT" /> dalších položek}}</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
-<translation id="4192549185358213268">Pokud jste heslo organizace <ph name="ORG_NAME" /> použili na jiném webu, doporučujeme vám ho resetovat.</translation>
 <translation id="4196861286325780578">&amp;Opakovat přesunutí</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />Zkontrolovat konfiguraci firewallu a antivirového softwaru<ph name="END_LINK" /></translation>
 <translation id="4220128509585149162">Selhání</translation>
@@ -692,7 +690,6 @@ Kontaktujte administrátora systému.</translation>
 <translation id="5869405914158311789">Tento web není dostupný</translation>
 <translation id="5869522115854928033">Uložená hesla</translation>
 <translation id="5893752035575986141">Obchodník přijímá kreditní karty.</translation>
-<translation id="5898382028489516745">Pokud jste heslo organizace <ph name="ORG_NAME" /> použili na jiném webu, doporučujeme vám ho resetovat.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (synchronizováno)</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{Používá se 1}few{Používají se #}many{Používá se #}other{Používá se #}}</translation>
 <translation id="5939518447894949180">Resetovat</translation>
@@ -1035,6 +1032,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="8553075262323480129">Překlad se nezdařil. Nepodařilo se rozpoznat jazyk stránky.</translation>
 <translation id="8557066899867184262">Kód CVC je uveden na zadní straně karty.</translation>
 <translation id="8559762987265718583">Soukromé připojení k doméně <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> nelze navázat, protože máte v zařízení nastaveno chybné datum a čas (<ph name="DATE_AND_TIME" />).</translation>
+<translation id="8564985650692024650">Pokud jste heslo organizace <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> použili na jiném webu, doporučujeme vám ho resetovat.</translation>
 <translation id="8571890674111243710">Překlad stránky do jazyka: <ph name="LANGUAGE" />...</translation>
 <translation id="858637041960032120">Přidat telefon
 </translation>
@@ -1064,6 +1062,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="884264119367021077">Dodací adresa</translation>
 <translation id="884923133447025588">Nebyl nalezen žádný mechanismus zamítnutí.</translation>
 <translation id="885730110891505394">Sdílení s Googlem</translation>
+<translation id="8858065207712248076">Pokud jste heslo organizace <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> použili na jiném webu, doporučujeme vám ho resetovat.</translation>
 <translation id="8866481888320382733">Při analýze nastavení zásady došlo k chybě</translation>
 <translation id="8870413625673593573">Nedávno zavřené</translation>
 <translation id="8874824191258364635">Zadejte platné číslo karty</translation>

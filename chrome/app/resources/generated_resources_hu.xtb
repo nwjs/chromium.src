@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Kics&amp;inyítés</translation>
 <translation id="1830550083491357902">Nem jelentkezett be</translation>
 <translation id="1832511806131704864">Telefonmódosítás frissítve</translation>
-<translation id="1832685970989658809">A mentett fizetési módokat letiltotta a rendszergazda</translation>
 <translation id="1834503245783133039">Sikertelen letöltés: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Keresett kifejezés törlése</translation>
 <translation id="1838709767668011582">Google-webhely</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Jelszó megjelenítése</translation>
 <translation id="2436186046335138073">Engedélyezi az összes <ph name="PROTOCOL" /> link megnyitását a(z) <ph name="HANDLER_HOSTNAME" /> számára?</translation>
 <translation id="2436707352762155834">Minimális</translation>
-<translation id="2437139306601019091">Az adathasználat mérése befejeződött</translation>
 <translation id="2440604414813129000">F&amp;orrás megtekintése</translation>
 <translation id="2445081178310039857">A bővítmény gyökérkönyvtárát kötelező megadni.</translation>
 <translation id="2445484935443597917">Új profil létrehozása</translation>
@@ -1879,7 +1877,6 @@
 <translation id="3855441664322950881">Bővítmény becsomagolása</translation>
 <translation id="3855676282923585394">Könyvjelzők és beállítások importálása...</translation>
 <translation id="3856800405688283469">Időzóna kiválasztása</translation>
-<translation id="3856921555429624101">Az adathasználat mérése befejeződött</translation>
 <translation id="3857228364945137633">Próbálja ki, hogyan oldhatja fel <ph name="DEVICE_TYPE" /> eszközét jelszó használata nélkül a Smart Lock funkció használatával, ha a telefonja a közelében van.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: a szinkronizálás szünetel</translation>
@@ -2511,7 +2508,6 @@ Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation
 <translation id="4905417359854579806">A rendszer készen áll <ph name="FILE_COUNT" /> biztonsági mentésére</translation>
 <translation id="4907161631261076876">Ezt a fájlt nem töltik le gyakran, és veszélyes lehet.</translation>
 <translation id="4907306957610201395">Engedélykategória</translation>
-<translation id="4907824805858067479">A kártyák mentését letiltotta a rendszergazda</translation>
 <translation id="4908811072292128752">Új lap megnyitása két webhely egyidejű böngészéséhez</translation>
 <translation id="4909038193460299775">Mivel ezt a fiókot a(z) <ph name="DOMAIN" /> domain kezeli, könyvjelzői, előzményei, jelszavai és más beállításai törlődnek erről az eszközről. Meglévő adatait azonban továbbra is tárolni fogja Google-fiókja, és azokat a <ph name="BEGIN_LINK" />Google Irányítópulton<ph name="END_LINK" /> kezelheti.</translation>
 <translation id="4909359680501173791">Sikeresen regisztrált</translation>
@@ -3233,7 +3229,6 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="5990386583461751448">Fordítás</translation>
 <translation id="5991049340509704927">Nagyítás</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Annak érdekében, hogy biztosan tudjon böngészni az interneten, kérje meg rendszergazdáját az alkalmazás eltávolítására.}other{Annak érdekében, hogy biztosan tudjon böngészni az interneten, kérje meg rendszergazdáját az alkalmazások eltávolítására.}}</translation>
-<translation id="5993332328670040093">Az adathasználatot a továbbiakban nem méri a böngésző.</translation>
 <translation id="6002458620803359783">Előnyben részesített hangok</translation>
 <translation id="6005695835120147974">Adathordozó router</translation>
 <translation id="6006484371116297560">Klasszikus</translation>
@@ -3425,7 +3420,6 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">A(z) <ph name="FILE_NAME" /> fájlt nem gyakran töltik le, és veszélyes lehet.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Új nyomtató a hálózaton}other{Új nyomtatók a hálózaton}}</translation>
-<translation id="6286684120317096255">Az adathasználat mérése folyamatban van</translation>
 <translation id="6286708577777130801">Mentett jelszavak adatai</translation>
 <translation id="6287852322318138013">Válasszon egy alkalmazást a fájl megnyitásához</translation>
 <translation id="6289452883081499048">Személyre szabott Google-szolgáltatások, például a Play</translation>
@@ -4990,7 +4984,6 @@ A kulcsfájlt tartsa biztonságos helyen. Szüksége lesz rá ahhoz, hogy új ve
 <translation id="8725066075913043281">Újrapróbálás</translation>
 <translation id="8725178340343806893">Kedvencek/könyvjelzők</translation>
 <translation id="8726206820263995930">Hiba a kiszolgálóról származó irányelv-beállítások fogadásakor: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Ez ne jelenjen meg többé</translation>
 <translation id="8727344521467137076">Kártékony szoftver található a számítógépen. A Chrome eltávolítja azt, és visszaállítja a beállításokat, hogy a böngésző ismét megfelelően működjön.</translation>
 <translation id="8730621377337864115">Kész</translation>
 <translation id="8732030010853991079">A bővítményt az ikonra kattintva használhatja.</translation>

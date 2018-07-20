@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Z&amp;oom arrière</translation>
 <translation id="1830550083491357902">Non connecté</translation>
 <translation id="1832511806131704864">Changement de téléphone mis à jour</translation>
-<translation id="1832685970989658809">L'administrateur a désactivé les modes de paiement enregistrés</translation>
 <translation id="1834503245783133039">Échec du téléchargement : <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Effacer la recherche</translation>
 <translation id="1838709767668011582">Site Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Afficher le mot de passe</translation>
 <translation id="2436186046335138073">Autoriser <ph name="HANDLER_HOSTNAME" /> à ouvrir tous les liens <ph name="PROTOCOL" /> ?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">La mesure de l'utilisation des données a pris fin.</translation>
 <translation id="2440604414813129000">Afficher la s&amp;ource</translation>
 <translation id="2445081178310039857">Le répertoire racine de l'extension doit être indiqué.</translation>
 <translation id="2445484935443597917">Créer un profil</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Empaqueter l'extension</translation>
 <translation id="3855676282923585394">Importer les favoris et les paramètres...</translation>
 <translation id="3856800405688283469">Sélectionner un fuseau horaire</translation>
-<translation id="3856921555429624101">La mesure de l'utilisation des données a pris fin.</translation>
 <translation id="3857228364945137633">Testez Smart Lock pour déverrouiller votre <ph name="DEVICE_TYPE" /> sans mot de passe lorsque votre téléphone est à proximité.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" /> : synchronisation désactivée</translation>
@@ -2511,7 +2508,6 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4905417359854579806">Prêt à sauvegarder <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Ce fichier n'étant pas souvent téléchargé, il peut présenter un danger.</translation>
 <translation id="4907306957610201395">Catégorie d'autorisation</translation>
-<translation id="4907824805858067479">L'administrateur a désactivé les cartes enregistrées</translation>
 <translation id="4908811072292128752">Ouvrez un nouvel onglet pour naviguer sur deux sites Web en même temps</translation>
 <translation id="4909038193460299775">Étant donné que ce compte est géré par <ph name="DOMAIN" />, vos favoris, votre historique, vos mots de passe et les autres paramètres sont effacés de cet appareil. Cependant, vos données restent stockées dans votre compte Google et peuvent être gérées dans le <ph name="BEGIN_LINK" />Google Dashboard<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Votre inscription a bien été prise en compte</translation>
@@ -3232,7 +3228,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="5990386583461751448">Traduite</translation>
 <translation id="5991049340509704927">Agrandir</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Pour pouvoir continuer à naviguer sur Internet, demandez à votre administrateur de supprimer cette application.}one{Pour pouvoir continuer à naviguer sur Internet, demandez à votre administrateur de supprimer cette application.}other{Pour pouvoir continuer à naviguer sur Internet, demandez à votre administrateur de supprimer ces applications.}}</translation>
-<translation id="5993332328670040093">Votre utilisation des données ne sera plus mesurée.</translation>
 <translation id="6002458620803359783">Voix préférées</translation>
 <translation id="6005695835120147974">Routeur multimédia</translation>
 <translation id="6006484371116297560">Classique</translation>
@@ -3424,7 +3419,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> n'est pas un fichier couramment téléchargé. Il est peut-être dangereux.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nouvelle imprimante sur le réseau}one{Nouvelle imprimante sur le réseau}other{Nouvelles imprimantes sur le réseau}}</translation>
-<translation id="6286684120317096255">L'utilisation des données est mesurée.</translation>
 <translation id="6286708577777130801">Détails du mot de passe enregistré</translation>
 <translation id="6287852322318138013">Sélectionner une application pour ouvrir ce fichier</translation>
 <translation id="6289452883081499048">Services Google personnalisés tels que Play</translation>
@@ -4989,7 +4983,6 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8725066075913043281">Réessayer</translation>
 <translation id="8725178340343806893">Favoris</translation>
 <translation id="8726206820263995930">Erreur survenue lors de la récupération des paramètres des règles depuis le serveur : <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Ne plus afficher ce message</translation>
 <translation id="8727344521467137076">Un logiciel malveillant a été détecté sur votre ordinateur. Chrome est en train de le supprimer et restaurera vos paramètres pour que votre navigateur fonctionne de nouveau normalement.</translation>
 <translation id="8730621377337864115">OK</translation>
 <translation id="8732030010853991079">Utilisez cette extension en cliquant sur cette icône</translation>

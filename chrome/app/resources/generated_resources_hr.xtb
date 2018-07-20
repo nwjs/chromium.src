@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Zoom &amp;Out (Smanji)</translation>
 <translation id="1830550083491357902">Nije prijavljen</translation>
 <translation id="1832511806131704864">Promjena telefona ažurirana je</translation>
-<translation id="1832685970989658809">Spremljene načine plaćanja onemogućio je vaš administrator</translation>
 <translation id="1834503245783133039">Preuzimanje nije uspjelo: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Brisanje pretraživanja</translation>
 <translation id="1838709767668011582">Google web-lokacija</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Pokaži zaporku</translation>
 <translation id="2436186046335138073">Želite li dopustiti da <ph name="HANDLER_HOSTNAME" /> otvori sve veze protokola <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Najmanje</translation>
-<translation id="2437139306601019091">Mjerenje korištenja podataka je završilo</translation>
 <translation id="2440604414813129000">Pogledaj i&amp;zvor</translation>
 <translation id="2445081178310039857">Obavezan je korijenski direktorij proširenja.</translation>
 <translation id="2445484935443597917">Izradi novi profil</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Zapakiraj proširenje</translation>
 <translation id="3855676282923585394">Uvoz oznaka i postavki...</translation>
 <translation id="3856800405688283469">Odaberite vremensku zonu</translation>
-<translation id="3856921555429624101">Mjerenje korištenja podataka je završilo</translation>
 <translation id="3857228364945137633">Isprobajte Smart Lock i otključavajte svoj <ph name="DEVICE_TYPE" /> bez zaporke kada je vaš telefon u blizini.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sinkronizacija je pauzirana</translation>
@@ -2511,7 +2508,6 @@
 <translation id="4905417359854579806">Sigurnosno kopiranje datoteka (ukupno <ph name="FILE_COUNT" />) je spremno</translation>
 <translation id="4907161631261076876">Ova se aplikacija ne preuzima često i može biti opasna.</translation>
 <translation id="4907306957610201395">Kategorija dopuštenja</translation>
-<translation id="4907824805858067479">Spremljene kartice onemogućio je vaš administrator</translation>
 <translation id="4908811072292128752">Otvorite novu karticu za istodobni pregled dvije stranice</translation>
 <translation id="4909038193460299775">Budući da ovim računom upravlja <ph name="DOMAIN" />, vaše oznake, povijest, zaporke i druge postavke izbrisat će se s ovog uređaja. No vaši podaci ostat će pohranjeni na vašem Google računu i možete upravljati njima na <ph name="BEGIN_LINK" />Google nadzornoj ploči<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Uspješno ste se prijavili</translation>
@@ -3231,7 +3227,6 @@
 <translation id="5990386583461751448">Prevedeno</translation>
 <translation id="5991049340509704927">Uvećanje</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Da biste mogli i dalje pregledavati web, zamolite administratora da ukloni tu aplikaciju.}one{Da biste mogli i dalje pregledavati web, zamolite administratora da ukloni te aplikacije.}few{Da biste mogli i dalje pregledavati web, zamolite administratora da ukloni te aplikacije.}other{Da biste mogli i dalje pregledavati web, zamolite administratora da ukloni te aplikacije.}}</translation>
-<translation id="5993332328670040093">Vaša upotreba podataka više se neće mjeriti.</translation>
 <translation id="6002458620803359783">Preferirani glasovi</translation>
 <translation id="6005695835120147974">Usmjerivač medija</translation>
 <translation id="6006484371116297560">Klasična</translation>
@@ -3423,7 +3418,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Datoteka <ph name="FILE_NAME" /> obično se ne preuzima i mogla bi biti opasna.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Novi pisač na vašoj mreži}one{Novi pisači na vašoj mreži}few{Novi pisači na vašoj mreži}other{Novi pisači na vašoj mreži}}</translation>
-<translation id="6286684120317096255">U tijeku je mjerenje upotrebe podataka</translation>
 <translation id="6286708577777130801">Podaci o spremljenim zaporkama</translation>
 <translation id="6287852322318138013">Odaberite aplikaciju da biste otvorili tu datoteku</translation>
 <translation id="6289452883081499048">Prilagođene Googleove usluge kao što je Play</translation>
@@ -4989,7 +4983,6 @@ Osobe sa sporom vezom možda neće vidjeti vaš sadržaj.</translation>
 <translation id="8725066075913043281">Pokušajte ponovo</translation>
 <translation id="8725178340343806893">Favoriti/oznake</translation>
 <translation id="8726206820263995930">Pogreška pri dohvaćanju postavki pravila s poslužitelja: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Ne prikazuj to ponovo</translation>
 <translation id="8727344521467137076">Na vašem računalu ima štetnog softvera. Chrome ga uklanja i vratit će vaše postavke kako bi vaš preglednik ponovno funkcionirao normalno.</translation>
 <translation id="8730621377337864115">Gotovo</translation>
 <translation id="8732030010853991079">Upotrijebite to proširenje klikom na ovu ikonu.</translation>

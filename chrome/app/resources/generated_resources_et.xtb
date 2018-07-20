@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">&amp;Vähenda</translation>
 <translation id="1830550083491357902">Pole sisse logitud</translation>
 <translation id="1832511806131704864">Telefoni muutmist värskendati</translation>
-<translation id="1832685970989658809">Teie administraator on salvestatud makseviisid keelanud</translation>
 <translation id="1834503245783133039">Allalaadimine nurjus: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Otsingu kustutamine</translation>
 <translation id="1838709767668011582">Google'i sait</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Kuva parool</translation>
 <translation id="2436186046335138073">Kas lubada kasutajal <ph name="HANDLER_HOSTNAME" /> avada kõik protokolli <ph name="PROTOCOL" /> lingid?</translation>
 <translation id="2436707352762155834">Miinimum</translation>
-<translation id="2437139306601019091">Andmemahu kasutuse mõõtmine lõppes</translation>
 <translation id="2440604414813129000">Vaata a&amp;llikat</translation>
 <translation id="2445081178310039857">Laienduse juurkaust on nõutav.</translation>
 <translation id="2445484935443597917">Loo uus profiil</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Paki laiendus</translation>
 <translation id="3855676282923585394">Impordi järjehoidjad ja seaded...</translation>
 <translation id="3856800405688283469">Ajavööndi valimine</translation>
-<translation id="3856921555429624101">Andmemahu kasutuse mõõtmine on lõppenud</translation>
 <translation id="3857228364945137633">Proovige funktsiooni Smart Lock, et avada oma seade <ph name="DEVICE_TYPE" /> paroolita, kui teie telefon on läheduses.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sünkroonimine on peatatud</translation>
@@ -2511,7 +2508,6 @@ kasutades juhtpaneeli funktsiooni <ph name="CONTROL_PANEL_APPLET_NAME" />.
 <translation id="4905417359854579806">Valmis, et varundada <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Seda faili ei laadita tavaliselt alla ja see võib olla ohtlik.</translation>
 <translation id="4907306957610201395">Loa kategooria</translation>
-<translation id="4907824805858067479">Teie administraator on salvestatud kaardid keelanud</translation>
 <translation id="4908811072292128752">Avage uus vaheleht, et kahte saiti korraga sirvida</translation>
 <translation id="4909038193460299775">Kuna seda kontot haldab domeen <ph name="DOMAIN" />, kustutatakse sellest seadmest teie järjehoidjad, ajalugu, paroolid ja muud seaded. Teie andmed jäävad teie Google'i kontole siiski alles ja neid saab hallata <ph name="BEGIN_LINK" />Google'i juhtpaneelil<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Registreerumine õnnestus</translation>
@@ -3231,7 +3227,6 @@ kasutades juhtpaneeli funktsiooni <ph name="CONTROL_PANEL_APPLET_NAME" />.
 <translation id="5990386583461751448">Tõlgitud</translation>
 <translation id="5991049340509704927">Suurenda</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Kui soovite jätkuvalt veebi sirvida, paluge administraatoril see rakendus eemaldada.}other{Kui soovite jätkuvalt veebi sirvida, paluge administraatoril need rakendused eemaldada.}}</translation>
-<translation id="5993332328670040093">Teie andmemahu kasutust ei mõõdeta enam.</translation>
 <translation id="6002458620803359783">Eelistatud hääled</translation>
 <translation id="6005695835120147974">Meedia marsruuter</translation>
 <translation id="6006484371116297560">Klassikaline</translation>
@@ -3423,7 +3418,6 @@ kasutades juhtpaneeli funktsiooni <ph name="CONTROL_PANEL_APPLET_NAME" />.
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Faili <ph name="FILE_NAME" /> ei laadita sageli alla ja see võib olla ohtlik.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Teie võrgus on uus printer}other{Teie võrgus on uued printerid}}</translation>
-<translation id="6286684120317096255">Andmemahu kasutust mõõdetakse</translation>
 <translation id="6286708577777130801">Salvestatud parooli üksikasjad</translation>
 <translation id="6287852322318138013">Valige faili avamiseks rakendus</translation>
 <translation id="6289452883081499048">Isikupärastatud Google'i teenused, nagu Play</translation>
@@ -4989,7 +4983,6 @@ Inimesed, kelle ühendus on aeglane, ei pruugi teie sisu näha.</translation>
 <translation id="8725066075913043281">Proovi uuesti</translation>
 <translation id="8725178340343806893">Lemmikud/järjehoidjad</translation>
 <translation id="8726206820263995930">Serverist reegli seadete toomisel ilmnes viga: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Ära näita seda uuesti</translation>
 <translation id="8727344521467137076">Teie arvutis on kahjulik tarkvara. Chrome eemaldab selle ja taastab teie seaded, et brauser töötaks jälle normaalselt.</translation>
 <translation id="8730621377337864115">Valmis</translation>
 <translation id="8732030010853991079">Laienduse aktiveerimiseks klõpsake sellel ikoonil.</translation>

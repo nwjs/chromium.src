@@ -562,7 +562,6 @@
 <translation id="1829192082282182671">&amp;Намаляване</translation>
 <translation id="1830550083491357902">Не сте в профила си</translation>
 <translation id="1832511806131704864">Промяната на телефона е актуализирана</translation>
-<translation id="1832685970989658809">Запазените начини на плащане са деактивирани от администратора ви</translation>
 <translation id="1834503245783133039">Неуспешно изтегляне: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Изчистване на търсенето</translation>
 <translation id="1838709767668011582">Сайт в Google</translation>
@@ -939,7 +938,6 @@
 <translation id="2435457462613246316">Показване на паролата</translation>
 <translation id="2436186046335138073">Да се разреши ли на <ph name="HANDLER_HOSTNAME" /> да отваря всички връзки от типа „<ph name="PROTOCOL" />“?</translation>
 <translation id="2436707352762155834">Минимум</translation>
-<translation id="2437139306601019091">Измерването на преноса на данни приключи</translation>
 <translation id="2440604414813129000">&amp;Преглед на изходния код</translation>
 <translation id="2445081178310039857">Необходима е основна директория на разширението.</translation>
 <translation id="2445484935443597917">Създаване на нов потребителски профил</translation>
@@ -1877,7 +1875,6 @@
 <translation id="3855441664322950881">Пакетиране на разширение</translation>
 <translation id="3855676282923585394">Импортиране на отметки и настройки...</translation>
 <translation id="3856800405688283469">Изберете часова зона</translation>
-<translation id="3856921555429624101">Измерването на преноса на данни приключи</translation>
 <translation id="3857228364945137633">Изпробвайте Smart Lock, за да отключвате своя <ph name="DEVICE_TYPE" /> без парола, когато телефонът ви е наблизо.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: синхронизирането е на пауза</translation>
@@ -2510,7 +2507,6 @@
 <translation id="4905417359854579806">Готови сме да създадем резервно копие на <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Този файл обикновено не се изтегля и може да е опасен.</translation>
 <translation id="4907306957610201395">Категория за разрешения</translation>
-<translation id="4907824805858067479">Запазените карти са деактивирани от администратора ви</translation>
 <translation id="4908811072292128752">Отворете нов раздел, за да сърфирате в два сайта едновременно</translation>
 <translation id="4909038193460299775">Тъй като този профил се управлява от <ph name="DOMAIN" />, вашите отметки, история, пароли и други настройки ще бъдат изчистени от устройството. Данните ви обаче ще продължат да се съхраняват в профила ви в Google. Можете да ги управлявате от <ph name="BEGIN_LINK" />Google Табло за управление<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Регистрирахте се успешно</translation>
@@ -3231,7 +3227,6 @@
 <translation id="5990386583461751448">Преведено</translation>
 <translation id="5991049340509704927">Увеличаване</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{За да продължите да сърфирате безпроблемно в мрежата, помолете администратора да премахне това приложение.}other{За да продължите да сърфирате безпроблемно в мрежата, помолете администратора да премахне тези приложения.}}</translation>
-<translation id="5993332328670040093">Преносът на данни вече няма да се измерва.</translation>
 <translation id="6002458620803359783">Предпочитани гласове</translation>
 <translation id="6005695835120147974">Медиен маршрутизатор</translation>
 <translation id="6006484371116297560">Класическа тема</translation>
@@ -3423,7 +3418,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Файлът „<ph name="FILE_NAME" />“ не е често изтеглян и може да е опасен.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Нов принтер в мрежата ви}other{Нови принтери в мрежата ви}}</translation>
-<translation id="6286684120317096255">Преносът на данни се измерва</translation>
 <translation id="6286708577777130801">Подробности за запазената парола</translation>
 <translation id="6287852322318138013">Изберете приложение за отваряне на този файл</translation>
 <translation id="6289452883081499048">Персонализирани наши услуги, като Google Play</translation>
@@ -4988,7 +4982,6 @@
 <translation id="8725066075913043281">Опитайте отново</translation>
 <translation id="8725178340343806893">Любими/Отметки</translation>
 <translation id="8726206820263995930">Грешка при извличането на настройките за правилa от сървъра: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Без повторно показване</translation>
 <translation id="8727344521467137076">На компютъра ви има опасен софтуер. Chrome го премахва и възстановява настройките ви, така че браузърът отново да заработи нормално.</translation>
 <translation id="8730621377337864115">Готово</translation>
 <translation id="8732030010853991079">Използвайте това разширение, като кликнете върху съответната икона.</translation>

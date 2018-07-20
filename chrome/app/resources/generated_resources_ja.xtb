@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">縮小(&amp;O)</translation>
 <translation id="1830550083491357902">ログインしていません</translation>
 <translation id="1832511806131704864">スマートフォンの変更が反映されました</translation>
-<translation id="1832685970989658809">保存したお支払い方法は管理者によって無効にされています</translation>
 <translation id="1834503245783133039"><ph name="FILE_NAME" /> をダウンロードできませんでした</translation>
 <translation id="1838374766361614909">検索をクリア</translation>
 <translation id="1838709767668011582">Google サイト</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">パスワードを表示</translation>
 <translation id="2436186046335138073">すべての <ph name="PROTOCOL" /> リンクを <ph name="HANDLER_HOSTNAME" /> で開きますか？</translation>
 <translation id="2436707352762155834">最小</translation>
-<translation id="2437139306601019091">データ使用量の測定が終了しました</translation>
 <translation id="2440604414813129000">ソースを表示(&amp;O)</translation>
 <translation id="2445081178310039857">拡張機能のルート ディレクトリを指定してください。</translation>
 <translation id="2445484935443597917">新しいプロフィールを作成</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">拡張機能をパッケージ化</translation>
 <translation id="3855676282923585394">ブックマークと設定をインポート...</translation>
 <translation id="3856800405688283469">タイムゾーンを選択</translation>
-<translation id="3856921555429624101">データ使用量の測定が終了しました</translation>
 <translation id="3857228364945137633">Smart Lock を使用すると、スマートフォンが近くにあるときに、パスワードを入力しなくても <ph name="DEVICE_TYPE" /> のロックを解除できます。</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: 同期が一時停止されています</translation>
@@ -2511,7 +2508,6 @@
 <translation id="4905417359854579806"><ph name="FILE_COUNT" />をバックアップできます</translation>
 <translation id="4907161631261076876">このファイルは一般的にダウンロードされているファイルではなく、危害を及ぼす可能性があります。</translation>
 <translation id="4907306957610201395">権限のカテゴリ</translation>
-<translation id="4907824805858067479">保存したカードは管理者によって無効になっています</translation>
 <translation id="4908811072292128752">新しいタブを開いて 2 つのサイトを同時に閲覧できます</translation>
 <translation id="4909038193460299775">このアカウントは <ph name="DOMAIN" /> で管理されているため、ブックマーク、履歴、パスワードなどの設定はこの端末から消去されます。ただし、データは Google アカウントに保存され、<ph name="BEGIN_LINK" />Google ダッシュボード<ph name="END_LINK" />で管理できます。</translation>
 <translation id="4909359680501173791">登録が完了しました</translation>
@@ -3231,7 +3227,6 @@
 <translation id="5990386583461751448">翻訳済み</translation>
 <translation id="5991049340509704927">拡大表示</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{今後もウェブ ブラウジングを続けられるように、管理者にこのアプリケーションの削除を依頼してください。}other{今後もウェブ ブラウジングを続けられるように、管理者にこれらのアプリケーションの削除を依頼してください。}}</translation>
-<translation id="5993332328670040093">データ使用量はこれ以上測定されません。</translation>
 <translation id="6002458620803359783">使用する音声</translation>
 <translation id="6005695835120147974">メディア ルーター</translation>
 <translation id="6006484371116297560">クラシック</translation>
@@ -3423,7 +3418,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> は一般的にダウンロードされているファイルではなく、危害を及ぼす可能性があります。</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{ネットワーク上の新しいプリンタ}other{ネットワーク上の新しいプリンタ}}</translation>
-<translation id="6286684120317096255">データ使用量が測定されます</translation>
 <translation id="6286708577777130801">保存パスワードの詳細</translation>
 <translation id="6287852322318138013">このファイルを開くアプリを選択してください</translation>
 <translation id="6289452883081499048">Play などの Google サービスがカスタマイズされます</translation>
@@ -4989,7 +4983,6 @@
 <translation id="8725066075913043281">やり直し</translation>
 <translation id="8725178340343806893">お気に入り/ブックマーク</translation>
 <translation id="8726206820263995930">サーバーからポリシー設定を取得するときにエラーが発生しました: <ph name="CLIENT_ERROR" />。</translation>
-<translation id="8727142376512517020">今後このメッセージを表示しない</translation>
 <translation id="8727344521467137076">お使いのパソコンに有害なソフトウェアが見つかりました。Chrome でこのソフトウェアを削除中です。その後、ブラウザを正常な動作に戻すために設定が復元されます。</translation>
 <translation id="8730621377337864115">完了</translation>
 <translation id="8732030010853991079">この拡張機能を使用するには、このアイコンをクリックします。</translation>

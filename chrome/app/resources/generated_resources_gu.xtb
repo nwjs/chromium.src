@@ -561,7 +561,6 @@
 <translation id="1829192082282182671">Zoom &amp;Out</translation>
 <translation id="1830550083491357902">સાઇન ઇન નથી</translation>
 <translation id="1832511806131704864">ફોન ફેરફાર અપડેટ કર્યો</translation>
-<translation id="1832685970989658809">સાચવેલ ચુકવણી પદ્ધતિઓને તમારા વ્યવસ્થાપકે બંધ કરી છે</translation>
 <translation id="1834503245783133039">ડાઉનલોડ અસફળ: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">શોધ સાફ કરો</translation>
 <translation id="1838709767668011582">Google સાઇટ</translation>
@@ -938,7 +937,6 @@
 <translation id="2435457462613246316">પાસવર્ડ બતાવો</translation>
 <translation id="2436186046335138073"><ph name="HANDLER_HOSTNAME" /> ને બધી <ph name="PROTOCOL" /> લિંક્સ ખોલવાની મંજૂરી આપીએ?</translation>
 <translation id="2436707352762155834">ન્યૂનતમ</translation>
-<translation id="2437139306601019091">ડેટા વપરાશ માપન સક્ષમ કર્યું</translation>
 <translation id="2440604414813129000">સ્રોત જુ&amp;ઓ</translation>
 <translation id="2445081178310039857">એક્સ્ટેંશન રૂટ ડાયરેક્ટરી આવશ્યક છે.</translation>
 <translation id="2445484935443597917">એક નવી પ્રોફાઇલ બનાવો</translation>
@@ -1874,7 +1872,6 @@
 <translation id="3855441664322950881">એક્સટેન્શન પૅક કરો</translation>
 <translation id="3855676282923585394">બુકમાર્ક્સ અને સેટિંગ્સ આયાત કરો...</translation>
 <translation id="3856800405688283469">સમયઝોન પસંદ કરો</translation>
-<translation id="3856921555429624101">ડેટા વપરાશ માપન સમાપ્ત થયું છે</translation>
 <translation id="3857228364945137633">જ્યારે તમારો ફોન નજીકમાં હોય, ત્યારે તમારા <ph name="DEVICE_TYPE" />ને પાસવર્ડ વિના અનલૉક કરવાનો પ્રયાસ કરો.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: સિંક થોભાવ્યું</translation>
@@ -2507,7 +2504,6 @@
 <translation id="4905417359854579806"><ph name="FILE_COUNT" />નો બૅકઅપ લેવા માટે તૈયાર</translation>
 <translation id="4907161631261076876">આ ફાઇલ સામાન્ય રીતે ડાઉનલોડ કરવામાં આવતી નથી અને તે જોખમી હોઈ શકે છે.</translation>
 <translation id="4907306957610201395">પરવાનગી કૅટેગરી</translation>
-<translation id="4907824805858067479">તમારા વ્યવસ્થાપકે સાચવેલા કાર્ડ બંધ કર્યા છે</translation>
 <translation id="4908811072292128752">બે સાઇટ એકસાથે બ્રાઉઝ કરવા માટે એક નવી ટૅબ ખોલો</translation>
 <translation id="4909038193460299775">આ એકાઉન્ટ <ph name="DOMAIN" /> દ્વારા સંચાલિત કરવામાં આવી રહ્યું હોવાથી, આ ઉપકરણ પરથી તમારા બુકમાર્ક્સ, ઇતિહાસ, પાસવર્ડ્સ અને અન્ય સેટિંગ્સ સાફ કરવામાં આવશે. જો કે, તમારો ડેટા તમારા Google એકાઉન્ટમાં સંગ્રહિત રહેશે અને <ph name="BEGIN_LINK" />Google ડેશબોર્ડ<ph name="END_LINK" /> પર સંચાલિત કરવામાં આવી શકે છે.</translation>
 <translation id="4909359680501173791">તમે સફળતાપૂર્વક નોંધણી કરાવેલ છે</translation>
@@ -3229,7 +3225,6 @@
 <translation id="5990386583461751448">અનુવાદિત</translation>
 <translation id="5991049340509704927">મૅગ્નિફાઇ</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{તમે વેબ બ્રાઉઝ કરતા રહી શકો તેની ખાતરી કરવા માટે, તમારા વ્યવસ્થાપકને આ ઍપ્લિકેશન કાઢી નાખવાનું કહો.}one{તમે વેબ બ્રાઉઝ કરતા રહી શકો તેની ખાતરી કરવા માટે, તમારા વ્યવસ્થાપકને આ ઍપ્લિકેશનો કાઢી નાખવાનું કહો.}other{તમે વેબ બ્રાઉઝ કરતા રહી શકો તેની ખાતરી કરવા માટે, તમારા વ્યવસ્થાપકને આ ઍપ્લિકેશનો કાઢી નાખવાનું કહો.}}</translation>
-<translation id="5993332328670040093">ડેટા વપરાશનું હવેથી માપન કરવામાં આવશે નહિ.</translation>
 <translation id="6002458620803359783">મનપસંદ વૉઇસ</translation>
 <translation id="6005695835120147974">મીડિયા રાઉટર</translation>
 <translation id="6006484371116297560">ક્લાસિક</translation>
@@ -3421,7 +3416,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> સામાન્ય રીતે ડાઉનલોડ થયેલું નથી અને જોખમકારક હોઈ શકે છે.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{તમારા નેટવર્ક પર નવું પ્રિન્ટર}one{તમારા નેટવર્ક પર નવા પ્રિન્ટર્સ}other{તમારા નેટવર્ક પર નવા પ્રિન્ટર્સ}}</translation>
-<translation id="6286684120317096255">ડેટા વપરાશનું માપન કરવામાં આવી રહ્યું છે</translation>
 <translation id="6286708577777130801">સાચવેલ પાસવર્ડની વિગતો</translation>
 <translation id="6287852322318138013">આ ફાઇલ ખોલવા માટે એક ઍપ્લિકેશન પસંદ કરો</translation>
 <translation id="6289452883081499048">વ્યક્તિગત Google સેવાઓ જેમ કે Play</translation>
@@ -4980,7 +4974,6 @@
 <translation id="8725066075913043281">ફરી પ્રયાસ કરો</translation>
 <translation id="8725178340343806893">પસંદગીઓ/બુકમાર્ક્સ</translation>
 <translation id="8726206820263995930">સર્વરમાંથી નીતિ સેટિંગ્સનું આનયન કરતી વખતે ભૂલ: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">આ ફરી બતાવશો નહીં</translation>
 <translation id="8727344521467137076">તમારા કમ્પ્યુટરમાં નુકસાનકારક સૉફ્ટવેર છે. તમારું બ્રાઉઝર ફરીથી સામાન્ય રીતે કાર્ય કરે તે માટે Chrome તેને કાઢી નાખી રહ્યું છે અને તમારી સેટિંગ પુનઃસ્થાપિત કરશે.</translation>
 <translation id="8730621377337864115">થઈ ગયું</translation>
 <translation id="8732030010853991079">આ આયકન પર ક્લિક કરીને આ એક્સ્ટેંશનનો ઉપયોગ કરો.</translation>

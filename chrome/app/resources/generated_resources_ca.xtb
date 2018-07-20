@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">&amp;Redueix</translation>
 <translation id="1830550083491357902">Sessió no iniciada</translation>
 <translation id="1832511806131704864">Canvi de telèfon actualitzat</translation>
-<translation id="1832685970989658809">L'administrador ha desactivat les formes de pagament desades</translation>
 <translation id="1834503245783133039">Error en la baixada: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Esborra la cerca</translation>
 <translation id="1838709767668011582">Lloc de Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Mostra la contrasenya</translation>
 <translation id="2436186046335138073">Voleu permetre que <ph name="HANDLER_HOSTNAME" /> obri tots els enllaços de <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Mínim</translation>
-<translation id="2437139306601019091">El recompte de l'ús de dades ha finalitzat</translation>
 <translation id="2440604414813129000">Visualitza l'&amp;origen</translation>
 <translation id="2445081178310039857">El directori arrel de l'extensió és obligatori.</translation>
 <translation id="2445484935443597917">Crea un perfil</translation>
@@ -1876,7 +1874,6 @@
 <translation id="3855441664322950881">Empaqueta l'extensió</translation>
 <translation id="3855676282923585394">Importa les adreces d'interès i la configuració...</translation>
 <translation id="3856800405688283469">Selecciona la zona horària</translation>
-<translation id="3856921555429624101">El recompte de l'ús de dades ha finalitzat</translation>
 <translation id="3857228364945137633">Prova Smart Lock per desbloquejar <ph name="DEVICE_TYPE" /> sense contrasenya quan tinguis el telèfon a prop.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: la sincronització s'ha posat en pausa</translation>
@@ -2509,7 +2506,6 @@
 <translation id="4905417359854579806">A punt per afegir <ph name="FILE_COUNT" /> a la còpia de seguretat</translation>
 <translation id="4907161631261076876">Aquest fitxer no se sol baixar i podria ser perillós.</translation>
 <translation id="4907306957610201395">Categoria de permisos</translation>
-<translation id="4907824805858067479">El teu administrador ha desactivat les targetes desades</translation>
 <translation id="4908811072292128752">Obre una pestanya nova per navegar per dos llocs web a la vegada</translation>
 <translation id="4909038193460299775">Com que <ph name="DOMAIN" /> gestiona aquest compte, s'esborraran d'aquest dispositiu les adreces d'interès, l'historial, les contrasenyes i altres opcions de configuració. No obstant això, les dades continuaran emmagatzemades al teu compte de Google i es podran gestionar al <ph name="BEGIN_LINK" />Tauler de control de Google<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">T'has inscrit correctament</translation>
@@ -3231,7 +3227,6 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="5990386583461751448">Traduïda</translation>
 <translation id="5991049340509704927">Amplia</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Per assegurar-te que pots continuar navegant per Internet, demana a l'administrador que suprimeixi aquesta aplicació.}other{Per assegurar-te que pots continuar navegant per Internet, demana a l'administrador que suprimeixi aquestes aplicacions.}}</translation>
-<translation id="5993332328670040093">Ja no es mesurarà el vostre ús de dades.</translation>
 <translation id="6002458620803359783">Veus preferides</translation>
 <translation id="6005695835120147974">Encaminador multimèdia</translation>
 <translation id="6006484371116297560">Clàssic</translation>
@@ -3423,7 +3418,6 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> no se sol baixar i podria ser perillós.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Impressora nova a la xarxa}other{Impressores noves a la xarxa}}</translation>
-<translation id="6286684120317096255">L'ús de dades s'està mesurant</translation>
 <translation id="6286708577777130801">Detalls de la contrasenya desada</translation>
 <translation id="6287852322318138013">Selecció d'una aplicació per obrir el fitxer</translation>
 <translation id="6289452883081499048">Serveis de Google personalitzats, com ara Play</translation>
@@ -4985,7 +4979,6 @@ Deseu el fitxer de clau en una ubicació segura. El necessitareu per crear versi
 <translation id="8725066075913043281">Torna-ho a provar</translation>
 <translation id="8725178340343806893">Preferits/adreces d'interès</translation>
 <translation id="8726206820263995930">S'ha produït un error en recuperar la configuració de la política del servidor: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">No ho tornis a mostrar</translation>
 <translation id="8727344521467137076">Hi ha programari maliciós a l'ordinador. Chrome l'està suprimint i restaurarà la configuració perquè el navegador torni a funcionar amb normalitat.</translation>
 <translation id="8730621377337864115">Fet</translation>
 <translation id="8732030010853991079">Per fer servir aquesta extensió, feu clic en aquesta icona.</translation>

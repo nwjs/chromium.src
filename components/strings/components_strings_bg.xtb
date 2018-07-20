@@ -164,7 +164,6 @@
 <translation id="2064691555167957331">{COUNT,plural, =1{1 предложение}other{# предложения}}</translation>
 <translation id="2079545284768500474">Отмяна</translation>
 <translation id="20817612488360358">За използване са зададени системни настройки за прокси сървъра, но е посочена и изрична конфигурация.</translation>
-<translation id="2084558088529668945">Въведохте паролата си на сайт, който не се управлява от <ph name="ORG_NAME" />. За да защитите профила си, не използвайте паролата си повторно в други приложения или сайтове.</translation>
 <translation id="2091887806945687916">Звук</translation>
 <translation id="2094505752054353250">Несъответствие в домейна</translation>
 <translation id="2096368010154057602">Департамент</translation>
@@ -457,7 +456,6 @@
 <translation id="4171400957073367226">Невалиден подпис за потвърждаване</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{още <ph name="ITEM_COUNT" /> елемент}other{още <ph name="ITEM_COUNT" /> елемента}}</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> – <ph name="ROW_CONTENT" /></translation>
-<translation id="4192549185358213268">Chrome препоръчва да зададете повторно паролата си за <ph name="ORG_NAME" />, ако сте я използвали и на други сайтове.</translation>
 <translation id="4196861286325780578">&amp;Възстановяване на преместването</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />Проверете конфигурацията на защитната стена и антивирусния софтуер<ph name="END_LINK" />.</translation>
 <translation id="4220128509585149162">Сривове</translation>
@@ -696,7 +694,6 @@
 <translation id="5869405914158311789">Няма достъп до този сайт</translation>
 <translation id="5869522115854928033">Запазени пароли</translation>
 <translation id="5893752035575986141">Приемат се кредитни карти.</translation>
-<translation id="5898382028489516745">Chromium препоръчва да зададете повторно паролата си за <ph name="ORG_NAME" />, ако сте я използвали и на други сайтове.</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (синхронизирано)</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{Използва се 1}other{Използват се #}}</translation>
 <translation id="5939518447894949180">Нулиране</translation>
@@ -1040,6 +1037,7 @@
 <translation id="8553075262323480129">Преводът не бе успешен, защото езикът на страницата не можа да бъде определен.</translation>
 <translation id="8557066899867184262">Кодът за проверка се намира на гърба на картата ви.</translation>
 <translation id="8559762987265718583">Не може да се установи частна връзка с/ъс <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />, тъй като датата и часът на устройството ви (<ph name="DATE_AND_TIME" />) са неправилни.</translation>
+<translation id="8564985650692024650">Chromium препоръчва да зададете повторно паролата си за <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" />, ако сте я използвали и на други сайтове.</translation>
 <translation id="8571890674111243710">Превод на страницата на <ph name="LANGUAGE" />...</translation>
 <translation id="858637041960032120">+ тел. номер</translation>
 <translation id="859285277496340001">Сертификатът не посочва механизъм за проверка дали е бил анулиран.</translation>
@@ -1068,6 +1066,7 @@
 <translation id="884264119367021077">Адрес за доставка</translation>
 <translation id="884923133447025588">Не е намерен механизъм за анулиране.</translation>
 <translation id="885730110891505394">Споделяне с Google</translation>
+<translation id="8858065207712248076">Chrome препоръчва да зададете повторно паролата си за <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" />, ако сте я използвали и на други сайтове.</translation>
 <translation id="8866481888320382733">Грешка при синтактичния анализ на настройките за правилото</translation>
 <translation id="8870413625673593573">Наскоро затворени</translation>
 <translation id="8874824191258364635">Въведете валиден номер на карта</translation>

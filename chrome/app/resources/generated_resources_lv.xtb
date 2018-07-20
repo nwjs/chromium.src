@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Tālināt</translation>
 <translation id="1830550083491357902">Nav pierakstījies</translation>
 <translation id="1832511806131704864">Tālruņa iestatījumu izmaiņas atjauninātas</translation>
-<translation id="1832685970989658809">Administrators ir atspējojis saglabātos maksājuma veidus.</translation>
 <translation id="1834503245783133039">Nesekmīga lejupielāde: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Notīrīt meklēšanas vaicājumu</translation>
 <translation id="1838709767668011582">Google vietne</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Rādīt paroli</translation>
 <translation id="2436186046335138073">Vai atļaut <ph name="HANDLER_HOSTNAME" /> atvērt visas <ph name="PROTOCOL" /> saites?</translation>
 <translation id="2436707352762155834">Minimums</translation>
-<translation id="2437139306601019091">Datu lietojuma mērīšana ir pabeigta.</translation>
 <translation id="2440604414813129000">Skatīt avotu</translation>
 <translation id="2445081178310039857">Nepieciešams paplašinājuma saknes direktorijs.</translation>
 <translation id="2445484935443597917">Izveidot jaunu profilu</translation>
@@ -1878,7 +1876,6 @@ Servera ziņojums: <ph name="SERVER_MSG" /></translation>
 <translation id="3855441664322950881">Pakot paplašinājumu</translation>
 <translation id="3855676282923585394">Importēt grāmatzīmes un iestatījumus...</translation>
 <translation id="3856800405688283469">Laika joslas atlasīšana</translation>
-<translation id="3856921555429624101">Datu lietojuma mērīšana ir pabeigta.</translation>
 <translation id="3857228364945137633">Izmēģiniet Smart Lock, lai atbloķētu savu ierīci (<ph name="DEVICE_TYPE" />) bez paroles, kad tuvumā atrodas tālrunis.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sinhronizācija ir apturēta</translation>
@@ -2511,7 +2508,6 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="4905417359854579806">Gatavs dublēšanai: <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Šis fails parasti netiek lejupielādēts un var būt bīstams.</translation>
 <translation id="4907306957610201395">Atļaujas kategorija</translation>
-<translation id="4907824805858067479">Jūsu administrators ir atspējojis saglabātās kartes.</translation>
 <translation id="4908811072292128752">Atveriet jaunu cilni, lai pārlūkotu divas vietnes vienlaikus.</translation>
 <translation id="4909038193460299775">Tā kā šo kontu pārvalda <ph name="DOMAIN" />, jūsu grāmatzīmes, vēsture, paroles un citi iestatījumi tiks dzēsti no šīs ierīces. Tomēr jūsu dati joprojām tiks glabāti jūsu Google kontā un tos var pārvaldīt <ph name="BEGIN_LINK" />Google informācijas panelī<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Esat veiksmīgi reģistrējies</translation>
@@ -3231,7 +3227,6 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="5990386583461751448">Tulkojums</translation>
 <translation id="5991049340509704927">Palielināt</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Lai nodrošinātu iespēju turpmāk pārlūkot tīmekli, palūdziet administratoram noņemt šo lietojumprogrammu.}zero{Lai nodrošinātu iespēju turpmāk pārlūkot tīmekli, palūdziet administratoram noņemt šīs lietojumprogrammas.}one{Lai nodrošinātu iespēju turpmāk pārlūkot tīmekli, palūdziet administratoram noņemt šīs lietojumprogrammas.}other{Lai nodrošinātu iespēju turpmāk pārlūkot tīmekli, palūdziet administratoram noņemt šīs lietojumprogrammas.}}</translation>
-<translation id="5993332328670040093">Jūsu datu lietojums vairs netiks mērīts.</translation>
 <translation id="6002458620803359783">Vēlamās balsis</translation>
 <translation id="6005695835120147974">Multivides maršrutētājs</translation>
 <translation id="6006484371116297560">Klasiskais motīvs</translation>
@@ -3423,7 +3418,6 @@ Vai vēlaties palaist rīku <ph name="CONTROL_PANEL_APPLET_NAME" />?</translatio
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Fails <ph name="FILE_NAME" /> parasti netiek lejupielādēts, un tas var būt bīstams.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Jauns printeris jūsu tīklā}zero{Jauni printeri jūsu tīklā}one{Jauni printeri jūsu tīklā}other{Jauni printeri jūsu tīklā}}</translation>
-<translation id="6286684120317096255">Notiek datu lietojuma mērīšana.</translation>
 <translation id="6286708577777130801">Informācija par saglabāto paroli</translation>
 <translation id="6287852322318138013">Lietotnes atlasīšana šī faila atvēršanai</translation>
 <translation id="6289452883081499048">Personalizēti Google pakalpojumi, piemēram, Play</translation>
@@ -4988,7 +4982,6 @@ Citas personas ar lēnu savienojumu, iespējams, neredzēs jūsu saturu.</transl
 <translation id="8725066075913043281">Mēģināt vēlreiz</translation>
 <translation id="8725178340343806893">Izlase/Grāmatzīmes</translation>
 <translation id="8726206820263995930">Iegūstot politikas iestatījumus no servera, radās kļūda: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Vairs nerādīt šo paziņojumu</translation>
 <translation id="8727344521467137076">Jūsu datorā ir kaitīga programmatūra. Chrome to noņems un atjaunos jūsu iestatījumus, lai pārlūks atkal darbotos, kā paredzēts.</translation>
 <translation id="8730621377337864115">Gatavs</translation>
 <translation id="8732030010853991079">Lai lietotu šo paplašinājumu, noklikšķiniet uz šīs ikonas.</translation>

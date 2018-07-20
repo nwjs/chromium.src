@@ -562,7 +562,6 @@
 <translation id="1829192082282182671">Zoom &amp;ud</translation>
 <translation id="1830550083491357902">Ikke logget ind</translation>
 <translation id="1832511806131704864">Telefonændring opdateret</translation>
-<translation id="1832685970989658809">Gemte betalingsmetoder er deaktiveret af din administrator</translation>
 <translation id="1834503245783133039">Downloaden blev ikke gennemført: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Ryd søgning</translation>
 <translation id="1838709767668011582">Google-website</translation>
@@ -939,7 +938,6 @@
 <translation id="2435457462613246316">Vis adgangskode</translation>
 <translation id="2436186046335138073">Vil du tillade, at <ph name="HANDLER_HOSTNAME" /> åbner alle <ph name="PROTOCOL" />-links?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">Måling af dataforbrug sluttede</translation>
 <translation id="2440604414813129000">Vis &amp;kilde</translation>
 <translation id="2445081178310039857">Udvidelsens rodmappe er påkrævet.</translation>
 <translation id="2445484935443597917">Opret en ny profil</translation>
@@ -1876,7 +1874,6 @@
 <translation id="3855441664322950881">Pak udvidelse</translation>
 <translation id="3855676282923585394">Importer bogmærker og indstillinger...</translation>
 <translation id="3856800405688283469">Vælg tidszone</translation>
-<translation id="3856921555429624101">Måling af dataforbrug er afsluttet</translation>
 <translation id="3857228364945137633">Prøv Smart Lock for at låse din <ph name="DEVICE_TYPE" /> op uden en adgangskode, når din telefon er i nærheden.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: Synkronisering er sat på pause</translation>
@@ -2509,7 +2506,6 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4905417359854579806"><ph name="FILE_COUNT" /> er klar til at blive sikkerhedskopieret</translation>
 <translation id="4907161631261076876">Denne fil er ikke downloadet på almindelig vis og kan være farlig.</translation>
 <translation id="4907306957610201395">Tilladelseskategori</translation>
-<translation id="4907824805858067479">Gemte kort er deaktiveret af din administrator.</translation>
 <translation id="4908811072292128752">Åbn en ny fane for at se to websites på én gang</translation>
 <translation id="4909038193460299775">Eftersom denne konto administreres af <ph name="DOMAIN" />, slettes dine bogmærker, din historik, dine adgangskoder og andre indstillinger på denne enhed. Dine data vil dog fortsat være gemt på din Google-konto og kan administreres i <ph name="BEGIN_LINK" />Google Betjeningspanel<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Du er tilmeldt</translation>
@@ -3229,7 +3225,6 @@ Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="5990386583461751448">Oversat</translation>
 <translation id="5991049340509704927">Forstør</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Hvis du vil være sikker på fortsat at kunne bruge internettet, skal du bede din administrator om at fjerne denne app.}one{Hvis du vil være sikker på fortsat at kunne bruge internettet, skal du bede din administrator om at fjerne denne app.}other{Hvis du vil være sikker på fortsat at kunne bruge internettet, skal du bede din administrator om at fjerne disse apps.}}</translation>
-<translation id="5993332328670040093">Dit dataforbrug måles ikke længere.</translation>
 <translation id="6002458620803359783">Foretrukne stemmer</translation>
 <translation id="6005695835120147974">Medierouter</translation>
 <translation id="6006484371116297560">Klassisk</translation>
@@ -3422,7 +3417,6 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> downloades normalt ikke og kan være skadelig.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Ny printer på dit netværk}one{Nye printere på dit netværk}other{Nye printere på dit netværk}}</translation>
-<translation id="6286684120317096255">Dataforbruget måles</translation>
 <translation id="6286708577777130801">Oplysninger om gemt adgangskode</translation>
 <translation id="6287852322318138013">Vælg en app, der skal åbne denne fil</translation>
 <translation id="6289452883081499048">Tilpassede Google-tjenester som f.eks. Play</translation>
@@ -4986,7 +4980,6 @@ Opbevar din nøglefil på et sikkert sted. Du skal bruge den til at oprette nye 
 <translation id="8725066075913043281">Forsøg igen</translation>
 <translation id="8725178340343806893">Foretrukne/Bogmærker</translation>
 <translation id="8726206820263995930">Fejl ved hentning af politikindstillinger fra serveren: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Vis ikke denne underretning igen</translation>
 <translation id="8727344521467137076">Der er skadelig software på din computer. Chrome sletter den og gendanner dine indstillinger, så din browser fungerer normalt igen.</translation>
 <translation id="8730621377337864115">Udfør</translation>
 <translation id="8732030010853991079">Brug denne udvidelse ved at klikke på dette ikon.</translation>

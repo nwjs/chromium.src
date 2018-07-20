@@ -164,7 +164,6 @@
 <translation id="2064691555167957331">{COUNT,plural, =1{1 คำแนะนำ}other{# คำแนะนำ}}</translation>
 <translation id="2079545284768500474">เลิกทำ</translation>
 <translation id="20817612488360358">มีการกำหนดให้ใช้การตั้งค่าพร็อกซีระบบ แต่ก็มีการระบุการกำหนดค่าพร็อกซีอย่างชัดเจนไว้ด้วยเช่นกัน</translation>
-<translation id="2084558088529668945">คุณป้อนรหัสผ่านในเว็บไซต์ที่ <ph name="ORG_NAME" /> ไม่ได้จัดการ เพื่อปกป้องบัญชี โปรดอย่าใช้รหัสผ่านซ้ำในแอปและเว็บไซต์อื่นๆ</translation>
 <translation id="2091887806945687916">เสียง</translation>
 <translation id="2094505752054353250">โดเมนไม่ตรง</translation>
 <translation id="2096368010154057602">จังหวัด</translation>
@@ -457,7 +456,6 @@
 <translation id="4171400957073367226">ลายเซ็นยืนยันไม่ถูกต้อง</translation>
 <translation id="4173827307318847180">{MORE_ITEMS,plural, =1{อีก <ph name="ITEM_COUNT" /> รายการ}other{อีก <ph name="ITEM_COUNT" /> รายการ}}</translation>
 <translation id="4179515394835346607"><ph name="ROW_NAME" /> <ph name="ROW_CONTENT" /></translation>
-<translation id="4192549185358213268">Chrome ขอแนะนำให้รีเซ็ตรหัสผ่าน <ph name="ORG_NAME" /> หากคุณใช้รหัสผ่านนี้ซ้ำในเว็บไซต์อื่น</translation>
 <translation id="4196861286325780578">&amp;ทำซ้ำการย้าย</translation>
 <translation id="4203896806696719780"><ph name="BEGIN_LINK" />ตรวจสอบไฟร์วอลล์และการกำหนดค่าการป้องกันไวรัส<ph name="END_LINK" /></translation>
 <translation id="4220128509585149162">การขัดข้อง</translation>
@@ -696,7 +694,6 @@
 <translation id="5869405914158311789">ไม่สามารถเข้าถึงเว็บไซต์นี้</translation>
 <translation id="5869522115854928033">รหัสผ่านที่บันทึกไว้</translation>
 <translation id="5893752035575986141">รับบัตรเครดิต</translation>
-<translation id="5898382028489516745">Chromium ขอแนะนำให้รีเซ็ตรหัสผ่าน <ph name="ORG_NAME" /> หากคุณใช้รหัสผ่านนี้ซ้ำในเว็บไซต์อื่น</translation>
 <translation id="5908541034548427511"><ph name="TYPE_1" /> (ซิงค์แล้ว)</translation>
 <translation id="5920262536204764679">{NUM_COOKIES,plural, =1{ใช้งานอยู่ 1 รายการ}other{ใช้งานอยู่ # รายการ}}</translation>
 <translation id="5939518447894949180">รีเซ็ต</translation>
@@ -1040,6 +1037,7 @@
 <translation id="8553075262323480129">การแปลล้มเหลวเนื่องจากไม่สามารถระบุภาษาของหน้าเว็บนี้ได้</translation>
 <translation id="8557066899867184262">CVC จะอยู่ที่ด้านหลังบัตร</translation>
 <translation id="8559762987265718583">ไม่สามารถเริ่มการเชื่อมต่อส่วนตัวกับ <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> ได้เนื่องจากวันที่และเวลาของอุปกรณ์ (<ph name="DATE_AND_TIME" />) ไม่ถูกต้อง</translation>
+<translation id="8564985650692024650">Chromium ขอแนะนำให้รีเซ็ตรหัสผ่าน <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> หากคุณใช้รหัสผ่านนี้ซ้ำในเว็บไซต์อื่น</translation>
 <translation id="8571890674111243710">กำลังแปลหน้าเว็บนี้เป็นภาษา<ph name="LANGUAGE" />...</translation>
 <translation id="858637041960032120">เพิ่มเบอร์โทร
 </translation>
@@ -1069,6 +1067,7 @@
 <translation id="884264119367021077">ที่อยู่จัดส่ง</translation>
 <translation id="884923133447025588">ไม่พบกระบวนการเพิกถอน</translation>
 <translation id="885730110891505394">การแชร์กับ Google</translation>
+<translation id="8858065207712248076">Chrome ขอแนะนำให้รีเซ็ตรหัสผ่าน <ph name="BEGIN_BOLD" /><ph name="ORG_NAME" /><ph name="END_BOLD" /> หากคุณใช้รหัสผ่านนี้ซ้ำในเว็บไซต์อื่น</translation>
 <translation id="8866481888320382733">ข้อผิดพลาดในการแยกวิเคราะห์การตั้งค่านโยบาย</translation>
 <translation id="8870413625673593573">เพิ่งปิด</translation>
 <translation id="8874824191258364635">ป้อนหมายเลขบัตรที่ถูกต้อง</translation>

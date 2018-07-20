@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Tolin&amp;ti</translation>
 <translation id="1830550083491357902">Neprisijungta</translation>
 <translation id="1832511806131704864">Telefono pakeitimas atnaujintas</translation>
-<translation id="1832685970989658809">Administratorius išjungė išsaugotus mokėjimo metodus</translation>
 <translation id="1834503245783133039">Nepavyko atsisiųsti: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Išvalyti paiešką</translation>
 <translation id="1838709767668011582">„Google“ svetainė</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Rodyti slaptažodį</translation>
 <translation id="2436186046335138073">Leisti „<ph name="HANDLER_HOSTNAME" />“ atidaryti visas <ph name="PROTOCOL" /> nuorodas?</translation>
 <translation id="2436707352762155834">Minimalus</translation>
-<translation id="2437139306601019091">Duomenų naudojimo vertinimas užbaigtas</translation>
 <translation id="2440604414813129000">Rodyti š&amp;altinį</translation>
 <translation id="2445081178310039857">Reikalingas plėtinio šakninis katalogas.</translation>
 <translation id="2445484935443597917">Kurti naują profilį</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Paketo plėtinys</translation>
 <translation id="3855676282923585394">Importuoti žymes ir nustatymus...</translation>
 <translation id="3856800405688283469">Pasirinkti laiko juostą</translation>
-<translation id="3856921555429624101">Duomenų naudojimo vertinimas užbaigtas</translation>
 <translation id="3857228364945137633">Pabandykite naudoti „Smart Lock“, kad atrakintumėte „<ph name="DEVICE_TYPE" />“ be slaptažodžio, kai telefonas yra netoliese.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sinchronizavimas pristabdytas</translation>
@@ -2511,7 +2508,6 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="4905417359854579806">Paruošta kurti atsargines kopijas: <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Šis failas atsisiunčiamas retai ir gali būti pavojingas.</translation>
 <translation id="4907306957610201395">Leidimų kategorija</translation>
-<translation id="4907824805858067479">Administratorius išjungė išsaugotas korteles</translation>
 <translation id="4908811072292128752">Jei norite naršyti iš karto dvi svetaines, atidarykite naują skirtuką</translation>
 <translation id="4909038193460299775">Kadangi ši paskyra tvarkoma <ph name="DOMAIN" />, jūsų žymės, istorija, slaptažodžiai ir kiti nustatymai bus išvalyti iš šio įrenginio. Tačiau duomenys bus toliau saugomi „Google“ paskyroje ir juos bus galima tvarkyti <ph name="BEGIN_LINK" />„Google“ informacijos suvestinėje<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Sėkmingai užsiregistravote</translation>
@@ -3232,7 +3228,6 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="5990386583461751448">Išversta</translation>
 <translation id="5991049340509704927">Didinti</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Kad galėtumėte toliau naršyti žiniatinklį, paprašykite administratoriaus pašalinti šią programą.}one{Kad galėtumėte toliau naršyti žiniatinklį, paprašykite administratoriaus pašalinti šias programas.}few{Kad galėtumėte toliau naršyti žiniatinklį, paprašykite administratoriaus pašalinti šias programas.}many{Kad galėtumėte toliau naršyti žiniatinklį, paprašykite administratoriaus pašalinti šias programas.}other{Kad galėtumėte toliau naršyti žiniatinklį, paprašykite administratoriaus pašalinti šias programas.}}</translation>
-<translation id="5993332328670040093">Duomenų naudojimas nebebus vertinamas.</translation>
 <translation id="6002458620803359783">Pageidaujami balsai</translation>
 <translation id="6005695835120147974">Medijos maršruto parinktuvas</translation>
 <translation id="6006484371116297560">Klasikinė</translation>
@@ -3424,7 +3419,6 @@ Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">„<ph name="FILE_NAME" />“ nėra įprastai atsisiunčiamas ir gali būti pavojingas.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Naujas spausdintuvas tinkle}one{Nauji spausdintuvai tinkle}few{Nauji spausdintuvai tinkle}many{Nauji spausdintuvai tinkle}other{Nauji spausdintuvai tinkle}}</translation>
-<translation id="6286684120317096255">Duomenų naudojimas vertinamas</translation>
 <translation id="6286708577777130801">Išsaugota išsami slaptažodžių informacija</translation>
 <translation id="6287852322318138013">Pasirinkite programą, kad atidarytumėte šį failą</translation>
 <translation id="6289452883081499048">Suasmenintos „Google“ paslaugos, pvz., „Play“</translation>
@@ -4989,7 +4983,6 @@ Rakto failą laikykite saugioje vietoje. Jo reikės, kai norėsite sukurti nauja
 <translation id="8725066075913043281">Bandyti dar kartą</translation>
 <translation id="8725178340343806893">Adresynas / žymės</translation>
 <translation id="8726206820263995930">Politikos nustatymų gavimo iš serverio klaida: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Daugiau nerodyti</translation>
 <translation id="8727344521467137076">Jūsų kompiuteryje yra žalingos programinės įrangos. „Chrome“ ją pašalins ir atkurs nustatymus, kad naršyklė vėl veiktų įprastai.</translation>
 <translation id="8730621377337864115">Atlikta</translation>
 <translation id="8732030010853991079">Naudokite šį plėtinį spustelėję šią piktogramą.</translation>

@@ -562,7 +562,6 @@
 <translation id="1829192082282182671">Zoom &amp;ut</translation>
 <translation id="1830550083491357902">Ikke pålogget</translation>
 <translation id="1832511806131704864">Telefonendring oppdatert</translation>
-<translation id="1832685970989658809">Administratoren din har slått av lagrede betalingsmåter</translation>
 <translation id="1834503245783133039">Nedlasting mislykket: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Fjern søket</translation>
 <translation id="1838709767668011582">Google-nettsted</translation>
@@ -939,7 +938,6 @@
 <translation id="2435457462613246316">Vis passord</translation>
 <translation id="2436186046335138073">Vil du la <ph name="HANDLER_HOSTNAME" /> åpne alle <ph name="PROTOCOL" />-linker?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">Målingen av databruk er avsluttet</translation>
 <translation id="2440604414813129000">Vis &amp;kilde</translation>
 <translation id="2445081178310039857">Det kreves en rotkatalog for utvidelsen</translation>
 <translation id="2445484935443597917">Opprett en ny profil</translation>
@@ -1873,7 +1871,6 @@
 <translation id="3855441664322950881">Pakk utvidelsen</translation>
 <translation id="3855676282923585394">Importér bokmerker og innstillinger</translation>
 <translation id="3856800405688283469">Velg tidssone</translation>
-<translation id="3856921555429624101">Målingen av databruk er avsluttet</translation>
 <translation id="3857228364945137633">Prøv Smart Lock for å låse opp <ph name="DEVICE_TYPE" />-enheten uten passord når du har telefonen i nærheten.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: Synkronisering er satt på pause</translation>
@@ -2504,7 +2501,6 @@
 <translation id="4905417359854579806">Klar til å sikkerhetskopiere <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Denne filen lastes sjelden ned, og den kan være farlig.</translation>
 <translation id="4907306957610201395">Tillatelseskategori</translation>
-<translation id="4907824805858067479">Administratoren din har slått av lagrede kort</translation>
 <translation id="4908811072292128752">Åpne en ny fane for å surfe på to nettsteder samtidig</translation>
 <translation id="4909038193460299775">Siden denne kontoen administreres av <ph name="DOMAIN" />, slettes bokmerkene, loggen, passordene og andre innstillinger du har, fra denne enheten. Data du har lagret i Google-kontoen din, blir imidlertid værende og kan administreres ved hjelp av <ph name="BEGIN_LINK" />Google Oversikt<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Registreringen din er fullført</translation>
@@ -3223,7 +3219,6 @@
 <translation id="5990386583461751448">Oversatt</translation>
 <translation id="5991049340509704927">Forstørr</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{For å sikre at du fortsatt kan surfe på nettet, be administratoren din om å fjerne dette programmet.}other{For å sikre at du fortsatt kan surfe på nettet, be administratoren din om å fjerne disse programmene.}}</translation>
-<translation id="5993332328670040093">Databruken din blir ikke lenger målt.</translation>
 <translation id="6002458620803359783">Foretrukne stemmer</translation>
 <translation id="6005695835120147974">Medieruter</translation>
 <translation id="6006484371116297560">Klassisk</translation>
@@ -3415,7 +3410,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> lastes sjelden ned og kan være farlig.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Ny skriver på nettverket}other{Nye skrivere på nettverket}}</translation>
-<translation id="6286684120317096255">Databruken blir målt</translation>
 <translation id="6286708577777130801">Lagrede passorddetaljer</translation>
 <translation id="6287852322318138013">Velg en app for å åpne denne filen</translation>
 <translation id="6289452883081499048">Google-tjenester med et personlig preg, som for eksempel Play</translation>
@@ -4977,7 +4971,6 @@ Jeg tror ikke det er nødvendig å blokkere dette nettstedet!</translation>
 <translation id="8725066075913043281">Prøv igjen</translation>
 <translation id="8725178340343806893">Favoritter/bokmerker</translation>
 <translation id="8726206820263995930">Feil under henting av innstillingsangivelser fra tjeneren: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Ikke vis dette igjen</translation>
 <translation id="8727344521467137076">Det finnes skadelig programvare på datamaskinen du bruker. Chrome fjerner den og gjenoppretter innstillingene dine, sånn at nettleseren fungerer normalt igjen.</translation>
 <translation id="8730621377337864115">Ferdig</translation>
 <translation id="8732030010853991079">Bruk denne utvidelsen ved å klikke på dette ikonet.</translation>

@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Po&amp;mniejsz</translation>
 <translation id="1830550083491357902">Niezalogowany</translation>
 <translation id="1832511806131704864">Zmiana telefonu została zapisana</translation>
-<translation id="1832685970989658809">Zapisane formy płatności zostały wyłączone przez administratora</translation>
 <translation id="1834503245783133039">Nie udało się pobrać: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Wyczyść wyszukiwanie</translation>
 <translation id="1838709767668011582">Witryna Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Pokaż hasło</translation>
 <translation id="2436186046335138073">Zezwolić usłudze <ph name="HANDLER_HOSTNAME" /> na otwieranie wszystkich linków <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">Zakończono pomiar użycia danych</translation>
 <translation id="2440604414813129000">Wyświetl ź&amp;ródło</translation>
 <translation id="2445081178310039857">Wymagany jest główny katalog rozszerzenia.</translation>
 <translation id="2445484935443597917">Utwórz nowy profil</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Umieść rozszerzenie w pakiecie</translation>
 <translation id="3855676282923585394">Importuj zakładki i ustawienia...</translation>
 <translation id="3856800405688283469">Wybierz strefę czasową</translation>
-<translation id="3856921555429624101">Zakończono pomiar użycia danych</translation>
 <translation id="3857228364945137633">Użyj funkcji Smart Lock, by odblokować urządzenie <ph name="DEVICE_TYPE" /> bez podawania hasła, gdy masz telefon w pobliżu.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: synchronizacja wstrzymana</translation>
@@ -2511,7 +2508,6 @@
 <translation id="4905417359854579806">Wszystko gotowe do utworzenia kopii zapasowych: <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Ten plik nie jest często pobierany i może być niebezpieczny.</translation>
 <translation id="4907306957610201395">Kategoria uprawnień</translation>
-<translation id="4907824805858067479">Zapisane karty są wyłączone przez administratora</translation>
 <translation id="4908811072292128752">Otwórz nową kartę, by przeglądać dwie strony naraz</translation>
 <translation id="4909038193460299775">Ponieważ to konto jest zarządzane przez <ph name="DOMAIN" />, Twoje zakładki, historia, hasła i inne ustawienia zostaną usunięte z tego urządzenia. Twoje dane pozostaną zapisane na koncie Google. Możesz nimi zarządzać w <ph name="BEGIN_LINK" />Panelu Google<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Rejestracja ukończona</translation>
@@ -3231,7 +3227,6 @@
 <translation id="5990386583461751448">Przetłumaczona</translation>
 <translation id="5991049340509704927">Powiększ</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Aby móc dalej przeglądać internet, poproś administratora o usunięcie tej aplikacji.}few{Aby móc dalej przeglądać internet, poproś administratora o usunięcie tych aplikacji.}many{Aby móc dalej przeglądać internet, poproś administratora o usunięcie tych aplikacji.}other{Aby móc dalej przeglądać internet, poproś administratora o usunięcie tych aplikacji.}}</translation>
-<translation id="5993332328670040093">Pomiar użycia danych został zakończony.</translation>
 <translation id="6002458620803359783">Preferowane głosy</translation>
 <translation id="6005695835120147974">Router multimediów</translation>
 <translation id="6006484371116297560">Klasyczny</translation>
@@ -3423,7 +3418,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Plik <ph name="FILE_NAME" /> jest rzadko pobierany i może być niebezpieczny.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nowa drukarka w Twojej sieci}few{Nowe drukarki w Twojej sieci}many{Nowe drukarki w Twojej sieci}other{Nowe drukarki w Twojej sieci}}</translation>
-<translation id="6286684120317096255">Rozpoczęto pomiar użycia danych</translation>
 <translation id="6286708577777130801">Szczegóły zapisanych haseł</translation>
 <translation id="6287852322318138013">Wybierz aplikację, by otworzyć ten plik</translation>
 <translation id="6289452883081499048">Spersonalizowane usługi Google, takie jak Play</translation>
@@ -4989,7 +4983,6 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="8725066075913043281">Spróbuj ponownie</translation>
 <translation id="8725178340343806893">Ulubione/Zakładki</translation>
 <translation id="8726206820263995930">Podczas pobierania ustawień zasad z serwera wystąpił błąd: <ph name="CLIENT_ERROR" /></translation>
-<translation id="8727142376512517020">Nie pokazuj ponownie</translation>
 <translation id="8727344521467137076">Na Twoim komputerze jest szkodliwe oprogramowanie. Przeglądarka Chrome usuwa je i przywróci ustawienia, by znów mogła działać normalnie.</translation>
 <translation id="8730621377337864115">Gotowe</translation>
 <translation id="8732030010853991079">Aby użyć tego rozszerzenia, kliknij jego ikonę.</translation>

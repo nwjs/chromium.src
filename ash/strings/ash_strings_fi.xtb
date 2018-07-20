@@ -195,6 +195,7 @@
 <translation id="4544944664594876241">Näytön lukituksen pikanäppäin on muuttunut. Käytä uutta pikanäppäintä <ph name="NEW_SHORTCUT" /> vanhan (<ph name="OLD_SHORTCUT" />) sijaan.</translation>
 <translation id="4564869809620998694">Kirjasinpalvelu</translation>
 <translation id="4570957409596482333">Teksti puhuttuna ‑painike</translation>
+<translation id="4585337515783392668">Lopeta suoratoisto tuntemattomaan kohteeseen</translation>
 <translation id="4628757576491864469">Laitteet</translation>
 <translation id="4659419629803378708">ChromeVox käytössä</translation>
 <translation id="4734965478015604180">Vaakasuora</translation>
@@ -241,6 +242,7 @@
 <translation id="5805697420284793859">Ikkunat</translation>
 <translation id="5820394555380036790">Chromium-käyttöjärjestelmä</translation>
 <translation id="5832805196449965646">Lisää henkilö</translation>
+<translation id="5837036133683224804">Lopeta <ph name="ROUTE_TITLE" /> – <ph name="RECEIVER_NAME" /></translation>
 <translation id="5860033963881614850">Pois käytöstä</translation>
 <translation id="5895138241574237353">Käynnistä uudelleen</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
@@ -279,6 +281,7 @@
 <translation id="639644700271529076">CAPS LOCK on pois päältä</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="643147933154517414">Valmis</translation>
+<translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> – <ph name="RECEIVER_NAME" /></translation>
 <translation id="6452181791372256707">Hylkää</translation>
 <translation id="6453179446719226835">Kieli muutettu</translation>
 <translation id="6459472438155181876">Ruutua laajennetaan: <ph name="DISPLAY_NAME" /></translation>
@@ -375,6 +378,7 @@
 <translation id="8351131234907093545">Luo muistiinpano</translation>
 <translation id="8392451568018454956">Tilin <ph name="USER_EMAIL_ADDRESS" /> vaihtoehtovalikko</translation>
 <translation id="8406981827175133772">Koko näytön suurennus</translation>
+<translation id="8427213022735114808">Sanelu lähettää äänesi Googlelle, jotta puhekirjoitus on mahdollista kaikissa tekstikentissä.</translation>
 <translation id="8428213095426709021">Asetukset</translation>
 <translation id="8431190899827883166">Näytä kosketus</translation>
 <translation id="8433186206711564395">Verkkoasetukset</translation>
@@ -416,6 +420,7 @@
 <translation id="9111102763498581341">Poista lukitus</translation>
 <translation id="9151726767154816831">Käynnistä laite uudelleen ja suorita powerwash asentaaksesi päivitykset</translation>
 <translation id="9179259655489829027">Tämän ominaisuuden avulla kaikkia kirjautuneita käyttäjätilejä voi käyttää ilman salasanaa. Käytä tätä ominaisuutta vain luotettavien tilien kanssa.</translation>
+<translation id="9193626018745640770">Suoratoistetaan tuntemattomaan vastaanottimeen</translation>
 <translation id="9194617393863864469">Kirjaa sisään toinen käyttäjä…</translation>
 <translation id="9201131092683066720">Akussa on virtaa <ph name="PERCENTAGE" /> %.</translation>
 <translation id="9210037371811586452">Poistutaan yhtenäisen työpöydän tilasta</translation>

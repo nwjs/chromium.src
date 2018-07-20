@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Per&amp;kecil</translation>
 <translation id="1830550083491357902">Belum masuk</translation>
 <translation id="1832511806131704864">Perubahan ponsel diperbarui</translation>
-<translation id="1832685970989658809">Metode pembayaran yang disimpan dinonaktifkan oleh administrator</translation>
 <translation id="1834503245783133039">Download tidak berhasil: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Hapus penelusuran</translation>
 <translation id="1838709767668011582">Situs Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Tampilkan sandi</translation>
 <translation id="2436186046335138073">Izinkan <ph name="HANDLER_HOSTNAME" /> membuka semua link <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">Pengukuran penggunaan data sudah berakhir</translation>
 <translation id="2440604414813129000">Lihat s&amp;umber</translation>
 <translation id="2445081178310039857">Diperlukan direktori akar ekstensi.</translation>
 <translation id="2445484935443597917">Buat Profil Baru</translation>
@@ -1562,7 +1560,7 @@
 <translation id="3399432415385675819">Notifikasi akan dinonaktifkan</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3404065873681873169">Tidak ada sandi yang tersimpan untuk situs ini</translation>
-<translation id="340485819826776184">Gunakan layanan prediksi untuk membantu melengkapi penelusuran dan URL yang dimasukkan di bilah alamat</translation>
+<translation id="340485819826776184">Gunakan layanan prediksi untuk membantu melengkapi penelusuran dan URL yang dimasukkan di kolom URL</translation>
 <translation id="3405664148539009465">Sesuaikan font</translation>
 <translation id="3405763860805964263">...</translation>
 <translation id="3406605057700382950">&amp;Tampilkan bilah bookmark</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Kemas ekstensi</translation>
 <translation id="3855676282923585394">Impor Bookmark dan Setelan...</translation>
 <translation id="3856800405688283469">Pilih zona waktu</translation>
-<translation id="3856921555429624101">Pengukuran penggunaan data telah berakhir</translation>
 <translation id="3857228364945137633">Gunakan Smart Lock untuk membuka kunci <ph name="DEVICE_TYPE" /> Anda tanpa menggunakan sandi saat ponsel berada dalam jangkauan.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: Sinkronisasi dijeda</translation>
@@ -2511,7 +2508,6 @@
 <translation id="4905417359854579806">Siap untuk mem-backup <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">File ini tidak biasa didownload dan mungkin berbahaya.</translation>
 <translation id="4907306957610201395">Kategori Izin</translation>
-<translation id="4907824805858067479">Kartu yang disimpan dinonaktifkan oleh administrator</translation>
 <translation id="4908811072292128752">Buka tab baru untuk mengakses 2 situs sekaligus</translation>
 <translation id="4909038193460299775">Karena akun ini dikelola oleh <ph name="DOMAIN" />, bookmark, histori, sandi, dan setelan yang lain akan dihapus dari perangkat ini. Namun, data Anda akan tetap disimpan di Akun Google dan dapat dikelola di <ph name="BEGIN_LINK" />Google Dasbor<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Anda berhasil didaftarkan</translation>
@@ -3231,7 +3227,6 @@
 <translation id="5990386583461751448">Diterjemahkan</translation>
 <translation id="5991049340509704927">Memperbesar</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Untuk memastikan bahwa Anda tetap dapat mengakses web, minta administrator untuk menghapus aplikasi ini.}other{Untuk memastikan bahwa Anda tetap dapat mengakses web, minta administrator untuk menghapus aplikasi berikut.}}</translation>
-<translation id="5993332328670040093">Penggunaan data Anda tidak akan diukur lagi.</translation>
 <translation id="6002458620803359783">Suara Pilihan</translation>
 <translation id="6005695835120147974">Router Media</translation>
 <translation id="6006484371116297560">Klasik</translation>
@@ -3423,7 +3418,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> tidak biasa didownload dan mungkin berbahaya.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Printer baru di jaringan Anda}other{Printer baru di jaringan Anda}}</translation>
-<translation id="6286684120317096255">Penggunaan data sedang diukur</translation>
 <translation id="6286708577777130801">Detail sandi tersimpan</translation>
 <translation id="6287852322318138013">Pilih aplikasi untuk membuka file ini</translation>
 <translation id="6289452883081499048">Layanan Google yang dipersonalisasi seperti Play</translation>
@@ -4988,7 +4982,6 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8725066075913043281">Coba lagi</translation>
 <translation id="8725178340343806893">Favorit/Bookmark</translation>
 <translation id="8726206820263995930">Terjadi kesalahan saat mengambil setelan kebijakan dari server: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Jangan tampilkan ini lagi</translation>
 <translation id="8727344521467137076">Ada software berbahaya di komputer. Chrome sedang menghapusnya dan akan memulihkan setelan agar browser berfungsi normal lagi.</translation>
 <translation id="8730621377337864115">Selesai</translation>
 <translation id="8732030010853991079">Gunakan ekstensi ini dengan mengeklik ikon ini.</translation>

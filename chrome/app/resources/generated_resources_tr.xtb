@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">U&amp;zaklaştır</translation>
 <translation id="1830550083491357902">Oturum açılmadı</translation>
 <translation id="1832511806131704864">Telefon değişikliği güncellendi</translation>
-<translation id="1832685970989658809">Kaydedilen ödeme yöntemleri, yöneticiniz tarafından devre dışı bırakıldı</translation>
 <translation id="1834503245783133039">İndirme işlemi başarısız oldu: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Aramayı temizle</translation>
 <translation id="1838709767668011582">Google sitesi</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Şifreyi göster</translation>
 <translation id="2436186046335138073"><ph name="HANDLER_HOSTNAME" /> ana makinesinin tüm <ph name="PROTOCOL" /> bağlantılarını açmasına izin verilsin mi?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">Veri kullanım ölçümü sona erdi</translation>
 <translation id="2440604414813129000">Ka&amp;ynağı görüntüle</translation>
 <translation id="2445081178310039857">Uzantı kök dizini gerekiyor.</translation>
 <translation id="2445484935443597917">Yeni Profil Oluştur</translation>
@@ -1878,7 +1876,6 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="3855441664322950881">Paket uzantısı</translation>
 <translation id="3855676282923585394">Yer İşaretlerini ve Ayarları İçe Aktar...</translation>
 <translation id="3856800405688283469">Saat dilimi seçin</translation>
-<translation id="3856921555429624101">Veri kullanım ölçümü sona erdi</translation>
 <translation id="3857228364945137633">Telefonunuz yakındayken şifre girmeden <ph name="DEVICE_TYPE" /> cihazınızın kilidini açmak için Smart Lock'u deneyin.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: Senkronizasyon duraklatıldı</translation>
@@ -2511,7 +2508,6 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="4905417359854579806"><ph name="FILE_COUNT" /> yedeklenmeye hazır</translation>
 <translation id="4907161631261076876">Bu uygulama çok indirilen bir uygulama değil ve tehlikeli olabilir.</translation>
 <translation id="4907306957610201395">İzin Kategorisi</translation>
-<translation id="4907824805858067479">Kaydedilen kartlar yöneticiniz tarafından devre dışı bırakıldı</translation>
 <translation id="4908811072292128752">İki siteye aynı anda göz atmak için yeni bir sekme açın</translation>
 <translation id="4909038193460299775">Bu hesap <ph name="DOMAIN" /> tarafından yönetildiğinden, yer işaretleri, geçmişi, şifreler ve diğer ayarlarınız bu cihazdan silinir. Ancak verileriniz Google Hesabınızda kalmaya devam eder ve <ph name="BEGIN_LINK" />Google Hesap Özeti<ph name="END_LINK" />'nde yönetilebilir.</translation>
 <translation id="4909359680501173791">Başarıyla kaydoldunuz</translation>
@@ -3232,7 +3228,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="5990386583461751448">Çevrildi</translation>
 <translation id="5991049340509704927">Büyüt</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Web'e göz atmaya devam edebildiğinizden emin olmak için yöneticinizden bu uygulamayı kaldırmasını isteyin.}other{Web'e göz atmaya devam edebildiğinizden emin olmak için yöneticinizden bu uygulamaları kaldırmasını isteyin.}}</translation>
-<translation id="5993332328670040093">Veri kullanımınız artık ölçülmeyecek.</translation>
 <translation id="6002458620803359783">Tercih Edilen Sesler</translation>
 <translation id="6005695835120147974">Medya Yönlendiricisi</translation>
 <translation id="6006484371116297560">Klasik</translation>
@@ -3424,7 +3419,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> yaygın indirilen bir öğe değil, tehlikeli olabilir.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Ağınızda yeni yazıcı}other{Ağınızda yeni yazıcılar}}</translation>
-<translation id="6286684120317096255">Veri kullanımı ölçülüyor</translation>
 <translation id="6286708577777130801">Kayıtlı şifre ayrıntıları</translation>
 <translation id="6287852322318138013">Bu dosyayı açmak için bir uygulama seçin</translation>
 <translation id="6289452883081499048">Play gibi kişiselleştirilmiş Google hizmetleri</translation>
@@ -4988,7 +4982,6 @@ Anahtar dosyanızı güvenli bir yerde saklayın. Uzantınızın yeni sürümler
 <translation id="8725066075913043281">Yeniden dene</translation>
 <translation id="8725178340343806893">Sık Kullanılanlar/Yer İşaretleri</translation>
 <translation id="8726206820263995930">Sunucudan politika ayarları alınırken hata oluştu: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Bu iletiyi tekrar gösterme</translation>
 <translation id="8727344521467137076">Bilgisayarınızda zararlı yazılım var. Chrome bunu kaldırıyor ve tarayıcınızın tekrar normal şekilde çalışması için ayarlarınızı geri yükleyecek.</translation>
 <translation id="8730621377337864115">Bitti</translation>
 <translation id="8732030010853991079">Bu simgeyi tıklayarak bu uzantıyı kullanın.</translation>

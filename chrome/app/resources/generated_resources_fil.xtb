@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Mag-zoom &amp;Out</translation>
 <translation id="1830550083491357902">Hindi naka-sign in</translation>
 <translation id="1832511806131704864">Na-update na ang pagbabago sa telepono</translation>
-<translation id="1832685970989658809">Na-disable ng iyong administrator ang mga naka-save na paraan ng pagbabayad</translation>
 <translation id="1834503245783133039">Hindi na-download: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">I-clear ang paghahanap</translation>
 <translation id="1838709767668011582">Site ng Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Ipakita ang password</translation>
 <translation id="2436186046335138073">Papayagan ang <ph name="HANDLER_HOSTNAME" /> na buksan ang lahat ng link ng <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">Tapos na ang pagsusukat sa paggamit ng data</translation>
 <translation id="2440604414813129000">Tingnan s&amp;ource</translation>
 <translation id="2445081178310039857">Kinakailangan ang pinagmulang direktoryo ng extension.</translation>
 <translation id="2445484935443597917">Gumawa ng Bagong Profile</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Extension ng pack</translation>
 <translation id="3855676282923585394">Mag-import ng Mga Bookmark at Setting...</translation>
 <translation id="3856800405688283469">Pumili ng timezone</translation>
-<translation id="3856921555429624101">Natapos na ang pagsusukat sa paggamit ng data</translation>
 <translation id="3857228364945137633">Subukan ang Smart Lock upang i-unlock ang iyong <ph name="DEVICE_TYPE" /> nang walang password kapag nasa malapit ang telepono mo.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: Na-pause ang pag-sync</translation>
@@ -2511,7 +2508,6 @@
 <translation id="4905417359854579806">Handa nang i-back up ang <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Hindi karaniwang dina-download ang app na ito at maaaring mapanganib.</translation>
 <translation id="4907306957610201395">Kategorya ng Pahintulot</translation>
-<translation id="4907824805858067479">Na-disable ng iyong administrator ang mga naka-save na card</translation>
 <translation id="4908811072292128752">Magbukas ng bagong tab upang mag-browse ng dalawang site nang sabay</translation>
 <translation id="4909038193460299775">Dahil pinamamahalaan ng <ph name="DOMAIN" /> ang account na ito, iki-clear sa device na ito ang iyong mga bookmark, history, password at iba pang mga setting. Gayunpaman, mananatiling nakaimbak ang data mo sa iyong Google Account at mapamamahalaan ito sa <ph name="BEGIN_LINK" />Google Dashboard<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Matagumpay kang na-enroll</translation>
@@ -3231,7 +3227,6 @@
 <translation id="5990386583461751448">Naisalin</translation>
 <translation id="5991049340509704927">I-magnify</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Para matiyak na makakapag-browse ka pa rin sa web, hilingin sa iyong administrator na alisin ang application na ito.}one{Para matiyak na makakapag-browse ka pa rin sa web, hilingin sa iyong administrator na alisin ang mga application na ito.}other{Para matiyak na makakapag-browse ka pa rin sa web, hilingin sa iyong administrator na alisin ang mga application na ito.}}</translation>
-<translation id="5993332328670040093">Hindi na susukatin ang paggamit mo ng data.</translation>
 <translation id="6002458620803359783">Mga Gustong Boses</translation>
 <translation id="6005695835120147974">Router para sa Media</translation>
 <translation id="6006484371116297560">Classic</translation>
@@ -3423,7 +3418,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Hindi karaniwang dina-download ang <ph name="FILE_NAME" /> at maaaring mapanganib ito.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Bagong printer sa iyong network}one{Mga bagong printer sa iyong network}other{Mga bagong printer sa iyong network}}</translation>
-<translation id="6286684120317096255">Sinusukat ang paggamit ng data</translation>
 <translation id="6286708577777130801">Mga naka-save na detalye ng password</translation>
 <translation id="6287852322318138013">Pumili ng isang app upang buksan ang file na ito</translation>
 <translation id="6289452883081499048">Mga naka-personalize na serbisyo ng Google gaya ng Play</translation>
@@ -4989,7 +4983,6 @@ Ilagay ang iyong key file sa ligtas na lugar. Kailangan mo ito upang lumikha ng 
 <translation id="8725066075913043281">Muling subukan</translation>
 <translation id="8725178340343806893">Mga Paborito/Bookmark</translation>
 <translation id="8726206820263995930">Error kapag kumukuha ng mga setting ng patakaran mula sa server: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Huwag na itong ipakitang muli</translation>
 <translation id="8727344521467137076">May mapaminsalang software sa iyong computer. Aalisin ito ng Chrome at ire-restore ang iyong mga setting para mapaganang muli nang normal ang iyong browser.</translation>
 <translation id="8730621377337864115">Tapos na</translation>
 <translation id="8732030010853991079">Gamitin ang extension na ito sa pamamagitan ng pag-click sa icon na ito.</translation>

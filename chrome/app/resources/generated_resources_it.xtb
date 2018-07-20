@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Riduc&amp;i</translation>
 <translation id="1830550083491357902">Accesso non eseguito</translation>
 <translation id="1832511806131704864">Cambio di telefono aggiornato</translation>
-<translation id="1832685970989658809">I metodi di pagamento salvati sono stati disattivati dall'amministratore</translation>
 <translation id="1834503245783133039">Download non riuscito: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Cancella ricerca</translation>
 <translation id="1838709767668011582">Sito Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Mostra password</translation>
 <translation id="2436186046335138073">Consentire a <ph name="HANDLER_HOSTNAME" /> di aprire tutti i link <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Minimi</translation>
-<translation id="2437139306601019091">Misurazione dell'utilizzo dei dati terminata</translation>
 <translation id="2440604414813129000">Visualizza &amp;sorgente</translation>
 <translation id="2445081178310039857">La directory principale dell'estensione è obbligatoria.</translation>
 <translation id="2445484935443597917">Crea un nuovo profilo</translation>
@@ -1875,7 +1873,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="3855441664322950881">Crea pacchetto estensione</translation>
 <translation id="3855676282923585394">Importa preferiti e impostazioni...</translation>
 <translation id="3856800405688283469">Seleziona il fuso orario</translation>
-<translation id="3856921555429624101">La misurazione dell'utilizzo dei dati è terminata</translation>
 <translation id="3857228364945137633">Prova Smart Lock per sbloccare il tuo dispositivo <ph name="DEVICE_TYPE" /> senza password quando il tuo telefono è nelle vicinanze.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sincronizzazione in pausa</translation>
@@ -2508,7 +2505,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4905417359854579806">Pronto per il backup di <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Questo file non viene scaricato spesso e potrebbe essere pericoloso.</translation>
 <translation id="4907306957610201395">Categoria di autorizzazione</translation>
-<translation id="4907824805858067479">Le schede salvate sono state disattivate dall'amministratore</translation>
 <translation id="4908811072292128752">Apri una nuova scheda per visitare due siti contemporaneamente</translation>
 <translation id="4909038193460299775">Questo account è gestito da <ph name="DOMAIN" />, pertanto i preferiti, la cronologia, le password e altre impostazioni verranno cancellati da questo dispositivo. I tuoi dati rimarranno però memorizzati nel tuo account Google e potrai gestirli su <ph name="BEGIN_LINK" />Google Dashboard<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Registrazione effettuata</translation>
@@ -3227,7 +3223,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="5990386583461751448">Tradotta</translation>
 <translation id="5991049340509704927">Ingrandisci</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Per assicurarti di poter continuare a navigare sul Web, chiedi al tuo amministratore di rimuovere questa applicazione.}other{Per assicurarti di poter continuare a navigare sul Web, chiedi al tuo amministratore di rimuovere queste applicazioni.}}</translation>
-<translation id="5993332328670040093">L'utilizzo dei dati non verrà più misurato.</translation>
 <translation id="6002458620803359783">Voci preferite</translation>
 <translation id="6005695835120147974">Media Router</translation>
 <translation id="6006484371116297560">Classico</translation>
@@ -3419,7 +3414,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> non viene scaricato spesso e potrebbe essere pericoloso.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nuova stampante in rete}other{Nuove stampanti in rete}}</translation>
-<translation id="6286684120317096255">È in corso la misurazione dell'utilizzo dei dati</translation>
 <translation id="6286708577777130801">Dettagli password salvata</translation>
 <translation id="6287852322318138013">Seleziona un'app per aprire questo file</translation>
 <translation id="6289452883081499048">Servizi Google personalizzati come Play</translation>
@@ -4982,7 +4976,6 @@ Conserva il file di chiave in un luogo sicuro. Ti servirà per creare nuove vers
 <translation id="8725066075913043281">Riprova</translation>
 <translation id="8725178340343806893">Preferiti/Segnalibri</translation>
 <translation id="8726206820263995930">Errore durante il recupero delle impostazioni criterio dal server. <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Non visualizzare più</translation>
 <translation id="8727344521467137076">Rilevato software dannoso sul computer. Chrome lo sta rimuovendo e ripristinerà le tue impostazioni per ristabilire il normale funzionamento del browser.</translation>
 <translation id="8730621377337864115">Fine</translation>
 <translation id="8732030010853991079">Utilizza questa estensione facendo clic su questa icona.</translation>

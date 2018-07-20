@@ -562,7 +562,6 @@
 <translation id="1829192082282182671">Fif&amp;iza</translation>
 <translation id="1830550083491357902">Haijaingiwa</translation>
 <translation id="1832511806131704864">Mabadiliko ya simu yamesasishwa</translation>
-<translation id="1832685970989658809">Msimamizi wako amezima njia za kulipa zilizohifadhiwa</translation>
 <translation id="1834503245783133039">Imeshindwa kupakua: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Futa utafutaji</translation>
 <translation id="1838709767668011582">Tovuti ya Google</translation>
@@ -939,7 +938,6 @@
 <translation id="2435457462613246316">Onyesha nenosiri</translation>
 <translation id="2436186046335138073">Ungependa kuruhusu <ph name="HANDLER_HOSTNAME" /> kufungua viungo vyote vya <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Kiwango cha chini</translation>
-<translation id="2437139306601019091">Upimaji wa matumizi ya data umekamilika</translation>
 <translation id="2440604414813129000">Tazama &amp;asili</translation>
 <translation id="2445081178310039857">Saraka la shina la kiendelezi linahitajika.</translation>
 <translation id="2445484935443597917">Unda Wasifu Mpya</translation>
@@ -1871,7 +1869,6 @@
 <translation id="3855441664322950881">Fungasha kiendelezi</translation>
 <translation id="3855676282923585394">Leta Alamisho na Mipangilio...</translation>
 <translation id="3856800405688283469">Chagua saa za eneo</translation>
-<translation id="3856921555429624101">Upimaji wa matumizi ya data umekamilika</translation>
 <translation id="3857228364945137633">Jaribu kutumia Smart Lock kukifungua kifa chako cha <ph name="DEVICE_TYPE" /> bila kutumia nenosiri, simu yako ikiwa karibu.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: Umesitisha usawazishaji</translation>
@@ -2502,7 +2499,6 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="4905417359854579806">Iko tayari kuhifadhi nakala ya <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Faili hii haipakuliwi kwa kawaida na huenda ikawa hatari.</translation>
 <translation id="4907306957610201395">Aina ya Ruhusa</translation>
-<translation id="4907824805858067479">Kadi zilizohifadhiwa zitazimwa na msimamizi wako</translation>
 <translation id="4908811072292128752">Fungua kichupo kipya ili uvinjari tovuti mbili kwa wakati mmoja</translation>
 <translation id="4909038193460299775">Kwa sababu akaunti hii inadhibitiwa na <ph name="DOMAIN" />, alamisho, historia, manenosiri, na mipangilio yako mingine itafutwa kwenye kifaa hiki. Hata hivyo, data yako itaendelea kuhifadhiwa katika Akaunti yako ya Google na inaweza kudhibitiwa kwenye <ph name="BEGIN_LINK" />Dashibodi ya Google<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Umejisajili</translation>
@@ -3222,7 +3218,6 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="5990386583461751448">Imetafsiriwa</translation>
 <translation id="5991049340509704927">Zidisha</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Ili uhakikishe kuwa unaendelea kuvinjari wavuti, mwombe msimamizi wako aondoe programu hii.}other{Ili uhakikishe kuwa unaendelea kuvinjari wavuti, mwombe msimamizi wako aondoe programu hii.}}</translation>
-<translation id="5993332328670040093">Matumizi yako ya data hayatapimwa tena.</translation>
 <translation id="6002458620803359783">Sauti Zinazopendelewa</translation>
 <translation id="6005695835120147974">Ruta ya Maudhui</translation>
 <translation id="6006484371116297560">Kawaida</translation>
@@ -3414,7 +3409,6 @@ Ungependa kuanza <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> haipakuliwi kwa kawaida na huenda ikawa hatari.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Printa mpya kwenye mtandao wako}other{Printa mpya kwenye mtandao wako}}</translation>
-<translation id="6286684120317096255">Matumizi ya data yanapimwa</translation>
 <translation id="6286708577777130801">Maelezo ya nenosiri lililohifadhiwa</translation>
 <translation id="6287852322318138013">Chagua programu ili ufungue faili hii</translation>
 <translation id="6289452883081499048">Huduma za Google zilizo mahususi kwako kama vile Google Play</translation>
@@ -4981,7 +4975,6 @@ Huenda watu wengine wenye miunganisho ya polepole hawataona maudhui yako.</trans
 <translation id="8725066075913043281">Jaribu tena</translation>
 <translation id="8725178340343806893">Vipendwa/Alamisho</translation>
 <translation id="8726206820263995930">Hitilafu wakati wa kupata mipangilio ya sera kutoka kwenye seva: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Usionyeshe hii tena</translation>
 <translation id="8727344521467137076">Kuna programu hatari kwenye kompyuta yako. Chrome inaiondoa na itarejesha mipangilio yako ili kuwezesha kivinjari chako kifanye kazi tena kama kawaida.</translation>
 <translation id="8730621377337864115">Nimemaliza</translation>
 <translation id="8732030010853991079">Tumia kiendelezi hiki kwa kubofya aikoni hii.</translation>

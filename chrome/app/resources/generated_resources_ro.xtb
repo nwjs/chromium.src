@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Mi&amp;cșorează</translation>
 <translation id="1830550083491357902">Neconectat</translation>
 <translation id="1832511806131704864">Schimbare a telefonului actualizată</translation>
-<translation id="1832685970989658809">Metodele de plată salvate sunt dezactivate de administrator</translation>
 <translation id="1834503245783133039">Descărcare nereușită: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Șterge căutarea</translation>
 <translation id="1838709767668011582">Site Google</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Afișați parola</translation>
 <translation id="2436186046335138073">Permiteți ca <ph name="HANDLER_HOSTNAME" /> să deschidă toate linkurile <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Minimum</translation>
-<translation id="2437139306601019091">Măsurarea utilizării datelor s-a încheiat</translation>
 <translation id="2440604414813129000">Afișează s&amp;ursa</translation>
 <translation id="2445081178310039857">Este necesar directorul rădăcină pentru extensie.</translation>
 <translation id="2445484935443597917">Creează un profil nou</translation>
@@ -1878,7 +1876,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="3855441664322950881">Împachetează extensia</translation>
 <translation id="3855676282923585394">Importă marcajele și setările...</translation>
 <translation id="3856800405688283469">Selectează fusul orar</translation>
-<translation id="3856921555429624101">Măsurarea utilizării datelor s-a încheiat</translation>
 <translation id="3857228364945137633">Încearcă Smart Lock pentru a debloca dispozitivul <ph name="DEVICE_TYPE" /> fără o parolă când telefonul tău este în apropiere.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sincronizarea a fost întreruptă</translation>
@@ -2511,7 +2508,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="4905417359854579806">Gata de backup pentru <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Acest fișier nu este descărcat de obicei și ar putea fi periculos.</translation>
 <translation id="4907306957610201395">Categoria de permisiuni</translation>
-<translation id="4907824805858067479">Cardurile salvate sunt dezactivate de administrator</translation>
 <translation id="4908811072292128752">Deschide o filă nouă pentru a naviga pe două site-uri simultan</translation>
 <translation id="4909038193460299775">Deoarece acest cont este gestionat de <ph name="DOMAIN" />, vor fi șterse marcajele, istoricul, parolele și alte setări de pe acest dispozitiv. Totuși, datele vor rămâne stocate în Contul Google și pot fi gestionate din <ph name="BEGIN_LINK" />Tabloul de bord Google<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Te-ai înregistrat</translation>
@@ -3231,7 +3227,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="5990386583461751448">Tradusă</translation>
 <translation id="5991049340509704927">Mărește</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Ca să poți naviga în continuare pe web, trebuie să soliciți administratorului să elimine aplicația.}few{Ca să poți naviga în continuare pe web, trebuie să soliciți administratorului să elimine aplicațiile.}other{Ca să poți naviga în continuare pe web, trebuie să soliciți administratorului să elimine aplicațiile.}}</translation>
-<translation id="5993332328670040093">Utilizarea datelor nu va mai fi măsurată.</translation>
 <translation id="6002458620803359783">Vocile preferate</translation>
 <translation id="6005695835120147974">Router media</translation>
 <translation id="6006484371116297560">Tema clasică</translation>
@@ -3423,7 +3418,6 @@ Mesaj de la server: <ph name="SERVER_MSG" /></translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Fișierul <ph name="FILE_NAME" /> nu este descărcat de obicei și ar putea fi periculos.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Imprimantă nouă în rețea}few{Imprimante noi în rețea}other{Imprimante noi în rețea}}</translation>
-<translation id="6286684120317096255">Utilizarea datelor este măsurată</translation>
 <translation id="6286708577777130801">Detalii privind parolele salvate</translation>
 <translation id="6287852322318138013">Selectați o aplicație pentru deschiderea acestui fișier</translation>
 <translation id="6289452883081499048">Servicii Google personalizate, precum Play</translation>
@@ -4988,7 +4982,6 @@ Păstrează fișierul cu cheia într-un loc sigur. Acesta va fi necesar la crear
 <translation id="8725066075913043281">Încearcă din nou</translation>
 <translation id="8725178340343806893">Preferințe/Marcaje</translation>
 <translation id="8726206820263995930">Eroare la preluarea setărilor politicii de pe server: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Nu mai afișa acest mesaj</translation>
 <translation id="8727344521467137076">Ai software dăunător pe computer. Chrome îl elimină și îți va restabili setările pentru ca browserul să funcționeze normal din nou.</translation>
 <translation id="8730621377337864115">Terminat</translation>
 <translation id="8732030010853991079">Utilizați extensia dând clic pe această pictogramă.</translation>

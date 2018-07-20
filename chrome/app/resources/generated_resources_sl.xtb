@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">Poma&amp;njšaj</translation>
 <translation id="1830550083491357902">Niste prijavljeni</translation>
 <translation id="1832511806131704864">Sprememba telefona posodobljena</translation>
-<translation id="1832685970989658809">Skrbnik je onemogočil shranjena plačilna sredstva</translation>
 <translation id="1834503245783133039">Prenos ni uspel: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">Čiščenje iskanja</translation>
 <translation id="1838709767668011582">Googlovo spletno mesto</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">Pokaži geslo</translation>
 <translation id="2436186046335138073">Dovoli gostitelju <ph name="HANDLER_HOSTNAME" /> odpreti vse povezave za <ph name="PROTOCOL" />?</translation>
 <translation id="2436707352762155834">Najmanj</translation>
-<translation id="2437139306601019091">Merjenje porabe podatkov je končano</translation>
 <translation id="2440604414813129000">Ogled v&amp;ira</translation>
 <translation id="2445081178310039857">Potreben je korenski imenik razširitve.</translation>
 <translation id="2445484935443597917">Ustvari nov profil</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">Zapakiraj razširitev</translation>
 <translation id="3855676282923585394">Uvoz zaznamkov in nastavitev ...</translation>
 <translation id="3856800405688283469">Izbira časovnega pasu</translation>
-<translation id="3856921555429624101">Merjenje porabe podatkov je končano</translation>
 <translation id="3857228364945137633">Preskusite Smart Lock za odklepanje naprave <ph name="DEVICE_TYPE" /> brez gesla, ko je telefon v bližini.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: sinhronizacija je zaustavljena</translation>
@@ -2511,7 +2508,6 @@
 <translation id="4905417359854579806">Pripravljeno za varnostno kopiranje: <ph name="FILE_COUNT" /></translation>
 <translation id="4907161631261076876">Datoteka ni pogosto prenesena in je lahko nevarna.</translation>
 <translation id="4907306957610201395">Kategorija dovoljenj</translation>
-<translation id="4907824805858067479">Skrbnik je onemogočil shranjene kartice</translation>
 <translation id="4908811072292128752">Odprite nov zavihek, če želite brskati na dveh spletnih mestih hkrati</translation>
 <translation id="4909038193460299775">Ta račun upravlja domena <ph name="DOMAIN" />, zato bodo vaši zaznamki, zgodovina, gesla in druge nastavitve izbrisani iz te naprave. Vaši podatki bodo kljub temu še naprej shranjeni v Google Računu in jih bo mogoče upravljati na <ph name="BEGIN_LINK" />Google Nadzorni plošči<ph name="END_LINK" />.</translation>
 <translation id="4909359680501173791">Uspešno ste včlanjeni</translation>
@@ -3232,7 +3228,6 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="5990386583461751448">Prevedeno</translation>
 <translation id="5991049340509704927">Povečava</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Če želite zagotoviti, da boste lahko še naprej brskali po spletu, prosite skrbnika, da odstrani to aplikacijo.}one{Če želite zagotoviti, da boste lahko še naprej brskali po spletu, prosite skrbnika, da odstrani te aplikacije.}two{Če želite zagotoviti, da boste lahko še naprej brskali po spletu, prosite skrbnika, da odstrani te aplikacije.}few{Če želite zagotoviti, da boste lahko še naprej brskali po spletu, prosite skrbnika, da odstrani te aplikacije.}other{Če želite zagotoviti, da boste lahko še naprej brskali po spletu, prosite skrbnika, da odstrani te aplikacije.}}</translation>
-<translation id="5993332328670040093">Poraba podatkov se ne bo več merila.</translation>
 <translation id="6002458620803359783">Prednostni glasovi</translation>
 <translation id="6005695835120147974">Predstavnostni usmerjevalnik</translation>
 <translation id="6006484371116297560">Klasična</translation>
@@ -3424,7 +3419,6 @@ Poskrbite, da ne boste razkrili morebitnih občutljivih podatkov.</translation>
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">Datoteka <ph name="FILE_NAME" /> ni pogosto prenesena in je lahko nevarna.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{Nov tiskalnik v vašem omrežju}one{Novi tiskalniki v vašem omrežju}two{Novi tiskalniki v vašem omrežju}few{Novi tiskalniki v vašem omrežju}other{Novi tiskalniki v vašem omrežju}}</translation>
-<translation id="6286684120317096255">Poraba podatkov se meri</translation>
 <translation id="6286708577777130801">Podrobnosti shranjenih gesel</translation>
 <translation id="6287852322318138013">Izberite aplikacijo za odpiranje te datoteke</translation>
 <translation id="6289452883081499048">Prilagojene Googlove storitve, kot je Play</translation>
@@ -4988,7 +4982,6 @@ Datoteko s ključem shranite na varnem. Potrebovali jo boste za izdelavo novih r
 <translation id="8725066075913043281">Poskusite znova</translation>
 <translation id="8725178340343806893">Priljubljene/Zaznamki</translation>
 <translation id="8726206820263995930">Napaka pri prenosu nastavitev pravilnika iz strežnika: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">Ne prikaži več tega</translation>
 <translation id="8727344521467137076">V računalniku imate škodljivo programsko opremo. Chrome jo bo odstranil in obnovil bo nastavitve, da bo brskalnik znova deloval kot običajno.</translation>
 <translation id="8730621377337864115">Končano</translation>
 <translation id="8732030010853991079">Razširitev uporabite tako, da kliknete to ikono.</translation>

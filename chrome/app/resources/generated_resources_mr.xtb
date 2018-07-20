@@ -564,7 +564,6 @@
 <translation id="1829192082282182671">झूम &amp;कमी करा</translation>
 <translation id="1830550083491357902">साइन इन केलेले नाही</translation>
 <translation id="1832511806131704864">फोन बदल अपडेट झाला</translation>
-<translation id="1832685970989658809">सेव्ह केलेल्या पेमेंट पद्धती तुमच्या अॅडमिनिस्ट्रेटरने बंद केल्या आहेत</translation>
 <translation id="1834503245783133039">डाउनलोड करता आले नाही: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">शोध साफ करा</translation>
 <translation id="1838709767668011582">Google साइट</translation>
@@ -941,7 +940,6 @@
 <translation id="2435457462613246316">पासवर्ड दर्शवा</translation>
 <translation id="2436186046335138073"><ph name="HANDLER_HOSTNAME" /> ला सर्व <ph name="PROTOCOL" /> दुवे उघडण्याची अनुमती द्यायची?</translation>
 <translation id="2436707352762155834">किमान</translation>
-<translation id="2437139306601019091">डेटा वापर मापन समाप्त झाले</translation>
 <translation id="2440604414813129000">स्त्रो&amp;त पाहा</translation>
 <translation id="2445081178310039857">विस्तार मूळ निर्देशिका आवश्यक आहे.</translation>
 <translation id="2445484935443597917">नवीन प्रोफाइल तयार करा</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">पॅक विस्तार</translation>
 <translation id="3855676282923585394">बुकमार्क आणि सेटिंग्ज आयात करा...</translation>
 <translation id="3856800405688283469">टाइम झोन निवडा</translation>
-<translation id="3856921555429624101">डेटा वापर मापन समाप्त झाले</translation>
 <translation id="3857228364945137633">तुमचा फोन जवळपास असताना पासवर्डशिवाय तुमचे <ph name="DEVICE_TYPE" /> अनलॉक करण्यासाठी Smart Lock वापरून पहा.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: सिंक करणे थांबवले</translation>
@@ -2510,7 +2507,6 @@
 <translation id="4905417359854579806"><ph name="FILE_COUNT" /> चा बॅकअप घेण्यास तयार</translation>
 <translation id="4907161631261076876">ही फाईल सामान्यपणे डाउनलोड केली नाही आणि कदाचित धोकादायक असू शकते.</translation>
 <translation id="4907306957610201395">परवानगी वर्गवारी</translation>
-<translation id="4907824805858067479">तुमच्या अॅडमिनिस्ट्रेटरने सेव्ह केलेली कार्डे बंद केली आहेत</translation>
 <translation id="4908811072292128752">एकाच वेळी दोन साइट ब्राउझ करण्यासाठी एक नवीन टॅब उघडा</translation>
 <translation id="4909038193460299775">हे खाते <ph name="DOMAIN" /> ने व्यवस्थापित केले असल्याने, आपले बुकमार्क, इतिहास, पासवर्ड आणि अन्य सेटिंग्ज या डिव्हाइस वरून साफ केल्या जातील. तथापि, आपला डेटा आपल्या Google खात्यामध्ये संचयित केलेला असेल आणि <ph name="BEGIN_LINK" />Google डॅशबोर्ड<ph name="END_LINK" /> वर व्यवस्थापित केला जाऊ शकतो.</translation>
 <translation id="4909359680501173791">तुमची यशस्वीरीत्या नोंदणी करण्यात आली</translation>
@@ -3232,7 +3228,6 @@
 <translation id="5990386583461751448">भाषांतर केले</translation>
 <translation id="5991049340509704927">विशालित करा</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{तुमचे वेब ब्राउझिंग चालू राहावे याची खात्री करण्यासाठी, तुमच्या अॅडमिनिस्ट्रेटरला हे अॅप्लिकेशन काढून टाकण्यास सांगा.}one{तुमचे वेब ब्राउझिंग चालू राहावे याची खात्री करण्यासाठी, तुमच्या अॅडमिनिस्ट्रेटरला हे अॅप्लिकेशन काढून टाकण्यास सांगा.}other{तुमचे वेब ब्राउझिंग चालू राहावे याची खात्री करण्यासाठी, तुमच्या अॅडमिनिस्ट्रेटरला हे अॅप्लिकेशन काढून टाकण्यास सांगा.}}</translation>
-<translation id="5993332328670040093">आपला डेटा वापर यापुढे मोजला जाणार नाही.</translation>
 <translation id="6002458620803359783">प्राधान्य दिलेली व्हॉइस</translation>
 <translation id="6005695835120147974">मीडिया राउटर</translation>
 <translation id="6006484371116297560">क्लासिक</translation>
@@ -3424,7 +3419,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> सामान्यपणे डाउनलोड केले जात नाही आणि ते धोकादायक ठरु शकते.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{आपल्या नेटवर्कवरील नवीन प्रिंटर}one{आपल्या नेटवर्कवरील नवीन प्रिंटर}other{आपल्या नेटवर्कवरील नवीन प्रिंटर}}</translation>
-<translation id="6286684120317096255">डेटा वापर मोजला जात आहे</translation>
 <translation id="6286708577777130801">सेव्ह केलेले पासवर्ड तपशील</translation>
 <translation id="6287852322318138013">ही फाईल उघडण्यासाठी अॅप निवडा</translation>
 <translation id="6289452883081499048">Play सारख्या पर्सनलाइझ Google सेवा</translation>
@@ -4988,7 +4982,6 @@
 <translation id="8725066075913043281">पुन्हा प्रयत्न करा</translation>
 <translation id="8725178340343806893">मनपसंत/बुकमार्क</translation>
 <translation id="8726206820263995930">सर्व्हरवरून धोरण सेटिंग्ज आणताना एरर: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">हे पुन्हा दर्शवू नका</translation>
 <translation id="8727344521467137076">Chrome ला तुमच्या काँप्युटरवर धोकादायक सॉफ्टवेअर आढळले आहे. Chrome ते काढून टाकेल आणि तुमचा ब्राउझर पुन्हा नीट चालावा यासाठी तुमच्या सेटिंग्ज रिस्टोअर करेल.</translation>
 <translation id="8730621377337864115">पूर्ण झाले</translation>
 <translation id="8732030010853991079">या चिन्हावर क्लिक करुन हा विस्तार वापरा.</translation>

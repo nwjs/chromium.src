@@ -562,7 +562,6 @@
 <translation id="1829192082282182671">کوچک&amp; نمایی</translation>
 <translation id="1830550083491357902">وارد سیستم نشده است</translation>
 <translation id="1832511806131704864">تغییر تلفن به‌روزرسانی شد</translation>
-<translation id="1832685970989658809">سرپرست سیستم روش‌های پرداخت ذخیره‌شده را غیرفعال کرده است</translation>
 <translation id="1834503245783133039">بارگیری ناموفق بود: <ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">پاک کردن جستجو</translation>
 <translation id="1838709767668011582">‏سایت Google</translation>
@@ -939,7 +938,6 @@
 <translation id="2435457462613246316">نمایش گذرواژه</translation>
 <translation id="2436186046335138073">به <ph name="HANDLER_HOSTNAME" /> امکان داده شود همه پیوندهای <ph name="PROTOCOL" /> را باز کند؟</translation>
 <translation id="2436707352762155834">حداقل</translation>
-<translation id="2437139306601019091">اندازه‌گیری مصرف داده به‌پایان رسید</translation>
 <translation id="2440604414813129000">مشاهده م&amp;نبع</translation>
 <translation id="2445081178310039857">دایرکتوری ریشه برنامهٔ افزودنی لازم است.</translation>
 <translation id="2445484935443597917">ایجاد نمایه جدید</translation>
@@ -1874,7 +1872,6 @@
 <translation id="3855441664322950881">فشرده کردن افزونه....</translation>
 <translation id="3855676282923585394">وارد کردن نشانک‌ها و تنظیمات...</translation>
 <translation id="3856800405688283469">انتخاب منطقه زمانی</translation>
-<translation id="3856921555429624101">اندازه‌گیری مصرف داده به پایان رسیده است</translation>
 <translation id="3857228364945137633">‏وقتی تلفنتان در اطرافتان است، برای باز کردن قفل <ph name="DEVICE_TYPE" /> بدون استفاده از گذرواژه، Smart Lock را امتحان کنید.</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />: همگام‌سازی موقتاً متوقف شد</translation>
@@ -2507,7 +2504,6 @@
 <translation id="4905417359854579806">آماده پشتیبان گرفتن از <ph name="FILE_COUNT" /> مورد</translation>
 <translation id="4907161631261076876">این فایل معمولاً بارگیری نمی‌شود و ممکن است خطرناک باشد.</translation>
 <translation id="4907306957610201395">دسته مجوز</translation>
-<translation id="4907824805858067479">سرپرستتان کارت‌های ذخیره‌شده را غیرفعال کرده است</translation>
 <translation id="4908811072292128752">برای مرور دو سایت به‌طور هم‌زمان، برگه جدیدی را باز کنید</translation>
 <translation id="4909038193460299775">‏از آن‌جا که این حساب توسط <ph name="DOMAIN" /> مدیریت می‌شود، نشانک‌ها، سابقه، گذرواژه‌ها و دیگر تنظیماتتان از این دستگاه پاک می‌شوند. اما داده‌هایتان در حساب Google ذخیره می‌مانند و می‌توانید آن‌ها را در <ph name="BEGIN_LINK" />داشبورد Google<ph name="END_LINK" /> مدیریت کنید.</translation>
 <translation id="4909359680501173791">ثبت‌نام باموفقیت انجام شد</translation>
@@ -3227,7 +3223,6 @@
 <translation id="5990386583461751448">ترجمه‌شده</translation>
 <translation id="5991049340509704927">بزرگ‌نمایی</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{برای اطمینان از اینکه همچنان می‌توانید به مرور وب بپردازید، از سرپرستتان بخواهید این برنامه را بردارد.}one{برای اطمینان از اینکه همچنان می‌توانید به مرور وب بپردازید، از سرپرستتان بخواهید این برنامه‌ها را بردارد.}other{برای اطمینان از اینکه همچنان می‌توانید به مرور وب بپردازید، از سرپرستتان بخواهید این برنامه‌ها را بردارد.}}</translation>
-<translation id="5993332328670040093">داده‌های شما دیگر اندازه‌گیری نمی‌شود</translation>
 <translation id="6002458620803359783">صداهای برگزیده</translation>
 <translation id="6005695835120147974">رهیاب رسانه</translation>
 <translation id="6006484371116297560">کلاسيک</translation>
@@ -3419,7 +3414,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413"><ph name="FILE_NAME" /> معمولاً بارگیری نمی‌شود و ممکن است خطرناک باشد.</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{چاپگر جدید در شبکه شما}one{چاپگر جدید در شبکه شما}other{چاپگر جدید در شبکه شما}}</translation>
-<translation id="6286684120317096255">درحال اندازه‌گیری میزان مصرف داده</translation>
 <translation id="6286708577777130801">جزئیات گذرواژه ذخیره‌شده</translation>
 <translation id="6287852322318138013">یک برنامه را برای باز کردن این فایل انتخاب کنید</translation>
 <translation id="6289452883081499048">‏سرویس‌های شخصی‌شده Google مانند Play</translation>
@@ -4984,7 +4978,6 @@
 <translation id="8725066075913043281">سعی مجدد</translation>
 <translation id="8725178340343806893">موارد دلخواه/نشانک‌ها</translation>
 <translation id="8726206820263995930">خطا هنگام واکشی تنظیمات خط‌مشی از سرور: <ph name="CLIENT_ERROR" />.</translation>
-<translation id="8727142376512517020">دیگر نشان داده نشود</translation>
 <translation id="8727344521467137076">‏نرم‌افزار مضری در رایانه‌تان وجود دارد. Chrome درحال حذف آن است و تنظیماتتان را بازیابی می‌کند تا عملکرد مرورگرتان دوباره عادی شود.</translation>
 <translation id="8730621377337864115">تمام</translation>
 <translation id="8732030010853991079">با کلیک کردن روی این نماد از این برنامه افزودنی استفاده کنید.</translation>

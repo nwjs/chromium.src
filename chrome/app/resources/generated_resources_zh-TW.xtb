@@ -565,7 +565,6 @@
 <translation id="1829192082282182671">縮小(&amp;O)</translation>
 <translation id="1830550083491357902">未登入</translation>
 <translation id="1832511806131704864">手機變更已更新</translation>
-<translation id="1832685970989658809">你的管理員停用了付款方式資訊自動填入功能</translation>
 <translation id="1834503245783133039">下載失敗：<ph name="FILE_NAME" /></translation>
 <translation id="1838374766361614909">清除搜尋</translation>
 <translation id="1838709767668011582">Google 網站</translation>
@@ -942,7 +941,6 @@
 <translation id="2435457462613246316">顯示密碼</translation>
 <translation id="2436186046335138073">要允許 <ph name="HANDLER_HOSTNAME" /> 開啟所有<ph name="PROTOCOL" />連結嗎？</translation>
 <translation id="2436707352762155834">最小值</translation>
-<translation id="2437139306601019091">已停止監測數據用量</translation>
 <translation id="2440604414813129000">檢視原始碼(&amp;O)</translation>
 <translation id="2445081178310039857">請指定擴充功能根目錄。</translation>
 <translation id="2445484935443597917">建立新的個人資料</translation>
@@ -1878,7 +1876,6 @@
 <translation id="3855441664322950881">封裝擴充功能</translation>
 <translation id="3855676282923585394">匯入書籤和設定...</translation>
 <translation id="3856800405688283469">選取時區</translation>
-<translation id="3856921555429624101">已停止監測數據用量</translation>
 <translation id="3857228364945137633">當手機在適當距離範圍內時，不需密碼即可使用 Smart Lock 為你的 <ph name="DEVICE_TYPE" /> 解鎖。</translation>
 <translation id="3857773447683694438">Lorem ipsum dolor sit amet, consectetur adipiscing elit.</translation>
 <translation id="3860104611854310167"><ph name="PROFILE_NAME" />：已暫停同步處理</translation>
@@ -2510,7 +2507,6 @@
 <translation id="4905417359854579806">現在可以備份 <ph name="FILE_COUNT" />了</translation>
 <translation id="4907161631261076876">一般使用者不常下載這個檔案，代表這個檔案可能不安全。</translation>
 <translation id="4907306957610201395">權限類別</translation>
-<translation id="4907824805858067479">你的管理員停用了信用卡資訊自動填入功能</translation>
 <translation id="4908811072292128752">開啟新分頁即可一次瀏覽兩個網站</translation>
 <translation id="4909038193460299775">這個帳戶是由 <ph name="DOMAIN" /> 所管理，因此系統會將你的書籤、歷史記錄、密碼和其他設定從這個裝置上清除。不過，你的資料仍會儲存在你的 Google 帳戶中，並可透過 <ph name="BEGIN_LINK" />Google 資訊主頁<ph name="END_LINK" />管理。</translation>
 <translation id="4909359680501173791">你已成功註冊</translation>
@@ -3229,7 +3225,6 @@
 <translation id="5990386583461751448">已翻譯</translation>
 <translation id="5991049340509704927">放大</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{為確保你可以持續瀏覽網路，請要求你的管理員移除這個應用程式。}other{為確保你可以持續瀏覽網路，請要求你的管理員移除這些應用程式。}}</translation>
-<translation id="5993332328670040093">系統不會再監測您的數據用量。</translation>
 <translation id="6002458620803359783">聲音偏好</translation>
 <translation id="6005695835120147974">媒體路由器</translation>
 <translation id="6006484371116297560">傳統版</translation>
@@ -3421,7 +3416,6 @@
 <translation id="6280912520669706465">ARC</translation>
 <translation id="6285120108426285413">一般使用者不常下載 <ph name="FILE_NAME" />，代表這個檔案可能不安全。</translation>
 <translation id="6285120908535925801">{NUM_PRINTER,plural, =1{您的網路上有一台新印表機}other{您的網路上有多台新印表機}}</translation>
-<translation id="6286684120317096255">正在監測數據用量</translation>
 <translation id="6286708577777130801">已儲存的密碼詳細資料</translation>
 <translation id="6287852322318138013">選取要用來開啟這個檔案的應用程式</translation>
 <translation id="6289452883081499048">享有個人化的 Google 服務，例如 Play</translation>
@@ -4984,7 +4978,6 @@
 <translation id="8725066075913043281">再試一次</translation>
 <translation id="8725178340343806893">我的收藏/書籤</translation>
 <translation id="8726206820263995930">從伺服器擷取政策設定時發生錯誤：<ph name="CLIENT_ERROR" />。</translation>
-<translation id="8727142376512517020">不要再顯示這個對話方塊</translation>
 <translation id="8727344521467137076">在你的電腦上發現有害軟體。Chrome 正在進行移除，並且會還原相關設定，讓你的瀏覽器恢復正常運作。</translation>
 <translation id="8730621377337864115">完成</translation>
 <translation id="8732030010853991079">按一下這個圖示，即可使用這項擴充功能。</translation>
