@@ -60,16 +60,16 @@ namespace {
 
 const char kChromeManageAccountsHeader[] = "X-Chrome-Manage-Accounts";
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+const char kGoogleSignoutResponseHeader[] = "Google-Accounts-SignOut";
+#endif
+
 // Key for DiceURLRequestUserData.
 const void* const kDiceURLRequestUserDataKey = &kDiceURLRequestUserDataKey;
 
 // TODO(droger): Remove this delay when the Dice implementation is finished on
 // the server side.
 int g_dice_account_reconcilor_blocked_delay_ms = 1000;
-
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
-
-const char kGoogleSignoutResponseHeader[] = "Google-Accounts-SignOut";
 
 // Refcounted wrapper to allow creating and deleting a AccountReconcilor::Lock
 // from the IO thread.
@@ -183,8 +183,6 @@ class DiceURLRequestUserData : public base::SupportsUserData::Data {
   scoped_refptr<AccountReconcilorLockWrapper> account_reconcilor_lock_wrapper_;
   DISALLOW_COPY_AND_ASSIGN(DiceURLRequestUserData);
 };
-
-#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
 
 // Processes the mirror response header on the UI thread. Currently depending
 // on the value of |header_value|, it either shows the profile avatar menu, or
@@ -472,19 +470,17 @@ void FixAccountConsistencyRequestHeader(net::URLRequest* request,
 
   // If new url is eligible to have the header, add it, otherwise remove it.
 
-#if BUILDFLAG(ENABLE_DICE_SUPPORT)
   // Dice header:
   bool dice_header_added = AppendOrRemoveDiceRequestHeader(
       request, redirect_url, account_id, io_data->IsSyncEnabled(),
       io_data->SyncHasAuthError(), account_consistency,
-      io_data->GetCookieSettings(), io_data->GetSigninScopedDeviceId());
+      io_data->GetCookieSettings());
 
   // Block the AccountReconcilor while the Dice requests are in flight. This
   // allows the DiceReponseHandler to process the response before the reconcilor
   // starts.
   if (dice_header_added)
     DiceURLRequestUserData::AttachToRequest(request);
-#endif
 
   // Mirror header:
   AppendOrRemoveMirrorRequestHeader(

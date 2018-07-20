@@ -33,7 +33,7 @@ scoped_refptr<TokenWebData> TestSigninClient::GetDatabase() {
 bool TestSigninClient::CanRevokeCredentials() { return true; }
 
 std::string TestSigninClient::GetSigninScopedDeviceId() {
-  return "DeviceID";
+  return std::string();
 }
 
 void TestSigninClient::OnSignedOut() {}

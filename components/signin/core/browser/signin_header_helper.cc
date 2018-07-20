@@ -159,8 +159,7 @@ bool AppendOrRemoveDiceRequestHeader(
     bool sync_enabled,
     bool sync_has_auth_error,
     AccountConsistencyMethod account_consistency,
-    const content_settings::CookieSettings* cookie_settings,
-    const std::string& device_id) {
+    const content_settings::CookieSettings* cookie_settings) {
 #if BUILDFLAG(ENABLE_DICE_SUPPORT)
   const GURL& url = redirect_url.is_empty() ? request->url() : redirect_url;
   DiceHeaderHelper dice_helper(
@@ -169,7 +168,7 @@ bool AppendOrRemoveDiceRequestHeader(
   std::string dice_header_value;
   if (dice_helper.ShouldBuildRequestHeader(url, cookie_settings)) {
     dice_header_value = dice_helper.BuildRequestHeader(
-        sync_enabled ? account_id : std::string(), device_id);
+        sync_enabled ? account_id : std::string());
   }
   return dice_helper.AppendOrRemoveRequestHeader(
       request, redirect_url, kDiceRequestHeader, dice_header_value);

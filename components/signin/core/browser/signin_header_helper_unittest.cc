@@ -26,10 +26,6 @@
 #include "components/signin/core/browser/dice_header_helper.h"
 #endif
 
-namespace {
-constexpr char kTestDeviceId[] = "DeviceID";
-}
-
 namespace signin {
 
 class SigninHeaderHelperTest : public testing::Test {
@@ -65,10 +61,9 @@ class SigninHeaderHelperTest : public testing::Test {
     AppendOrRemoveMirrorRequestHeader(
         url_request.get(), GURL(), account_id, account_consistency_,
         cookie_settings_.get(), PROFILE_MODE_DEFAULT);
-    AppendOrRemoveDiceRequestHeader(url_request.get(), GURL(), account_id,
-                                    sync_enabled_, sync_has_auth_error_,
-                                    account_consistency_,
-                                    cookie_settings_.get(), device_id_);
+    AppendOrRemoveDiceRequestHeader(
+        url_request.get(), GURL(), account_id, sync_enabled_,
+        sync_has_auth_error_, account_consistency_, cookie_settings_.get());
     return url_request;
   }
 
@@ -114,7 +109,6 @@ class SigninHeaderHelperTest : public testing::Test {
 
   bool sync_enabled_ = false;
   bool sync_has_auth_error_ = false;
-  std::string device_id_ = kTestDeviceId;
   AccountConsistencyMethod account_consistency_ =
       AccountConsistencyMethod::kDisabled;
 
@@ -239,18 +233,17 @@ TEST_F(SigninHeaderHelperTest, TestDiceRequest) {
   CheckDiceHeaderRequest(
       GURL("https://accounts.google.com"), "0123456789",
       "mode=0,enable_account_consistency=false",
-      base::StringPrintf(
-          "version=%s,client_id=%s,device_id=DeviceID,signin_mode=all_accounts,"
-          "signout_mode=show_confirmation",
-          kDiceProtocolVersion, client_id.c_str()));
+      base::StringPrintf("version=%s,client_id=%s,signin_mode=all_accounts,"
+                         "signout_mode=show_confirmation",
+                         kDiceProtocolVersion, client_id.c_str()));
   // Sync enabled: check that the Dice header has the Sync account ID and that
   // the mirror header is not modified.
   sync_enabled_ = true;
   CheckDiceHeaderRequest(
       GURL("https://accounts.google.com"), "0123456789",
       "mode=0,enable_account_consistency=false",
-      base::StringPrintf("version=%s,client_id=%s,device_id=DeviceID,"
-                         "sync_account_id=0123456789,signin_mode=all_accounts,"
+      base::StringPrintf("version=%s,client_id=%s,sync_account_id=0123456789,"
+                         "signin_mode=all_accounts,"
                          "signout_mode=show_confirmation",
                          kDiceProtocolVersion, client_id.c_str()));
   sync_enabled_ = false;
@@ -266,21 +259,6 @@ TEST_F(SigninHeaderHelperTest, TestNoDiceRequestWhenDisabled) {
                          "mode=0,enable_account_consistency=true", "");
 }
 
-TEST_F(SigninHeaderHelperTest, TestDiceEmptyDeviceID) {
-  account_consistency_ = AccountConsistencyMethod::kDiceMigration;
-  std::string client_id = GaiaUrls::GetInstance()->oauth2_chrome_client_id();
-  ASSERT_FALSE(client_id.empty());
-
-  device_id_.clear();
-
-  CheckDiceHeaderRequest(
-      GURL("https://accounts.google.com"), "0123456789",
-      "mode=0,enable_account_consistency=false",
-      base::StringPrintf("version=%s,client_id=%s,signin_mode=all_accounts,"
-                         "signout_mode=no_confirmation",
-                         kDiceProtocolVersion, client_id.c_str()));
-}
-
 // Tests that the signout confirmation is requested iff the Dice migration is
 // complete.
 TEST_F(SigninHeaderHelperTest, TestDiceMigration) {
@@ -292,20 +270,18 @@ TEST_F(SigninHeaderHelperTest, TestDiceMigration) {
   CheckDiceHeaderRequest(
       GURL("https://accounts.google.com"), "0123456789",
       "mode=0,enable_account_consistency=false",
-      base::StringPrintf(
-          "version=%s,client_id=%s,device_id=DeviceID,signin_mode=all_accounts,"
-          "signout_mode=no_confirmation",
-          kDiceProtocolVersion, client_id.c_str()));
+      base::StringPrintf("version=%s,client_id=%s,signin_mode=all_accounts,"
+                         "signout_mode=no_confirmation",
+                         kDiceProtocolVersion, client_id.c_str()));
 
   // Signout confirmation after the migration is complete.
   account_consistency_ = AccountConsistencyMethod::kDice;
   CheckDiceHeaderRequest(
       GURL("https://accounts.google.com"), "0123456789",
       "mode=0,enable_account_consistency=false",
-      base::StringPrintf(
-          "version=%s,client_id=%s,device_id=DeviceID,signin_mode=all_accounts,"
-          "signout_mode=show_confirmation",
-          kDiceProtocolVersion, client_id.c_str()));
+      base::StringPrintf("version=%s,client_id=%s,signin_mode=all_accounts,"
+                         "signout_mode=show_confirmation",
+                         kDiceProtocolVersion, client_id.c_str()));
 }
 
 // Tests that a Dice request is returned only when there is an authentication
@@ -333,8 +309,8 @@ TEST_F(SigninHeaderHelperTest, TestDiceFixAuthError) {
   CheckDiceHeaderRequest(
       GURL("https://accounts.google.com"), "0123456789",
       "mode=0,enable_account_consistency=false",
-      base::StringPrintf("version=%s,client_id=%s,device_id=DeviceID,"
-                         "sync_account_id=0123456789,signin_mode=sync_account,"
+      base::StringPrintf("version=%s,client_id=%s,sync_account_id=0123456789,"
+                         "signin_mode=sync_account,"
                          "signout_mode=no_confirmation",
                          kDiceProtocolVersion, client_id.c_str()));
 }

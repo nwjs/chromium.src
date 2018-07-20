@@ -13,7 +13,6 @@
 #include "base/macros.h"
 #include "base/memory/weak_ptr.h"
 #include "base/metrics/histogram_macros.h"
-#include "build/build_config.h"
 #include "components/pref_registry/pref_registry_syncable.h"
 #include "components/prefs/pref_service.h"
 #include "components/signin/core/browser/signin_client.h"
@@ -358,12 +357,6 @@ MutableProfileOAuth2TokenServiceDelegate::
   backoff_policy_.entry_lifetime_ms = -1;
   backoff_policy_.always_use_initial_delay = false;
   net::NetworkChangeNotifier::AddNetworkChangeObserver(this);
-
-#if !defined(OS_CHROMEOS)
-  // Ensure the device ID is not empty.
-  std::string device_id = client_->GetSigninScopedDeviceId();
-  DCHECK(!device_id.empty());
-#endif
 }
 
 MutableProfileOAuth2TokenServiceDelegate::
@@ -492,7 +485,7 @@ void MutableProfileOAuth2TokenServiceDelegate::LoadCredentials(
           account_consistency_,
           signin::AccountConsistencyMethod::kDicePrepareMigration)) {
     load_credentials_state_ = LOAD_CREDENTIALS_FINISHED_WITH_SUCCESS;
-    FinishLoadingCredentials();
+    FireRefreshTokensLoaded();
     return;
   }
 
@@ -508,7 +501,7 @@ void MutableProfileOAuth2TokenServiceDelegate::LoadCredentials(
     // This case only exists in unit tests that do not care about loading
     // credentials.
     load_credentials_state_ = LOAD_CREDENTIALS_FINISHED_WITH_UNKNOWN_ERRORS;
-    FinishLoadingCredentials();
+    FireRefreshTokensLoaded();
     return;
   }
 
@@ -578,7 +571,7 @@ void MutableProfileOAuth2TokenServiceDelegate::OnWebDataServiceRequestDone(
   }
 
   loading_primary_account_id_.clear();
-  FinishLoadingCredentials();
+  FireRefreshTokensLoaded();
 }
 
 void MutableProfileOAuth2TokenServiceDelegate::LoadAllCredentialsIntoMemory(
@@ -830,9 +823,6 @@ void MutableProfileOAuth2TokenServiceDelegate::RevokeCredentials(
     ClearPersistedCredentials(account_id);
     FireRefreshTokenRevoked(account_id);
   }
-
-  // If this was the last token, recreate the device ID.
-  RecreateDeviceIdIfNeeded();
 }
 
 void MutableProfileOAuth2TokenServiceDelegate::ClearPersistedCredentials(
@@ -895,42 +885,4 @@ void MutableProfileOAuth2TokenServiceDelegate::AddAccountStatus(
   status->Initialize();
   status->SetLastAuthError(error);
   FireAuthErrorChanged(account_id, status->GetAuthStatus());
-}
-
-void MutableProfileOAuth2TokenServiceDelegate::RecreateDeviceIdIfNeeded() {
-#if !defined(OS_CHROMEOS)
-  // Re-create a new device ID if needed.
-  switch (load_credentials_state_) {
-    case LOAD_CREDENTIALS_UNKNOWN:
-    case LOAD_CREDENTIALS_NOT_STARTED:
-    case LOAD_CREDENTIALS_IN_PROGRESS:
-      // TODO(droger): Add a DCHECK here, because this would mean that the token
-      // service is being used before tokens are loaded. This currently would
-      // fire in tests though.
-      return;
-    case LOAD_CREDENTIALS_FINISHED_WITH_DB_ERRORS:
-    case LOAD_CREDENTIALS_FINISHED_WITH_DECRYPT_ERRORS:
-      // Do not recreate a new device ID if Chrome fails to decrypt tokens as it
-      // may successfully load them on the next restart.
-      return;
-    case LOAD_CREDENTIALS_FINISHED_WITH_SUCCESS:
-    case LOAD_CREDENTIALS_FINISHED_WITH_NO_TOKEN_FOR_PRIMARY_ACCOUNT:
-    case LOAD_CREDENTIALS_FINISHED_WITH_UNKNOWN_ERRORS:
-      // this is the only case when we recreate the device ID.
-      if (GetAccounts().empty())
-        client_->RecreateSigninScopedDeviceId();
-  }
-#endif
-}
-
-void MutableProfileOAuth2TokenServiceDelegate::FinishLoadingCredentials() {
-  DCHECK(load_credentials_state_ != LOAD_CREDENTIALS_UNKNOWN);
-  DCHECK(load_credentials_state_ != LOAD_CREDENTIALS_NOT_STARTED);
-  DCHECK(load_credentials_state_ != LOAD_CREDENTIALS_IN_PROGRESS);
-
-  // Ensure the device ID is not empty, and recreate it if all tokens were
-  // cleared during the loading process.
-  RecreateDeviceIdIfNeeded();
-
-  FireRefreshTokensLoaded();
 }

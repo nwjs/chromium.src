@@ -531,12 +531,6 @@ void ProfileIOData::InitializeOnUIThread(Profile* profile) {
       dice_enabled_->MoveToThread(io_task_runner);
   }
 
-#if !defined(OS_CHROMEOS)
-  signin_scoped_device_id_.Init(prefs::kGoogleServicesSigninScopedDeviceId,
-                                pref_service);
-  signin_scoped_device_id_.MoveToThread(io_task_runner);
-#endif
-
   network_prediction_options_.Init(prefs::kNetworkPredictionOptions,
                                    pref_service);
 
@@ -937,12 +931,6 @@ bool ProfileIOData::IsSyncEnabled() const {
 bool ProfileIOData::SyncHasAuthError() const {
   return sync_has_auth_error_.GetValue();
 }
-
-#if !defined(OS_CHROMEOS)
-std::string ProfileIOData::GetSigninScopedDeviceId() const {
-  return signin_scoped_device_id_.GetValue();
-}
-#endif
 
 bool ProfileIOData::IsOffTheRecord() const {
   return profile_type() == Profile::INCOGNITO_PROFILE
@@ -1370,9 +1358,6 @@ void ProfileIOData::ShutdownOnUIThread(
   if (dice_enabled_)
     dice_enabled_->Destroy();
   enable_referrers_.Destroy();
-#if !defined(OS_CHROMEOS)
-  signin_scoped_device_id_.Destroy();
-#endif
   force_google_safesearch_.Destroy();
   force_youtube_restrict_.Destroy();
   allowed_domains_for_apps_.Destroy();

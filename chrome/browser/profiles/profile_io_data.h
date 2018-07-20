@@ -191,10 +191,6 @@ class ProfileIOData {
 
   BooleanPrefMember* dice_enabled() const { return dice_enabled_.get(); }
 
-#if !defined(OS_CHROMEOS)
-  std::string GetSigninScopedDeviceId() const;
-#endif
-
 #if defined(OS_CHROMEOS)
   std::string username_hash() const {
     return username_hash_;
@@ -572,10 +568,6 @@ class ProfileIOData {
   mutable BooleanPrefMember sync_suppress_start_;
   mutable BooleanPrefMember sync_first_setup_complete_;
   mutable std::unique_ptr<BooleanPrefMember> dice_enabled_;
-
-#if !defined(OS_CHROMEOS)
-  mutable StringPrefMember signin_scoped_device_id_;
-#endif
 
   // Member variables which are pointed to by the various context objects.
   mutable BooleanPrefMember enable_referrers_;
