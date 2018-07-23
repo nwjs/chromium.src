@@ -531,7 +531,7 @@
 <translation id="5639724618331995626">همه سایت‌ها مجاز هستند</translation>
 <translation id="5648166631817621825">۷ روز گذشته</translation>
 <translation id="5655963694829536461">بارگیری‌هایتان را جستجو کنید</translation>
-<translation id="5659593005791499971">رایانامه</translation>
+<translation id="5659593005791499971">ایمیل</translation>
 <translation id="5665379678064389456">ایجاد رویداد در <ph name="APP_NAME" /></translation>
 <translation id="5668404140385795438">لغو درخواست وب‌سایت برای جلوگیری از بزرگ‌نمایی</translation>
 <translation id="5676636989614905379">ویدئو در <ph name="SCREEN_NAME" /> پخش نمی‌شود.</translation>
@@ -598,7 +598,7 @@
 <translation id="618555311922999635">پانل پیمایش کاملاً باز شد</translation>
 <translation id="6192333916571137726">فایل بارگیری</translation>
 <translation id="6192792657125177640">موارد استثنا</translation>
-<translation id="6210748933810148297"><ph name="EMAIL" /> رایانامه شما نیست؟</translation>
+<translation id="6210748933810148297"><ph name="EMAIL" /> ایمیل شما نیست؟</translation>
 <translation id="6216432067784365534">گزینه‌های <ph name="NAME_OF_LIST_ITEM" /></translation>
 <translation id="6221633008163990886">برای صادر کردن گذرواژه‌ها، قفل را باز کنید</translation>
 <translation id="6232535412751077445">فعال کردن «ردیابی نشود» به این معنی است که درخواستی به ترافیک مرور شما اضافه می‌شود. هر گونه اثری به این بستگی دارد که وب‌سایت به درخواست‌ پاسخ می‌دهد یا نه و درخواست چگونه تفسیر می‌شود.
@@ -773,7 +773,7 @@
 <translation id="7658239707568436148">لغو</translation>
 <translation id="7665369617277396874">افزودن حساب</translation>
 <translation id="7682724950699840886">نکات زیر را امتحان کنید: مطمئن شوید که در دستگاهتان فضای کافی وجود داشته باشد، سعی کنید دوباره صادر کنید.</translation>
-<translation id="7698359219371678927">ایجاد رایانامه در <ph name="APP_NAME" /></translation>
+<translation id="7698359219371678927">ایجاد ایمیل در <ph name="APP_NAME" /></translation>
 <translation id="773466115871691567">صفحه‌های <ph name="SOURCE_LANGUAGE" /> همیشه ترجمه شوند</translation>
 <translation id="7735672056998735387"><ph name="SPACE_FREE" /> (<ph name="SPACE_OTHER" />)</translation>
 <translation id="7754704193130578113">قبل از بارگیری هر فایل، درباره مکان ذخیره سؤال شود</translation>
@@ -791,7 +791,7 @@
 <translation id="7846076177841592234">لغو انتخاب</translation>
 <translation id="784934925303690534">محدوده زمانی</translation>
 <translation id="7851858861565204677">دستگاه‌های دیگر</translation>
-<translation id="7875915731392087153">ایجاد رایانامه</translation>
+<translation id="7875915731392087153">ایجاد ایمیل</translation>
 <translation id="7876243839304621966">حذف همه</translation>
 <translation id="7882131421121961860">هیچ سابقه‌ای پیدا نشد</translation>
 <translation id="7882806643839505685">پخش صدا برای سایتی خاص مجاز شود.</translation>

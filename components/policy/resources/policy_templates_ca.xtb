@@ -324,13 +324,13 @@
 <translation id="2082205219176343977">Configura la versió mínima de Chrome que es permet al dispositiu.</translation>
 <translation id="209586405398070749">Canal estable</translation>
 <translation id="2098658257603918882">Activa la creació d'informes d'ús i de dades relacionades amb bloqueigs</translation>
-<translation id="2111016292707172233">Permet que la funció Tocar per cercar estigui disponible a la visualització de contingut a <ph name="PRODUCT_NAME" />.
+<translation id="2111016292707172233">Permet que la funció Toca per cercar estigui disponible a la visualització de contingut a <ph name="PRODUCT_NAME" />.
 
-      Si actives aquesta opció, l'usuari veurà la funció Tocar per cercar i podrà activar-la i desactivar-la.
+Si actives aquesta opció, l'usuari veurà la funció Toca per cercar i podrà activar-la i desactivar-la.
 
-      Si desactives aquesta opció, la funció Tocar per cercar estarà totalment desactivada.
+Si desactives aquesta opció, la funció Toca per cercar estarà totalment desactivada.
 
-      Deixar aquesta política sense establir és igual que activar l'opció, amb el funcionament descrit abans.</translation>
+Deixar aquesta política sense establir és igual que activar l'opció, amb el funcionament descrit abans.</translation>
 <translation id="2113068765175018713">Limita el temps d'activitat del dispositiu mitjançant el reinici automàtic</translation>
 <translation id="2127599828444728326">Permet les notificacions en aquests llocs</translation>
 <translation id="2131902621292742709">Retard d'atenuació de pantalla quan s'utilitza bateria</translation>
@@ -1012,7 +1012,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
      Especifica les extensions que s'instal·len automàticament per a l'usuari de la demostració en els dispositius en mode de venda. Aquestes extensions es desen al dispositiu i es poden instal·lar fora de línia, després de la instal·lació.
 
       Cada entrada de la llista conté un diccionari que ha d'incloure l'identificador de l'extensió al camp "extension-id" i l'URL d'actualització al camp "update-url".</translation>
-<translation id="3874773863217952418">Activa Tocar per cercar</translation>
+<translation id="3874773863217952418">Activa Toca per cercar</translation>
 <translation id="3877517141460819966">Mode d'autenticació de dos factors integrat</translation>
 <translation id="388237772682176890">Aquesta política es considera obsoleta a M53 i s'ha suprimit a M54, perquè el protocol SPDY/3.1 ja no s'admet.
 

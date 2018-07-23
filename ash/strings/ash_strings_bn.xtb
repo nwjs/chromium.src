@@ -193,7 +193,7 @@
 <translation id="5331975486040154427">USB-C ডিভাইস (বাঁ দিকের পিছনের পোর্ট)</translation>
 <translation id="5397578532367286026">chrome.com এ পরিচালক (<ph name="MANAGER_EMAIL" />) এই ব্যবহারকারীর ব্যবহার এবং ইতিহাস পর্যালোচনা করতে পারেন৷</translation>
 <translation id="5430931332414098647">ঝটপট টিথারিং</translation>
-<translation id="5431825016875453137">VPN / L2TP খুলুন</translation>
+<translation id="5431825016875453137">OpenVPN / L2TP</translation>
 <translation id="544691375626129091">সমস্ত উপলব্ধ ব্যবহারকারীকে ইতিমধ্যেই এই সেশনে যোগ করা হয়েছে৷</translation>
 <translation id="5457599981699367932">অতিথি হিসাবে ব্রাউজ করুন</translation>
 <translation id="54609108002486618">পরিচালিত</translation>
@@ -286,7 +286,7 @@
 <translation id="7256634071279256947">পেছনের মাইক্রোফোন</translation>
 <translation id="726276584504105859">বিভক্ত স্ক্রিন ব্যবহার করতে এখানে টেনে আনুন</translation>
 <translation id="7348093485538360975">অন-স্ক্রীণ কীবোর্ড</translation>
-<translation id="735745346212279324">VPN সংযোগ বিচ্ছিন্ন করা হয়েছে</translation>
+<translation id="735745346212279324">VPN ডিসকানেক্ট করা হয়েছে</translation>
 <translation id="7377169924702866686">Caps Lock চালু আছে৷</translation>
 <translation id="742594950370306541">ক্যামেরা ব্যবহার করা হচ্ছে।</translation>
 <translation id="743058460480092004">ক্যামেরা এবং মাইক্রোফোন ব্যবহার করা হচ্ছে।</translation>

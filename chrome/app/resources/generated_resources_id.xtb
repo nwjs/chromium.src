@@ -1569,7 +1569,7 @@ Saya rasa situs ini tidak perlu diblokir!</translation>
 <translation id="3399432415385675819">Notifikasi akan dinonaktifkan</translation>
 <translation id="340282674066624"><ph name="DOWNLOAD_RECEIVED" />, <ph name="TIME_LEFT" /></translation>
 <translation id="3404065873681873169">Tidak ada sandi yang tersimpan untuk situs ini</translation>
-<translation id="340485819826776184">Gunakan layanan prediksi untuk membantu melengkapi penelusuran dan URL yang dimasukkan di bilah alamat</translation>
+<translation id="340485819826776184">Gunakan layanan prediksi untuk membantu melengkapi penelusuran dan URL yang dimasukkan di kolom URL</translation>
 <translation id="3405664148539009465">Sesuaikan font</translation>
 <translation id="3405763860805964263">...</translation>
 <translation id="3406605057700382950">&amp;Tampilkan bilah bookmark</translation>
@@ -4829,7 +4829,7 @@ Simpan file kunci Anda di tempat yang aman. Anda akan membutuhkannya untuk membu
 <translation id="8420060421540670057">Tampilkan file Google Dokumen</translation>
 <translation id="8424039430705546751">ke bawah</translation>
 <translation id="8425213833346101688">Ubah</translation>
-<translation id="8425492902634685834">Sematkan ke Bilah Tugas</translation>
+<translation id="8425492902634685834">Pasang Pin ke Taskbar</translation>
 <translation id="8425755597197517046">Tempel dan Telu&amp;suri</translation>
 <translation id="8426713856918551002">Mengaktifkan</translation>
 <translation id="8427292751741042100">disematkan di host mana saja</translation>
