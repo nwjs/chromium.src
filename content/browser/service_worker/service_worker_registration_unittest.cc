@@ -460,7 +460,7 @@ TEST_F(ServiceWorkerActivationTest, NoInflightRequest) {
 
   // Remove the controllee. Since there is an in-flight request,
   // activation should not yet happen.
-  version_1->RemoveControllee(controllee());
+  version_1->RemoveControllee(controllee()->client_uuid());
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(version_1.get(), reg->active_version());
 
@@ -485,7 +485,7 @@ TEST_F(ServiceWorkerActivationTest, NoControllee) {
   EXPECT_EQ(version_1.get(), reg->active_version());
 
   // Remove the controllee. Activation should happen.
-  version_1->RemoveControllee(controllee());
+  version_1->RemoveControllee(controllee()->client_uuid());
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(version_2.get(), reg->active_version());
 }
@@ -615,7 +615,7 @@ TEST_F(ServiceWorkerActivationTest, LameDuckTime_NoControllee) {
   // Remove the controllee. Since there is still an in-flight request,
   // activation should not happen. But the lame duck timer should start.
   EXPECT_FALSE(IsLameDuckTimerRunning());
-  version_1->RemoveControllee(controllee());
+  version_1->RemoveControllee(controllee()->client_uuid());
   base::RunLoop().RunUntilIdle();
   EXPECT_EQ(version_1.get(), reg->active_version());
   EXPECT_TRUE(IsLameDuckTimerRunning());
@@ -630,7 +630,7 @@ TEST_F(ServiceWorkerActivationTest, LameDuckTime_NoControllee) {
   EXPECT_TRUE(IsLameDuckTimerRunning());
 
   // Remove the controllee.
-  version_1->RemoveControllee(controllee());
+  version_1->RemoveControllee(controllee()->client_uuid());
   base::RunLoop().RunUntilIdle();
   EXPECT_TRUE(IsLameDuckTimerRunning());
 

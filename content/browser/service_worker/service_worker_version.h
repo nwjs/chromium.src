@@ -29,6 +29,7 @@
 #include "base/timer/timer.h"
 #include "content/browser/service_worker/embedded_worker_instance.h"
 #include "content/browser/service_worker/embedded_worker_status.h"
+#include "content/browser/service_worker/service_worker_client_info.h"
 #include "content/browser/service_worker/service_worker_client_utils.h"
 #include "content/browser/service_worker/service_worker_context_request_handler.h"
 #include "content/browser/service_worker/service_worker_metrics.h"
@@ -159,11 +160,15 @@ class CONTENT_EXPORT ServiceWorkerVersion
                                         const base::string16& message,
                                         int line_number,
                                         const GURL& source_url) {}
+    // OnControlleeAdded/Removed are called asynchronously. It is possible the
+    // provider host identified by |client_uuid| was already destroyed when they
+    // are called.
     virtual void OnControlleeAdded(ServiceWorkerVersion* version,
-                                   ServiceWorkerProviderHost* provider_host) {}
-    virtual void OnControlleeRemoved(ServiceWorkerVersion* version,
-                                     ServiceWorkerProviderHost* provider_host) {
+                                   const std::string& client_uuid,
+                                   const ServiceWorkerClientInfo& client_info) {
     }
+    virtual void OnControlleeRemoved(ServiceWorkerVersion* version,
+                                     const std::string& client_uuid) {}
     virtual void OnNoControllees(ServiceWorkerVersion* version) {}
     virtual void OnNoWork(ServiceWorkerVersion* version) {}
     virtual void OnCachedMetadataUpdated(ServiceWorkerVersion* version,
@@ -346,9 +351,9 @@ class CONTENT_EXPORT ServiceWorkerVersion
     return controller_ptr_.get();
   }
 
-  // Adds and removes |provider_host| as a controllee of this ServiceWorker.
+  // Adds and removes the specified host as a controllee of this service worker.
   void AddControllee(ServiceWorkerProviderHost* provider_host);
-  void RemoveControllee(ServiceWorkerProviderHost* provider_host);
+  void RemoveControllee(const std::string& client_uuid);
 
   // Returns if it has controllee.
   bool HasControllee() const { return !controllee_map_.empty(); }
@@ -725,6 +730,10 @@ class CONTENT_EXPORT ServiceWorkerVersion
   void OnNoWorkInBrowser();
 
   bool IsStartWorkerAllowed() const;
+
+  void NotifyControlleeAdded(const std::string& uuid,
+                             const ServiceWorkerClientInfo& info);
+  void NotifyControlleeRemoved(const std::string& uuid);
 
   const int64_t version_id_;
   const int64_t registration_id_;

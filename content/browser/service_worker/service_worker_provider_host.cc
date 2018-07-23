@@ -271,13 +271,11 @@ ServiceWorkerProviderHost::~ServiceWorkerProviderHost() {
 
   if (context_)
     context_->UnregisterProviderHostByClientID(client_uuid_);
+  if (controller_)
+    controller_->RemoveControllee(client_uuid_);
 
-  // Clear docurl so the deferred activation of a waiting worker
-  // won't associate the new version with a provider being destroyed.
-  document_url_ = GURL();
-  if (controller_.get())
-    controller_->RemoveControllee(this);
-
+  // Remove |this| as an observer of ServiceWorkerRegistrations.
+  // TODO(falken): Use ScopedObserver instead of this explicit call.
   RemoveAllMatchingRegistrations();
 }
 
@@ -393,7 +391,7 @@ void ServiceWorkerProviderHost::SetControllerVersionAttribute(
     version->AddControllee(this);
 
   if (previous_version.get())
-    previous_version->RemoveControllee(this);
+    previous_version->RemoveControllee(client_uuid_);
 
   // SetController message should be sent only for clients.
   DCHECK(IsProviderForClient());
