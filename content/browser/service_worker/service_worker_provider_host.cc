@@ -285,7 +285,7 @@ ServiceWorkerProviderHost::~ServiceWorkerProviderHost() {
   // associated with the ServiceWorkerEventDispatcher interface, which can
   // be destroyed while in this destructor (|running_hosted_version_|'s
   // |event_dispatcher_|). See https://crbug.com/854993.
-  service_worker_object_hosts_.clear();
+  handles_.clear();
   registration_object_hosts_.clear();
 }
 
