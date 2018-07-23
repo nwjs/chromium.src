@@ -195,6 +195,7 @@
 <translation id="4544944664594876241">स्‍क्रीन को लॉक करने का शॉर्टकट बदल गया है. कृपया <ph name="OLD_SHORTCUT" /> के बजाय <ph name="NEW_SHORTCUT" /> का उपयोग करें.</translation>
 <translation id="4564869809620998694">फ़ॉन्ट सेवा</translation>
 <translation id="4570957409596482333">चुनें और सुनें बटन</translation>
+<translation id="4585337515783392668">ऐसे रिसीवर पर कास्ट करना बंद करें जिसकी जानकारी नहीं है</translation>
 <translation id="4628757576491864469">डिवाइस</translation>
 <translation id="4659419629803378708">ChromeVox सक्षम है</translation>
 <translation id="4734965478015604180">क्षैतिज</translation>
@@ -241,6 +242,7 @@
 <translation id="5805697420284793859">विंडो मैनेजर</translation>
 <translation id="5820394555380036790">क्रोमियम OS</translation>
 <translation id="5832805196449965646">व्‍यक्ति जोड़ें</translation>
+<translation id="5837036133683224804"><ph name="RECEIVER_NAME" /> पर <ph name="ROUTE_TITLE" /> बंद करें</translation>
 <translation id="5860033963881614850">बंद</translation>
 <translation id="5895138241574237353">पुन: प्रारंभ करें</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
@@ -277,6 +279,7 @@
 <translation id="639644700271529076">CAPS LOCK बंद है</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="643147933154517414">सभी पूरे हो गए</translation>
+<translation id="6445835306623867477"><ph name="RECEIVER_NAME" /> पर <ph name="ROUTE_TITLE" /></translation>
 <translation id="6452181791372256707">अस्‍वीकार करें</translation>
 <translation id="6453179446719226835">भाषा बदल दी गई है</translation>
 <translation id="6459472438155181876"><ph name="DISPLAY_NAME" /> पर स्क्रीन विस्तृत कर रहा है</translation>
@@ -373,6 +376,7 @@
 <translation id="8351131234907093545">नोट बनाएं</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> के लिए विकल्प मेनू</translation>
 <translation id="8406981827175133772">फ़ुलस्क्रीन पर सामग्री को बड़ा दिखाने की सुविधा</translation>
+<translation id="8427213022735114808">'डिक्टेशन (आप जो बोलते हैं उसे लिखना)' सुविधा आपकी आवाज़ Google को भेजती है ताकि किसी भी लेख फ़ील्ड में बोलकर लिखा जा सके.</translation>
 <translation id="8428213095426709021">सेटिंग</translation>
 <translation id="8431190899827883166">टैप दिखाएं</translation>
 <translation id="8433186206711564395">नेटवर्क सेटिंग</translation>
@@ -414,6 +418,7 @@
 <translation id="9111102763498581341">अनलॉक करें</translation>
 <translation id="9151726767154816831">अपडेट करने के लिए पुनः प्रारंभ करें और पावरवॉश करें</translation>
 <translation id="9179259655489829027">यह फ़ीचर आपको पासवर्ड के बिना किसी भी साइन इन किए हुए उपयोगकर्ता को जल्दी से एक्सेस करने देता है. इस फ़ीचर का इस्तेमाल सिर्फ़ अपने भरोसेमंद खातों के साथ करें.</translation>
+<translation id="9193626018745640770">ऐसे रिसीवर पर कास्ट किया जा रहा है जिसकी जानकारी नहीं है</translation>
 <translation id="9194617393863864469">किसी अन्‍य उपयोगकर्ता में रूप में साइन इन करें...</translation>
 <translation id="9201131092683066720">बैटरी <ph name="PERCENTAGE" />% भरी हुई है.</translation>
 <translation id="9210037371811586452">संयुक्त डेस्कटॉप मोड से बाहर निकाला जा रहा है</translation>

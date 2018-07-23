@@ -583,6 +583,7 @@
 <translation id="5089810972385038852">都道府県 / 州</translation>
 <translation id="5094747076828555589">このサーバーが <ph name="DOMAIN" /> であることを確認できませんでした。このサーバーのセキュリティ証明書は Chromium によって信頼されているものではありません。原因としては、不適切な設定や、悪意のあるユーザーによる接続妨害が考えられます。</translation>
 <translation id="5095208057601539847">地方</translation>
+<translation id="5098332213681597508">Google アカウントで設定されている名前です。</translation>
 <translation id="5115563688576182185">（64 ビット）</translation>
 <translation id="5121084798328133320">確認後、Google Payments アカウントのカード情報がこのサイトと共有されます。</translation>
 <translation id="5128122789703661928">セッションの名前が有効でないため、削除できません。</translation>
@@ -668,6 +669,7 @@
 <translation id="5633066919399395251"><ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> では現在、悪意のあるユーザーによって、お使いのパソコン上に危険なプログラム（写真、パスワード、メッセージ、クレジット カードなどの情報を盗んだり削除したりするプログラム）がインストールされる可能性があります。<ph name="BEGIN_LEARN_MORE_LINK" />詳細<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="563324245173044180">不正の可能性があるコンテンツがブロックされました。</translation>
 <translation id="5659593005791499971">メール</translation>
+<translation id="5666899935841546222">すべてのカードを 1 か所で管理しますか？</translation>
 <translation id="5675650730144413517">このページは動作していません</translation>
 <translation id="5685654322157854305">配送先住所を追加</translation>
 <translation id="5689199277474810259">JSON にエクスポート</translation>

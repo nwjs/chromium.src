@@ -195,6 +195,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4544944664594876241">Ekraani lukustamise otseteed on muudetud. Kasutage vana otsetee <ph name="OLD_SHORTCUT" /> asemel uut otseteed <ph name="NEW_SHORTCUT" />.</translation>
 <translation id="4564869809620998694">Fonditeenus</translation>
 <translation id="4570957409596482333">Nupp Vali ja kuula</translation>
+<translation id="4585337515783392668">Katkesta ülekandmine tundmatus vastuvõtjas</translation>
 <translation id="4628757576491864469">Seadmed</translation>
 <translation id="4659419629803378708">ChromeVox on lubatud</translation>
 <translation id="4734965478015604180">Horisontaalne</translation>
@@ -241,6 +242,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="5805697420284793859">Aknahaldur</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Lisa inimene</translation>
+<translation id="5837036133683224804">Katkesta <ph name="ROUTE_TITLE" /> asukohas <ph name="RECEIVER_NAME" /></translation>
 <translation id="5860033963881614850">Väljas</translation>
 <translation id="5895138241574237353">Taaskäivitamine</translation>
 <translation id="5901316534475909376">Tõstuklahv + ESC</translation>
@@ -277,6 +279,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="639644700271529076">SUURTÄHELUKK on välja lülitatud</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="643147933154517414">Kõik on valmis</translation>
+<translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> asukohas <ph name="RECEIVER_NAME" /></translation>
 <translation id="6452181791372256707">Lükka tagasi</translation>
 <translation id="6453179446719226835">Keelt muudeti</translation>
 <translation id="6459472438155181876">Ekraani laiendamine seadmesse <ph name="DISPLAY_NAME" /></translation>
@@ -373,6 +376,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="8351131234907093545">Märkme loomine</translation>
 <translation id="8392451568018454956">Konto <ph name="USER_EMAIL_ADDRESS" /> valikute menüü</translation>
 <translation id="8406981827175133772">Täisekraani luup</translation>
+<translation id="8427213022735114808">Dikteerimisel saadetakse teie hääl Google'ile, et lubada häälsisestus kõigil tekstiväljadel.</translation>
 <translation id="8428213095426709021">Seaded</translation>
 <translation id="8431190899827883166">Puudutuste kuvamine</translation>
 <translation id="8433186206711564395">Võrguseaded</translation>
@@ -414,6 +418,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="9111102763498581341">Ava lukk</translation>
 <translation id="9151726767154816831">Värskendamiseks tuleb arvuti taaskäivitada ja teha Powerwash</translation>
 <translation id="9179259655489829027">See funktsioon võimaldab teil parooli sisestamata pääseda kiirelt juurde kõigile sisselogitud kasutajatele. Kasutage seda funktsiooni vaid kontode puhul, mida usaldate.</translation>
+<translation id="9193626018745640770">Ülekandmine tundmatus vastuvõtjas</translation>
 <translation id="9194617393863864469">Logi sisse teine kasutaja ...</translation>
 <translation id="9201131092683066720">Aku on <ph name="PERCENTAGE" />% täis.</translation>
 <translation id="9210037371811586452">Ühendatud töölaua režiimist väljumine</translation>

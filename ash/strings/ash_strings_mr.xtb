@@ -194,6 +194,7 @@
 <translation id="4544944664594876241">स्क्रीन लॉक करण्‍याचा शॉर्टकट बदलला आहे. कृपया <ph name="OLD_SHORTCUT" /> ऐवजी <ph name="NEW_SHORTCUT" /> वापरा.</translation>
 <translation id="4564869809620998694">फॉन्ट सेवा</translation>
 <translation id="4570957409596482333">बोलण्यासाठी निवडा बटण</translation>
+<translation id="4585337515783392668">एखाद्या अज्ञात मिळवणाऱ्यावर कास्ट करणे थांबवा</translation>
 <translation id="4628757576491864469">डिव्हाइसेस</translation>
 <translation id="4659419629803378708">ChromeVox चालू केले</translation>
 <translation id="4734965478015604180">आडवा</translation>
@@ -240,6 +241,7 @@
 <translation id="5805697420284793859">विंडो व्यवस्थापक</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">व्यक्ती जोडा</translation>
+<translation id="5837036133683224804"><ph name="RECEIVER_NAME" /> वर <ph name="ROUTE_TITLE" /> थांबवा</translation>
 <translation id="5860033963881614850">बंद</translation>
 <translation id="5895138241574237353">रीस्टार्ट करा</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
@@ -276,6 +278,7 @@
 <translation id="639644700271529076">CAPS LOCK बंद आहे</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="643147933154517414">सर्व पूर्ण झाले</translation>
+<translation id="6445835306623867477"><ph name="RECEIVER_NAME" /> वर <ph name="ROUTE_TITLE" /></translation>
 <translation id="6452181791372256707">नाकारा</translation>
 <translation id="6453179446719226835">भाषा बदलण्यात आली आहे</translation>
 <translation id="6459472438155181876"><ph name="DISPLAY_NAME" /> मध्ये स्क्रीन विस्तृत करत आहे</translation>
@@ -372,6 +375,7 @@
 <translation id="8351131234907093545">टीप तयार करा</translation>
 <translation id="8392451568018454956"><ph name="USER_EMAIL_ADDRESS" /> साठी पर्याय मेनू</translation>
 <translation id="8406981827175133772">फुलस्क्रीन मॅग्निफायर</translation>
+<translation id="8427213022735114808">कोणत्याही मजकूर फील्डमध्ये व्हॉइस टायपिंगची अनुमती देण्यासाठी डिक्टेशन तुमचा व्हॉइस Google ला पाठवेल.</translation>
 <translation id="8428213095426709021">सेटिंग्ज</translation>
 <translation id="8431190899827883166">टॅप दाखवा</translation>
 <translation id="8433186206711564395">नेटवर्क सेटिंग्ज</translation>
@@ -413,6 +417,7 @@
 <translation id="9111102763498581341">अनलॉक करा</translation>
 <translation id="9151726767154816831">अद्यतनासाठी रीस्टार्ट करा आणि powerwash करा</translation>
 <translation id="9179259655489829027">हे वैशिष्ट्य तुम्हाला पासवर्ड शिवाय कोणत्याही साइन-इन केलेल्या वापरकर्त्यास जलदपणे अॅक्सेस करण्याची अनुमती देते. तुमचा विश्वास असलेल्या खात्यांसाठीच फक्त या वैशिष्ट्याचा वापर करा.</translation>
+<translation id="9193626018745640770">एका अज्ञात मिळवणाऱ्यावर कास्ट करत आहे</translation>
 <translation id="9194617393863864469">दुसरा वापरकर्ता साइन इन करा...</translation>
 <translation id="9201131092683066720">बॅटरी <ph name="PERCENTAGE" />% भरली आहे.</translation>
 <translation id="9210037371811586452">एकीकृत डेस्कटॉप मोड मधून बाहेर पडत आहे</translation>

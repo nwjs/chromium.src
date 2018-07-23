@@ -579,6 +579,7 @@
 <translation id="5089810972385038852">Staat</translation>
 <translation id="5094747076828555589">De server kan niet bewijzen dat dit <ph name="DOMAIN" /> is. Het beveiligingscertificaat van de server wordt niet vertrouwd door Chromium. Dit kan worden veroorzaakt door een verkeerde configuratie of een aanvaller die je verbinding onderschept.</translation>
 <translation id="5095208057601539847">Provincie</translation>
+<translation id="5098332213681597508">Dit is de naam die in je Google-account staat.</translation>
 <translation id="5115563688576182185">(64-bits)</translation>
 <translation id="5121084798328133320">Nadat je hebt bevestigd, worden de kaartgegevens van je Google-betalingsaccount gedeeld met deze site.</translation>
 <translation id="5128122789703661928">De naam van deze sessie die je wilt verwijderen, is ongeldig.</translation>
@@ -664,6 +665,7 @@
 <translation id="5633066919399395251">Cybercriminelen op <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" /> proberen mogelijk gevaarlijke programma's op je computer te installeren waarmee je gegevens kunnen worden gestolen of verwijderd (bijvoorbeeld foto's, wachtwoorden, berichten en creditcardgegevens). <ph name="BEGIN_LEARN_MORE_LINK" />Meer informatie<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="563324245173044180">Misleidende content geblokkeerd.</translation>
 <translation id="5659593005791499971">E-mailadres</translation>
+<translation id="5666899935841546222">Wil je alle kaarten bij elkaar hebben?</translation>
 <translation id="5675650730144413517">Deze pagina werkt niet</translation>
 <translation id="5685654322157854305">Verzendadres toevoegen</translation>
 <translation id="5689199277474810259">Exporteren naar JSON</translation>

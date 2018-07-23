@@ -194,6 +194,7 @@
 <translation id="4544944664594876241">מקש הקיצור לנעילת המסך השתנה. השתמש ב-<ph name="NEW_SHORTCUT" /> במקום ב-<ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4564869809620998694">שירות הגופנים</translation>
 <translation id="4570957409596482333">לחצן הקראה</translation>
+<translation id="4585337515783392668">הפסקת העברה במכשיר לא מוכר</translation>
 <translation id="4628757576491864469">מכשירים</translation>
 <translation id="4659419629803378708">‏ChromeVox הופעל</translation>
 <translation id="4734965478015604180">אופקי</translation>
@@ -240,6 +241,7 @@
 <translation id="5805697420284793859">מנהל החלונות</translation>
 <translation id="5820394555380036790">‏מערכת ההפעלה של Chromium</translation>
 <translation id="5832805196449965646">הוסף משתמש</translation>
+<translation id="5837036133683224804">הפסקת <ph name="ROUTE_TITLE" /> במכשיר <ph name="RECEIVER_NAME" /></translation>
 <translation id="5860033963881614850">כבוי</translation>
 <translation id="5895138241574237353">הפעל מחדש</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
@@ -276,6 +278,7 @@
 <translation id="639644700271529076">‏CAPS LOCK כבוי</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="643147933154517414">הפעולה הושלמה</translation>
+<translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> במכשיר <ph name="RECEIVER_NAME" /></translation>
 <translation id="6452181791372256707">דחה</translation>
 <translation id="6453179446719226835">שינוי השפה הסתיים</translation>
 <translation id="6459472438155181876">מרחיב את המסך אל <ph name="DISPLAY_NAME" /></translation>
@@ -374,6 +377,7 @@
 <translation id="8351131234907093545">יצירת הערה</translation>
 <translation id="8392451568018454956">תפריט אפשרויות עבור <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8406981827175133772">זכוכית מגדלת במסך מלא</translation>
+<translation id="8427213022735114808">‏הכתבה שולחת הקלטה של הקול שלך אל Google כדי לאפשר הקלדה קולית בכל תיבת טקסט.</translation>
 <translation id="8428213095426709021">הגדרות</translation>
 <translation id="8431190899827883166">הצגת הקשות</translation>
 <translation id="8433186206711564395">הגדרות רשת</translation>
@@ -417,6 +421,7 @@
 <translation id="9179259655489829027">תכונה זו מאפשרת לך לגשת במהירות לכל משתמש המחובר לחשבון, בלי להזין סיסמה.
 
 יש להשתמש בתכונה הזו רק עם חשבונות מהימנים.</translation>
+<translation id="9193626018745640770">מתבצעת העברה במכשיר לא ידוע</translation>
 <translation id="9194617393863864469">הוסף משתמש אחר...</translation>
 <translation id="9201131092683066720">‏הסוללה טעונה ברמה של ‎<ph name="PERCENTAGE" />%‎.</translation>
 <translation id="9210037371811586452">‏יציאה ממצב Unified Desktop</translation>

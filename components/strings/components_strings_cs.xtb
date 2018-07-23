@@ -579,6 +579,7 @@
 <translation id="5089810972385038852">Stát/kraj</translation>
 <translation id="5094747076828555589">Server nedokázal prokázat, že patří doméně <ph name="DOMAIN" />. Chromium jeho bezpečnostnímu certifikátu nedůvěřuje. Může to být způsobeno nesprávnou konfigurací nebo tím, že vaše připojení zachytává útočník.</translation>
 <translation id="5095208057601539847">Provincie</translation>
+<translation id="5098332213681597508">Tento název pochází z vašeho účtu Google.</translation>
 <translation id="5115563688576182185">(64bitový)</translation>
 <translation id="5121084798328133320">Po ověření budou údaje o kartě z vašeho účtu Google Payments poskytnuty tomuto webu.</translation>
 <translation id="5128122789703661928">Relace s tímto názvem není pro smazání platná.</translation>
@@ -664,6 +665,7 @@ Kontaktujte administrátora systému.</translation>
 <translation id="5633066919399395251">Útočníci, kteří se aktuálně nacházejí na webu <ph name="BEGIN_BOLD" /><ph name="SITE" /><ph name="END_BOLD" />, se mohou pokusit nainstalovat vám do počítače nebezpečné programy, které mohou ukrást nebo smazat vaše informace (například fotky, hesla, zprávy nebo platební karty). <ph name="BEGIN_LEARN_MORE_LINK" />Další informace<ph name="END_LEARN_MORE_LINK" /></translation>
 <translation id="563324245173044180">Byl zablokován klamavý obsah.</translation>
 <translation id="5659593005791499971">E-mail</translation>
+<translation id="5666899935841546222">Chcete mít všechny své karty na jednom místě?</translation>
 <translation id="5675650730144413517">Tato stránka nefunguje</translation>
 <translation id="5685654322157854305">Přidat dodací adresu</translation>
 <translation id="5689199277474810259">Exportovat do formátu JSON</translation>

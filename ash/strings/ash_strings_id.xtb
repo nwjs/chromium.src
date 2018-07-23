@@ -194,6 +194,7 @@
 <translation id="4544944664594876241">Pintasan untuk mengunci layar telah berubah. Gunakan <ph name="NEW_SHORTCUT" /> sebagai gantinya <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4564869809620998694">Font service</translation>
 <translation id="4570957409596482333">Tombol Klik untuk Diucapkan</translation>
+<translation id="4585337515783392668">Hentikan transmisi pada penerima yang tidak dikenal</translation>
 <translation id="4628757576491864469">Perangkat</translation>
 <translation id="4659419629803378708">ChromeVox diaktifkan</translation>
 <translation id="4734965478015604180">Horizontal</translation>
@@ -240,6 +241,7 @@
 <translation id="5805697420284793859">Window manager</translation>
 <translation id="5820394555380036790">Chromium OS</translation>
 <translation id="5832805196449965646">Tambahkan Pengguna</translation>
+<translation id="5837036133683224804">Hentikan <ph name="ROUTE_TITLE" /> di <ph name="RECEIVER_NAME" /></translation>
 <translation id="5860033963881614850">Nonaktif</translation>
 <translation id="5895138241574237353">Mulai Ulang</translation>
 <translation id="5901316534475909376">Shift+Esc</translation>
@@ -276,6 +278,7 @@
 <translation id="639644700271529076">CAPS LOCK tidak aktif</translation>
 <translation id="6406704438230478924">altgr</translation>
 <translation id="643147933154517414">Selesai</translation>
+<translation id="6445835306623867477"><ph name="ROUTE_TITLE" /> di <ph name="RECEIVER_NAME" /></translation>
 <translation id="6452181791372256707">Tolak</translation>
 <translation id="6453179446719226835">Bahasa telah diubah</translation>
 <translation id="6459472438155181876">Memperpanjang layar ke <ph name="DISPLAY_NAME" /></translation>
@@ -372,6 +375,7 @@
 <translation id="8351131234907093545">Buat catatan</translation>
 <translation id="8392451568018454956">Menu opsi untuk <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="8406981827175133772">Kaca Pembesar Layar Penuh</translation>
+<translation id="8427213022735114808">Dikte mengirimkan suara Anda ke Google untuk memungkinkan pengetikan menggunakan suara ke kolom teks.</translation>
 <translation id="8428213095426709021">Setelan</translation>
 <translation id="8431190899827883166">Show taps</translation>
 <translation id="8433186206711564395">Setelan jaringan</translation>
@@ -413,6 +417,7 @@
 <translation id="9111102763498581341">Buka kunci</translation>
 <translation id="9151726767154816831">Mulai ulang dan powerwash untuk memperbarui</translation>
 <translation id="9179259655489829027">Dengan fitur ini, Anda dapat dengan cepat mengakses setiap pengguna yang sudah login, tanpa perlu menggunakan sandi. Hanya gunakan fitur ini dengan akun yang Anda percayai.</translation>
+<translation id="9193626018745640770">Mentransmisi pada penerima yang tidak dikenal</translation>
 <translation id="9194617393863864469">Masukkan pengguna lain...</translation>
 <translation id="9201131092683066720">Baterai terisi <ph name="PERCENTAGE" />%.</translation>
 <translation id="9210037371811586452">Keluar dari mode desktop terpadu</translation>
