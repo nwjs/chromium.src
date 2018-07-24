@@ -2338,6 +2338,7 @@
 <translation id="4627442949885028695">ดำเนินการต่อจากอุปกรณ์อื่น</translation>
 <translation id="4628314759732363424">เปลี่ยน...</translation>
 <translation id="4628757576491864469">อุปกรณ์</translation>
+<translation id="4628948037717959914">รูปภาพ</translation>
 <translation id="4630590996962964935">อักขระไม่ถูกต้อง: $1</translation>
 <translation id="4631887759990505102">ศิลปิน</translation>
 <translation id="4632483769545853758">เปิดเสียงแท็บ</translation>
@@ -3140,6 +3141,7 @@
 <translation id="5832805196449965646">เพิ่มบุคคล</translation>
 <translation id="583281660410589416">ไม่รู้จัก</translation>
 <translation id="5832976493438355584">ล็อกอยู่</translation>
+<translation id="5833397272224757657">ใช้เนื้อหาในเว็บไซต์ที่คุณเข้าชม รวมถึงกิจกรรมและการโต้ตอบในเบราว์เซอร์เพื่อการปรับเปลี่ยนในแบบของคุณ</translation>
 <translation id="5833610766403489739">ไฟล์นี้ไม่อยู่ในตำแหน่งที่กำหนดไว้ โปรดตรวจสอบการตั้งค่าตำแหน่งที่เก็บไฟล์ดาวน์โหลดและลองอีกครั้ง</translation>
 <translation id="5833726373896279253">เจ้าของเท่านั้นที่สามารถปรับการตั้งค่าเหล่านี้ได้:</translation>
 <translation id="5834581999798853053">เหลือเวลาอีกประมาณ <ph name="TIME" /> นาที</translation>

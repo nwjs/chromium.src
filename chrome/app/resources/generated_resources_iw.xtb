@@ -2335,6 +2335,7 @@
 <translation id="4627442949885028695">המשך במכשיר אחר</translation>
 <translation id="4628314759732363424">שנה...</translation>
 <translation id="4628757576491864469">מכשירים</translation>
+<translation id="4628948037717959914">תמונה</translation>
 <translation id="4630590996962964935">תו לא חוקי: $ 1</translation>
 <translation id="4631887759990505102">אמן</translation>
 <translation id="4632483769545853758">ביטול השתקה של כרטיסייה</translation>
@@ -2686,7 +2687,7 @@
 <translation id="5166596762332123936"><ph name="PLUGIN_NAME" /> נחסם כי הוא לא מעודכן</translation>
 <translation id="5170477580121653719">‏שטח אחסון שנותר ב-Google Drive‏: <ph name="SPACE_AVAILABLE" />.</translation>
 <translation id="5170568018924773124">הצג בתיקייה</translation>
-<translation id="5171045022955879922">חפש או הקלד כתובת אתר</translation>
+<translation id="5171045022955879922">טקסט או כתובת אתר לחיפוש</translation>
 <translation id="5171343362375269016">זיכרון מוחלף</translation>
 <translation id="5175379009094579629">שם המכשיר לא חוקי. יש להזין שם מכשיר חוקי כדי לנסות שוב.</translation>
 <translation id="5177479852722101802">המשך לחסום גישה אל המצלמה והמיקרופון</translation>
