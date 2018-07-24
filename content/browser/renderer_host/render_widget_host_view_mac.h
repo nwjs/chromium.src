@@ -155,7 +155,7 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
 
   bool ShouldContinueToPauseForFrame() override;
   void SetParentUiLayer(ui::Layer* parent_ui_layer) override;
-  gfx::Vector2d GetOffsetFromRootSurface() override;
+  void TransformPointToRootSurface(gfx::PointF* point) override;
   gfx::Rect GetBoundsInRootWindow() override;
   viz::ScopedSurfaceIdAllocator DidUpdateVisualProperties(
       const cc::RenderFrameMetadata& metadata) override;

@@ -157,10 +157,6 @@ void TestRenderWidgetHostView::SpeakSelection() {
 }
 #endif
 
-gfx::Vector2d TestRenderWidgetHostView::GetOffsetFromRootSurface() {
-  return gfx::Vector2d();
-}
-
 gfx::Rect TestRenderWidgetHostView::GetBoundsInRootWindow() {
   return gfx::Rect();
 }
