@@ -1597,7 +1597,7 @@ void ResourceDispatcherHostImpl::BeginNavigationRequest(
       !policy->IsWebSafeScheme(info.common_params.url.scheme()) &&
       !is_external_protocol;
 
-  if (is_shutdown_ || non_web_url_in_guest) {
+  if (is_shutdown_ || (non_web_url_in_guest && !info.nw_trusted)) {
     url_loader_client->OnComplete(
         network::URLLoaderCompletionStatus(net::ERR_ABORTED));
     return;

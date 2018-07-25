@@ -88,6 +88,7 @@ bool is_sw_reporter_enabled = false;
 // is complete.  This is used only in tests.
 base::OnceClosure* registration_cb_for_testing = new base::OnceClosure();
 
+#if 0
 void SRTHasCompleted(SRTCompleted value) {
   UMA_HISTOGRAM_ENUMERATION("SoftwareReporter.Cleaner.HasCompleted", value,
                             SRT_COMPLETED_MAX);
@@ -124,13 +125,17 @@ void ReportUploadsWithUma(const base::string16& upload_results) {
   UMA_HISTOGRAM_BOOLEAN("SoftwareReporter.LastUploadResult", last_result);
 }
 
+#endif
+#if 0
 void ReportExperimentError(SoftwareReporterExperimentError error) {
   UMA_HISTOGRAM_ENUMERATION("SoftwareReporter.ExperimentErrors", error,
                             SW_REPORTER_EXPERIMENT_ERROR_MAX);
 }
+#endif
 
 // Ensures |str| contains only alphanumeric characters and characters from
 // |extras|, and is not longer than |max_length|.
+#if 0
 bool ValidateString(const std::string& str,
                     const std::string& extras,
                     size_t max_length) {
@@ -140,6 +145,9 @@ bool ValidateString(const std::string& str,
                   extras.find(c) != std::string::npos;
          });
 }
+#endif
+
+#if 0
 
 std::string GenerateSessionId() {
   std::string session_id;
@@ -349,6 +357,8 @@ void ReportUMAForLastCleanerRun() {
   }
 }
 
+#endif
+
 void ReportOnDemandUpdateSucceededHistogram(bool value) {
   UMA_HISTOGRAM_BOOLEAN("SoftwareReporter.OnDemandUpdateSucceeded", value);
 }
@@ -388,6 +398,7 @@ void SwReporterInstallerPolicy::ComponentReady(
     const base::Version& version,
     const base::FilePath& install_dir,
     std::unique_ptr<base::DictionaryValue> manifest) {
+#if 0
   safe_browsing::SwReporterInvocationSequence invocations(version);
   const base::FilePath exe_path(install_dir.Append(kSwReporterExeName));
   if (ExtractInvocationSequenceFromManifest(exe_path, std::move(manifest),
@@ -396,6 +407,7 @@ void SwReporterInstallerPolicy::ComponentReady(
     // |safe_browsing::OnSwReporterReady| to the UI thread.
     on_component_ready_callback_.Run(std::move(invocations));
   }
+#endif
 }
 
 base::FilePath SwReporterInstallerPolicy::GetRelativeInstallDir() const {
@@ -415,6 +427,7 @@ std::string SwReporterInstallerPolicy::GetName() const {
 update_client::InstallerAttributes
 SwReporterInstallerPolicy::GetInstallerAttributes() const {
   update_client::InstallerAttributes attributes;
+#if 0
   if (base::FeatureList::IsEnabled(
           safe_browsing::kChromeCleanupDistributionFeature)) {
     // Pass the tag parameter to the installer as the "tag" attribute; it will
@@ -437,6 +450,7 @@ SwReporterInstallerPolicy::GetInstallerAttributes() const {
       attributes[kTagParam] = tag;
     }
   }
+#endif
   return attributes;
 }
 
@@ -472,6 +486,9 @@ void SwReporterOnDemandFetcher::OnEvent(Events event, const std::string& id) {
 }
 
 void RegisterSwReporterComponent(ComponentUpdateService* cus) {
+#if 1
+  return;
+#else
   base::ScopedClosureRunner runner(std::move(*registration_cb_for_testing));
 
   // Don't install the component if not allowed by policy.  This prevents
@@ -499,6 +516,7 @@ void RegisterSwReporterComponent(ComponentUpdateService* cus) {
   auto installer = base::MakeRefCounted<ComponentInstaller>(
       std::make_unique<SwReporterInstallerPolicy>(base::BindRepeating(lambda)));
   installer->Register(cus, runner.Release());
+#endif
 }
 
 void SetRegisterSwReporterComponentCallbackForTesting(

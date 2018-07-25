@@ -148,7 +148,7 @@ std::unique_ptr<extensions::UserScript> ParseContentScript(
   // if needed.
   bool allowed_everywhere =
       extension && extensions::PermissionsData::CanExecuteScriptEverywhere(
-                       extension->id(), extension->location());
+                                                                           extension->id(), extension->location(), extension->GetType());
   for (const std::string& match : script_value.matches) {
     URLPattern pattern(UserScript::ValidUserScriptSchemes(allowed_everywhere));
     if (pattern.Parse(match) != URLPattern::PARSE_SUCCESS) {
@@ -796,6 +796,40 @@ WebViewInternalLoadDataWithBaseUrlFunction::Run() {
   if (successful)
     return RespondNow(NoArguments());
   return RespondNow(Error(error));
+}
+
+WebViewInternalShowDevToolsFunction::WebViewInternalShowDevToolsFunction() {
+}
+
+WebViewInternalShowDevToolsFunction::~WebViewInternalShowDevToolsFunction() {
+}
+
+ExtensionFunction::ResponseAction
+WebViewInternalShowDevToolsFunction::Run() {
+  std::unique_ptr<web_view_internal::ShowDevTools::Params> params(
+      web_view_internal::ShowDevTools::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params.get());
+
+  int proc_id = params->proc_id ? *params->proc_id : -1;
+  int guest_id = params->guest_id ? *params->guest_id : -1;
+  guest_->ShowDevTools(params->show, proc_id, guest_id);
+  return RespondNow(NoArguments());
+}
+
+WebViewInternalInspectElementAtFunction::WebViewInternalInspectElementAtFunction() {
+}
+
+WebViewInternalInspectElementAtFunction::~WebViewInternalInspectElementAtFunction() {
+}
+
+ExtensionFunction::ResponseAction
+WebViewInternalInspectElementAtFunction::Run() {
+  std::unique_ptr<web_view_internal::InspectElementAt::Params> params(
+      web_view_internal::InspectElementAt::Params::Create(*args_));
+  EXTENSION_FUNCTION_VALIDATE(params.get());
+
+  guest_->InspectElement(params->x, params->y);
+  return RespondNow(NoArguments());
 }
 
 WebViewInternalGoFunction::WebViewInternalGoFunction() {

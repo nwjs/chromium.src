@@ -16,6 +16,16 @@
 #include "third_party/blink/renderer/platform/scheduler/child/worker_scheduler_proxy.h"
 #include "third_party/blink/renderer/platform/scheduler/worker/worker_thread_scheduler.h"
 
+#include "third_party/node-nw/src/node_webkit.h"
+#define PLATFORM_HOOK_MAP(type, sym, fn) PLATFORM_EXPORT type fn = nullptr;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 namespace blink {
 namespace scheduler {
 
@@ -27,6 +37,8 @@ WebThreadImplForWorkerScheduler::WebThreadImplForWorkerScheduler(
           params.frame_scheduler
               ? std::make_unique<WorkerSchedulerProxy>(params.frame_scheduler)
               : nullptr) {
+  if (g_web_worker_thread_new_fn)
+    (*g_web_worker_thread_new_fn)((void*)params.name, (void*)&params.thread_options);
   bool started = thread_->StartWithOptions(params.thread_options);
   CHECK(started);
   thread_task_runner_ = thread_->task_runner();

@@ -14,6 +14,7 @@
 
 namespace features {
 
+CONTENT_EXPORT extern const base::Feature kNWNewWin;
 // All features in alphabetical order. The features should be documented
 // alongside the definition of their values in the .cc file.
 CONTENT_EXPORT extern const base::Feature kAllowActivationDelegationAttr;

@@ -45,6 +45,8 @@ DesktopProfileSessionDurationsServiceFactory::
 KeyedService*
 DesktopProfileSessionDurationsServiceFactory::BuildServiceInstanceFor(
     content::BrowserContext* context) const {
+  return nullptr;
+#if 0
   Profile* profile = Profile::FromBrowserContext(context);
   browser_sync::ProfileSyncService* sync_service =
       ProfileSyncServiceFactory::GetForProfile(profile);
@@ -55,6 +57,7 @@ DesktopProfileSessionDurationsServiceFactory::BuildServiceInstanceFor(
   DesktopSessionDurationTracker* tracker = DesktopSessionDurationTracker::Get();
   return new DesktopProfileSessionDurationsService(
       sync_service, oauth2_token_service, cookie_manager, tracker);
+#endif
 }
 
 content::BrowserContext*

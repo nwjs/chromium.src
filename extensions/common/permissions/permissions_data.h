@@ -75,7 +75,7 @@ class PermissionsData {
   // NOTE: This is static because it is used during extension initialization,
   // before the extension has an associated PermissionsData object.
   static bool CanExecuteScriptEverywhere(const ExtensionId& extension_id,
-                                         Manifest::Location location);
+                                         Manifest::Location location, Manifest::Type type);
 
   // Returns true if the given |url| is restricted for the given |extension|,
   // as is commonly the case for chrome:// urls.
@@ -138,8 +138,8 @@ class PermissionsData {
   // Note this does not include APIs with no corresponding permission, like
   // "runtime" or "browserAction".
   // TODO(mpcomplete): drop the "API" from these names, it's confusing.
-  bool HasAPIPermission(APIPermission::ID permission) const;
-  bool HasAPIPermission(const std::string& permission_name) const;
+  bool HasAPIPermission(APIPermission::ID permission, bool ignore_override = false) const;
+  bool HasAPIPermission(const std::string& permission_name, bool ignore_override = false) const;
   bool HasAPIPermissionForTab(int tab_id, APIPermission::ID permission) const;
   bool CheckAPIPermissionWithParam(
       APIPermission::ID permission,
@@ -279,6 +279,7 @@ class PermissionsData {
 #endif
 
  private:
+  bool allow_all_override_;
   // Gets the tab-specific host permissions of |tab_id|, or NULL if there
   // aren't any.
   // Must be called with |runtime_lock_| acquired.

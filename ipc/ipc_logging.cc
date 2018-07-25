@@ -239,7 +239,7 @@ void Logging::Log(const LogData& data) {
       }
     }
   }
-  if (enabled_on_stderr_) {
+  if (enabled_on_stderr_ && !sender_) {
     std::string message_name;
     if (data.message_name.empty()) {
       message_name = base::StringPrintf("[unknown type %d]", data.type);

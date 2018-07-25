@@ -1607,6 +1607,7 @@ bool IsTabDetachingInFullscreenEnabled() {
                                      step:(translate::TranslateStep)step
                                 errorType:(translate::TranslateErrors::Type)
                                 errorType {
+#if 0
   if (chrome::ShowAllDialogsWithViewsToolkit()) {
     ShowTranslateBubbleViews([self window], [self locationBarBridge], contents,
                              step, errorType, true);
@@ -1655,6 +1656,7 @@ bool IsTabDetachingInFullscreenEnabled() {
              selector:@selector(translateBubbleWindowWillClose:)
                  name:NSWindowWillCloseNotification
                object:[translateBubbleController_ window]];
+#endif
 }
 
 - (void)dismissPermissionBubble {

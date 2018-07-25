@@ -52,18 +52,22 @@ void ChangePasswordHandler::HandleInitialize(const base::ListValue* args) {
 }
 
 void ChangePasswordHandler::HandleChangePassword(const base::ListValue* args) {
+#if 0
   service_->OnUserAction(
       web_ui()->GetWebContents(),
       safe_browsing::PasswordProtectionService::CHROME_SETTINGS,
       safe_browsing::PasswordProtectionService::CHANGE_PASSWORD);
+#endif
 }
 
 void ChangePasswordHandler::UpdateChangePasswordCardVisibility() {
+#if 0
   FireWebUIListener(
       "change-password-visibility",
       base::Value(service_->IsWarningEnabled() &&
                   safe_browsing::ChromePasswordProtectionService::
                       ShouldShowChangePasswordSettingUI(profile_)));
+#endif
 }
 
 }  // namespace settings

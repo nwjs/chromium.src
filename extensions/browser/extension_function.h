@@ -212,6 +212,7 @@ class ExtensionFunction
   //
   // ExtensionFunction implementations are encouraged to just implement Run.
   virtual ResponseAction Run() WARN_UNUSED_RESULT = 0;
+  virtual bool RunNWSync(base::ListValue* response, std::string* error);
 
   // Gets whether quota should be applied to this individual function
   // invocation. This is different to GetQuotaLimitHeuristics which is only
@@ -444,7 +445,10 @@ class ExtensionFunction
 
   // Any detailed error from the API. This should be populated by the derived
   // class before Run() returns.
+ protected:  
   std::string error_;
+
+ private:
 
   // The callback to run once the function has done execution.
   ResponseCallback response_callback_;
@@ -494,6 +498,7 @@ class ExtensionFunction
 
   // Whether this function has responded.
   // TODO(devlin): Replace this with response_type_ != null.
+ public:
   bool did_respond_;
 
   DISALLOW_COPY_AND_ASSIGN(ExtensionFunction);
@@ -641,6 +646,25 @@ class IOThreadExtensionFunction : public ExtensionFunction {
   scoped_refptr<const extensions::InfoMap> extension_info_map_;
 
   DISALLOW_COPY_AND_ASSIGN(IOThreadExtensionFunction);
+};
+
+class NWSyncExtensionFunction : public UIThreadExtensionFunction {
+ public:
+  NWSyncExtensionFunction();
+  void SetError(const std::string& error);
+
+ protected:
+  ~NWSyncExtensionFunction() override;
+  static bool ValidationFailure(NWSyncExtensionFunction* function);
+
+  void SetResult(std::unique_ptr<base::Value> result);
+  void SetResultList(std::unique_ptr<base::ListValue> results);
+
+  std::unique_ptr<base::ListValue> results_;
+  std::string error_;
+ private:
+  ResponseAction Run() final;
+
 };
 
 #endif  // EXTENSIONS_BROWSER_EXTENSION_FUNCTION_H_

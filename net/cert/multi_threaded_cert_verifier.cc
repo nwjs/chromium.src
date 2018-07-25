@@ -187,14 +187,14 @@ std::unique_ptr<ResultHelper> DoVerifyOnWorkerThread(
     const std::string& ocsp_response,
     int flags,
     const scoped_refptr<CRLSet>& crl_set,
-    const CertificateList& additional_trust_anchors) {
+    const CertificateList* additional_trust_anchors) {
   TRACE_EVENT0(kNetTracingCategory, "DoVerifyOnWorkerThread");
   auto verify_result = std::make_unique<ResultHelper>();
   MultiThreadedCertVerifierScopedAllowBaseSyncPrimitives
       allow_base_sync_primitives;
   verify_result->error = verify_proc->Verify(
       cert.get(), hostname, ocsp_response, flags, crl_set.get(),
-      additional_trust_anchors, &verify_result->result);
+      *additional_trust_anchors, &verify_result->result);
   return verify_result;
 }
 

@@ -4,6 +4,8 @@
 
 #include "chrome/browser/profiles/profile_io_data.h"
 
+#include "content/nw/src/policy_cert_verifier.h"
+
 #include <stddef.h>
 
 #include <string>
@@ -1139,15 +1141,14 @@ void ProfileIOData::Init(
       cert_verifier = std::make_unique<net::CachingCertVerifier>(
           std::make_unique<net::MultiThreadedCertVerifier>(verify_proc.get()));
     }
-#elif defined(OS_LINUX) || defined(OS_MACOSX)
+#elif 0 //defined(OS_LINUX) || defined(OS_MACOSX)
     cert_verifier = std::make_unique<net::CachingCertVerifier>(
         std::make_unique<TrialComparisonCertVerifier>(
             profile_params_->profile, net::CertVerifyProc::CreateDefault(),
             net::CreateCertVerifyProcBuiltin()));
 #else
-    cert_verifier = std::make_unique<net::CachingCertVerifier>(
-        std::make_unique<net::MultiThreadedCertVerifier>(
-            net::CertVerifyProc::CreateDefault()));
+    cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::Closure());
+    ((nw::PolicyCertVerifier*)cert_verifier.get())->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
 #endif
     const base::CommandLine& command_line =
         *base::CommandLine::ForCurrentProcess();

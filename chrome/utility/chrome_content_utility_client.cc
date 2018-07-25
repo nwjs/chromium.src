@@ -86,6 +86,10 @@
 #include "chrome/services/file_util/public/mojom/constants.mojom.h"  // nogncheck
 #endif
 
+#if defined(OS_WIN)
+#pragma warning(disable:4065)
+#endif
+
 namespace {
 
 base::LazyInstance<ChromeContentUtilityClient::NetworkBinderCreationCallback>::

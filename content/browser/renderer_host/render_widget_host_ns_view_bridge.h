@@ -29,6 +29,8 @@ namespace ui {
 enum class DomCode;
 }  // namespace ui
 
+@class CALayer;
+
 namespace content {
 
 class RenderWidgetHostNSViewClient;
@@ -79,6 +81,9 @@ class RenderWidgetHostNSViewBridge {
 
   // Forward changes in ui::TextInputType.
   virtual void SetTextInputType(ui::TextInputType text_input_type) = 0;
+
+  // Used by g_force_cpu_draw
+  virtual CALayer* GetBackgroundLayer() = 0;
 
   // Forward the TextInputManager::TextSelection from the renderer.
   virtual void SetTextSelection(const base::string16& text,

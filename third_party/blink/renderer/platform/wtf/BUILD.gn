@@ -12,6 +12,7 @@ visibility = [
   ":*",
   "//mojo/public/cpp/bindings/*",
   "//third_party/blink/*",
+  "//content/nw/*",
 ]
 
 config("wtf_config") {

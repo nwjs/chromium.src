@@ -4,6 +4,7 @@
 
 #include "services/service_manager/zygote/host/zygote_communication_linux.h"
 
+#include "content/nw/src/common/shell_switches.h"
 #include <string.h>
 #include <sys/socket.h>
 
@@ -240,6 +241,7 @@ void ZygoteCommunication::Init(
   static const char* const kForwardSwitches[] = {
       service_manager::switches::kAllowSandboxDebugging,
       service_manager::switches::kDisableInProcessStackTraces,
+      "enable-spell-checking",
       service_manager::switches::kDisableSeccompFilterSandbox,
       service_manager::switches::kNoSandbox,
   };

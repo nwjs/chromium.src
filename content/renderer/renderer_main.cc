@@ -4,7 +4,7 @@
 
 #include <stddef.h>
 #include <utility>
-
+#include "base/files/file_util.h"
 #include "base/base_switches.h"
 #include "base/command_line.h"
 #include "base/debug/debugger.h"
@@ -38,6 +38,7 @@
 #include "third_party/skia/include/core/SkGraphics.h"
 #include "third_party/webrtc_overrides/init_webrtc.h"  // nogncheck
 #include "ui/base/ui_base_switches.h"
+#include "content/nw/src/nw_content.h"
 
 #if defined(OS_ANDROID)
 #include "base/android/library_loader/library_loader_hooks.h"
@@ -59,6 +60,8 @@
 #include "base/mac/scoped_nsautorelease_pool.h"
 #include "base/message_loop/message_pump_mac.h"
 #include "third_party/blink/public/web/web_view.h"
+
+#include "base/message_loop/message_pumpuv_mac.h"
 #endif  // OS_MACOSX
 
 #if BUILDFLAG(ENABLE_PLUGINS)
@@ -66,6 +69,17 @@
 #endif
 
 namespace content {
+
+#if defined(__clang__)
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wexit-time-destructors"
+#endif
+CONTENT_EXPORT base::FilePath g_nw_temp_dir;
+CONTENT_EXPORT base::FilePath g_nw_old_cwd;
+#if defined(__clang__)
+#pragma clang diagnostic pop
+#endif
+
 namespace {
 // This function provides some ways to test crash and assertion handling
 // behavior of the renderer.
@@ -104,6 +118,12 @@ int RendererMain(const MainFunctionParams& parameters) {
       profiler->SetSamplingInterval(sampling_interval * 1024);
     profiler->Start();
   }
+
+
+  bool nwjs = command_line.HasSwitch(switches::kNWJS);
+
+  if (nwjs)
+    nw::LoadNodeSymbols();
 
 #if defined(OS_MACOSX)
   base::mac::ScopedNSAutoreleasePool* pool = parameters.autorelease_pool;
@@ -173,12 +193,25 @@ int RendererMain(const MainFunctionParams& parameters) {
   // As long as scrollbars on Mac are painted with Cocoa, the message pump
   // needs to be backed by a Foundation-level loop to process NSTimers. See
   // http://crbug.com/306348#c24 for details.
-  std::unique_ptr<base::MessagePump> pump(new base::MessagePumpNSRunLoop());
+  base::MessagePump* p;
+  if (nwjs) {
+    p = new base::MessagePumpUVNSRunLoop();
+  } else
+    p = new base::MessagePumpNSRunLoop();
+  std::unique_ptr<base::MessagePump> pump(p);
   std::unique_ptr<base::MessageLoop> main_message_loop(
       new base::MessageLoop(std::move(pump)));
 #else
-  // The main message loop of the renderer services doesn't have IO or UI tasks.
-  std::unique_ptr<base::MessageLoop> main_message_loop(new base::MessageLoop());
+  // The main message loop of the renderer services doesn't have IO or
+  // UI tasks.
+  base::MessageLoop* msg_loop;
+  if (nwjs) {
+    std::unique_ptr<base::MessagePump> pump_uv(new base::MessagePumpUV());
+    msg_loop = new base::MessageLoop(std::move(pump_uv));
+  } else
+    msg_loop = new base::MessageLoop(base::MessageLoop::TYPE_DEFAULT);
+
+  std::unique_ptr<base::MessageLoop> main_message_loop(msg_loop);
 #endif
 
   base::PlatformThread::SetName("CrRendererMain");
@@ -246,6 +279,12 @@ int RendererMain(const MainFunctionParams& parameters) {
       TRACE_EVENT_ASYNC_END0("toplevel", "RendererMain.START_MSG_LOOP", 0);
     }
 
+    if (!g_nw_temp_dir.empty()) {
+      base::SetCurrentDirectory(g_nw_temp_dir.DirName());
+      if (base::StartsWith(g_nw_temp_dir.BaseName().value(), FILE_PATH_LITERAL("nw"),
+                           base::CompareCase::SENSITIVE))
+        base::DeleteFile(g_nw_temp_dir, true);
+    }
 #if defined(LEAK_SANITIZER)
     // Run leak detection before RenderProcessImpl goes out of scope. This helps
     // ignore shutdown-only leaks.

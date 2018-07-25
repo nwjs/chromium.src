@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/chrome_views_delegate.h"
 
+#include "content/nw/src/nw_content.h"
 #include <memory>
 
 #include "base/logging.h"

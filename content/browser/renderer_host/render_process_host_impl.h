@@ -138,6 +138,8 @@ class CONTENT_EXPORT RenderProcessHostImpl
 
   ~RenderProcessHostImpl() override;
 
+  void set_main_host();
+  static RenderProcessHostImpl* main_host();
   // RenderProcessHost implementation (public portion).
   bool Init() override;
   void EnableSendQueue() override;

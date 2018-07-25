@@ -202,9 +202,12 @@ class GuestViewManager : public content::BrowserPluginGuestManager,
                                      content::WebContents* guest_web_contents);
 
   // Contains guests' WebContents, mapping from their instance ids.
+ public:
   using GuestInstanceMap = std::map<int, content::WebContents*>;
+  const GuestInstanceMap& guest_web_contents_by_instance_id() { return guest_web_contents_by_instance_id_; }
+ protected:
   GuestInstanceMap guest_web_contents_by_instance_id_;
-
+  
   struct ElementInstanceKey {
     int embedder_process_id;
     int element_instance_id;

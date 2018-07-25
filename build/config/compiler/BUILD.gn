@@ -446,7 +446,9 @@ config("compiler") {
     ldflags += [ "-fuse-ld=bfd" ]
   }
 
-  if (use_icf) {
+  if (is_linux && current_cpu == "x86") {
+    ldflags += [ "-Wl,--icf=none" ]
+  } else if (use_icf) {
     ldflags += [ "-Wl,--icf=all" ]
   }
 
@@ -1284,6 +1286,7 @@ config("default_warnings") {
       "/wd4457",
       "/wd4458",
       "/wd4459",
+      "/wd4275",
     ]
 
     cflags_cc += [
