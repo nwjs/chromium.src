@@ -13,6 +13,11 @@
 using content::BrowserThread;
 using content::DesktopMediaID;
 
+DesktopMediaList::Source::Source() {
+}
+
+DesktopMediaList::Source::Source(const Source& other) = default;
+
 DesktopMediaListBase::DesktopMediaListBase(base::TimeDelta update_period)
     : update_period_(update_period), weak_factory_(this) {}
 
@@ -55,8 +60,9 @@ DesktopMediaID::Type DesktopMediaListBase::GetMediaListType() const {
 
 DesktopMediaListBase::SourceDescription::SourceDescription(
     DesktopMediaID id,
-    const base::string16& name)
-    : id(id), name(name) {}
+    const base::string16& name,
+    const base::string16& exeName)
+    : id(id), name(name), exeName(exeName) {}
 
 void DesktopMediaListBase::UpdateSourcesList(
     const std::vector<SourceDescription>& new_sources) {
@@ -85,6 +91,7 @@ void DesktopMediaListBase::UpdateSourcesList(
         sources_.insert(sources_.begin() + i, Source());
         sources_[i].id = new_sources[i].id;
         sources_[i].name = new_sources[i].name;
+        sources_[i].exeName = new_sources[i].exeName;
         observer_->OnSourceAdded(this, i);
       }
     }

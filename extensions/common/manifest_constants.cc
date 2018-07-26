@@ -16,6 +16,7 @@ const char kNWJSMain[] = "main";
 const char kNWJSMixedContext[] = "mixed_context";
 const char kNWJSEnableNode[] = "nodejs";
 const char kNWJSDomain[] = "domain";
+const char kNWJSDesktopStreamOriginOverride[] = "desktop_stream_origin_override";
 
 const char kAboutPage[] = "about_page";
 const char kAction[] = "action";

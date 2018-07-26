@@ -36,10 +36,11 @@ class DesktopMediaListBase : public DesktopMediaList {
 
  protected:
   struct SourceDescription {
-    SourceDescription(content::DesktopMediaID id, const base::string16& name);
+    SourceDescription(content::DesktopMediaID id, const base::string16& name, const base::string16& exeName);
 
     content::DesktopMediaID id;
     base::string16 name;
+    base::string16 exeName;
   };
 
   virtual void Refresh() = 0;
