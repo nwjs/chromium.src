@@ -29,6 +29,7 @@
 <translation id="1682634494516646069">Google Chrome tidak dapat membaca atau menulis pada direktori datanya: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome ialah penyemak imbas web yang menjalankan halaman web dan aplikasi dengan kelajuan kilat. Ia pantas, stabil dan mudah digunakan. Semak imbas web dengan lebih selamat dengan perlindungan daripada perisian berniat jahat dan pancingan data yang terbina dalam Google Chrome.</translation>
 <translation id="1718131156967340976">Pilih <ph name="SMALL_PRODUCT_LOGO" /> <ph name="BEGIN_BOLD" />Google Chrome<ph name="END_BOLD" /></translation>
+<translation id="1734234790201236882">Chrome akan menyimpan kata laluan ini dalam Akaun Google anda. Anda tidak perlu mengingati kata laluan tersebut.</translation>
 <translation id="174539241580958092">Google Chrome tidak dapat menyegerakkan data anda disebabkan ralat melog masuk.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Dapatkan bantuan untuk menggunakan Chrome OS</translation>
@@ -152,6 +153,7 @@ Sila semak e-mel anda di <ph name="ACCOUNT_EMAIL" /> untuk arahan lanjut.</trans
 <translation id="495931528404527476">Dalam Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome tidak dapat menyegerakkan data anda. Sila kemas kini frasa laluan Segerak anda.</translation>
+<translation id="5090044601776247154">Profil pengguna di bawah seliaan tidak tersedia lagi bermula dengan Google Chrome 70.</translation>
 <translation id="5131923704757666404">{0,plural, =1{Chrome akan dilancarkan semula dalam masa sejam}other{Chrome akan dilancarkan semula dalam masa # jam}}</translation>
 <translation id="5132929315877954718">Temui apl, permainan, sambungan dan tema hebat untuk Google Chrome.</translation>
 <translation id="5166975452760862670">Google Chrome dipaparkan dalam bahasa ini</translation>
@@ -162,6 +164,7 @@ Sila semak e-mel anda di <ph name="ACCOUNT_EMAIL" /> untuk arahan lanjut.</trans
 <translation id="532046782124376502">Amaran: Google Chrome tidak dapat menghalang sambungan daripada merakamkan sejarah penyemakan imbas anda. Untuk melumpuhkan sambungan ini dalam mod inkognito, nyahpilih pilihan ini.</translation>
 <translation id="5386244825306882791">Sambungan turut mengawal halaman yang ditunjukkan apabila anda memulakan Chrome atau membuat carian dari Kotak Omni.</translation>
 <translation id="5430073640787465221">Fail pilihan anda rosak atau tidak sah. Google Chrome tidak dapat mengembalikan tetapan anda.</translation>
+<translation id="5514308096618405748">OS Chrome menjadi kenyataan dengan <ph name="BEGIN_LINK_CROS_OSS" />perisian sumber terbuka<ph name="END_LINK_CROS_OSS" /> tambahan, sebagaimana Linux (Beta).</translation>
 <translation id="556024056938947818">Google Chrome sedang cuba memaparkan kata laluan.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> mungkin berbahaya, jadi Chrome telah menyekat fail itu.</translation>
@@ -214,6 +217,7 @@ Sila semak e-mel anda di <ph name="ACCOUNT_EMAIL" /> untuk arahan lanjut.</trans
 <translation id="7419046106786626209">OS Chrome tidak dapat menyegerakkan data anda kerana Segerak tidak tersedia untuk domain anda.</translation>
 <translation id="7459554271817304652">Sediakan Penyegerakan untuk menyimpan ciri penyemak imbas anda yang diperibadikan ke web dan mengaksesnya dari Google Chrome pada mana-mana komputer.</translation>
 <translation id="7473136999113284234">Chrome dikemas kini secara automatik supaya anda sentiasa mempunyai versi yang terbaharu.</translation>
+<translation id="7486227612705979895">Chrome akan mengakses Drive anda untuk membuat cadangan dalam bar alamat</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7552219221109926349">Paparkan OS Chrome dalam bahasa ini</translation>
 <translation id="7589360514048265910">Komputer ini tidak akan menerima kemas kini Google Chrome lagi kerana Mac OS X 10.9 tidak lagi disokong.</translation>

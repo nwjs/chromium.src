@@ -77,6 +77,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="3582788516608077514">Updating Chromium ...</translation>
 <translation id="358997566136285270">Chromium logo</translation>
 <translation id="3713809861844741608">Open link in new Chromium &amp;tab</translation>
+<translation id="3728336900324680424">Chromium will access your Drive to make suggestions in the address bar</translation>
 <translation id="3762167353400286894">Chromium OS is displayed in this language</translation>
 <translation id="378917192836375108">Chromium lets you click a phone number on the web and call it with Skype!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -123,6 +124,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="5479196819031988440">Chromium OS can't open this page.</translation>
 <translation id="5480860683791598150">Chromium needs access to your location to share your location with this site</translation>
 <translation id="549669000822060376">Please wait while Chromium installs the latest system updates.</translation>
+<translation id="5514308096618405748">Chrome OS is made possible by additional <ph name="BEGIN_LINK_CROS_OSS" />open source software<ph name="END_LINK_CROS_OSS" />, as is Linux (Beta).</translation>
 <translation id="5631814766731275228">Chromium name and picture</translation>
 <translation id="5634636535844844681">Chromium requires Windows 7 or higher.</translation>
 <translation id="5680901439334282664">sign in to Chromium</translation>
@@ -143,6 +145,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> has been added to Chromium</translation>
 <translation id="608189560609172163">Chromium could not sync your data due to an error signing in.</translation>
 <translation id="6096348254544841612">Customise and control Chromium. Update is available.</translation>
+<translation id="6120345080069858279">Chromium will save this password in your Google account. You won’t have to remember it.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> is dangerous, so Chromium has blocked it.</translation>
 <translation id="6212496753309875659">This computer already has a more recent version of Chromium. If the software is not working, please uninstall Chromium and try again.</translation>
 <translation id="6248213926982192922">Make Chromium the default browser</translation>
@@ -229,6 +232,7 @@ Please check your email at <ph name="ACCOUNT_EMAIL" /> for further instructions.
 <translation id="8290862415967981663">This file may be dangerous, so Chromium has blocked it.</translation>
 <translation id="8330519371938183845">Sign in to sync and personalise Chromium across your devices</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> was previously using Chromium</translation>
+<translation id="8375950122744241554">Supervised user profiles will no longer be available starting with Chromium 70.</translation>
 <translation id="8453117565092476964">The installer archive is corrupted or invalid. Please download Chromium again.</translation>
 <translation id="8493179195440786826">Chromium is Out of Date</translation>
 <translation id="85843667276690461">Get help with using Chromium</translation>

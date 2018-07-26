@@ -29,6 +29,7 @@
 <translation id="1682634494516646069">Google Chrome no pot llegir ni escriure en el directori de dades: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome és un navegador web que executa pàgines web i aplicacions a gran velocitat. És ràpid, estable i fàcil d'utilitzar. Navegueu d'una manera més segura pel web amb la protecció contra programari maliciós i llocs de pesca integrada a Google Chrome.</translation>
 <translation id="1718131156967340976">Selecciona <ph name="SMALL_PRODUCT_LOGO" /> <ph name="BEGIN_BOLD" />Google Chrome<ph name="END_BOLD" /></translation>
+<translation id="1734234790201236882">Chrome desarà aquesta contrasenya al Compte de Google. No caldrà que la recordis.</translation>
 <translation id="174539241580958092">Google Chrome no ha pogut sincronitzar les dades a causa d'un error en iniciar la sessió.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Obtén ajuda per a l'ús de Chrome OS</translation>
@@ -152,6 +153,7 @@ Per obtenir més instruccions, consulteu el correu electrònic a <ph name="ACCOU
 <translation id="495931528404527476">A Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome no ha pogut sincronitzar les dades. Actualitzeu la frase de contrasenya de sincronització.</translation>
+<translation id="5090044601776247154">A partir de Google Chrome 70, els perfils d'usuaris supervisats deixaran d'estar disponibles.</translation>
 <translation id="5131923704757666404">{0,plural, =1{Chrome es reiniciarà d'aquí a una hora}other{Chrome es reiniciarà d'aquí a # hores}}</translation>
 <translation id="5132929315877954718">Descobriu aplicacions, jocs, extensions i temes genials per a Google Chrome.</translation>
 <translation id="5166975452760862670">Google Chrome es mostra en aquest idioma</translation>
@@ -162,6 +164,7 @@ Per obtenir més instruccions, consulteu el correu electrònic a <ph name="ACCOU
 <translation id="532046782124376502">Advertiment: Google Chrome no pot impedir que les extensions registrin el teu historial de navegació. Per desactivar aquesta extensió en mode d'incògnit, desselecciona aquesta opció.</translation>
 <translation id="5386244825306882791">També controla la pàgina que es mostra quan inicieu Chrome o quan feu una cerca des de l'omnibox.</translation>
 <translation id="5430073640787465221">El fitxer de preferències està malmès o no és vàlid. Google Chrome no pot recuperar la configuració.</translation>
+<translation id="5514308096618405748">Chrome OS és possible gràcies a <ph name="BEGIN_LINK_CROS_OSS" />programari lliure addicional<ph name="END_LINK_CROS_OSS" />, així com Linux (versió beta).</translation>
 <translation id="556024056938947818">Google Chrome està provant de mostrar les contrasenyes.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598">Chrome ha bloquejat <ph name="FILE_NAME" /> perquè pot ser perillós.</translation>
@@ -214,6 +217,7 @@ Per obtenir més instruccions, consulteu el correu electrònic a <ph name="ACCOU
 <translation id="7419046106786626209">Chrome OS no ha pogut sincronitzar les vostres dades perquè la sincronització no està disponible per al vostre domini.</translation>
 <translation id="7459554271817304652">Configureu la sincronització per desar al web les funcions personalitzades del navegador i per accedir-hi des de qualsevol ordinador mitjançant Google Chrome.</translation>
 <translation id="7473136999113284234">Chrome s'actualitza automàticament perquè en tingueu sempre la versió més recent.</translation>
+<translation id="7486227612705979895">Chrome accedirà a Drive per fer suggeriments a la barra d'adreces</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7552219221109926349">Mostra Chrome OS en aquest idioma</translation>
 <translation id="7589360514048265910">Aquest ordinador ja no rebrà més actualitzacions de Google Chrome perquè Mac OS X 10.9 ja no és compatible.</translation>

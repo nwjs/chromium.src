@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">La drecera per activar/desactivar el mode d'alt contrast ha canviat. A partir d'ara, utilitza <ph name="NEW_SHORTCUT" /> en lloc de la drecera <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Forta</translation>
 <translation id="4918086044614829423">Accepta</translation>
+<translation id="4924411785043111640">Reinicia i restableix</translation>
 <translation id="4961318399572185831">Emet la pantalla</translation>
 <translation id="5136175204352732067">S'ha connectat un altre teclat</translation>
 <translation id="5168181903108465623">Dispositius d'emissió disponibles</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Ja s'han afegit tots els usuaris disponibles a aquesta sessió.</translation>
 <translation id="5457599981699367932">Navega com a convidat</translation>
 <translation id="54609108002486618">Gestionat</translation>
+<translation id="5496819745535887422">L'administrador està revertint el dispositiu a una versió anterior. Quan es reiniciï el dispositiu, se'n suprimiran totes les dades.</translation>
 <translation id="553675580533261935">S'està tancant la sessió</translation>
 <translation id="5537725057119320332">Emet</translation>
 <translation id="5548285847212963613">L'extensió "<ph name="EXTENSION_NAME" />" pot ajudar a connectar-se a aquesta xarxa.</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">Inici ràpid</translation>
 <translation id="8995603266996330174">Gestionat per <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Hi ha disponible una actualització d'Adobe Flash Player</translation>
+<translation id="9056839673611986238">El dispositiu es revertirà a una versió anterior</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">S'està fent servir el micròfon.</translation>

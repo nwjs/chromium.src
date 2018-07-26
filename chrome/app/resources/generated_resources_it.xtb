@@ -2008,7 +2008,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4037084878352560732">Cavallo</translation>
 <translation id="4037889604535939429">Modifica persona</translation>
 <translation id="4042264909745389898">Termini di Google Chrome OS</translation>
-<translation id="4042863763121826131">{NUM_PAGES,plural, =1{Pagina di uscita}other{Pagine di uscita}}</translation>
+<translation id="4042863763121826131">{NUM_PAGES,plural, =1{Esci dalla pagina}other{Esci dalle pagine}}</translation>
 <translation id="4044612648082411741">Inserisci la password del certificato</translation>
 <translation id="404493185430269859">Motore di ricerca predefinito</translation>
 <translation id="4047112090469382184">Livello di sicurezza della funzione</translation>
@@ -4021,7 +4021,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="720110658997053098">Mantieni definitivamente questo dispositivo in modalità kiosk</translation>
 <translation id="7201118060536064622">"<ph name="DELETED_ITEM_NAME" />" eliminato</translation>
 <translation id="7206693748120342859">Download di <ph name="PLUGIN_NAME" /> in corso...</translation>
-<translation id="720715819012336933">{NUM_PAGES,plural, =1{Pagina di uscita}other{Pagine di uscita}}</translation>
+<translation id="720715819012336933">{NUM_PAGES,plural, =1{Esci dalla pagina}other{Esci dalle pagine}}</translation>
 <translation id="7216409898977639127">Fornitore del servizio di telefonia mobile</translation>
 <translation id="7216595297012131718">Ordina le lingue in base alle tue preferenze</translation>
 <translation id="7220019174139618249">Impossibile esportare le password in "<ph name="FOLDER" />"</translation>
@@ -4148,7 +4148,6 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="7400839060291901923">Configura la connessione sul tuo <ph name="PHONE_NAME" /></translation>
 <translation id="740624631517654988">Popup bloccato</translation>
 <translation id="7407430846095439694">Importa e associa</translation>
-<translation id="7409233648990234464">Riavvia ed esegui Powerwash</translation>
 <translation id="7409836189476010449">Esegui Flash</translation>
 <translation id="7410344089573941623">Chiedi conferma se <ph name="HOST" /> vuole accedere alla webcam e al microfono</translation>
 <translation id="741204030948306876">Sì, accetto</translation>

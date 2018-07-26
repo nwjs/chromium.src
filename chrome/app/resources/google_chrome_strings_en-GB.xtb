@@ -33,6 +33,7 @@ Some features may be unavailable and changes to preferences won't be saved.</tra
 <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome is a web browser that runs web pages and applications with lightning speed. It's fast, stable and easy to use. Browse the web more safely with malware and phishing protection built into Google Chrome.</translation>
 <translation id="1718131156967340976">Select <ph name="SMALL_PRODUCT_LOGO" /> <ph name="BEGIN_BOLD" />Google Chrome<ph name="END_BOLD" /></translation>
+<translation id="1734234790201236882">Chrome will save this password in your Google account. You won’t have to remember it.</translation>
 <translation id="174539241580958092">Google Chrome could not sync your data due to an error signing in.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Get help with using Chrome OS</translation>
@@ -156,6 +157,7 @@ Please check your email at <ph name="ACCOUNT_EMAIL" /> for further instructions.
 <translation id="495931528404527476">In Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome could not sync your data. Please update your Sync passphrase.</translation>
+<translation id="5090044601776247154">Supervised user profiles will no longer be available starting with Google Chrome 70.</translation>
 <translation id="5131923704757666404">{0,plural, =1{Chrome will relaunch in an hour}other{Chrome will relaunch in # hours}}</translation>
 <translation id="5132929315877954718">Discover great apps, games, extensions and themes for Google Chrome.</translation>
 <translation id="5166975452760862670">Google Chrome is displayed in this language</translation>
@@ -170,6 +172,7 @@ Some features may be unavailable. Please specify a different profile directory o
 <translation id="5430073640787465221">Your preferences file is corrupt or invalid.
 
 Google Chrome is unable to recover your settings.</translation>
+<translation id="5514308096618405748">Chrome OS is made possible by additional <ph name="BEGIN_LINK_CROS_OSS" />open source software<ph name="END_LINK_CROS_OSS" />, as is Linux (Beta).</translation>
 <translation id="556024056938947818">Google Chrome is trying to show passwords.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> may be dangerous, so Chrome has blocked it.</translation>
@@ -222,6 +225,7 @@ Google Chrome is unable to recover your settings.</translation>
 <translation id="7419046106786626209">Chrome OS could not sync your data because Sync is not available for your domain.</translation>
 <translation id="7459554271817304652">Set up Sync to save your personalised browser features to the web and access them from Google Chrome on any computer.</translation>
 <translation id="7473136999113284234">Chrome updates automatically so that you always have the freshest version.</translation>
+<translation id="7486227612705979895">Chrome will access your Drive to make suggestions in the address bar</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7552219221109926349">Display Chrome OS in this language</translation>
 <translation id="7589360514048265910">This computer will no longer receive Google Chrome updates because Mac OS X 10.9 is no longer supported.</translation>

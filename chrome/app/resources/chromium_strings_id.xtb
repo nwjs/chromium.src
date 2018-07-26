@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">Memperbarui Chromium...</translation>
 <translation id="358997566136285270">Logo Chromium</translation>
 <translation id="3713809861844741608">Buka link di &amp;tab Chromium baru</translation>
+<translation id="3728336900324680424">Chromium akan mengakses Drive Anda untuk membuat saran di kolom URL</translation>
 <translation id="3762167353400286894">Chromium OS ditampilkan dalam bahasa ini</translation>
 <translation id="378917192836375108">Chromium memungkinkan Anda mengeklik nomor telepon pada web dan menghubunginya melalui Skype!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">Chromium OS tidak dapat membuka halaman ini.</translation>
 <translation id="5480860683791598150">Chromium memerlukan akses ke lokasi Anda untuk berbagi lokasi dengan situs ini</translation>
 <translation id="549669000822060376">Harap tunggu selagi Chromium memasang pembaruan sistem terkini.</translation>
+<translation id="5514308096618405748">Chrome OS terwujud karena <ph name="BEGIN_LINK_CROS_OSS" />software open source<ph name="END_LINK_CROS_OSS" /> tambahan, seperti Linux (Beta).</translation>
 <translation id="5631814766731275228">Nama dan gambar Chromium</translation>
 <translation id="5634636535844844681">Chromium memerlukan Windows 7 atau lebih tinggi.</translation>
 <translation id="5680901439334282664">masuk ke Chromium</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> telah ditambahkan ke Chromium</translation>
 <translation id="608189560609172163">Chromium tidak dapat menyinkronkan data Anda karena kesalahan saat masuk.</translation>
 <translation id="6096348254544841612">Sesuaikan dan kontrol Chromium. Update tersedia.</translation>
+<translation id="6120345080069858279">Chromium akan menyimpan sandi ini di Akun Google. Anda tidak perlu mengingatnya.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> berbahaya, sehingga Chromium memblokirnya.</translation>
 <translation id="6212496753309875659">Komputer ini sudah memiliki versi Chromium yang lebih baru. Jika software tidak bekerja, harap coba uninstal Chromium, lalu cobalah kembali.</translation>
 <translation id="6248213926982192922">Jadikan Chromium browser default</translation>
@@ -227,6 +230,7 @@ Lihat email Anda di <ph name="ACCOUNT_EMAIL" /> untuk petunjuk lebih lanjut.</tr
 <translation id="8290862415967981663">File ini mungkin berbahaya, jadi Chromium telah memblokirnya.</translation>
 <translation id="8330519371938183845">Login untuk menyinkronkan dan mempersonalisasi Chromium di perangkat Anda</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> sebelumnya menggunakan Chromium</translation>
+<translation id="8375950122744241554">Profil pengguna yang dilindungi tidak akan tersedia lagi mulai dari Chromium 70.</translation>
 <translation id="8453117565092476964">Arsip pemasang rusak atau tidak valid. Download Chromium lagi.</translation>
 <translation id="8493179195440786826">Chromium Terlalu Lawas</translation>
 <translation id="85843667276690461">Dapatkan bantuan tentang penggunaan Chromium</translation>

@@ -2633,11 +2633,11 @@
 
           パターンの例については、https://www.chromium.org/developers/how-tos/chrome-frame-getting-started をご覧ください。</translation>
 <translation id="8493645415242333585">ブラウザの履歴の保存を無効にする</translation>
-<translation id="8498293625012059298">パスワード変更用の URL を設定します（HTTP と HTTPS スキームのみ）。ブラウザで警告が表示された後でパスワードを変更するユーザーは、パスワード保護サービスによってこの URL にリダイレクトされます。
+<translation id="8498293625012059298">パスワード変更用の URL を設定します（HTTP と HTTPS スキームのみ）。ブラウザで警告が表示された後、ユーザーはパスワード保護サービスによってこの URL にリダイレクトされます。
       このパスワード変更ページで、新しい指紋によるパスワード認証が <ph name="PRODUCT_NAME" /> で正しく処理されるようにするには、パスワード変更ページが https://www.chromium.org/developers/design-documents/create-amazing-password-forms のガイドラインに沿っていることを確認してください。
 
-      この設定が有効な場合、ブラウザで警告が表示された後でパスワードを変更するユーザーは、パスワード保護サービスによってこの URL にリダイレクトされます。
-      この設定が無効または未設定の場合、パスワードを変更するユーザーは、パスワード保護サービスによって https://myaccounts.google.com にリダイレクトされます。
+      この設定が有効な場合、ブラウザで警告が表示された後、ユーザーはパスワード保護サービスによってこの URL にリダイレクトされます。
+      この設定が無効または未設定の場合、ユーザーはパスワード保護サービスによって https://myaccounts.google.com にリダイレクトされます。
       このポリシーは、<ph name="MS_AD_NAME" /> ドメインに登録されていない Windows インスタンスでは使用できません。</translation>
 <translation id="8499172469244085141">デフォルト設定（ユーザーによるオーバーライド可能）</translation>
 <translation id="8507835864888987300">自動更新の対象バージョンを設定します。

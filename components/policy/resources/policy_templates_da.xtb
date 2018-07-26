@@ -1315,7 +1315,7 @@ Mens selve politikken understøttes på ovenstående platforme, kan den funktion
 
       Hvis denne indstilling er deaktiveret, foreslår eller udfylder AutoFyld aldrig betalingskortoplysninger, og der gemmes heller ikke yderligere betalingskortoplysninger, som brugeren muligvis indsender, når vedkommende er på nettet.
 
-      Hvis denne indstilling er aktiveret, kan brugeren administrere den overordnede AutoFyld-funktion for betalingskort i brugerfladen.</translation>
+      Hvis denne indstilling er aktiveret eller ingen værdi har kan brugeren administrere den overordnede AutoFyld-funktion for betalingskort i brugerfladen.</translation>
 <translation id="4791031774429044540">Aktivér hjælpefunktionen Stor markør.
 
           Hvis denne politik angives som sand, vil den store markør altid være aktiveret.

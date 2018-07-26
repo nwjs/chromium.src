@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">S'està actualitzant Chromium...</translation>
 <translation id="358997566136285270">Logotip de Chromium</translation>
 <translation id="3713809861844741608">Obre l'enllaç en una pes&amp;tanya nova a Chromium</translation>
+<translation id="3728336900324680424">Chromium accedirà a Drive per fer suggeriments a la barra d'adreces</translation>
 <translation id="3762167353400286894">Chromium OS es mostra en aquest idioma</translation>
 <translation id="378917192836375108">Chromium us permet fer clic en un número de telèfon al web i trucar-hi amb Skype!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" />: Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">Chromium OS no pot obrir aquesta pàgina.</translation>
 <translation id="5480860683791598150">Chromium necessita accedir a la teva ubicació per compartir-la amb aquest lloc web</translation>
 <translation id="549669000822060376">Espereu mentre Chromium instal·la les darreres actualitzacions del sistema.</translation>
+<translation id="5514308096618405748">Chrome OS és possible gràcies a <ph name="BEGIN_LINK_CROS_OSS" />programari lliure addicional<ph name="END_LINK_CROS_OSS" />, així com Linux (versió beta).</translation>
 <translation id="5631814766731275228">Nom i foto de Chromium</translation>
 <translation id="5634636535844844681">Chromium requereix Windows 7 o una versió posterior.</translation>
 <translation id="5680901439334282664">Inicia la sessió a Chromium</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> s'ha afegit a Chromium</translation>
 <translation id="608189560609172163">Chromium no ha pogut sincronitzar les dades a causa d'un error amb l'inici de sessió.</translation>
 <translation id="6096348254544841612">Personalitza i controla Chromium. Hi ha una actualització disponible.</translation>
+<translation id="6120345080069858279">Chromium desarà aquesta contrasenya al Compte de Google. No caldrà que la recordis.</translation>
 <translation id="6129621093834146363">Chromium ha bloquejat <ph name="FILE_NAME" /> perquè és perillós.</translation>
 <translation id="6212496753309875659">Aquest equip ja té una versió més recent de Chromium. Si el programari no funciona, desinstal·leu Chromium i torneu-ho a provar.</translation>
 <translation id="6248213926982192922">Estableix Chromium com a navegador predeterminat</translation>
@@ -227,6 +230,7 @@ Per obtenir més instruccions, consulteu el correu electrònic a <ph name="ACCOU
 <translation id="8290862415967981663">Chromium ha bloquejat aquest fitxer perquè pot ser perillós.</translation>
 <translation id="8330519371938183845">Inicia la sessió per sincronitzar i personalitzar Chromium en tots els teus dispositius</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> abans utilitzava Chromium</translation>
+<translation id="8375950122744241554">A partir de Chromium 70, els perfils d'usuaris supervisats deixaran d'estar disponibles.</translation>
 <translation id="8453117565092476964">L'arxiu d'instal·lació està malmès o no és vàlid. Torneu a baixar Chromium.</translation>
 <translation id="8493179195440786826">Chromium no està actualitzat</translation>
 <translation id="85843667276690461">Obtén ajuda per a l'ús de Chromium</translation>

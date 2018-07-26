@@ -71,7 +71,7 @@ Není-li tato zásada nastavena, výchozí frekvence je 3 hodiny. Minimální po
 <translation id="1221359380862872747">Načíst konkrétní adresy URL při přihlášení do ukázky</translation>
 <translation id="1223789468190631420">Stav povolení Bezpečného prohlížení pro důvěryhodné zdroje</translation>
 <translation id="123081309365616809">Povoluje odesílání obsahu do zařízení</translation>
-<translation id="1243570869342663665">Ovládat filtrování obsahu pouze pro dospělé pomocí funkce SafeSites.</translation>
+<translation id="1243570869342663665">Ovládat filtrování obsahu pro dospělé pomocí funkce SafeSites.</translation>
 <translation id="1257550411839719984">Nastavit výchozí adresář pro stahování</translation>
 <translation id="1265053460044691532">Omezit dobu, po kterou se uživatel ověřený pomocí technologie SAML může přihlásit offline</translation>
 <translation id="1291880496936992484">Upozornění: Po verzi 52 (přibližně v září 2016) bude šifrovací algoritmus RC4 z prohlížeče <ph name="PRODUCT_NAME" /> zcela odstraněn a tato zásada přestane fungovat.
@@ -1312,7 +1312,7 @@ Pokud zásadu nenastavíte, <ph name="PRODUCT_NAME" /> nebude delegovat přihla�
       Pokud je tato zásada nastavená na hodnotu false, návrhy se načítat ani zobrazovat nebudou.</translation>
 <translation id="4788252609789586009">Aktivuje v prohlížeči <ph name="PRODUCT_NAME" /> funkci Automatické vyplňování a umožňuje uživatelům automaticky ve webových formulářích vyplňovat informace o platebních kartách pomocí dříve uložených údajů.
 
-      Pokud je toto nastavení zakázáno, nebude automatické vyplňování navrhovat ani vyplňovat informace o platebních kartách a nebude ani ukládat další informace o platebních kartách, které uživatel při prohlížení webu odešle.
+      Pokud je toto nastavení vypnuto, nebude automatické vyplňování navrhovat ani vyplňovat informace o platebních kartách a nebude ani ukládat další informace o platebních kartách, které uživatel při prohlížení webu odešle.
 
       Pokud je toto nastavení zapnuto nebo nemá žádnou hodnotu, uživatel bude moci automatické vyplňování pro platební karty ovládat v uživatelském rozhraní.</translation>
 <translation id="4791031774429044540">Aktivuje funkci usnadnění přístupu pomocí velkého kurzoru.
@@ -1506,7 +1506,7 @@ Pokud zásadu nastavíte, můžete nakonfigurovat, zda má uživatel oprávněn�
 <translation id="5330684698007383292">Umožnit pluginu <ph name="PRODUCT_FRAME_NAME" /> zpracovávat následující typy obsahu</translation>
 <translation id="5360146044009867539">Aktivuje v prohlížeči <ph name="PRODUCT_NAME" /> funkci Automatické vyplňování a umožňuje uživatelům automaticky ve webových formulářích vyplňovat informace o profilu a adresách pomocí dříve uložených údajů.
 
-      Pokud je toto nastavení zakázáno, automatické vyplňování nebude navrhovat ani vyplňovat informace o adresách a nebude ani ukládat další informace o adresách, které uživatel při prohlížení webu odešle.
+      Pokud je toto nastavení vypnuto, automatické vyplňování nebude navrhovat ani vyplňovat informace o adresách a nebude ani ukládat další informace o adresách, které uživatel při prohlížení webu odešle.
 
       Pokud je toto nastavení zapnuto nebo nemá žádnou hodnotu, uživatel bude moci automatické vyplňování adres ovládat v uživatelském rozhraní.</translation>
 <translation id="5365946944967967336">Zobrazit na liště tlačítko Domů</translation>

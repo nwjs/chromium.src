@@ -1528,7 +1528,7 @@
 
           Als dit beleid is ingesteld op 'False' (Onwaar), kunnen gebruikers geen content casten naar hun apparaat. Als dit beleid is ingesteld op 'True' (Waar), mogen gebruikers content casten. Als dit beleid niet is ingesteld, mogen gebruikers geen content naar geregistreerde Chrome OS-apparaten casten, maar wel naar niet-geregistreerde apparaten.</translation>
 <translation id="5330684698007383292"><ph name="PRODUCT_FRAME_NAME" /> toestaan de volgende soorten content te verwerken.</translation>
-<translation id="5360146044009867539">Hiermee wordt de functie 'Automatisch aanvullen' van <ph name="PRODUCT_NAME" /> ingeschakeld zodat en gebruikers profiel- en adresgegevens automatisch kunnen invullen op webformulieren aan de hand van eerder opgeslagen gegevens.
+<translation id="5360146044009867539">Hiermee wordt de functie 'Automatisch aanvullen' van <ph name="PRODUCT_NAME" /> ingeschakeld zodat gebruikers profiel- en adresgegevens automatisch kunnen invullen op webformulieren aan de hand van eerder opgeslagen gegevens.
 
       Als deze instelling is uitgeschakeld, worden er nooit adresgegevens voorgesteld of ingevuld door 'Automatisch aanvullen'. Er worden ook geen aanvullende adresgegevens opgeslagen die de gebruiker mogelijk verzendt terwijl deze browset op internet.
 

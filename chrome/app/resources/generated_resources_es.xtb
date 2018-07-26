@@ -820,7 +820,7 @@
 <translation id="2230062665678605299">No se puede crear la carpeta "<ph name="FOLDER_NAME" />". <ph name="ERROR_MESSAGE" /></translation>
 <translation id="223106756035922488">Haz clic para ver el doodle de hoy</translation>
 <translation id="2231238007119540260">Si eliminas un certificado de servidor, restablecerás las comprobaciones de seguridad habituales de ese servidor y necesitarás que este utilice un certificado válido.</translation>
-<translation id="2232379019872353004">Enviar información del sistema y contenido de las páginas a Google</translation>
+<translation id="2232379019872353004">Envía información del sistema y contenido de las páginas a Google</translation>
 <translation id="2232876851878324699">El archivo contenía un certificado, que no se ha importado:</translation>
 <translation id="2233502537820838181">&amp;Más información</translation>
 <translation id="2234876718134438132">Servicios de Google y sincronización</translation>
@@ -4147,7 +4147,6 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7400839060291901923">Configurar la conexión en tu <ph name="PHONE_NAME" /></translation>
 <translation id="740624631517654988">Ventana emergente bloqueada</translation>
 <translation id="7407430846095439694">Importar y vincular</translation>
-<translation id="7409233648990234464">Reiniciar y Powerwash</translation>
 <translation id="7409836189476010449">Ejecutar Flash</translation>
 <translation id="7410344089573941623">Preguntar si <ph name="HOST" /> quiere acceder a la cámara y al micrófono</translation>
 <translation id="741204030948306876">Sí, acepto</translation>
@@ -5169,7 +5168,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="8984654317541110628">URL de recurso compartido</translation>
 <translation id="8984872292925913496">Busca el PIN de 6 dígitos situado en la parte trasera de la llave</translation>
 <translation id="8986362086234534611">Dejar de recordar</translation>
-<translation id="8986494364107987395">Enviar automáticamente estadísticas de uso e informes sobre fallos a Google</translation>
+<translation id="8986494364107987395">Envía automáticamente estadísticas de uso e informes sobre fallos a Google</translation>
 <translation id="8987927404178983737">Mes</translation>
 <translation id="8991520179165052608">El sitio web puede usar tu micrófono</translation>
 <translation id="899403249577094719">URL base de certificado de Netscape</translation>
