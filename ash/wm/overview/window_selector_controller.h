@@ -72,6 +72,8 @@ class ASH_EXPORT WindowSelectorController : public WindowSelectorDelegate {
  private:
   class OverviewBlurController;
   friend class WindowSelectorTest;
+  FRIEND_TEST_ALL_PREFIXES(TabletModeControllerTest,
+                           DisplayDisconnectionDuringOverview);
 
   // Dispatched when window selection begins.
   void OnSelectionStarted();
