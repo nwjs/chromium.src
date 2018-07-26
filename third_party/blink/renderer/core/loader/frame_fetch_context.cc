@@ -343,6 +343,17 @@ FrameFetchContext::GetLoadingTaskRunner() {
   return GetFrame()->GetTaskRunner(TaskType::kNetworking);
 }
 
+std::unique_ptr<scheduler::WebResourceLoadingTaskRunnerHandle>
+FrameFetchContext::CreateResourceLoadingTaskRunnerHandle() {
+  if (IsDetached()) {
+    return scheduler::WebResourceLoadingTaskRunnerHandle::CreateUnprioritized(
+        FetchContext::GetLoadingTaskRunner());
+  }
+  return GetFrame()
+      ->GetFrameScheduler()
+      ->CreateResourceLoadingTaskRunnerHandle();
+}
+
 FrameScheduler* FrameFetchContext::GetFrameScheduler() const {
   if (IsDetached())
     return nullptr;
@@ -1355,7 +1366,6 @@ void FrameFetchContext::ParseAndPersistClientHints(
 
 std::unique_ptr<WebURLLoader> FrameFetchContext::CreateURLLoader(
     const ResourceRequest& request,
-    scoped_refptr<base::SingleThreadTaskRunner> task_runner,
     const ResourceLoaderOptions& options) {
   DCHECK(!IsDetached());
   WrappedResourceRequest webreq(request);
@@ -1390,18 +1400,19 @@ std::unique_ptr<WebURLLoader> FrameFetchContext::CreateURLLoader(
   if (url_loader_factory) {
     return Platform::Current()
         ->WrapURLLoaderFactory(url_loader_factory.PassInterface().PassHandle())
-        ->CreateURLLoader(webreq, task_runner);
+        ->CreateURLLoader(webreq, CreateResourceLoadingTaskRunnerHandle());
   }
 
   if (MasterDocumentLoader()->GetServiceWorkerNetworkProvider()) {
-    auto loader = MasterDocumentLoader()
-                      ->GetServiceWorkerNetworkProvider()
-                      ->CreateURLLoader(webreq, task_runner);
+    auto loader =
+        MasterDocumentLoader()
+            ->GetServiceWorkerNetworkProvider()
+            ->CreateURLLoader(webreq, CreateResourceLoadingTaskRunnerHandle());
     if (loader)
       return loader;
   }
-  return GetFrame()->GetURLLoaderFactory()->CreateURLLoader(webreq,
-                                                            task_runner);
+  return GetFrame()->GetURLLoaderFactory()->CreateURLLoader(
+      webreq, CreateResourceLoadingTaskRunnerHandle());
 }
 
 FetchContext* FrameFetchContext::Detach() {
