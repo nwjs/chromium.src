@@ -14,6 +14,7 @@
 #include "content/public/browser/web_contents.h"
 #include "content/public/common/origin_util.h"
 #include "net/base/url_util.h"
+#include "extensions/common/manifest_constants.h"
 
 namespace extensions {
 
@@ -93,7 +94,14 @@ bool DesktopCaptureChooseDesktopMediaFunction::RunAsync() {
     // NWJS app allows running on origins other than `chrome-extension://*/*`.
     // The origin should then be from the senders URL, in order not to fail
     // the origin checking in `DesktopStreamsRegistry::RequestMediaForStreamId`.
-    origin = extension()->is_nwjs_app() ? web_contents->GetURL().GetOrigin() : extension()->url();
+    if (extension()->is_nwjs_app()) {
+      std::string desktopStreamOriginOverride;
+      extension()->manifest()->GetString(manifest_keys::kNWJSDesktopStreamOriginOverride, &desktopStreamOriginOverride);
+      origin = desktopStreamOriginOverride.empty() ? web_contents->GetURL().GetOrigin() : GURL(desktopStreamOriginOverride);
+    }
+    else {
+      origin = extension()->url();
+    }
     DCHECK(web_contents);
   }
 

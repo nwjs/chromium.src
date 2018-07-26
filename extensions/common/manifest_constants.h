@@ -19,6 +19,7 @@ extern const char kNWJSMain[];
 extern const char kNWJSMixedContext[];
 extern const char kNWJSEnableNode[];
 extern const char kNWJSDomain[];
+extern const char kNWJSDesktopStreamOriginOverride[];
 
 extern const char kAboutPage[];
 extern const char kAction[];

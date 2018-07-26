@@ -28,6 +28,12 @@ class DesktopMediaList {
 
     // The thumbnail for the source.
     gfx::ImageSkia thumbnail;
+
+    // Name of the executable.
+    base::string16 exeName;
+
+    Source();
+    Source(const Source& other);
   };
 
   virtual ~DesktopMediaList() {}

@@ -411,7 +411,7 @@ def TempDir():
   try:
     yield dirname
   finally:
-    shutil.rmtree(dirname)
+    shutil.rmtree(dirname, ignore_errors=True)
 
 class Generator(generator.Generator):
   def _GetJinjaExports(self):

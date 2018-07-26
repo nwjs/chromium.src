@@ -127,6 +127,7 @@ void NativeDesktopMediaList::Worker::Refresh(
 
   bool mutiple_sources = sources.size() > 1;
   base::string16 title;
+  base::string16 exeName;
   for (size_t i = 0; i < sources.size(); ++i) {
     switch (type_) {
       case DesktopMediaID::TYPE_SCREEN:
@@ -138,6 +139,7 @@ void NativeDesktopMediaList::Worker::Refresh(
                           static_cast<int>(i + 1))
                     : l10n_util::GetStringUTF16(
                           IDS_DESKTOP_MEDIA_PICKER_SINGLE_SCREEN_NAME);
+        exeName = base::UTF8ToUTF16(sources[i].exeName);
         break;
 
       case DesktopMediaID::TYPE_WINDOW:
@@ -145,13 +147,14 @@ void NativeDesktopMediaList::Worker::Refresh(
         if (sources[i].id == view_dialog_id)
           continue;
         title = base::UTF8ToUTF16(sources[i].title);
+        exeName = base::UTF8ToUTF16(sources[i].exeName);
         break;
 
       default:
         NOTREACHED();
     }
     result.push_back(
-        SourceDescription(DesktopMediaID(type_, sources[i].id), title));
+        SourceDescription(DesktopMediaID(type_, sources[i].id), title, exeName));
   }
 
   BrowserThread::PostTask(

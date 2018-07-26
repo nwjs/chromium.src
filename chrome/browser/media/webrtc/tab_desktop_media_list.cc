@@ -108,7 +108,7 @@ void TabDesktopMediaList::Refresh() {
       // Get tab's last active time stamp.
       const base::TimeTicks t = contents->GetLastActiveTime();
       tab_map.insert(
-          std::make_pair(t, SourceDescription(media_id, contents->GetTitle())));
+          std::make_pair(t, SourceDescription(media_id, contents->GetTitle(), base::string16())));
 
       // Get favicon for tab.
       favicon::FaviconDriver* favicon_driver =
