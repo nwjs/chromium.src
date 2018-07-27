@@ -33,6 +33,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome is een webbrowser die bliksemsnel webpagina's en online applicaties kan weergeven. Het programma is snel, stabiel en gebruiksvriendelijk. Met Google Chrome kun je veiliger op internet surfen dankzij de ingebouwde bescherming tegen phishing en malware.</translation>
 <translation id="1718131156967340976">Selecteer <ph name="SMALL_PRODUCT_LOGO" /> <ph name="BEGIN_BOLD" />Google Chrome<ph name="END_BOLD" /></translation>
+<translation id="1734234790201236882">Chrome slaat dit wachtwoord op in je Google-account. Je hoeft het niet te onthouden.</translation>
 <translation id="174539241580958092">Google Chrome kan je gegevens niet synchroniseren vanwege een fout tijdens het inloggen.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Hulp bij het gebruik van Chrome OS</translation>
@@ -156,6 +157,7 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor verdere instructies.</t
 <translation id="495931528404527476">In Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome kan je gegevens niet synchroniseren. Update je synchronisatiewachtwoord.</translation>
+<translation id="5090044601776247154">Vanaf Google Chrome 70 zijn profielen van gebruikers met beperkte rechten niet meer beschikbaar.</translation>
 <translation id="5131923704757666404">{0,plural, =1{Chrome wordt over een uur opnieuw gestart}other{Chrome wordt over # uur opnieuw gestart}}</translation>
 <translation id="5132929315877954718">Ontdek fantastische apps, games, extensies en thema's voor Google Chrome.</translation>
 <translation id="5166975452760862670">Google Chrome wordt weergegeven in deze taal</translation>
@@ -168,6 +170,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="532046782124376502">Waarschuwing: Google Chrome kan niet voorkomen dat extensies je browsegeschiedenis registreren. Als je deze extensie in de incognitomodus wilt uitschakelen, verwijder je het vinkje bij deze optie.</translation>
 <translation id="5386244825306882791">Hiermee wordt ook gecontroleerd welke pagina wordt weergegeven wanneer je Chrome start of vanuit de omnibox zoekt.</translation>
 <translation id="5430073640787465221">Je bestand met voorkeuren is beschadigd of ongeldig. Google Chrome kan je instellingen niet herstellen.</translation>
+<translation id="5514308096618405748">Chrome OS wordt mogelijk gemaakt door aanvullende <ph name="BEGIN_LINK_CROS_OSS" />open-sourcesoftware<ph name="END_LINK_CROS_OSS" />, net als Linux (bèta).</translation>
 <translation id="556024056938947818">Google Chrome probeert wachtwoorden weer te geven.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> kan gevaarlijk zijn en is daarom door Chrome geblokkeerd.</translation>
@@ -220,6 +223,7 @@ Sommige functies zijn wellicht niet beschikbaar. Geef een andere profieldirector
 <translation id="7419046106786626209">Chrome OS kan je gegevens niet synchroniseren omdat synchronisatie niet beschikbaar is voor je domein.</translation>
 <translation id="7459554271817304652">Stel synchronisatie in om je persoonlijke browserfuncties online op te slaan en toegang te krijgen tot deze functies via Google Chrome, vanaf elke computer.</translation>
 <translation id="7473136999113284234">Chrome wordt automatisch bijgewerkt, zodat je altijd beschikt over de nieuwste versie.</translation>
+<translation id="7486227612705979895">Chrome gebruikt de toegang tot je Drive om suggesties te doen in de adresbalk</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7552219221109926349">Chrome OS weergeven in deze taal</translation>
 <translation id="7589360514048265910">Deze computer ontvangt geen Google Chrome-updates meer omdat Mac OS X 10.9 niet meer wordt ondersteund.</translation>

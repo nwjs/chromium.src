@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">A atualizar o Chromium...</translation>
 <translation id="358997566136285270">Logótipo do Chromium</translation>
 <translation id="3713809861844741608">Abrir link num novo &amp;separador do Chromium</translation>
+<translation id="3728336900324680424">O Chromium vai aceder ao seu Drive para fornecer sugestões na barra de endereço.</translation>
 <translation id="3762167353400286894">O SO Chromium é apresentado neste idioma</translation>
 <translation id="378917192836375108">O Chromium permite-lhe clicar num número de telefone na Web e fazer a chamada com o Skype!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">O SO Chromium não consegue abrir esta página.</translation>
 <translation id="5480860683791598150">O Chromium necessita de aceder à sua localização para a partilhar com este site.</translation>
 <translation id="549669000822060376">Aguarde até que o Chromium instale as atualizações do sistema mais recentes.</translation>
+<translation id="5514308096618405748">O Chrome OS é possível através de <ph name="BEGIN_LINK_CROS_OSS" />software de código aberto<ph name="END_LINK_CROS_OSS" /> adicional, tal como o Linux (Beta).</translation>
 <translation id="5631814766731275228">Nome e imagem do Chromium</translation>
 <translation id="5634636535844844681">O Chromium requer o Windows 7 ou superior.</translation>
 <translation id="5680901439334282664">inicie sessão no Chromium</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923">A extensão <ph name="EXTENSION_NAME" /> foi adicionada ao Chromium.</translation>
 <translation id="608189560609172163">O Chromium não conseguiu sincronizar os dados devido a um erro de início de sessão.</translation>
 <translation id="6096348254544841612">Personalize e controle o Chromium. Está disponível uma atualização.</translation>
+<translation id="6120345080069858279">O Chromium vai guardar esta palavra-passe na sua Conta Google. Não tem de a memorizar.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> é perigoso, por isso o Chromium bloqueou-o.</translation>
 <translation id="6212496753309875659">Este computador já tem uma versão mais recente do Chromium. Se o software não estiver a funcionar, desinstale o Chromium e tente novamente.</translation>
 <translation id="6248213926982192922">Definir o Chromium como navegador predefinido</translation>
@@ -227,6 +230,7 @@ Para obter mais instruções, verifique o seu email em <ph name="ACCOUNT_EMAIL" 
 <translation id="8290862415967981663">Este ficheiro pode ser perigoso. Como tal, o Chromium bloqueou-o.</translation>
 <translation id="8330519371938183845">Inicie sessão para sincronizar e personalizar o Chromium em todos os dispositivos.</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> estava a utilizar o Chromium</translation>
+<translation id="8375950122744241554">Os perfis de utilizadores supervisionados vão deixar de estar disponíveis a partir do Chromium 70.</translation>
 <translation id="8453117565092476964">O arquivo do programa de instalação está corrompido ou não é válido. Transfira novamente o Chromium.</translation>
 <translation id="8493179195440786826">O Chromium Está Desatualizado</translation>
 <translation id="85843667276690461">Obter ajuda para utilizar o Chromium</translation>

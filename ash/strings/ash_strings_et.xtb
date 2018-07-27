@@ -210,6 +210,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="4905614135390995787">Suure kontrastsusega režiimi aktiveerimise otsetee on muutunud. Kasutage edaspidi otseteed <ph name="NEW_SHORTCUT" />, mitte <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Tugev</translation>
 <translation id="4918086044614829423">Nõustu</translation>
+<translation id="4924411785043111640">Taaskäivita ja lähtesta</translation>
 <translation id="4961318399572185831">Ekraani ülekandmine</translation>
 <translation id="5136175204352732067">Ühendatud on teine klaviatuur</translation>
 <translation id="5168181903108465623">Ülekandeseadmed on saadaval</translation>
@@ -224,6 +225,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="544691375626129091">Kõik saadaval kasutajad on sellesse seanssi juba lisatud.</translation>
 <translation id="5457599981699367932">Sirvi külalisena</translation>
 <translation id="54609108002486618">Hallatud</translation>
+<translation id="5496819745535887422">Administraator viib seadme vanemale versioonile. Seadme taaskäivitamisel kustutatakse kõik andmed.</translation>
 <translation id="553675580533261935">Seansist väljumine</translation>
 <translation id="5537725057119320332">Ülekanne</translation>
 <translation id="5548285847212963613">Laiendus „<ph name="EXTENSION_NAME" />” aitab selle võrguga ühenduse loomisel.</translation>
@@ -410,6 +412,7 @@ Jätkamiseks peavad kõik kasutajad välja logima.</translation>
 <translation id="8984179138335769204">Kiirkäivitus</translation>
 <translation id="8995603266996330174">Haldaja: <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Saadaval on Adobe Flash Playeri värskendus</translation>
+<translation id="9056839673611986238">Seade viiakse vanemale versioonile</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">WiFi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Mikrofon on kasutusel.</translation>

@@ -210,6 +210,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4905614135390995787">Módosult a nagy kontrasztú mód billentyűparancsa. Használja a(z) <ph name="NEW_SHORTCUT" /> billentyűparancsot a(z) <ph name="OLD_SHORTCUT" /> helyett.</translation>
 <translation id="4917385247580444890">Erős</translation>
 <translation id="4918086044614829423">Elfogadás</translation>
+<translation id="4924411785043111640">Újraindítás és visszaállítás</translation>
 <translation id="4961318399572185831">Képernyő átküldése</translation>
 <translation id="5136175204352732067">Új billentyűzet lett csatlakoztatva</translation>
 <translation id="5168181903108465623">Cast-eszközök állnak rendelkezésre</translation>
@@ -224,6 +225,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="544691375626129091">Minden elérhető felhasználót hozzáadott a munkamenethez.</translation>
 <translation id="5457599981699367932">Böngészés vendégként</translation>
 <translation id="54609108002486618">Kezelt</translation>
+<translation id="5496819745535887422">Adminisztrátora eszközét jelenleg visszaállítja. Az eszköz újraindításakor minden adat törlődik.</translation>
 <translation id="553675580533261935">Kilépés a munkamenetből</translation>
 <translation id="5537725057119320332">Küldés</translation>
 <translation id="5548285847212963613">A(z) „<ph name="EXTENSION_NAME" />” bővítmény segíthet a hálózathoz való csatlakozásban.</translation>
@@ -410,6 +412,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="8984179138335769204">Gyorsindítás</translation>
 <translation id="8995603266996330174">Kezelő: <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Rendelkezésre áll az Adobe Flash Player frissítése</translation>
+<translation id="9056839673611986238">Az eszköz korábbi állapotra áll vissza</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">A mikrofon használatban van.</translation>

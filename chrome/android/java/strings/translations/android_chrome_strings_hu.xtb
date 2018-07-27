@@ -130,6 +130,7 @@
 <translation id="1989112275319619282">Böngészés</translation>
 <translation id="1993768208584545658">A(z) <ph name="SITE" /> párosítást szeretne végrehajtani</translation>
 <translation id="1994173015038366702">Webhely URL-je</translation>
+<translation id="2000419248597011803">Bizonyos cookie-kat és kereséseket küld a címsávból és a keresőmezőből az alapértelmezett keresőmotornak</translation>
 <translation id="2002537628803770967">A Google Pay szolgáltatást használó hitelkártyák és címek</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB más alkalmazások által</translation>
 <translation id="2017836877785168846">Törli a címsávban található előzményeket és automatikus kiegészítéseket.</translation>
@@ -227,6 +228,7 @@
 <translation id="2777555524387840389"><ph name="SECONDS" /> másodperc van hátra</translation>
 <translation id="2781151931089541271">1 másodperc van hátra</translation>
 <translation id="2810645512293415242">Egyszerűsített oldal az alacsonyabb adathasználat és a gyorsabb betöltés érdekében.</translation>
+<translation id="281504910091592009">Mentett jelszavait megtekintheti és kezelheti <ph name="BEGIN_LINK" />Google-fiókjában<ph name="END_LINK" /></translation>
 <translation id="2818669890320396765">Ha az összes eszközén szeretné elérni könyvjelzőit, jelentkezzen be, és kapcsolja be a szinkronizálást</translation>
 <translation id="2836148919159985482">A teljes képernyős megjelenítésből való kilépéshez koppintson a vissza gombra.</translation>
 <translation id="2842985007712546952">Szülőmappa</translation>

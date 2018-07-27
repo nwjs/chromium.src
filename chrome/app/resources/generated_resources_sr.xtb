@@ -319,7 +319,7 @@
 <translation id="1465827627707997754">Парче пице</translation>
 <translation id="1467432559032391204">Улево</translation>
 <translation id="1468571364034902819">Овај профил не може да се користи</translation>
-<translation id="1470533772306424441">Ме ћемо инсталирате те апликације за вас. Још апликација за уређај можете да пронађете у Play продавници.</translation>
+<translation id="1470533772306424441">Ми ћемо инсталирате те апликације за вас. Још апликација за уређај можете да пронађете у Play продавници.</translation>
 <translation id="1470811252759861213">Да би вам додаци били доступни на свим рачунарима, <ph name="SIGN_IN_LINK" />.</translation>
 <translation id="1474339897586437869">Датотека „<ph name="FILENAME" />“ није отпремљена. Није било довољно слободног места на Google диску.</translation>
 <translation id="1475502736924165259">На датотеци има сертификата који се не уклапају ни у једну другу категорију</translation>
@@ -4153,7 +4153,6 @@
 <translation id="7410344089573941623">Питај да ли <ph name="HOST" /> жели да приступи камери и микрофону</translation>
 <translation id="741204030948306876">Да, омогући</translation>
 <translation id="7412226954991670867">GPU меморија</translation>
-<translation id="7413455776853560343">Прилагоди позадину</translation>
 <translation id="7414464185801331860">18x</translation>
 <translation id="7416362041876611053">Непозната грешка на мрежи.</translation>
 <translation id="7417705661718309329">Google мапа</translation>
@@ -4354,7 +4353,6 @@
 <translation id="7758143121000533418">Family Link</translation>
 <translation id="7758450972308449809">Прилагодите границе приказа</translation>
 <translation id="7760004034676677601">Је ли ово почетна страница коју сте очекивали?</translation>
-<translation id="7760756088376329221">Изаберите Google фото-албум</translation>
 <translation id="7764225426217299476">Додајте адресу</translation>
 <translation id="7764256770584298012"><ph name="DOWNLOAD_RECEIVED" /> са <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="7765158879357617694">Премести</translation>

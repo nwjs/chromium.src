@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">Chromiumi värskendamine ...</translation>
 <translation id="358997566136285270">Chromiumi logo</translation>
 <translation id="3713809861844741608">Ava link Chromiumi uuel &amp;vahekaardil</translation>
+<translation id="3728336900324680424">Chromium pääseb teie Drive'ile juurde, et aadressiribal soovitusi anda</translation>
 <translation id="3762167353400286894">Chromium OS kuvatakse selles keeles</translation>
 <translation id="378917192836375108">Chromium võimaldab teil veebis telefoninumbril klõpsata ja sellele Skype'i kaudu helistada!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> – Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">Chromium OS ei saa seda lehte avada.</translation>
 <translation id="5480860683791598150">Chromium vajab juurdepääsu teie asukohale, et seda selle saidiga jagada</translation>
 <translation id="549669000822060376">Oodake, kuni Chromium installib uusimad süsteemivärskendused.</translation>
+<translation id="5514308096618405748">Chrome OS on võimalik tänu <ph name="BEGIN_LINK_CROS_OSS" />avatud lähtekoodiga lisatarkvarale<ph name="END_LINK_CROS_OSS" />, nagu ka Linux (beetaversioon).</translation>
 <translation id="5631814766731275228">Chromiumi nimi ja pilt</translation>
 <translation id="5634636535844844681">Chromium vajab operatsioonisüsteemi Windows 7 või uuemat versiooni.</translation>
 <translation id="5680901439334282664">logige Chromiumi sisse</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> on Chromiumi lisatud</translation>
 <translation id="608189560609172163">Chromium ei saanud sisselogimisvea tõttu teie andmeid sünkroonida.</translation>
 <translation id="6096348254544841612">Kohandage ja juhtige Chromiumi. Saadaval on värskendus.</translation>
+<translation id="6120345080069858279">Chromium salvestab selle parooli teie Google'i kontole. Te ei pea seda meeles pidama.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> on ohtlik, mistõttu Chromium blokeeris selle.</translation>
 <translation id="6212496753309875659">Arvutis on juba Chromiumi uuem versioon. Kui tarkvara ei tööta, siis desinstallige Chromium ja proovige uuesti.</translation>
 <translation id="6248213926982192922">Määra Chromium vaikebrauseriks</translation>
@@ -227,6 +230,7 @@ Täiendavad juhised leiate aadressilt <ph name="ACCOUNT_EMAIL" />.</translation>
 <translation id="8290862415967981663">Chromium blokeeris faili, kuna see võib olla ohtlik.</translation>
 <translation id="8330519371938183845">Logige sisse, et Chromium kõigis oma seadmetes sünkroonida ja isikupärastada</translation>
 <translation id="8340674089072921962">Kasutaja <ph name="USER_EMAIL_ADDRESS" /> kasutas varem Chromiumi</translation>
+<translation id="8375950122744241554">Jälgitavad kasutajaprofiilid ei ole enam alates Chromiumi versioonist 70 saadaval.</translation>
 <translation id="8453117565092476964">Installeri arhiiv on rikutud või kehtetu. Laadige Chromium uuesti alla.</translation>
 <translation id="8493179195440786826">Chromium on aegunud</translation>
 <translation id="85843667276690461">Hangi abi Chromiumi kasutamise kohta</translation>

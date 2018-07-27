@@ -73,6 +73,7 @@
 <translation id="3582788516608077514">Chromium се актуализира...</translation>
 <translation id="358997566136285270">Лого на Chromium</translation>
 <translation id="3713809861844741608">Отваряне на връзката в нов &amp;раздел на Chromium</translation>
+<translation id="3728336900324680424">Chromium ще осъществява достъп до хранилището ви в Диск, за да извежда предложения в адресната лента</translation>
 <translation id="3762167353400286894">Chromium OS се показва на този език</translation>
 <translation id="378917192836375108">Chromium ви позволява да кликнете върху телефонен номер в мрежата и да се обадите до него със Skype!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> – Chromium</translation>
@@ -119,6 +120,7 @@
 <translation id="5479196819031988440">Chromium OS не може да отвори тази страница.</translation>
 <translation id="5480860683791598150">Chromium се нуждае от достъп до данните за местоположението ви, за да ги сподели с този сайт</translation>
 <translation id="549669000822060376">Моля, изчакайте, докато Chromium инсталира най-новите системни актуализации.</translation>
+<translation id="5514308096618405748">Chrome OS е възможна благодарение на допълнителен <ph name="BEGIN_LINK_CROS_OSS" />софтуер с отворен код<ph name="END_LINK_CROS_OSS" />. Това се отнася и за Linux (бета).</translation>
 <translation id="5631814766731275228">Име и снимка за Chromium</translation>
 <translation id="5634636535844844681">За Chromium се изисква Windows 7 или по-нова версия.</translation>
 <translation id="5680901439334282664">Влезте в Chromium</translation>
@@ -139,6 +141,7 @@
 <translation id="6072279588547424923">Разширението <ph name="EXTENSION_NAME" /> бе добавено към Chromium</translation>
 <translation id="608189560609172163">Chromium не можа да синхронизира данните ви поради грешка при влизането.</translation>
 <translation id="6096348254544841612">Персонализиране и управление на Chromium. Налице е актуализация.</translation>
+<translation id="6120345080069858279">Chromium ще запази тази парола в профила ви в Google. Няма да се налага да я помните.</translation>
 <translation id="6129621093834146363">Chromium блокира „<ph name="FILE_NAME" />“, тъй като файлът е опасен.</translation>
 <translation id="6212496753309875659">На този компютър вече има по-скорошна версия на Chromium. Ако софтуерът не работи, моля, деинсталирайте Chromium и опитайте отново.</translation>
 <translation id="6248213926982192922">Нека Chromium да е браузърът по подразбиране</translation>
@@ -221,6 +224,7 @@
 <translation id="8290862415967981663">Chromium блокира този файл, тъй като може да е опасен.</translation>
 <translation id="8330519371938183845">Влезте в профила си, за да синхронизирате и персонализирате Chromium на всичките си устройства</translation>
 <translation id="8340674089072921962">По-рано <ph name="USER_EMAIL_ADDRESS" /> използва Chromium</translation>
+<translation id="8375950122744241554">От версия 70 на Chromium функцията за контролирани потребителски профили вече няма да е налична.</translation>
 <translation id="8453117565092476964">Архивът на инсталационната програма е повреден или невалиден. Моля, изтеглете отново Chromium.</translation>
 <translation id="8493179195440786826">Chromium не е актуален</translation>
 <translation id="85843667276690461">Получаване на помощ за използването на Chromium</translation>

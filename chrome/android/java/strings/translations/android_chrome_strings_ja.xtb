@@ -130,6 +130,7 @@
 <translation id="1989112275319619282">閲覧</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> がペア設定を要求しています</translation>
 <translation id="1994173015038366702">サイトの URL</translation>
+<translation id="2000419248597011803">Cookie と、アドレスバーや検索ボックスに入力した検索語句を既定の検索エンジンに送信します</translation>
 <translation id="2002537628803770967">Google Pay に登録したクレジット カードと住所</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> KB を他のアプリで使用中</translation>
 <translation id="2017836877785168846">アドレスバーの履歴とオートコンプリート データを削除します。</translation>
@@ -159,8 +160,8 @@
 <translation id="2184766556418880456">タップすると現在のタブに新しいタブの画面が読み込まれます</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" /> はウェブアプリです（<ph name="APP_URL" />）。</translation>
 <translation id="2227444325776770048"><ph name="USER_FULL_NAME" /> として続行</translation>
-<translation id="2232379019872353004">一部のシステム情報とページのコンテンツを Google に送信する</translation>
-<translation id="2234876718134438132">同期サービスと Google サービス</translation>
+<translation id="2232379019872353004">一部のシステム情報とページのコンテンツを Google に送信します</translation>
+<translation id="2234876718134438132">同期と Google サービス</translation>
 <translation id="2259659629660284697">パスワードをエクスポート…</translation>
 <translation id="2268044343513325586">絞り込み</translation>
 <translation id="2286841657746966508">請求先住所</translation>
@@ -186,7 +187,7 @@
 <translation id="2426805022920575512">別のアカウントを選択</translation>
 <translation id="2433507940547922241">デザイン</translation>
 <translation id="2434158240863470628">ダウンロードが完了しました<ph name="SEPARATOR" /> <ph name="BYTES_DOWNLOADED" /></translation>
-<translation id="2436117022029368436">ブラウジング環境と Chrome の改善に向けて Google と通信します</translation>
+<translation id="2436117022029368436">Google と通信してブラウジングと Chrome を改善</translation>
 <translation id="2440823041667407902">現在地情報へのアクセス</translation>
 <translation id="2450083983707403292"><ph name="FILE_NAME" /> のダウンロードをやり直してもよろしいですか？</translation>
 <translation id="2476578072172137802">サイトの設定</translation>
@@ -227,6 +228,7 @@
 <translation id="2777555524387840389">残り <ph name="SECONDS" /> 秒</translation>
 <translation id="2781151931089541271">残り 1 秒</translation>
 <translation id="2810645512293415242">簡易版ページを使用してデータの保存と読み込みを高速化します。</translation>
+<translation id="281504910091592009"><ph name="BEGIN_LINK" />Google アカウント<ph name="END_LINK" />での保存パスワードの表示と管理</translation>
 <translation id="2818669890320396765">お使いのどの端末でも同じブックマークを使用するには、ログインして同期を有効にします</translation>
 <translation id="2836148919159985482">全画面表示を終了するには戻るボタンをタップします。</translation>
 <translation id="2842985007712546952">親フォルダ</translation>
@@ -449,7 +451,7 @@
 <translation id="4763829664323285145">{FILE_COUNT,plural, =1{1 件のダウンロードが完了しました。}other{# 件のダウンロードが完了しました。}}</translation>
 <translation id="4766369052440583386">データセーバー ON</translation>
 <translation id="4797039098279997504">タップすると <ph name="URL_OF_THE_CURRENT_TAB" /> に戻ります</translation>
-<translation id="4807098396393229769">名義人名</translation>
+<translation id="4807098396393229769">カード名義人（半角英文字）</translation>
 <translation id="4807963036345170158">データセーバー OFF</translation>
 <translation id="4811736444948656478">画面の下半分にナビゲーション パネルが開かれています</translation>
 <translation id="4816465935029283692">データタイプ</translation>
@@ -572,7 +574,7 @@
 あらゆる場所に記録が一切残らないわけではありません。シークレット モードを使っても、雇用主、インターネット サービス プロバイダ、訪問先のウェブサイトに閲覧内容が知られる可能性はあります。</translation>
 <translation id="572328651809341494">最近使ったタブ</translation>
 <translation id="5726692708398506830">ページ上のすべての要素を拡大する</translation>
-<translation id="5731185123186077399">カスタマイズされる Google サービス（Google Pay など）</translation>
+<translation id="5731185123186077399">カスタマイズされた Google サービス（Google Pay など）を利用できます</translation>
 <translation id="5738816946784116349">Chrome のダウンロード</translation>
 <translation id="5748802427693696783">標準のタブに切り替えました</translation>
 <translation id="5749068826913805084">Chrome でファイルをダウンロードするにはストレージへのアクセス権が必要です。</translation>
@@ -692,7 +694,7 @@
 <translation id="666268767214822976">予測サービスを使用し、アドレスバーへの入力時に関連性の高い検索キーワードや人気のウェブサイトを表示します</translation>
 <translation id="666731172850799929"><ph name="APP_NAME" />で開く</translation>
 <translation id="666981079809192359">Chrome のプライバシーに関するお知らせ</translation>
-<translation id="6697492270171225480">ページが見つからない場合に類似のページを候補として表示します</translation>
+<translation id="6697492270171225480">ページが見つからない場合に類似のページを候補として表示する</translation>
 <translation id="6697947395630195233">このサイトで現在地を共有するには、Chrome で位置情報の使用を許可する必要があります。</translation>
 <translation id="6698801883190606802">同期データを管理</translation>
 <translation id="6710213216561001401">前へ</translation>
@@ -963,7 +965,7 @@
 <translation id="8979405271719829084">動画をダウンロードして後で見ることができます</translation>
 <translation id="8981454092730389528">Google アクティビティ管理</translation>
 <translation id="8983677657449185470">セーフ ブラウジングの改善に協力する</translation>
-<translation id="8986494364107987395">使用統計データと障害レポートを Google に自動送信する</translation>
+<translation id="8986494364107987395">使用統計データと障害レポートを Google に自動送信します</translation>
 <translation id="8993760627012879038">新しいタブをシークレット モードで開く</translation>
 <translation id="8998729206196772491"><ph name="MANAGED_DOMAIN" /> で管理されているアカウントでログインして、Chrome データの管理を管理者に委ねようとしています。この操作を行うと、データはこのアカウントに恒久的に関連付けられます。Chrome からログアウトすると、データはこの端末から削除されますが、Google アカウントには残ります。</translation>
 <translation id="9019902583201351841">保護者により管理されています</translation>

@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">正在更新 Chromium...</translation>
 <translation id="358997566136285270">Chromium 徽标</translation>
 <translation id="3713809861844741608">在 Chromium 新标签页中打开链接(&amp;T)</translation>
+<translation id="3728336900324680424">Chromium 将访问您的云端硬盘，以在地址栏提供建议</translation>
 <translation id="3762167353400286894">Chromium 操作系统界面目前使用的是这种语言</translation>
 <translation id="378917192836375108">您可以在 Chromium 中点击网上的电话号码，然后通过 Skype 拨打！</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">Chromium 操作系统无法打开此网页。</translation>
 <translation id="5480860683791598150">Chromium 需要获得位置权限，才能将您的位置信息共享给此网站</translation>
 <translation id="549669000822060376">Chromium正在安装最新的系统更新，请稍候。</translation>
+<translation id="5514308096618405748">Chrome 操作系统的问世还有其他<ph name="BEGIN_LINK_CROS_OSS" />开放源代码软件<ph name="END_LINK_CROS_OSS" />的功劳，Linux（测试版）也是如此。</translation>
 <translation id="5631814766731275228">Chromium 名称和图片</translation>
 <translation id="5634636535844844681">Chromium 仅支持 Windows 7 或更高版本的操作系统。</translation>
 <translation id="5680901439334282664">登录 Chromium</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923">“<ph name="EXTENSION_NAME" />”已添加到 Chromium</translation>
 <translation id="608189560609172163">由于在登录时出现错误，Chromium无法同步您的数据。</translation>
 <translation id="6096348254544841612">有可用的更新。欢迎自定义和控制 Chromium。</translation>
+<translation id="6120345080069858279">Chromium 会将此密码保存在您的 Google 帐号中，因此您不必记住它。</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> 存在危险，因此 Chromium 已将其拦截。</translation>
 <translation id="6212496753309875659">此计算机已安装了更高版本的 Chromium。如果软件无法正常运行，请卸载 Chromium 并重试。</translation>
 <translation id="6248213926982192922">将 Chromium 设置为默认浏览器</translation>
@@ -227,6 +230,7 @@ Chromium 无法恢复您的设置。</translation>
 <translation id="8290862415967981663">此文件可能存在危险，因此 Chromium 已将其拦截。</translation>
 <translation id="8330519371938183845">登录即可在您的所有设备上同步并个性化设置 Chromium</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> 之前使用的是 Chromium</translation>
+<translation id="8375950122744241554">Chromium 将从 70 版本起不再支持受监管用户个人资料。</translation>
 <translation id="8453117565092476964">安装程序归档损坏或无效。请重新下载 Chromium。</translation>
 <translation id="8493179195440786826">Chromium版本太旧</translation>
 <translation id="85843667276690461">获取 Chromium 使用帮助</translation>

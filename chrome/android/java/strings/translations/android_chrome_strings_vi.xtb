@@ -130,6 +130,7 @@
 <translation id="1989112275319619282">Duyệt qua</translation>
 <translation id="1993768208584545658"><ph name="SITE" /> muốn ghép nối</translation>
 <translation id="1994173015038366702">URL trang web</translation>
+<translation id="2000419248597011803">Gửi một số cookie và nội dung tìm kiếm từ thanh địa chỉ cũng như hộp tìm kiếm tới công cụ tìm kiếm mặc định</translation>
 <translation id="2002537628803770967">Thẻ tín dụng và địa chỉ sử dụng Google Pay</translation>
 <translation id="200815880754187296">Các ứng dụng khác chiếm <ph name="KILOBYTES" /> KB</translation>
 <translation id="2017836877785168846">Xóa lịch sử và tự động hoàn thành trong thanh địa chỉ.</translation>
@@ -227,6 +228,7 @@
 <translation id="2777555524387840389">Còn <ph name="SECONDS" /> giây</translation>
 <translation id="2781151931089541271">Còn 1 giây</translation>
 <translation id="2810645512293415242">Trang đơn giản giúp lưu dữ liệu và tải nhanh hơn.</translation>
+<translation id="281504910091592009">Xem và quản lý mật khẩu đã lưu trong <ph name="BEGIN_LINK" />Tài khoản Google<ph name="END_LINK" /> của bạn</translation>
 <translation id="2818669890320396765">Để sử dụng dấu trang trên tất cả các thiết bị, hãy đăng nhập và bật tính năng đồng bộ hóa</translation>
 <translation id="2836148919159985482">Chạm vào nút quay lại để thoát khỏi chế độ toàn màn hình.</translation>
 <translation id="2842985007712546952">Thư mục gốc</translation>
@@ -306,7 +308,7 @@
 <translation id="3549657413697417275">Tìm kiếm lịch sử của bạn</translation>
 <translation id="3552151358455404883">Quản lý Chrome Sync và cá nhân hóa trong <ph name="BEGIN_LINK1" />Cài đặt<ph name="END_LINK1" /></translation>
 <translation id="3557336313807607643">Thêm vào danh bạ</translation>
-<translation id="3568688522516854065">Để nhận các tab từ những thiết bị khác, hãy đăng nhập và bật tính năng đồng bộ hóa</translation>
+<translation id="3568688522516854065">Để sử dụng các tab từ những thiết bị khác, hãy đăng nhập và bật tính năng đồng bộ hóa</translation>
 <translation id="3587482841069643663">Tất cả</translation>
 <translation id="3590487821116122040">Bộ nhớ trang web mà Chrome cho rằng không quan trọng (ví dụ: những trang web không có cài đặt đã lưu nào hoặc trang web mà bạn không truy cập thường xuyên)</translation>
 <translation id="3599863153486145794">Xóa lịch sử khỏi tất cả các thiết bị đã đăng nhập. Tài khoản Google của bạn có thể có các dạng lịch sử duyệt web khác tại <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />.</translation>
@@ -590,7 +592,7 @@ Tuy nhiên, bạn vẫn hiển thị. Truy cập ẩn danh sẽ không ẩn 
 <translation id="5854790677617711513">Đã tồn tại hơn 30 ngày</translation>
 <translation id="5858741533101922242">Chrome không thể bật bộ điều hợp Bluetooth</translation>
 <translation id="5860033963881614850">Tắt</translation>
-<translation id="5862731021271217234">Để nhận các tab từ những thiết bị khác, hãy bật tính năng đồng bộ hóa</translation>
+<translation id="5862731021271217234">Để sử dụng các tab từ những thiết bị khác, hãy bật tính năng đồng bộ hóa</translation>
 <translation id="5864174910718532887">Thông tin chi tiết: Sắp xếp theo tên trang web</translation>
 <translation id="5864419784173784555">Đang chờ đến lần tải xuống tiếp theo…</translation>
 <translation id="5869522115854928033">Mật khẩu đã lưu</translation>

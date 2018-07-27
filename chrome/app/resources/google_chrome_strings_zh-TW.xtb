@@ -29,6 +29,7 @@
 <translation id="1682634494516646069">Google Chrome 無法讀取及寫入資料目錄：<ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome 瀏覽器開啟網頁和執行應用程式的速度奇快無比！除了執行速度迅速、穩定且容易使用之外，內建防護機制還可讓你安心瀏覽網頁，無需擔心受到網路釣魚與惡意軟體的威脅。</translation>
 <translation id="1718131156967340976">選取 [<ph name="SMALL_PRODUCT_LOGO" /> Google Chrome]<ph name="BEGIN_BOLD" /><ph name="END_BOLD" /></translation>
+<translation id="1734234790201236882">Chrome 會將這組密碼儲存至你的 Google 帳戶，你不須記住密碼。</translation>
 <translation id="174539241580958092">登入時發生錯誤，因此 Google Chrome 無法同步處理你的資料。</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">前往 Chrome 作業系統說明頁面</translation>
@@ -152,6 +153,7 @@
 <translation id="495931528404527476">在 Chrome 中</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome 無法同步處理你的資料，請更新你的同步通關密語。</translation>
+<translation id="5090044601776247154">Google Chrome 從 70 版本起將不再支援受監管的使用者設定檔。</translation>
 <translation id="5131923704757666404">{0,plural, =1{Chrome 將於 1 小時後重新啟動}other{Chrome 將於 # 小時後重新啟動}}</translation>
 <translation id="5132929315877954718">幫你的 Google Chrome 物色各種實用有趣的應用程式、遊戲、擴充功能和主題。</translation>
 <translation id="5166975452760862670">Google Chrome 的介面文字已設為這種語言</translation>
@@ -164,6 +166,7 @@
 <translation id="5430073640787465221">你的偏好設定檔已毀損或無效。
 
 Google Chrome 無法復原你的設定。</translation>
+<translation id="5514308096618405748">Chrome 作業系統藉助了其他<ph name="BEGIN_LINK_CROS_OSS" />開放原始碼軟體<ph name="END_LINK_CROS_OSS" />的相關技術才得以問世，Linux (測試版) 也是如此。</translation>
 <translation id="556024056938947818">Google Chrome 即將顯示密碼。</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> 可能不安全，因此遭到 Chrome 封鎖。</translation>
@@ -216,6 +219,7 @@ Google Chrome 無法復原你的設定。</translation>
 <translation id="7419046106786626209">你的網域無法使用「同步功能」，因此 Chrome 作業系統無法同步處理你的資料。</translation>
 <translation id="7459554271817304652">設定同步處理功能，即可在網路上儲存你的個人化瀏覽器功能，並且透過任何電腦從 Google Chrome 使用這些功能。</translation>
 <translation id="7473136999113284234">Chrome 會自動更新，隨時讓你使用最新版本。</translation>
+<translation id="7486227612705979895">Chrome 將存取你的雲端硬碟，並在網址列提供建議</translation>
 <translation id="7535429826459677826">Google Chrome 開發人員版</translation>
 <translation id="7552219221109926349">將 Chrome 作業系統的介面文字設為這種語言</translation>
 <translation id="7589360514048265910">我們已不支援 Mac OS X 10.9，因此這部電腦不會再收到 Google Chrome 更新。</translation>

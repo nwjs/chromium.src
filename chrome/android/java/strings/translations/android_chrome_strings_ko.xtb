@@ -18,8 +18,8 @@
 <translation id="1141800923049248244">{FILE_COUNT,plural, =1{다운로드 1개 대기 중}other{다운로드 #개 대기 중}}</translation>
 <translation id="1145536944570833626">기존 데이터 삭제</translation>
 <translation id="1146678959555564648">VR 시작</translation>
-<translation id="114721135501989771">Chrome에서 스마트한 Google 사용</translation>
-<translation id="1157102636231978136">Google 계정에 동기화된 인터넷 사용 기록 및 활동입니다.</translation>
+<translation id="114721135501989771">Google로 Chrome을 더욱 스마트하게</translation>
+<translation id="1157102636231978136">Google 계정에 동기화되는 인터넷 사용 기록 및 활동</translation>
 <translation id="116280672541001035">사용</translation>
 <translation id="1172593791219290334">시작 페이지</translation>
 <translation id="1178581264944972037">일시중지</translation>
@@ -130,7 +130,8 @@
 <translation id="1989112275319619282">찾아보기</translation>
 <translation id="1993768208584545658"><ph name="SITE" />에서 페어링하려고 함</translation>
 <translation id="1994173015038366702">사이트 URL</translation>
-<translation id="2002537628803770967">Google Pay에 사용되는 신용카드 및 주소</translation>
+<translation id="2000419248597011803">검색주소창 및 검색창의 검색어 및 일부 쿠키를 기본 검색엔진에 전송</translation>
+<translation id="2002537628803770967">Google Pay에 저장된 신용카드 및 주소</translation>
 <translation id="200815880754187296">기타 앱 <ph name="KILOBYTES" />KB</translation>
 <translation id="2017836877785168846">검색주소창의 검색 기록 및 자동 완성 항목을 삭제합니다.</translation>
 <translation id="2021896219286479412">전체화면 사이트 컨트롤</translation>
@@ -227,6 +228,7 @@
 <translation id="2777555524387840389"><ph name="SECONDS" />초 남음</translation>
 <translation id="2781151931089541271">1초 남음</translation>
 <translation id="2810645512293415242">페이지가 간소화되어 데이터가 절약되고 로드 속도가 빨라졌습니다.</translation>
+<translation id="281504910091592009"><ph name="BEGIN_LINK" />Google 계정<ph name="END_LINK" />에서 저장된 비밀번호 보기 및 관리</translation>
 <translation id="2818669890320396765">어느 기기에서나 내 북마크를 사용하려면 로그인하고 동기화를 사용 설정하세요.</translation>
 <translation id="2836148919159985482">전체화면을 종료하려면 뒤로 버튼을 터치하세요.</translation>
 <translation id="2842985007712546952">상위 폴더</translation>
@@ -843,7 +845,7 @@
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" />이(가) 이전 버전입니다.</translation>
 <translation id="7947953824732555851">수락 및 로그인</translation>
 <translation id="7963646190083259054">공급업체:</translation>
-<translation id="7981313251711023384">더 빠른 인터넷 사용과 검색을 위해 페이지 새로고침</translation>
+<translation id="7981313251711023384">더 빠른 인터넷 사용과 검색을 위해 페이지 미리 로드</translation>
 <translation id="79859296434321399">증강 현실 콘텐츠를 보려면 ARCore를 설치하세요.</translation>
 <translation id="7987073022710626672">Chrome 서비스 약관</translation>
 <translation id="7998918019931843664">닫은 탭 다시 열기</translation>

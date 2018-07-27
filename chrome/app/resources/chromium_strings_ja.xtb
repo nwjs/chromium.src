@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">Chromium を更新しています...</translation>
 <translation id="358997566136285270">Chromium ロゴ</translation>
 <translation id="3713809861844741608">新しい Chromium タブでリンクを開く(&amp;T)</translation>
+<translation id="3728336900324680424">Chromium からお客様のドライブにアクセスして、アドレスバーに候補を表示します</translation>
 <translation id="3762167353400286894">Chromium OS はこの言語で表示されています</translation>
 <translation id="378917192836375108">Chromium では、ウェブサイト上の電話番号をクリックするだけで Skype で通話を発信できます。</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">Chromium OS ではこのページを開けません。</translation>
 <translation id="5480860683791598150">このサイトで現在地を共有するには、Chromium で位置情報の使用を許可する必要があります</translation>
 <translation id="549669000822060376">Chromium は最新のシステム アップデートをインストールしています。しばらくお待ちください。</translation>
+<translation id="5514308096618405748">Chrome OS は、さらに追加の<ph name="BEGIN_LINK_CROS_OSS" />オープンソース ソフトウェア<ph name="END_LINK_CROS_OSS" />によって Linux（ベータ版）で実現しました。</translation>
 <translation id="5631814766731275228">Chromium の名前と画像</translation>
 <translation id="5634636535844844681">Chromium のご利用には Windows 7 以上が必要です。</translation>
 <translation id="5680901439334282664">Chromium にログイン</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923">「<ph name="EXTENSION_NAME" />」が Chromium に追加されました</translation>
 <translation id="608189560609172163">ログイン時にエラーが発生したため、Chromium はデータを同期できませんでした。</translation>
 <translation id="6096348254544841612">Chromium をカスタマイズしてご活用ください。アップデートが利用可能です。</translation>
+<translation id="6120345080069858279">このパスワードは Google アカウントに保存されるため、覚えておく必要はありません。</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> は危険なファイルであるため、Chromium でブロックしました。</translation>
 <translation id="6212496753309875659">新しいバージョンの Chromium が既にインストールされています。ソフトウェアが動作しない場合は、Chromium をアンインストールしてからもう一度お試しください。</translation>
 <translation id="6248213926982192922">Chromium を既定のブラウザにする</translation>
@@ -227,6 +230,7 @@
 <translation id="8290862415967981663">このファイルは危険なファイルの可能性があるため、Chromium でブロックしました。</translation>
 <translation id="8330519371938183845">ログインすると、同期してカスタマイズした Chromium をどの端末でも使用できます</translation>
 <translation id="8340674089072921962">Chromium の前回の使用者は <ph name="USER_EMAIL_ADDRESS" /> です</translation>
+<translation id="8375950122744241554">監視対象ユーザーのプロフィールは、Chromium 70 よりご利用いただけなくなります。</translation>
 <translation id="8453117565092476964">インストーラ アーカイブが壊れているか無効です。Chromium をダウンロードし直してください。</translation>
 <translation id="8493179195440786826">Chromium は古いバージョンです</translation>
 <translation id="85843667276690461">Chromium の使用に関するアドバイス</translation>

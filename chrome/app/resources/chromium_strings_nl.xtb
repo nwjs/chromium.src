@@ -77,6 +77,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="3582788516608077514">Chromium bijwerken...</translation>
 <translation id="358997566136285270">Chromium-logo</translation>
 <translation id="3713809861844741608">Link openen op een nieuw Chromium-&amp;tabblad</translation>
+<translation id="3728336900324680424">Chromium gebruikt de toegang tot je Drive om suggesties te doen in de adresbalk</translation>
 <translation id="3762167353400286894">Chromium OS wordt weergegeven in deze taal</translation>
 <translation id="378917192836375108">Met Chromium kun je klikken op een telefoonnummer op internet om dit via Skype te bellen!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -123,6 +124,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="5479196819031988440">Chromium OS kan deze pagina niet openen.</translation>
 <translation id="5480860683791598150">Chromium heeft toegang tot je locatie nodig om je locatie met deze site te delen</translation>
 <translation id="549669000822060376">Wacht terwijl Chromium de nieuwste systeemupdates installeert.</translation>
+<translation id="5514308096618405748">Chrome OS wordt mogelijk gemaakt door aanvullende <ph name="BEGIN_LINK_CROS_OSS" />open-sourcesoftware<ph name="END_LINK_CROS_OSS" />, net als Linux (bèta).</translation>
 <translation id="5631814766731275228">Naam en afbeelding voor Chromium</translation>
 <translation id="5634636535844844681">Voor Chromium is Windows 7 of hoger vereist.</translation>
 <translation id="5680901439334282664">inloggen bij Chromium</translation>
@@ -143,6 +145,7 @@ Sommige functies zijn wellicht niet beschikbaar en wijzigingen in voorkeuren wor
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> is toegevoegd aan Chromium</translation>
 <translation id="608189560609172163">Chromium kan je gegevens niet synchroniseren door een fout tijdens het inloggen.</translation>
 <translation id="6096348254544841612">Chromium aanpassen en beheren. Update is beschikbaar</translation>
+<translation id="6120345080069858279">Chromium slaat dit wachtwoord op in je Google-account. Je hoeft het niet te onthouden.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> is gevaarlijk en is daarom door Chromium geblokkeerd.</translation>
 <translation id="6212496753309875659">Deze computer beschikt al over een recentere versie van Chromium. Als de software niet werkt, moet je Chromium verwijderen en het opnieuw proberen.</translation>
 <translation id="6248213926982192922">Chromium als standaardbrowser instellen</translation>
@@ -229,6 +232,7 @@ Controleer je e-mail op <ph name="ACCOUNT_EMAIL" /> voor verdere instructies.</t
 <translation id="8290862415967981663">Dit bestand kan gevaarlijk zijn en is daarom door Chromium geblokkeerd.</translation>
 <translation id="8330519371938183845">Log in om Chromium op al je apparaten te synchroniseren en te personaliseren</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> maakte eerder gebruik van Chromium</translation>
+<translation id="8375950122744241554">Vanaf Chromium 70 zijn profielen van gebruikers met beperkte rechten niet meer beschikbaar.</translation>
 <translation id="8453117565092476964">Het archief van het installatieprogramma is beschadigd of ongeldig. Download Chromium opnieuw.</translation>
 <translation id="8493179195440786826">Chromium is verouderd</translation>
 <translation id="85843667276690461">Hulp bij het gebruik van Chromium</translation>

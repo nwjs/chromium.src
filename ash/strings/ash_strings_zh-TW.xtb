@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">切換高對比模式的快速鍵已變更，請改用 <ph name="NEW_SHORTCUT" /> (停用 <ph name="OLD_SHORTCUT" />)。</translation>
 <translation id="4917385247580444890">強</translation>
 <translation id="4918086044614829423">接受</translation>
+<translation id="4924411785043111640">重新啟動並重設</translation>
 <translation id="4961318399572185831">投放螢幕</translation>
 <translation id="5136175204352732067">已連接其他鍵盤</translation>
 <translation id="5168181903108465623">可用的投放裝置</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">現有使用者已全部加入這個工作階段。</translation>
 <translation id="5457599981699367932">以訪客身分瀏覽</translation>
 <translation id="54609108002486618">管理</translation>
+<translation id="5496819745535887422">管理員正在復原你的裝置。重新啟動後，裝置上的資料將全數刪除。</translation>
 <translation id="553675580533261935">結束工作階段</translation>
 <translation id="5537725057119320332">投放</translation>
 <translation id="5548285847212963613">「<ph name="EXTENSION_NAME" />」擴充功能可協助連線至這個網路。</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">快速啓動</translation>
 <translation id="8995603266996330174">由 <ph name="DOMAIN" /> 管理</translation>
 <translation id="9029474291399787231">有可用的 Adobe Flash Player 更新</translation>
+<translation id="9056839673611986238">裝置將復原</translation>
 <translation id="9074739597929991885">藍牙</translation>
 <translation id="9079731690316798640">Wi-Fi：<ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">麥克風正在使用中。</translation>

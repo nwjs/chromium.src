@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">ባለከፍተኛ ንፅፅር ሁነታ የሚቀይረው አቋራጭ ተለውጧል። እባክዎ በ<ph name="OLD_SHORTCUT" /> ምትክ <ph name="NEW_SHORTCUT" />ን ይጠቀሙ።</translation>
 <translation id="4917385247580444890">ጠንካራ</translation>
 <translation id="4918086044614829423">ይቀበሉ</translation>
+<translation id="4924411785043111640">ዳግም ይጀምሩ እና ዳግም ያቀናብሩ</translation>
 <translation id="4961318399572185831">የCast ማያ ገጽ</translation>
 <translation id="5136175204352732067">የተለየ የቁልፍ ሰሌዳ ተገናኝቷል</translation>
 <translation id="5168181903108465623">የCast መሣሪያዎች ይገኛሉ</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">ሁሉም የሚገኙ ተጤቃሚዎች አስቀድመው ወደዚህ ክፍለ-ጊዜ ታክለዋል።</translation>
 <translation id="5457599981699367932">እንደ እንግዳ ያስሱ</translation>
 <translation id="54609108002486618">የተቀናበረ</translation>
+<translation id="5496819745535887422">የእርስዎ አስተዳዳሪ የእርስዎን መሣሪያ እየቀነሰው ነው። መሣሪያው ዳግም እንዲጀምር ሲደረግ ሁሉም ውሂብ ይሰረዛል።</translation>
 <translation id="553675580533261935">ከክፍለ-ጊዜ በመውጣት ላይ</translation>
 <translation id="5537725057119320332">Cast</translation>
 <translation id="5548285847212963613">«<ph name="EXTENSION_NAME" />» ቅጥያ ወደዚህ አውታረመረብ ለማገናኘት ሊያግዝ ይችላል።</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">ፈጣን ማስጀመሪያ</translation>
 <translation id="8995603266996330174">የተቀናበረው በ<ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">የAdobe Flash Player ዝማኔ ይገኛል</translation>
+<translation id="9056839673611986238">መሣሪያ ይቀነሳል</translation>
 <translation id="9074739597929991885">ብሉቱዝ</translation>
 <translation id="9079731690316798640">Wi-Fi፦ <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">ማይክሮፎን ስራ ላይ ነው።</translation>

@@ -130,6 +130,7 @@
 <translation id="1989112275319619282">Esplora</translation>
 <translation id="1993768208584545658">Il sito <ph name="SITE" /> desidera accoppiarsi</translation>
 <translation id="1994173015038366702">URL sito</translation>
+<translation id="2000419248597011803">Invia al tuo motore di ricerca predefinito alcune ricerche dalla barra degli indirizzi e dalla casella di ricerca, nonché alcuni cookie</translation>
 <translation id="2002537628803770967">Carte di credito e indirizzi che utilizzano Google Pay</translation>
 <translation id="200815880754187296"><ph name="KILOBYTES" /> kB per altre app</translation>
 <translation id="2017836877785168846">Consente di cancellare la cronologia e i completamenti automatici nella barra degli indirizzi.</translation>
@@ -227,6 +228,7 @@
 <translation id="2777555524387840389"><ph name="SECONDS" /> sec rimanenti</translation>
 <translation id="2781151931089541271">1 sec rimanente</translation>
 <translation id="2810645512293415242">Pagina semplificata per risparmiare dati e caricarla più velocemente.</translation>
+<translation id="281504910091592009">Visualizza e gestisci le password salvate nel tuo <ph name="BEGIN_LINK" />account Google<ph name="END_LINK" /></translation>
 <translation id="2818669890320396765">Accedi e attiva la sincronizzazione per trovare i tuoi preferiti su tutti i dispositivi</translation>
 <translation id="2836148919159985482">Tocca il pulsante Indietro per uscire dalla modalità a schermo intero.</translation>
 <translation id="2842985007712546952">Cartella principale</translation>
@@ -974,7 +976,7 @@ Per ottenere nuove licenze, connettiti a Internet e riproduci i contenuti scaric
 <translation id="9065203028668620118">Modifica</translation>
 <translation id="9070377983101773829">Avvia la ricerca vocale</translation>
 <translation id="9071742570345586758">Per vedere contenuti di realtà virtuale, installa Servizi Google VR</translation>
-<translation id="9074336505530349563">Per ricevere contenuti suggeriti appositamente per te da Google, attiva la sincronizzazione</translation>
+<translation id="9074336505530349563">Per ricevere contenuti suggeriti appositamente per te da Google, accedi e attiva la sincronizzazione</translation>
 <translation id="9086455579313502267">Impossibile accedere alla rete</translation>
 <translation id="9099018167121903954"><ph name="KILOBYTES" /> kB per i download</translation>
 <translation id="9100505651305367705">Chiedi di mostrare gli articoli in visualizzazione semplificata, se supportata</translation>

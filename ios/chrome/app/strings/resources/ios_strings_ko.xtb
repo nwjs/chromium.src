@@ -10,7 +10,7 @@
 <translation id="1112015203684611006">인쇄 실패</translation>
 <translation id="1125564390852150847">새 탭 만들기</translation>
 <translation id="1145536944570833626">기존 데이터 삭제</translation>
-<translation id="1157102636231978136">Google 계정에 동기화된 인터넷 사용 기록 및 활동입니다.</translation>
+<translation id="1157102636231978136">Google 계정에 동기화되는 인터넷 사용 기록 및 활동</translation>
 <translation id="1165039591588034296">오류</translation>
 <translation id="1172898394251786223">다음 필드</translation>
 <translation id="1176932207622159128">이미지를 저장할 수 없음</translation>
@@ -402,7 +402,7 @@
 <translation id="7947953824732555851">수락 및 로그인</translation>
 <translation id="7961015016161918242">사용하지 않음</translation>
 <translation id="7971521879845308059">팝업 차단</translation>
-<translation id="7981313251711023384">더 빠른 인터넷 사용과 검색을 위해 페이지 새로고침</translation>
+<translation id="7981313251711023384">더 빠른 인터넷 사용과 검색을 위해 페이지 미리 로드</translation>
 <translation id="7982789257301363584">네트워크</translation>
 <translation id="8019783059653722575">액세스를 허용하면 사진을 저장하고 업로드할 수 있습니다.</translation>
 <translation id="802154636333426148">다운로드 실패</translation>
@@ -414,7 +414,7 @@
 <translation id="8080028325999236607">탭 모두 닫기</translation>
 <translation id="8114753159095730575">파일을 다운로드할 수 있습니다. 화면 하단에서 옵션을 선택할 수 있습니다.</translation>
 <translation id="8160722851663543621">검색주소창 및 검색창의 검색어 및 일부 쿠키를 기본 검색엔진에 전송</translation>
-<translation id="8178325540017397816">선택한 항목이 삭제됩니다</translation>
+<translation id="8178325540017397816">선택한 항목 삭제</translation>
 <translation id="8205564605687841303">취소</translation>
 <translation id="8225985093977202398">캐시된 이미지 및 파일</translation>
 <translation id="8261506727792406068">삭제</translation>

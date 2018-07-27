@@ -33,6 +33,7 @@
 <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Chrome은 웹페이지와 애플리케이션을 빠르게 실행하는 웹 브라우저입니다. 또한 빠르고 안정적이며 사용하기 쉽습니다. Chrome에 기본적으로 제공되는 악성코드 및 피싱 방지 기능으로 웹을 더 안전하게 탐색하세요.</translation>
 <translation id="1718131156967340976"><ph name="SMALL_PRODUCT_LOGO" /><ph name="BEGIN_BOLD" />Chrome<ph name="END_BOLD" /> 선택</translation>
+<translation id="1734234790201236882">Chrome에서 내 Google 계정에 이 비밀번호를 저장하므로 기억하지 않아도 됩니다.</translation>
 <translation id="174539241580958092">로그인 중 오류가 발생하여 Chrome에서 데이터를 동기화하지 못했습니다.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Chrome OS 사용에 대한 도움말</translation>
@@ -156,6 +157,7 @@
 <translation id="495931528404527476">Chrome</translation>
 <translation id="4990567037958725628">Chrome 카나리아</translation>
 <translation id="5028489144783860647">Chrome에서 데이터를 동기화하지 못했습니다. 동기화 암호를 업데이트하시기 바랍니다.</translation>
+<translation id="5090044601776247154">Chrome 70부터는 관리 대상 사용자 프로필을 사용할 수 없습니다.</translation>
 <translation id="5131923704757666404">{0,plural, =1{1시간 후에 Chrome 다시 시작}other{#시간 후에 Chrome 다시 시작}}</translation>
 <translation id="5132929315877954718">Chrome에 사용할 유용한 애플리케이션, 게임, 확장 프로그램 및 테마를 찾아보세요.</translation>
 <translation id="5166975452760862670">현재 Chrome에서 사용 중인 언어</translation>
@@ -170,6 +172,7 @@
 <translation id="5430073640787465221">환경설정 파일이 손상되었거나 잘못되었습니다.
 
 Chrome에서 설정을 복구할 수 없습니다.</translation>
+<translation id="5514308096618405748">Linux(베타)와 마찬가지로, Chrome OS는 추가 <ph name="BEGIN_LINK_CROS_OSS" />오픈소스 소프트웨어<ph name="END_LINK_CROS_OSS" />를 사용하여 개발되었습니다.</translation>
 <translation id="556024056938947818">Chrome에서 비밀번호를 표시하려고 합니다.</translation>
 <translation id="5566025111015594046">Chrome(mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" />은(는) 위험할 수 있으므로 Chrome에서 차단했습니다.</translation>
@@ -222,6 +225,7 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="7419046106786626209">내 도메인에서 동기화를 사용할 수 없으므로 Chrome OS에서 데이터를 동기화하지 못했습니다.</translation>
 <translation id="7459554271817304652">맞춤설정한 브라우저 기능을 웹에 저장하고 모든 컴퓨터의 Chrome에서 액세스할 수 있도록 동기화를 설정합니다.</translation>
 <translation id="7473136999113284234">Chrome은 자동으로 업데이트되므로 항상 최신 버전을 사용할 수 있습니다.</translation>
+<translation id="7486227612705979895">Chrome에서 내 드라이브에 액세스하여 주소 표시줄에 추천 검색어를 표시합니다.</translation>
 <translation id="7535429826459677826">Chrome 개발자</translation>
 <translation id="7552219221109926349">이 언어로 Chrome OS 표시</translation>
 <translation id="7589360514048265910">Mac OS X 10.9가 더 이상 지원되지 않으므로 이 컴퓨터에서 Chrome 업데이트를 받을 수 없게 됩니다.</translation>
@@ -252,7 +256,7 @@ Chrome에서 설정을 복구할 수 없습니다.</translation>
 <translation id="8286862437124483331">Chrome에서 비밀번호를 표시하려고 합니다. 허용하려면 Windows 비밀번호를 입력하세요.</translation>
 <translation id="8290100596633877290">Chrome이 다운되었습니다. 다시 시작하시겠습니까?</translation>
 <translation id="8342675569599923794">이 파일은 위험하므로 Chrome에서 차단했습니다.</translation>
-<translation id="8380166467911888159">맞춤법 오류를 수정하기 위해 Chrome에서 사용자가 입력하는 텍스트를 Google로 전송합니다.</translation>
+<translation id="8380166467911888159">맞춤법 오류를 수정하기 위해 Chrome에서 Google로 사용자가 입력하는 텍스트 전송</translation>
 <translation id="840084489713044809">Chrome에서 비밀번호를 내보내려고 합니다.</translation>
 <translation id="8406086379114794905">더 나은 Chrome을 만들 수 있도록 도와주세요.</translation>
 <translation id="8455999171311319804">선택사항: 진단 및 사용 데이터가 Google로 자동 전송되도록 선택하면 Chrome OS 개선에 도움이 됩니다.</translation>

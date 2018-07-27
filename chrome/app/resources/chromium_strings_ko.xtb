@@ -77,6 +77,7 @@
 <translation id="3582788516608077514">Chromium 업데이트 중...</translation>
 <translation id="358997566136285270">Chromium 로고</translation>
 <translation id="3713809861844741608">새 Chromium 탭에서 링크 열기(&amp;T)</translation>
+<translation id="3728336900324680424">Chromium에서 내 드라이브에 액세스하여 주소 표시줄에 추천 검색어를 표시합니다.</translation>
 <translation id="3762167353400286894">현재 Chromium OS에서 사용 중인 언어</translation>
 <translation id="378917192836375108">Chromium을 사용하면 웹에서 전화번호를 클릭하여 Skype로 통화할 수 있습니다.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -123,6 +124,7 @@
 <translation id="5479196819031988440">Chromium OS에서 이 페이지를 열 수 없음</translation>
 <translation id="5480860683791598150">이 사이트와 위치를 공유하려면 Chromium에 내 위치 액세스 권한이 있어야 합니다</translation>
 <translation id="549669000822060376">Chromium에서 최신 시스템 업데이트를 설치하는 동안 잠시 기다려 주세요.</translation>
+<translation id="5514308096618405748">Linux(베타)와 마찬가지로, Chrome OS는 추가 <ph name="BEGIN_LINK_CROS_OSS" />오픈소스 소프트웨어<ph name="END_LINK_CROS_OSS" />를 사용하여 개발되었습니다.</translation>
 <translation id="5631814766731275228">Chromium 이름 및 사진</translation>
 <translation id="5634636535844844681">Chromium은 Windows 7 이상 버전에서 사용할 수 있습니다.</translation>
 <translation id="5680901439334282664">Chromium에 로그인</translation>
@@ -143,6 +145,7 @@
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" />이(가) Chromium에 추가됨</translation>
 <translation id="608189560609172163">로그인 중 오류가 발생하여 Chromium에서 데이터를 동기화하지 못했습니다.</translation>
 <translation id="6096348254544841612">Chromium을 맞춤설정하고 제어하세요. 업데이트가 출시되었습니다.</translation>
+<translation id="6120345080069858279">Chromium에서 내 Google 계정에 이 비밀번호를 저장하므로 기억하지 않아도 됩니다.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" />은(는) 위험한 파일이므로 Chromium에서 차단했습니다.</translation>
 <translation id="6212496753309875659">컴퓨터에 이미 최신 버전의 Chromium이 있습니다. 소프트웨어가 작동하지 않으면 Chromium의 설치를 제거한 뒤 다시 시도하세요.</translation>
 <translation id="6248213926982192922">Chromium을 기본 브라우저로 설정</translation>
@@ -229,6 +232,7 @@ Chromium에서 설정을 복구할 수 없습니다.</translation>
 <translation id="8290862415967981663">이 파일은 위험할 수 있으므로 Chromium에서 차단했습니다.</translation>
 <translation id="8330519371938183845">로그인하여 모든 기기에서 Chromium을 동기화하고 맞춤설정하세요.</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" />에서 이전에 Chromium을 사용한 적이 있음</translation>
+<translation id="8375950122744241554">Chromium 70부터는 관리 대상 사용자 프로필을 사용할 수 없습니다.</translation>
 <translation id="8453117565092476964">설치 프로그램 아카이브가 손상되었거나 잘못되었습니다. Chromium을 다시 다운로드하세요.</translation>
 <translation id="8493179195440786826">Chromium이 이전 버전임</translation>
 <translation id="85843667276690461">Chromium 사용에 대한 도움말</translation>

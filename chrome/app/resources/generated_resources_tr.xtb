@@ -2555,7 +2555,7 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="4955814292505481804">Yıllık</translation>
 <translation id="4957949153200969297">Yalnızca <ph name="IDS_SHORT_PRODUCT_NAME" /> Senkronizasyonu ile ilişkili özellikleri etkinleştirin</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
-<translation id="4961000125720751066">Kartlarınız tek bir yerde tutun</translation>
+<translation id="4961000125720751066">Kartlarınızı tek bir yerde tutun</translation>
 <translation id="496226124210045887">Seçtiğiniz klasör hassas dosyalar içeriyor. "$1" için bu klasöre kalıcı okuma erişimi vermek istediğinizden emin misiniz?</translation>
 <translation id="4964455510556214366">Düzenleme</translation>
 <translation id="4964673849688379040">Denetleniyor...</translation>
@@ -4157,7 +4157,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7410344089573941623"><ph name="HOST" /> sitesi kamerama ve mikrofonuma erişmek isterse sor</translation>
 <translation id="741204030948306876">Evet, istiyorum</translation>
 <translation id="7412226954991670867">GPU Belleği</translation>
-<translation id="7413455776853560343">Arka planı özelleştirin</translation>
 <translation id="7414464185801331860">18x</translation>
 <translation id="7416362041876611053">Bilinmeyen ağ hatası.</translation>
 <translation id="7417705661718309329">Google harita</translation>
@@ -4358,7 +4357,6 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7758143121000533418">Family Link</translation>
 <translation id="7758450972308449809">Ekranınızın sınırlarını ayarlayın</translation>
 <translation id="7760004034676677601">Bu beklediğiniz başlangıç sayfası mı?</translation>
-<translation id="7760756088376329221">Google Fotoğraf Albümü seçin</translation>
 <translation id="7764225426217299476">Adres ekle</translation>
 <translation id="7764256770584298012"><ph name="DOWNLOAD_DOMAIN" /> alan adından <ph name="DOWNLOAD_RECEIVED" /></translation>
 <translation id="7765158879357617694">Taşı</translation>
@@ -4460,7 +4458,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7857949311770343000">Bu, beklediğiniz yeni sekme sayfası mı?</translation>
 <translation id="786073089922909430">Hizmet: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7861215335140947162">&amp;İndirilenler</translation>
-<translation id="7868378670806575181">{NUM_COOKIES,plural, =1{1 çerez}other{# çerezler}}</translation>
+<translation id="7868378670806575181">{NUM_COOKIES,plural, =1{1 çerez}other{# çerez}}</translation>
 <translation id="786957569166715433"><ph name="DEVICE_NAME" /> - Eşlendi</translation>
 <translation id="7870730066603611552">Kurulumdan sonra senkronizasyon seçeneklerini inceleyin</translation>
 <translation id="7870790288828963061">Daha yeni bir sürüme sahip herhangi bir Kiosk uygulaması bulunamadı. Güncellenecek hiçbir şey yok. Lütfen USB çubuğunu çıkarın.</translation>

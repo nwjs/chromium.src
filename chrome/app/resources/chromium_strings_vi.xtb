@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">Đang cập nhật Chromium...</translation>
 <translation id="358997566136285270">Biểu trưng Chromium</translation>
 <translation id="3713809861844741608">Mở liên kết trong tab mới của Chromium</translation>
+<translation id="3728336900324680424">Chromium sẽ truy cập vào Drive của bạn để đưa ra đề xuất trên thanh địa chỉ</translation>
 <translation id="3762167353400286894">Chromium OS được hiển thị bằng ngôn ngữ này</translation>
 <translation id="378917192836375108">Chromium cho phép bạn nhấp vào số điện thoại trên web và gọi tới số đó bằng Skype!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">Chromium OS không thể mở trang này.</translation>
 <translation id="5480860683791598150">Chromium cần quyền truy cập vào vị trí của bạn để chia sẻ thông tin vị trí với trang web này</translation>
 <translation id="549669000822060376">Vui lòng đợi khi Chromium cài đặt các bản cập nhật hệ thống mới nhất.</translation>
+<translation id="5514308096618405748">Chrome OS có thể hoạt động được là nhờ <ph name="BEGIN_LINK_CROS_OSS" />phần mềm nguồn mở<ph name="END_LINK_CROS_OSS" /> bổ sung, tương tự như Linux (Beta).</translation>
 <translation id="5631814766731275228">Tên và ảnh trên Chromium</translation>
 <translation id="5634636535844844681">Chromium yêu cầu Windows 7 trở lên.</translation>
 <translation id="5680901439334282664">đăng nhập vào Chromium</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> đã được thêm vào Chromium</translation>
 <translation id="608189560609172163">Chromium không thể đồng bộ hóa dữ liệu của bạn do lỗi khi đăng nhập.</translation>
 <translation id="6096348254544841612">Tùy chỉnh và kiểm soát Chromium. Đã có bản cập nhật.</translation>
+<translation id="6120345080069858279">Chromium sẽ lưu mật khẩu này trong Tài khoản Google của bạn. Bạn sẽ không phải nhớ mật khẩu này.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> nguy hiểm, do đó Chromium đã chặn tệp.</translation>
 <translation id="6212496753309875659">Máy tính này đã có phiên bản Chromium mới hơn. Nếu phần mềm không hoạt động, hãy gỡ cài đặt Chromium và thử lại.</translation>
 <translation id="6248213926982192922">Đặt Chromium làm trình duyệt mặc định</translation>
@@ -227,6 +230,7 @@ Vui lòng xem email của bạn tại <ph name="ACCOUNT_EMAIL" /> để được
 <translation id="8290862415967981663">Tệp này nguy hiểm, do đó Chromium đã chặn tệp.</translation>
 <translation id="8330519371938183845">Đăng nhập để đồng bộ hóa và cá nhân hóa Chromium trên các thiết bị của bạn</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> trước đó đã sử dụng Chromium</translation>
+<translation id="8375950122744241554">Kể từ Chromium 70, tính năng hồ sơ người dùng được giám sát sẽ không còn được cung cấp nữa.</translation>
 <translation id="8453117565092476964">Tệp lưu trữ trình cài đặt bị hỏng hoặc không hợp lệ. Hãy tải xuống Chromium lại lần nữa.</translation>
 <translation id="8493179195440786826">Chromium đã lỗi thời</translation>
 <translation id="85843667276690461">Nhận trợ giúp về cách sử dụng Chromium</translation>

@@ -77,6 +77,7 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="3582788516608077514">Actualizando Chromium...</translation>
 <translation id="358997566136285270">Logotipo de Chromium</translation>
 <translation id="3713809861844741608">Abrir enlace en una pes&amp;taña nueva de Chromium</translation>
+<translation id="3728336900324680424">Chromium accederá a tu Drive para mostrarte sugerencias en la barra de direcciones</translation>
 <translation id="3762167353400286894">Chromium OS se muestra en este idioma</translation>
 <translation id="378917192836375108">Chromium te permite hacer clic en un número de teléfono en la Web y llamar mediante Skype.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -123,6 +124,7 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="5479196819031988440">Chromium OS no puede abrir esta página.</translation>
 <translation id="5480860683791598150">Chromium necesita acceder a tu ubicación para compartirla con este sitio web</translation>
 <translation id="549669000822060376">Espera mientras Chromium instala las últimas actualizaciones del sistema.</translation>
+<translation id="5514308096618405748">Chrome OS está creado con <ph name="BEGIN_LINK_CROS_OSS" />software de código abierto<ph name="END_LINK_CROS_OSS" /> adicional, como Linux (Beta).</translation>
 <translation id="5631814766731275228">Nombre y foto de Chromium</translation>
 <translation id="5634636535844844681">Chromium requiere Windows 7 o una versión posterior.</translation>
 <translation id="5680901439334282664">iniciar sesión en Chromium</translation>
@@ -143,6 +145,7 @@ Es posible que algunas funciones no estén disponibles y que no se guarden los c
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> se ha añadido a Chromium</translation>
 <translation id="608189560609172163">Chromium no ha podido sincronizar los datos debido a un error de inicio de sesión.</translation>
 <translation id="6096348254544841612">Personaliza y controla Chromium. Hay una actualización disponible.</translation>
+<translation id="6120345080069858279">Chromium guardará esta contraseña en tu cuenta de Google para que no tengas que recordarla.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> es peligroso, por lo que Chromium lo ha bloqueado.</translation>
 <translation id="6212496753309875659">Este ordenador ya cuenta con una versión más reciente de Chromium. Si el software no funciona, desinstala Chromium y vuelve a intentarlo.</translation>
 <translation id="6248213926982192922">Establecer Chromium como navegador predeterminado</translation>
@@ -229,6 +232,7 @@ Consulta tu correo electrónico (<ph name="ACCOUNT_EMAIL" />) para obtener más 
 <translation id="8290862415967981663">Es posible que este archivo sea peligroso, por lo que Chromium lo ha bloqueado.</translation>
 <translation id="8330519371938183845">Inicia sesión para sincronizar y personalizar Chromium en todos tus dispositivos</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> usaba Chromium anteriormente</translation>
+<translation id="8375950122744241554">Los perfiles de usuario supervisado no estarán disponibles a partir de la versión 70 de Chromium.</translation>
 <translation id="8453117565092476964">El archivo de instalación está dañado o no es válido. Vuelve a descargar Chromium.</translation>
 <translation id="8493179195440786826">Chromium no está actualizado</translation>
 <translation id="85843667276690461">Obtener ayuda de Chromium</translation>

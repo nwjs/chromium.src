@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">Клавишната комбинация за превключване на режима на висок контраст е променена. Моля, използвайте <ph name="NEW_SHORTCUT" /> вместо <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Силен</translation>
 <translation id="4918086044614829423">Приемам</translation>
+<translation id="4924411785043111640">Рестартиране и нулиране</translation>
 <translation id="4961318399572185831">Предаване на екрана</translation>
 <translation id="5136175204352732067">Свързана е различна клавиатура</translation>
 <translation id="5168181903108465623">Налице са устройства Cast</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Всички налични потребители вече са добавени към тази сесия.</translation>
 <translation id="5457599981699367932">Сърфиране като гост</translation>
 <translation id="54609108002486618">Управляван</translation>
+<translation id="5496819745535887422">Администраторът връща устройството ви към по-ранна версия. Всички данни ще бъдат изтрити след рестартирането му.</translation>
 <translation id="553675580533261935">Излизане от сесията</translation>
 <translation id="5537725057119320332">Предаване</translation>
 <translation id="5548285847212963613">Разширението <ph name="EXTENSION_NAME" /> може да помогне за свързването с тази мрежа.</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">Бързо стартиране</translation>
 <translation id="8995603266996330174">Управлявано от <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Налице е актуализация на Adobe Flash Player</translation>
+<translation id="9056839673611986238">Устройството ще бъде върнато към по-ранна версия</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Микрофонът се използва.</translation>

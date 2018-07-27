@@ -33,6 +33,7 @@
 <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome ድረ-ገፆችን እና መተግበሪያዎችን በሚገርም ፍጥነት ማሄድ የሚችል የድር አሳሽ ነው። ፈጣን፣ የረጋ እና ለመጠቀም ቀላል ነው። Google Chrome ውስጥ አብሮት በተሰራ የአስጋሪና ተንኮል-አዘል ሶፍትዌር መከላከያ አማካኝነት ደህንነትዎ በበለጠ ሁኔታ ተጠብቆ ድሩን ያስሱ።</translation>
 <translation id="1718131156967340976"><ph name="SMALL_PRODUCT_LOGO" /> <ph name="BEGIN_BOLD" />Google Chrome<ph name="END_BOLD" /> ይምረጡ</translation>
+<translation id="1734234790201236882">Chrome ይህን የይለፍ ቃል በእርስዎ የGoogle መለያ ውስጥ ያስቀምጠዋል። ማስታወስ አይኖርብዎትም።</translation>
 <translation id="174539241580958092">በመለያ ሲገባ በነበረ ስህተት ምክንያት Google Chrome ውሂብዎን ማመሳሰል አልቻለም።</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Chrome ስርዓተ ክወናን መጠቀም ላይ እገዛን ያግኙ</translation>
@@ -156,6 +157,7 @@
 <translation id="495931528404527476">በChrome ውስጥ</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome የእርስዎን ውሂብ ማመሳሰል አልቻለም። እባክዎ የእርስዎን የማመሳሰያ የይለፍ ሐረግ ያዘምኑ።</translation>
+<translation id="5090044601776247154">ክትትል የሚደረግበት ተጠቃሚ መገለጫዎች ከGoogle Chrome 70 ከሚጀምሩ ላይ ከእንግዲህ አይገኙም</translation>
 <translation id="5131923704757666404">{0,plural, =1{በአንድ ሰዓት ውስጥ Chrome እንደገና ይጀመራል}one{በ# ሰዓቶች ውስጥ Chrome እንደገና ይጀመራል}other{በ# ሰዓቶች ውስጥ Chrome እንደገና ይጀመራል}}</translation>
 <translation id="5132929315877954718">ለGoogle Chrome ምርጥ መተግበሪያዎችን፣ ጨዋታዎችን፣ ቅጥያዎችን እና ገጽታዎችን ያግኙ።</translation>
 <translation id="5166975452760862670">Google Chrome በዚህ ቋንቋ እየታየ ነው</translation>
@@ -170,6 +172,7 @@
 <translation id="5430073640787465221">የምርጫዎችዎ ፋይል ተበላሽቷል ወይም ልክ አይደለም ነው።
 
 Google Chrome ቅንጅቶችዎን ማስመለስ አልቻለም።</translation>
+<translation id="5514308096618405748">Chrome OS በተጨማሪ <ph name="BEGIN_LINK_CROS_OSS" />ክፍት ምንጭ ሶፍትዌር<ph name="END_LINK_CROS_OSS" /> እንደ Linux (ቅድመ ይሁንታ) እንደሆነው ሊሆን የሚችል ሆኗል።</translation>
 <translation id="556024056938947818">Google Chrome የይለፍ ቃላትን ለማሳየት እየሞከረ ነው።</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> አደገኛ ሊሆን ስለሚችል Chrome አግዶታል።</translation>
@@ -222,6 +225,7 @@ Google Chrome ቅንጅቶችዎን ማስመለስ አልቻለም።</translat
 <translation id="7419046106786626209">ማመሳሰል ለጎራዎ ስለማይገኝ Chrome OS ውሂብዎን ማመሳሰል አልቻለም።</translation>
 <translation id="7459554271817304652">ግላዊነት የተላበሰው የአሳሽ ባህሪዎችዎ ድር ላይ ለማስቀመጥና ከዚያ Google Chrome ካለው ማንኛውም ኮምፒውተር ለመድረስ አመሳስልን ያዋቅሩ።</translation>
 <translation id="7473136999113284234">Chrome በራስ-ሰር ይዘመናል፣ ስለዚህ ሁልጊዜ አዲሱ ስሪት ይኖርዎታል።</translation>
+<translation id="7486227612705979895">Chrome የእርስዎን Drive በአድራሻ አሞሌ ውስጥ ጥቆማ ሐሳቦችን ይደርሳል</translation>
 <translation id="7535429826459677826">Google Chrome ገንቢ</translation>
 <translation id="7552219221109926349">Chrome OSን በዚህ ቋንቋ አሳይ</translation>
 <translation id="7589360514048265910">Mac OS X 10.9 ከእንግዲህ ስለማይደገፍ ይህ ኮምፒውተር ከእንግዲህ የGoogle Chrome ዝማኔዎችን አይቀበልም።</translation>

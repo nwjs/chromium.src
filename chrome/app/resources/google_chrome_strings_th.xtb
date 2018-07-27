@@ -29,6 +29,7 @@
 <translation id="1682634494516646069">Google Chrome ไม่สามารถอ่านและเขียนข้อมูลในไดเรกทอรีข้อมูล: <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome คือเว็บเบราว์เซอร์ที่แสดงหน้าเว็บและแอปพลิเคชันต่างๆ ได้รวดเร็วในพริบตา โดยทำงานได้เร็ว มีเสถียรภาพ และใช้งานง่าย ช่วยให้คุณเรียกดูเว็บได้อย่างปลอดภัยมากขึ้นด้วยการป้องกันมัลแวร์และฟิชชิงซึ่งมีอยู่ใน Google Chrome</translation>
 <translation id="1718131156967340976">เลือก <ph name="SMALL_PRODUCT_LOGO" /> <ph name="BEGIN_BOLD" />Google Chrome<ph name="END_BOLD" /></translation>
+<translation id="1734234790201236882">Chrome จะบันทึกรหัสผ่านนี้ในบัญชี Google คุณจะได้ไม่ต้องจำรหัสผ่านเอง</translation>
 <translation id="174539241580958092">Google Chrome ไม่สามารถซิงค์ข้อมูลของคุณเนื่องจากเกิดข้อผิดพลาดในการลงชื่อเข้าใช้</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">รับความช่วยเหลือเกี่ยวกับการใช้ Chrome OS</translation>
@@ -153,6 +154,7 @@
 <translation id="495931528404527476">ใน Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome ไม่สามารถซิงค์ข้อมูลของคุณ โปรดอัปเดตข้อความรหัสผ่านการซิงค์</translation>
+<translation id="5090044601776247154">คุณจะใช้โปรไฟล์ผู้ใช้ภายใต้การดูแลไม่ได้อีกแล้วโดยเริ่มตั้งแต่ Google Chrome 70 เป็นต้นไป</translation>
 <translation id="5131923704757666404">{0,plural, =1{Chrome จะเปิดขึ้นมาใหม่ภายใน 1 ชั่วโมง}other{Chrome จะเปิดขึ้นมาใหม่ภายใน # ชั่วโมง}}</translation>
 <translation id="5132929315877954718">พบกับแอป เกม ส่วนขยาย และธีมเด็ดๆ สำหรับ Google Chrome</translation>
 <translation id="5166975452760862670">Google Chrome แสดงในภาษานี้</translation>
@@ -163,6 +165,7 @@
 <translation id="532046782124376502">คำเตือน: Google Chrome ไม่สามารถป้องกันไม่ให้ส่วนขยายบันทึกประวัติการเข้าชม หากต้องการปิดใช้ส่วนขยายนี้ในโหมดไม่ระบุตัวตน ให้ยกเลิกการเลือกตัวเลือกนี้</translation>
 <translation id="5386244825306882791">อีกทั้งยังควบคุมหน้าที่จะแสดงเมื่อคุณเปิด Chrome หรือทำการค้นหาจากแถบอเนกประสงค์ด้วย</translation>
 <translation id="5430073640787465221">ไฟล์ค่ากำหนดของคุณขัดข้องหรือไม่ถูกต้อง Google Chrome ไม่สามารถกู้คืนการตั้งค่าของคุณได้</translation>
+<translation id="5514308096618405748">Chrome OS เกิดขึ้นได้ด้วยการสนับสนุนจาก<ph name="BEGIN_LINK_CROS_OSS" />ซอฟต์แวร์โอเพนซอร์<ph name="END_LINK_CROS_OSS" />เพิ่มเติม ซึ่งก็คือ Linux (เบต้า)</translation>
 <translation id="556024056938947818">Google Chrome กำลังพยายามแสดงรหัสผ่าน</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> อาจเป็นอันตราย Chrome จึงบล็อกไว้</translation>
@@ -215,6 +218,7 @@
 <translation id="7419046106786626209">Chrome OS ไม่สามารถซิงค์ข้อมูลของคุณเนื่องจากการซิงค์ไม่พร้อมให้บริการสำหรับโดเมนของคุณ</translation>
 <translation id="7459554271817304652">ตั้งค่าการซิงค์เพื่อบัน​​ทึกฟีเจอร์เบราว์เซอร์ในแบบของคุณไปยังเว็บและเข้าถึงได้จาก Google Chrome บนคอมพิวเตอร์เครื่องใดก็ได้</translation>
 <translation id="7473136999113284234">Chrome จะอัปเดตโดยอัตโนมัติเพื่อให้คุณได้ใช้เวอร์ชันใหม่ล่าสุดอยู่เสมอ</translation>
+<translation id="7486227612705979895">Chrome จะเข้าถึงไดรฟ์ของคุณเพื่อแสดงคำแนะนำในแถบที่อยู่</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7552219221109926349">แสดง Chrome OS ในภาษานี้</translation>
 <translation id="7589360514048265910">คอมพิวเตอร์เครื่องนี้จะไม่ได้รับการอัปเดตจาก Google Chrome อีก เนื่องจากระบบไม่รองรับ Mac OS X 10.9 แล้ว</translation>

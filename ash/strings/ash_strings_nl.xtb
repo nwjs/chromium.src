@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">De sneltoets om de modus voor hoog contrast in of uit te schakelen, is gewijzigd. Gebruik <ph name="NEW_SHORTCUT" /> in plaats van <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Sterk</translation>
 <translation id="4918086044614829423">Accepteren</translation>
+<translation id="4924411785043111640">Opnieuw starten en resetten</translation>
 <translation id="4961318399572185831">Scherm casten</translation>
 <translation id="5136175204352732067">Ander toetsenbord aangesloten</translation>
 <translation id="5168181903108465623">Cast-apparaten beschikbaar</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Alle beschikbare gebruikers zijn al aan deze sessie toegevoegd.</translation>
 <translation id="5457599981699367932">Gebruiken als gast</translation>
 <translation id="54609108002486618">Beheerd</translation>
+<translation id="5496819745535887422">Je beheerder zet je apparaat terug naar een oudere versie. Alle gegevens worden verwijderd wanneer het apparaat opnieuw wordt opgestart.</translation>
 <translation id="553675580533261935">Sessie sluiten</translation>
 <translation id="5537725057119320332">Cast</translation>
 <translation id="5548285847212963613">Met de extensie '<ph name="EXTENSION_NAME" />' kun je verbinding maken met dit netwerk.</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">Snelstarten</translation>
 <translation id="8995603266996330174">Beheerd door <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Update van Adobe Flash Player beschikbaar</translation>
+<translation id="9056839673611986238">Apparaat wordt teruggezet naar oudere versie</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wifi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Microfoon wordt gebruikt.</translation>

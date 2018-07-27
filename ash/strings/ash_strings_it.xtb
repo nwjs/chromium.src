@@ -210,6 +210,7 @@
 <translation id="4905614135390995787">La scorciatoia per attivare/disattivare la modalità ad alto contrasto è cambiata. Usa <ph name="NEW_SHORTCUT" /> anziché <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Forte</translation>
 <translation id="4918086044614829423">Accetto</translation>
+<translation id="4924411785043111640">Riavvia e reimposta</translation>
 <translation id="4961318399572185831">Trasmetti schermo</translation>
 <translation id="5136175204352732067">Tastiera diversa collegata</translation>
 <translation id="5168181903108465623">Dispositivi di trasmissione disponibili</translation>
@@ -224,6 +225,7 @@
 <translation id="544691375626129091">A questa sessione sono già stati aggiunti tutti gli utenti disponibili.</translation>
 <translation id="5457599981699367932">Esplora come ospite</translation>
 <translation id="54609108002486618">Gestita</translation>
+<translation id="5496819745535887422">L'amministratore sta eseguendo il rollback del tuo dispositivo. Tutti i dati verranno eliminati al momento del riavvio.</translation>
 <translation id="553675580533261935">Uscita dalla sessione</translation>
 <translation id="5537725057119320332">Trasmetti</translation>
 <translation id="5548285847212963613">L'estensione "<ph name="EXTENSION_NAME" />" può essere utile per il collegamento a questa rete.</translation>
@@ -410,6 +412,7 @@
 <translation id="8984179138335769204">Avvio rapido</translation>
 <translation id="8995603266996330174">Gestito da <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Aggiornamento di Adobe Flash Player disponibile</translation>
+<translation id="9056839673611986238">Verrà eseguito il rollback del dispositivo</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Il microfono è in uso.</translation>

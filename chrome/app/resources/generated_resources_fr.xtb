@@ -2555,7 +2555,7 @@ Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
 <translation id="4955814292505481804">Annuelle</translation>
 <translation id="4957949153200969297">Option permettant uniquement d'activer les fonctionnalités de la synchronisation <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> – <ph name="PROFILE_NAME" /></translation>
-<translation id="4961000125720751066">Avoir vos cartes au même endroit</translation>
+<translation id="4961000125720751066">Toutes vos cartes au même endroit</translation>
 <translation id="496226124210045887">Le dossier que vous avez sélectionné contient des fichiers sensibles. Voulez-vous vraiment accorder à "$1" un accès en lecture permanent à ce dossier ?</translation>
 <translation id="4964455510556214366">Organisation</translation>
 <translation id="4964673849688379040">Vérification en cours…</translation>
@@ -4157,7 +4157,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7410344089573941623">Demander si <ph name="HOST" /> souhaite accéder à votre caméra et à votre micro</translation>
 <translation id="741204030948306876">J'accepte</translation>
 <translation id="7412226954991670867">Mémoire processeur graphique</translation>
-<translation id="7413455776853560343">Personnaliser l'arrière-plan</translation>
 <translation id="7414464185801331860">18x</translation>
 <translation id="7416362041876611053">Erreur réseau inconnue.</translation>
 <translation id="7417705661718309329">Carte Google</translation>
@@ -4358,7 +4357,6 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7758143121000533418">Family Link</translation>
 <translation id="7758450972308449809">Adaptez les dimensions de l'écran</translation>
 <translation id="7760004034676677601">Est-ce la page de démarrage que vous attendiez ?</translation>
-<translation id="7760756088376329221">Sélectionner un album Google Photos</translation>
 <translation id="7764225426217299476">Ajouter une adresse</translation>
 <translation id="7764256770584298012"><ph name="DOWNLOAD_RECEIVED" /> du domaine <ph name="DOWNLOAD_DOMAIN" /></translation>
 <translation id="7765158879357617694">Déplacer</translation>

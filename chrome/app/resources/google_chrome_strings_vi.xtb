@@ -31,6 +31,7 @@
 <ph name="USER_DATA_DIRECTORY" /></translation>
 <translation id="1698376642261615901">Google Chrome là một trình duyệt web chạy các trang web và ứng dụng với tốc độ cực nhanh. Trình duyệt này nhanh, ổn định và dễ sử dụng. Duyệt web an toàn hơn với tính năng ngăn chặn phần mềm độc hại và lừa đảo được tích hợp trong Google Chrome.</translation>
 <translation id="1718131156967340976">Chọn <ph name="SMALL_PRODUCT_LOGO" /> <ph name="BEGIN_BOLD" />Google Chrome<ph name="END_BOLD" /></translation>
+<translation id="1734234790201236882">Chrome sẽ lưu mật khẩu này trong Tài khoản Google của bạn. Bạn sẽ không phải nhớ mật khẩu này.</translation>
 <translation id="174539241580958092">Google Chrome không thể đồng bộ hóa dữ liệu của bạn do lỗi khi đăng nhập.</translation>
 <translation id="1759842336958782510">Chrome</translation>
 <translation id="1773601347087397504">Nhận trợ giúp về cách sử dụng Chrome OS</translation>
@@ -155,6 +156,7 @@ Vui lòng xem email của bạn tại <ph name="ACCOUNT_EMAIL" /> để biết t
 <translation id="495931528404527476">Trong Chrome</translation>
 <translation id="4990567037958725628">Google Chrome Canary</translation>
 <translation id="5028489144783860647">Google Chrome không thể đồng bộ hóa dữ liệu của bạn. Vui lòng cập nhật cụm mật khẩu Đồng bộ hóa của bạn.</translation>
+<translation id="5090044601776247154">Kể từ Google Chrome 70, tính năng hồ sơ người dùng được giám sát sẽ không còn được cung cấp nữa.</translation>
 <translation id="5131923704757666404">{0,plural, =1{Chrome sẽ khởi động lại sau một giờ}other{Chrome sẽ khởi động lại sau # giờ}}</translation>
 <translation id="5132929315877954718">Khám phá các ứng dụng, trò chơi, tiện ích và chủ đề tuyệt vời cho Google Chrome.</translation>
 <translation id="5166975452760862670">Google Chrome được hiển thị bằng ngôn ngữ này</translation>
@@ -167,6 +169,7 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="532046782124376502">Cảnh báo: Google Chrome không thể ngăn các tiện ích ghi lại lịch sử duyệt web của bạn. Để tắt tiện ích này trong chế độ ẩn danh, hãy bỏ chọn tùy chọn này.</translation>
 <translation id="5386244825306882791">Tiện ích này cũng điều khiển trang nào được hiển thị khi bạn khởi động Chrome hoặc tìm kiếm từ Thanh địa chỉ.</translation>
 <translation id="5430073640787465221">Tệp tùy chọn của bạn bị hỏng hoặc không hợp lệ. Google Chrome không thể khôi phục cài đặt của bạn.</translation>
+<translation id="5514308096618405748">Chrome OS có thể hoạt động được là nhờ <ph name="BEGIN_LINK_CROS_OSS" />phần mềm nguồn mở<ph name="END_LINK_CROS_OSS" /> bổ sung, tương tự như Linux (Beta).</translation>
 <translation id="556024056938947818">Google Chrome đang cố gắng hiển thị mật khẩu.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> có thể nguy hiểm, do đó Chrome đã chặn tệp.</translation>
@@ -219,6 +222,7 @@ Một số tính năng có thể không khả dụng. Vui lòng chỉ định th
 <translation id="7419046106786626209">Chrome OS không thể đồng bộ hóa dữ liệu của bạn vì Đồng bộ hóa không khả dụng với miền của bạn.</translation>
 <translation id="7459554271817304652">Thiết lập đồng bộ hóa để lưu các tính năng trình duyệt được cá nhân hóa của bạn vào web và truy cập chúng từ Google Chrome trên bất kỳ máy tính nào.</translation>
 <translation id="7473136999113284234">Chrome tự động cập nhật nên bạn luôn có phiên bản mới nhất.</translation>
+<translation id="7486227612705979895">Chrome sẽ truy cập vào Drive của bạn để đưa ra đề xuất trên thanh địa chỉ</translation>
 <translation id="7535429826459677826">Google Chrome Dev</translation>
 <translation id="7552219221109926349">Hiển thị Chrome OS bằng ngôn ngữ này</translation>
 <translation id="7589360514048265910">Máy tính này sẽ không còn nhận được bản cập nhật của Google Chrome do hệ điều hành Mac OS X 10.9 không được hỗ trợ nữa.</translation>

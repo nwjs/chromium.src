@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">ハイ コントラスト モードを切り替えるショートカットが変わりました。これまでの <ph name="OLD_SHORTCUT" /> キーではなく <ph name="NEW_SHORTCUT" /> キーを使用してください。</translation>
 <translation id="4917385247580444890">強い</translation>
 <translation id="4918086044614829423">承諾</translation>
+<translation id="4924411785043111640">再起動してリセット</translation>
 <translation id="4961318399572185831">画面をキャスト</translation>
 <translation id="5136175204352732067">別のキーボードが接続されています</translation>
 <translation id="5168181903108465623">キャスト デバイスを利用できます</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">該当するすべてのユーザーをこのセッションに追加済みです。</translation>
 <translation id="5457599981699367932">ゲストとしてブラウジング</translation>
 <translation id="54609108002486618">管理</translation>
+<translation id="5496819745535887422">管理者がお使いの端末をロールバックしています。端末の再起動時にデータはすべて削除されます。</translation>
 <translation id="553675580533261935">セッションの終了</translation>
 <translation id="5537725057119320332">キャスト</translation>
 <translation id="5548285847212963613">拡張機能「<ph name="EXTENSION_NAME" />」はこのネットワークへの接続をサポートします。</translation>
@@ -410,6 +412,7 @@
 <translation id="8984179138335769204">クイック起動</translation>
 <translation id="8995603266996330174">管理ドメイン: <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Adobe Flash Player のアップデートが利用可能</translation>
+<translation id="9056839673611986238">端末はロールバックされます</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">マイクは使用中です。</translation>

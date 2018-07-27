@@ -4158,7 +4158,6 @@
 <translation id="7410344089573941623"><ph name="HOST" /> आपल्या कॅमेरा आणि मायक्रोफोनवर प्रवेश करू इच्छित असल्यास विचारा</translation>
 <translation id="741204030948306876">होय, मला मान्य आहे</translation>
 <translation id="7412226954991670867">GPU मेमरी</translation>
-<translation id="7413455776853560343">बॅकग्राउंड कस्टमाइझ करा</translation>
 <translation id="7414464185801331860">१८x</translation>
 <translation id="7416362041876611053">अज्ञात नेटवर्क एरर.</translation>
 <translation id="7417705661718309329">Google नकाशा</translation>
@@ -4311,7 +4310,7 @@
 <translation id="7665369617277396874">खाते जोडा</translation>
 <translation id="7671130400130574146">सिस्टम शीर्षक बार आणि किनारी वापरा</translation>
 <translation id="7672520070349703697"><ph name="PAGE_TITLE" /> मध्ये <ph name="HUNG_IFRAME_URL" />.</translation>
-<translation id="7676867886086876795">कोणत्याही मजकूर फील्डमध्ये डिक्टेशनला अनुमती देण्यासाठी Google तुमचा व्हॉइस पाठवा.</translation>
+<translation id="7676867886086876795">कोणत्याही मजकूर फील्डमध्ये डिक्टेशनला अनुमती देण्यासाठी Google ला तुमचा व्हॉइस पाठवा.</translation>
 <translation id="7681095912841365527">साइट ब्लूटूथ वापरू शकते</translation>
 <translation id="7683373461016844951">पुढे सुरू ठेवण्यासाठी, ठीक आहे वर क्लिक करा, नंतर तुमच्या <ph name="DOMAIN" /> ईमेल पत्त्यासाठी नवीन प्रोफाइल तयार करण्याकरता व्यक्तीला जोडावर क्लिक करा.</translation>
 <translation id="7684212569183643648">आपल्‍या प्रशासकाद्वारे इंस्टॉल केले</translation>
@@ -4359,7 +4358,6 @@
 <translation id="7758143121000533418">Family Link</translation>
 <translation id="7758450972308449809">आपल्या प्रदर्शनाच्या सीमा समायोजित करा</translation>
 <translation id="7760004034676677601">आपण अपेक्षा करत होता हे तेच प्रारंभ पृष्ठ आहे?</translation>
-<translation id="7760756088376329221">Google फोटो अल्बम निवडा</translation>
 <translation id="7764225426217299476">पत्ता जोडा</translation>
 <translation id="7764256770584298012"><ph name="DOWNLOAD_DOMAIN" /> वरून <ph name="DOWNLOAD_RECEIVED" /></translation>
 <translation id="7765158879357617694">हलवा</translation>
@@ -4782,7 +4780,7 @@
 <translation id="8373553483208508744">टॅब निःशब्द करा</translation>
 <translation id="8382913212082956454">&amp;ईमेल पत्ता कॉपी करा</translation>
 <translation id="8386903983509584791">स्कॅन पूर्ण झाले</translation>
-<translation id="8389492867173948260">तुम्ही भेट देता त्या वेबसाइटवरील तुमचा सर्व डेटा वाचण्यासाठी आणि बदलण्यासाठी या एक्टेंशनला अनुमती द्या:</translation>
+<translation id="8389492867173948260">तुम्ही भेट देता त्या वेबसाइटवरील तुमचा सर्व डेटा वाचण्यासाठी आणि बदलण्यासाठी या एक्स्टेंशनला अनुमती द्या:</translation>
 <translation id="8390449457866780408">सर्व्हर अनुपलब्ध.</translation>
 <translation id="8391712576156218334">इमेज अनुपलब्ध आहे. नंतर पुन्हा प्रयत्न करा.</translation>
 <translation id="8392234662362215700">कीबोर्ड लेआउट वरून स्विच करण्यासाठी Control-Shift-Space दाबा.</translation>
