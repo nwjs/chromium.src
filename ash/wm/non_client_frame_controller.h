@@ -92,6 +92,7 @@ class ASH_EXPORT NonClientFrameController
   bool CanMinimize() const override;
   bool CanActivate() const override;
   bool ShouldShowWindowTitle() const override;
+  void DeleteDelegate() override;
   views::Widget* GetWidget() override;
   const views::Widget* GetWidget() const override;
   views::View* GetContentsView() override;
