@@ -91,7 +91,7 @@
         on-dom-change="updateIfNeeded_">
       <print-preview-destination-list-item class="list-item"
           search-query="[[searchQuery]]" destination="[[item]]"
-          on-click="onDestinationSelected_">
+          on-click="onDestinationSelected_" on-keydown="onKeydown_">
       </print-preview-destination-list-item>
     </template>
     <div class="no-destinations-message" hidden$="[[hasDestinations_]]">
