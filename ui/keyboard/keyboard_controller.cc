@@ -41,6 +41,7 @@
 #include "ui/keyboard/notification_manager.h"
 #include "ui/keyboard/queued_container_type.h"
 #include "ui/keyboard/queued_display_change.h"
+#include "ui/keyboard/shaped_window_targeter.h"
 #include "ui/ozone/public/input_controller.h"
 #include "ui/ozone/public/ozone_platform.h"
 #include "ui/wm/core/window_animations.h"
@@ -483,6 +484,11 @@ void KeyboardController::ShowAnimationFinished() {
 
 void KeyboardController::SetContainerBehaviorInternal(
     const ContainerType type) {
+  // Reset the hit test event targeter because the hit test bounds will
+  // be wrong when container type changes and may cause the UI to be unusable.
+  if (GetKeyboardWindow())
+    GetKeyboardWindow()->SetEventTargeter(nullptr);
+  
   switch (type) {
     case ContainerType::FULL_WIDTH:
       container_behavior_ = std::make_unique<ContainerFullWidthBehavior>(this);
@@ -793,6 +799,15 @@ void KeyboardController::SetOccludedBounds(const gfx::Rect& bounds) {
   // Notify that only the occluded bounds have changed.
   if (IsKeyboardVisible())
     NotifyKeyboardBoundsChanging(visual_bounds_in_screen_);
+}
+
+void KeyboardController::SetHitTestBounds(
+    const std::vector<gfx::Rect>& bounds) {
+  if (!GetKeyboardWindow())
+    return;
+
+  GetKeyboardWindow()->SetEventTargeter(
+      std::make_unique<ShapedWindowTargeter>(bounds));
 }
 
 gfx::Rect KeyboardController::AdjustSetBoundsRequest(
