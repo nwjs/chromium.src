@@ -526,13 +526,13 @@ WindowGrid* WindowSelector::GetGridWithRootWindow(aura::Window* root_window) {
   return nullptr;
 }
 
-void WindowSelector::AddItem(aura::Window* window) {
+void WindowSelector::AddItem(aura::Window* window, bool reposition) {
   // Early exit if a grid already contains |window|.
   WindowGrid* grid = GetGridWithRootWindow(window->GetRootWindow());
   if (!grid || grid->GetWindowSelectorItemContaining(window))
     return;
 
-  grid->AddItem(window);
+  grid->AddItem(window, reposition);
   ++num_items_;
 
   // Transfer focus from |window| to the text widget, to match the behavior of
@@ -540,7 +540,8 @@ void WindowSelector::AddItem(aura::Window* window) {
   wm::ActivateWindow(GetTextFilterWidgetWindow());
 }
 
-void WindowSelector::RemoveWindowSelectorItem(WindowSelectorItem* item) {
+void WindowSelector::RemoveWindowSelectorItem(WindowSelectorItem* item,
+                                              bool reposition) {
   if (item->GetWindow()->HasObserver(this)) {
     item->GetWindow()->RemoveObserver(this);
     observed_windows_.erase(item->GetWindow());
@@ -551,7 +552,7 @@ void WindowSelector::RemoveWindowSelectorItem(WindowSelectorItem* item) {
   // Remove |item| from the corresponding grid.
   for (std::unique_ptr<WindowGrid>& grid : grid_list_) {
     if (grid->GetWindowSelectorItemContaining(item->GetWindow())) {
-      grid->RemoveItem(item);
+      grid->RemoveItem(item, reposition);
       --num_items_;
       break;
     }
