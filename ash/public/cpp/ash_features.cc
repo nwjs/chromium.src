@@ -37,7 +37,7 @@ const base::Feature kNewWallpaperPicker{"NewWallpaperPicker",
 const base::Feature kNightLight{"NightLight", base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kOverviewSwipeToClose{"OverviewSwipeToClose",
-                                          base::FEATURE_DISABLED_BY_DEFAULT};
+                                          base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kSystemTrayUnified{"SystemTrayUnified",
                                        base::FEATURE_ENABLED_BY_DEFAULT};
