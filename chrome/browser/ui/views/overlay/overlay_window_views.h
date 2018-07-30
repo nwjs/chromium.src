@@ -8,6 +8,7 @@
 #include "content/public/browser/overlay_window.h"
 
 #include "ui/gfx/geometry/size.h"
+#include "ui/views/controls/button/button.h"
 #include "ui/views/widget/widget.h"
 
 namespace views {
@@ -17,7 +18,9 @@ class ToggleImageButton;
 
 // The Chrome desktop implementation of OverlayWindow. This will only be
 // implemented in views, which will support all desktop platforms.
-class OverlayWindowViews : public content::OverlayWindow, public views::Widget {
+class OverlayWindowViews : public content::OverlayWindow,
+                           public views::ButtonListener,
+                           public views::Widget {
  public:
   explicit OverlayWindowViews(
       content::PictureInPictureWindowController* controller);
@@ -44,6 +47,9 @@ class OverlayWindowViews : public content::OverlayWindow, public views::Widget {
   void OnNativeWidgetWorkspaceChanged() override;
   void OnMouseEvent(ui::MouseEvent* event) override;
   void OnGestureEvent(ui::GestureEvent* event) override;
+
+  // views::ButtonListener:
+  void ButtonPressed(views::Button* sender, const ui::Event& event) override;
 
   // views::internal::NativeWidgetDelegate:
   void OnNativeFocus() override;

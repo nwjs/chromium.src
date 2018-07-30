@@ -134,8 +134,8 @@ OverlayWindowViews::OverlayWindowViews(
       window_background_view_(new views::View()),
       video_view_(new views::View()),
       controls_background_view_(new views::View()),
-      close_controls_view_(new views::ImageButton(nullptr)),
-      play_pause_controls_view_(new views::ToggleImageButton(nullptr)) {
+      close_controls_view_(new views::ImageButton(this)),
+      play_pause_controls_view_(new views::ToggleImageButton(this)) {
   views::Widget::InitParams params(views::Widget::InitParams::TYPE_WINDOW);
   params.ownership = views::Widget::InitParams::WIDGET_OWNS_NATIVE_WIDGET;
   params.bounds = CalculateAndUpdateWindowBounds();
@@ -556,6 +556,15 @@ void OverlayWindowViews::OnGestureEvent(ui::GestureEvent* event) {
     TogglePlayPause();
     event->SetHandled();
   }
+}
+
+void OverlayWindowViews::ButtonPressed(views::Button* sender,
+                                       const ui::Event& event) {
+  if (sender == close_controls_view_.get())
+    controller_->Close(true /* should_pause_video */);
+
+  if (sender == play_pause_controls_view_.get())
+    TogglePlayPause();
 }
 
 void OverlayWindowViews::OnNativeFocus() {
