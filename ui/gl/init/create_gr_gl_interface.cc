@@ -498,7 +498,7 @@ sk_sp<GrGLInterface> CreateGrGLInterface(
 
   interface->fStandard = standard;
   interface->fExtensions.swap(&extensions);
-  sk_sp<const GrGLInterface> returned(interface);
+  sk_sp<GrGLInterface> returned(interface);
   return returned;
 }
 
