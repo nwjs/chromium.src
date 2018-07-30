@@ -75,6 +75,7 @@
 <translation id="3582788516608077514">Оновлення Chromium...</translation>
 <translation id="358997566136285270">Логотип Chromium</translation>
 <translation id="3713809861844741608">Відкрити посилання в новій &amp;вкладці Chromium</translation>
+<translation id="3728336900324680424">Chromium матиме доступ до Диска, щоб робити пропозиції в адресному рядку</translation>
 <translation id="3762167353400286894">Для ОС Chromium вибрано цю мову</translation>
 <translation id="378917192836375108">Chromium дозволяє натиснути номер телефону в Інтернеті та зателефонувати за ним через Skype.</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> – Chromium</translation>
@@ -121,6 +122,7 @@
 <translation id="5479196819031988440">Неможливо відкрити цю сторінку в ОС Chromium.</translation>
 <translation id="5480860683791598150">Chromium потрібен доступ до геоданих, щоб повідомляти ваше місцезнаходження цьому сайту</translation>
 <translation id="549669000822060376">Зачекайте, доки Chromium установить найновіші оновлення системи.</translation>
+<translation id="5514308096618405748">ОС Chrome стала можливою завдяки додатковому <ph name="BEGIN_LINK_CROS_OSS" />програмному забезпеченню з відкритим кодом<ph name="END_LINK_CROS_OSS" />, як і бета-версія Linux.</translation>
 <translation id="5631814766731275228">Ім’я та зображення профілю Chromium</translation>
 <translation id="5634636535844844681">Для роботи Chromium потрібно мати ОС Windows 7 або новішої версії.</translation>
 <translation id="5680901439334282664">увійдіть в обліковий запис Chromium</translation>
@@ -141,6 +143,7 @@
 <translation id="6072279588547424923">Розширення <ph name="EXTENSION_NAME" /> додано в Chromium</translation>
 <translation id="608189560609172163">Chromium не вдалося синхронізувати ваші дані через помилку входу.</translation>
 <translation id="6096348254544841612">Налаштуйте й контролюйте Chromium. Доступне оновлення.</translation>
+<translation id="6120345080069858279">Chromium збереже цей пароль в обліковому записі Google. Не потрібно його запам’ятовувати.</translation>
 <translation id="6129621093834146363">Файл <ph name="FILE_NAME" /> небезпечний, тому Chromium заблокував його.</translation>
 <translation id="6212496753309875659">На цьому комп’ютері вже встановлено новішу версію Chromium. Якщо програмне забезпечення не працює, видаліть Chromium і повторіть спробу.</translation>
 <translation id="6248213926982192922">Зробити Chromium переглядачем за умовчанням</translation>
@@ -227,6 +230,7 @@ Chromium не може відновити ваші налаштування.</tr
 <translation id="8290862415967981663">Цей файл може бути небезпечним, тому Chromium заблокував його.</translation>
 <translation id="8330519371938183845">Увійдіть, щоб синхронізувати та персоналізувати роботу Chromium на всіх своїх пристроях</translation>
 <translation id="8340674089072921962">Раніше ви входили в обліковий запис <ph name="USER_EMAIL_ADDRESS" /> у Chromium</translation>
+<translation id="8375950122744241554">Профілі контрольованих користувачів будуть недоступні в Chromium 70 і новіших версій.</translation>
 <translation id="8453117565092476964">Архів програми встановлення пошкоджений або недійсний. Завантажте Chromium ще раз.</translation>
 <translation id="8493179195440786826">Версія Chromium застаріла</translation>
 <translation id="85843667276690461">Отримати довідку щодо користування Chromium</translation>

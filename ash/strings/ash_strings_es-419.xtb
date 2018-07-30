@@ -210,6 +210,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4905614135390995787">Se cambió el acceso directo para activar o desactivar el Modo de contraste alto. Usa <ph name="NEW_SHORTCUT" /> en lugar de <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Fuerte</translation>
 <translation id="4918086044614829423">Aceptar</translation>
+<translation id="4924411785043111640">Reiniciar y restablecer</translation>
 <translation id="4961318399572185831">Transmitir pantalla</translation>
 <translation id="5136175204352732067">Se conectó otro teclado</translation>
 <translation id="5168181903108465623">Dispositivos de transmisión disponibles</translation>
@@ -224,6 +225,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="544691375626129091">Todos los usuarios disponibles ya se agregaron a esta sesión.</translation>
 <translation id="5457599981699367932">Navegar como invitado</translation>
 <translation id="54609108002486618">Gestionado</translation>
+<translation id="5496819745535887422">El administrador está restableciendo tu dispositivo. Cuando se reinicie, se borrarán todos los datos.</translation>
 <translation id="553675580533261935">Salir de la sesión</translation>
 <translation id="5537725057119320332">Transmitir</translation>
 <translation id="5548285847212963613">La extensión "<ph name="EXTENSION_NAME" />" puede ayudarte a conectarte a la red.</translation>
@@ -410,6 +412,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="8984179138335769204">Inicio rápido</translation>
 <translation id="8995603266996330174">Administrado por <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">La actualización de Adobe Flash Player está disponible</translation>
+<translation id="9056839673611986238">Se restablecerá el dispositivo</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">El micrófono está en uso.</translation>

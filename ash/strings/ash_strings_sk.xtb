@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">Skratka na prepnutie režimu vysokého kontrastu sa zmenila. Namiesto skratky <ph name="OLD_SHORTCUT" /> používajte kombináciu klávesov <ph name="NEW_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Silné</translation>
 <translation id="4918086044614829423">Prijať</translation>
+<translation id="4924411785043111640">Reštartovať a resetovať</translation>
 <translation id="4961318399572185831">Prenášanie obrazovky</translation>
 <translation id="5136175204352732067">Bola pripojená iná klávesnica</translation>
 <translation id="5168181903108465623">Dostupné zariadenia na prenos</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Do tejto relácie už boli pridaní všetci dostupní používatelia</translation>
 <translation id="5457599981699367932">Prehliadať ako hosť</translation>
 <translation id="54609108002486618">Spravovaný</translation>
+<translation id="5496819745535887422">Správca obnovuje vaše zariadenie. Pri reštartovaní zariadenia sa odstránia všetky dáta.</translation>
 <translation id="553675580533261935">Ukončuje sa relácia</translation>
 <translation id="5537725057119320332">Prenášať</translation>
 <translation id="5548285847212963613">Rozšírenie <ph name="EXTENSION_NAME" /> vám môže pomôcť pripojiť sa k tejto sieti.</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">Rýchle spustenie</translation>
 <translation id="8995603266996330174">Spravované doménou <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">K dispozícii je aktualizácia prehrávača Adobe Flash Player</translation>
+<translation id="9056839673611986238">Zariadenie sa obnoví</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi‑Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Mikrofón sa používa.</translation>

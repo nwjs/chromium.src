@@ -704,7 +704,6 @@
       Dacă politica nu este configurată, se va folosi <ph name="PRINTERS_ALLOW_ALL" /> în mod prestabilit.
       </translation>
 <translation id="2908277604670530363">Numărul maxim de conexiuni simultane la serverul proxy</translation>
-<translation id="2951386431828317490">Activează completarea automată pentru profiluri</translation>
 <translation id="2956777931324644324">Această politică a fost retrasă începând cu <ph name="PRODUCT_NAME" /> versiunea 36.
 
       Specifică dacă extensia pentru certificatele TLS legate la domeniu trebuie să fie activată.
@@ -1142,6 +1141,15 @@
 
           Dacă politica nu este configurată, valoarea prestabilită la nivel global va fi folosită pentru toate site-urile, fie din politica „DefaultKeygenSetting”, în cazul în care aceasta este configurată, fie din configurația personală a utilizatorului, în caz contrar.</translation>
 <translation id="4239720644496144453">Memoria cache nu este folosită pentru aplicațiile Android. Dacă mai mulți utilizatori instalează aceeași aplicație Android, aceasta va fi descărcată din nou pentru fiecare utilizator.</translation>
+<translation id="4243336580717651045">Activează colectarea datelor anonimizate cu cheie URL în <ph name="PRODUCT_NAME" /> și împiedică modificarea acestei setări de către utilizatori.
+
+      Colectarea datelor anonimizate cu cheie URL trimite adresele URL ale paginilor accesate de utilizator la Google pentru a îmbunătăți căutările și navigarea.
+
+      Dacă activezi această politică, colectarea datelor anonimizate cu cheie URL este mereu activă.
+
+      Dacă dezactivezi această politică, colectarea datelor anonimizate cu cheie URL nu este niciodată activă.
+
+      Dacă politica nu este configurată, colectarea datelor anonimizate cu cheie URL va fi activă, dar utilizatorul o va putea modifica.</translation>
 <translation id="4250680216510889253">Nu</translation>
 <translation id="4261820385751181068">Limba de pe ecranul de conectare al dispozitivului</translation>
 <translation id="427220754384423013">Specifică imprimantele pe care le poate folosi un utilizator.
@@ -1497,11 +1505,6 @@
 
           Dacă această politică este dezactivată, utilizatorii nu vor putea să proiecteze conținut pe dispozitivul lor. Dacă această politică este activată, utilizatorii pot să proiecteze conținut. Dacă această politică nu este configurată, utilizatorii nu pot să proiecteze conținut pe dispozitivele cu sistemul de operare Chrome înregistrate, însă pot să facă acest lucru pe dispozitive neînregistrate.</translation>
 <translation id="5330684698007383292">Permiteți ca <ph name="PRODUCT_FRAME_NAME" /> să gestioneze următoarele tipuri de conținut</translation>
-<translation id="5360146044009867539">Activează funcția de completare automată din <ph name="PRODUCT_NAME" /> și permite utilizatorilor să completeze automat informațiile despre profil și adrese în formularele web folosind informațiile stocate anterior.
-
-      Dacă această setare este dezactivată, completarea automată nu va sugera și nu va completa niciodată informațiile despre adrese, nici nu va salva informațiile suplimentare despre adrese pe care utilizatorul le-ar putea trimite când navighează pe web.
-
-      Dacă setarea este activată sau nu are nicio valoare, utilizatorul va putea controla funcția de completare automată pentru adrese în interfața de utilizare.</translation>
 <translation id="5365946944967967336">Afișează butonul Pagina principală în bara de instrumente</translation>
 <translation id="5366745336748853475">Îți permite să specifici o listă de șabloane de adrese URL care stabilesc site-urile pentru care este selectat automat un certificat de client pe ecranul de conectare din cadrul care găzduiește fluxul SAML, dacă site-ul solicită un astfel de certificat. Un exemplu de utilizare este configurarea unui certificat la nivel de dispozitiv care trebuie prezentat furnizorului de identitate SAML.
 
@@ -1775,6 +1778,7 @@
           Modalitatea recomandată pentru blocarea ecranului când utilizatorul este inactiv este activarea blocării ecranului la suspendare și configurarea <ph name="PRODUCT_OS_NAME" /> astfel încât să aplice suspendarea după intervalul de inactivitate. Această politică trebuie folosită numai dacă doriți ca blocarea ecranului să aibă loc mult mai devreme decât suspendarea sau când nu doriți să se aplice suspendarea dacă utilizatorul este inactiv.
 
           Valoarea politicii trebuie specificată în milisecunde. Valorile trebuie să fie mai mici decât intervalul de inactivitate.</translation>
+<translation id="6097601282776163274">Activează colectarea datelor anonimizate cu cheie URL</translation>
 <translation id="6111936128861357925">Permite jocul ascuns cu dinozaurul</translation>
 <translation id="6114416803310251055">învechit</translation>
 <translation id="6133088669883929098">Permite tuturor site-urilor să folosească generarea cheilor</translation>

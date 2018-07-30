@@ -703,7 +703,6 @@
       Ako se to pravilo ne postavi, pretpostavlja se da vrijedi <ph name="PRINTERS_ALLOW_ALL" />.
       </translation>
 <translation id="2908277604670530363">Maksimalan broj istodobnih veza na proxy poslužitelju</translation>
-<translation id="2951386431828317490">Omogući Automatsko popunjavanje za profile</translation>
 <translation id="2956777931324644324">To je pravilo ukinuto od verzije <ph name="PRODUCT_NAME" /> 36.
 
       Određuje hoće li proširenje TLS certifikata vezanih uz domenu biti omogućeno.
@@ -1132,6 +1131,15 @@
 
           Ako se to pravilo ne postavi, globalna zadana vrijednost upotrebljavat će se za sve web-lokacije iz pravila "DefaultKeygenSetting" ako je postavljeno, a u suprotnom iz korisnikove osobne konfiguracije.</translation>
 <translation id="4239720644496144453">Za Android aplikacije ne upotrebljava se predmemorija. Ako više korisnika instalira istu Android aplikaciju, ta će se aplikacija preuzeti iznova za svakog korisnika.</translation>
+<translation id="4243336580717651045">Omogućuje prikupljanje anonimiziranih podataka zaključano URL-om u pregledniku <ph name="PRODUCT_NAME" /> i korisnicima onemogućuje da promijene tu postavku.
+
+      Prikupljanje anonimiziranih podataka zaključano URL-om Googleu šalje URL-ove stranica koje korisnik posjeti radi poboljšanja pretraživanja i pregledavanja.
+
+      Ako omogućite to pravilo, prikupljanje anonimiziranih podataka zaključano URL-om stalno je aktivno.
+
+      Ako onemogućite to pravilo, prikupljanje anonimiziranih podataka zaključano URL-om nikad nije aktivno.
+
+      Ako se to pravilo ne postavi, prikupljanje anonimiziranih podataka zaključano URL-om bit će omogućeno, no korisnik će to moći promijeniti.</translation>
 <translation id="4250680216510889253">Ne</translation>
 <translation id="4261820385751181068">Oznaka zemlje/jezika za zaslon za prijavu na uređaju</translation>
 <translation id="427220754384423013">Određuje pisače koje korisnik može upotrebljavati.
@@ -1489,11 +1497,6 @@ otvorene kartice. Zato će se neke kartice možda i dalje ponašati u skladu s p
 
           Ako se to pravilo postavi na False, korisnici neće moći emitirati sadržaj na svom uređaju. Ako se pravilo postavi na True, korisnici će moći emitirati sadržaj. Ako se pravilo ne postavi, korisnici neće moći emitirati sadržaj na registrirane uređaje s OS-om Chrome, ali će moći emitirati na neregistrirane uređaje.</translation>
 <translation id="5330684698007383292">Dopusti proizvodu <ph name="PRODUCT_FRAME_NAME" /> rukovanje sljedećim vrstama sadržaja</translation>
-<translation id="5360146044009867539">Omogućuje značajku Automatsko popunjavanje na usluzi <ph name="PRODUCT_NAME" /> i omogućuje korisnicima automatsko unošenje podataka o profilu i adresi u web-obrasce pomoću prethodno pohranjenih podataka.
-
-      Ako se ta postavka onemogući, Automatsko popunjavanje nikad neće predlagati niti unositi podatke o adresi niti će spremati dodatne podatke o adresi koje korisnik može unijeti tijekom pregledavanja weba.
-
-      Ako se ta postavka omogući ili nema vrijednost, korisnik će moći kontrolirati Automatsko popunjavanje za adrese na korisničkom sučelju.</translation>
 <translation id="5365946944967967336">Prikaži gumb Početna na alatnoj traci</translation>
 <translation id="5366745336748853475">Omogućuje vam da navedete popis uzoraka URL-ova koji određuju web-lokacije za koje je certifikat klijenta automatski odabran na zaslonu za prijavu u okviru koji hostira SAML protok, ako web-lokacija zahtijeva certifikat. Primjer upotrebe je konfiguracija certifikata za cijeli uređaj koji će se pojaviti za SAML IdP.
 
@@ -1767,6 +1770,7 @@ otvorene kartice. Zato će se neke kartice možda i dalje ponašati u skladu s p
           Preporučeni način zaključavanja zaslona u mirovanju jest omogućiti zaključavanje zaslona u obustavljenom načinu i obustaviti <ph name="PRODUCT_OS_NAME" /> nakon vremena do ulaska u stanje mirovanja. To bi se pravilo trebalo upotrebljavati samo kada bi do zaključavanja zaslona trebalo dolaziti značajno prije nego do obustavljanja ili kada obustavljanje u mirovanju uopće nije poželjno.
 
           Vrijednost pravila treba navesti u milisekundama. Vrijednosti se ograničavaju kako bi bile kraće od vremena do ulaska u stanje mirovanja.</translation>
+<translation id="6097601282776163274">Omogući prikupljanje anonimiziranih podataka zaključano URL-om</translation>
 <translation id="6111936128861357925">Dopuštanje skrivene igre s dinosaurom</translation>
 <translation id="6114416803310251055">neodobreno</translation>
 <translation id="6133088669883929098">Dopusti svim web-lokacijama da upotrebljavaju generiranje ključeva</translation>

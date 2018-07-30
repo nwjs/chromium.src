@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">Nagbago ang shortcut upang i-toggle ang High Contrast Mode. Pakigamit ang <ph name="NEW_SHORTCUT" /> sa halip na <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Malakas</translation>
 <translation id="4918086044614829423">Tanggapin</translation>
+<translation id="4924411785043111640">I-restart at i-reset</translation>
 <translation id="4961318399572185831">I-cast ang screen</translation>
 <translation id="5136175204352732067">Ibang keyboard ang nakakonekta</translation>
 <translation id="5168181903108465623">I-cast ang mga available na device</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Naidagdag na ang lahat ng available na user sa session na ito.</translation>
 <translation id="5457599981699367932">Mag-browse bilang Bisita</translation>
 <translation id="54609108002486618">Pinamamahalaan</translation>
+<translation id="5496819745535887422">Niro-roll back ng iyong administrator ang device mo. Made-delete ang lahat ng data kapag nag-restart ang device.</translation>
 <translation id="553675580533261935">Lumalabas sa session</translation>
 <translation id="5537725057119320332">I-cast</translation>
 <translation id="5548285847212963613">Maaaring makatulong na makakonekta sa network na ito ang extension na "<ph name="EXTENSION_NAME" />."</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">Mabilisang paglunsad</translation>
 <translation id="8995603266996330174">Pinamamahalaan ni <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Available ang update sa Adobe Flash Player</translation>
+<translation id="9056839673611986238">Iro-roll back ang device</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Ginagamit ang mikropono.</translation>

@@ -695,7 +695,6 @@
       Se esta política não for definida, a opção <ph name="PRINTERS_ALLOW_ALL" /> será adotada.
       </translation>
 <translation id="2908277604670530363">Número máximo de conexões simultâneas ao servidor proxy</translation>
-<translation id="2951386431828317490">Ativa o preenchimento automático de perfis</translation>
 <translation id="2956777931324644324">Esta política foi retirada de circulação a partir da versão 36 do <ph name="PRODUCT_NAME" />.
 
       Especifica se a extensão dos certificados vinculados ao domínio TLS deve ser ativada.
@@ -1125,6 +1124,15 @@
 
           Se esta política não for definida, o valor padrão global será utilizado para todos os sites a partir da política "DefaultKeygenSetting", caso ela tenha sido definida, ou a partir das configurações pessoais do usuário, caso não tenha sido definida.</translation>
 <translation id="4239720644496144453">O cache não é usado para apps Android. Se vários usuários instalarem o mesmo app Android, o download dele será feito novamente para cada usuário.</translation>
+<translation id="4243336580717651045">Ativa a coleta de dados anônimos inseridos no URL no <ph name="PRODUCT_NAME" /> e impede que os usuários alterem essa configuração.
+
+      A coleta de dados anônimos inseridos no URL envia o URL de páginas que o usuário visita para o Google para melhorar as pesquisas e a navegação.
+
+      Se você ativar essa política, a coleta de dados anônimos inseridos no URL estará sempre ativa.
+
+      Se você desativar essa política, a coleta de dados anônimos inseridos no URL nunca estará ativa.
+
+      Se essa política não for configurada, a coleta de dados anônimos inseridos no URL estará ativa, mas o usuário poderá alterar isso.</translation>
 <translation id="4250680216510889253">Não</translation>
 <translation id="4261820385751181068">Localidade da tela de login do dispositivo</translation>
 <translation id="427220754384423013">Especifica as impressoras que um usuário pode usar.
@@ -1474,11 +1482,6 @@
 
           Se essa política for definida como falso, os usuários não poderão transmitir conteúdo para o dispositivo deles. Se essa política for definida como verdadeiro, os usuários poderão transmitir conteúdo. Se essa política não for definida, os usuários não poderão transmitir conteúdo para dispositivos Chrome OS inscritos, mas poderão transmitir para dispositivos não inscritos.</translation>
 <translation id="5330684698007383292">Permitir que o <ph name="PRODUCT_FRAME_NAME" /> trabalhe com os tipos de conteúdo a seguir</translation>
-<translation id="5360146044009867539">Ativa o recurso de preenchimento automático do <ph name="PRODUCT_NAME" /> e permite que os usuários preencham automaticamente informações sobre perfil e endereço em formulários da Web usando informações previamente armazenadas.
-
-      Se essa configuração estiver desativada, o preenchimento automático nunca sugerirá ou preencherá informações sobre endereço, nem salvará outras informações de endereço que o usuário possa enviar ao navegar na Web.
-
-      Se essa configuração estiver ativada ou não tiver um valor definido, o usuário poderá controlar o recurso de preenchimento automático para endereços na IU.</translation>
 <translation id="5365946944967967336">Exibir o botão da Página inicial na barra de ferramentas</translation>
 <translation id="5366745336748853475">Permite que você defina uma lista de padrões de URL que especifique sites para os quais um certificado de cliente é selecionado automaticamente na tela de login do quadro que hospeda o fluxo SAML, se o site solicitar um certificado. Um exemplo de uso é a configuração de um certificado de dispositivos que será apresentado ao IdP SAML.
 
@@ -1749,6 +1752,7 @@
           A forma recomendável de bloquear a tela ao se tornar inativo é ativar o bloqueio de tela para o modo de suspensão, a fim de que o <ph name="PRODUCT_OS_NAME" /> fique suspenso após o tempo de espera de inatividade. Esta política só deve ser usada quando a tela tiver que ser bloqueada muito antes de ser suspensa ou quando a suspensão em caso de inatividade não é desejada.
 
           O valor da política deve ser especificado em milissegundos. Os valores são fixados para serem menores que o tempo de espera de inatividade.</translation>
+<translation id="6097601282776163274">Ativar a coleta de dados anônimos inseridos no URL</translation>
 <translation id="6111936128861357925">Permitir jogo easter egg de dinossauro</translation>
 <translation id="6114416803310251055">obsoleto</translation>
 <translation id="6133088669883929098">Permitir que todos os sites usem a geração de chaves</translation>

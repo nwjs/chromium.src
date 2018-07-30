@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">Yüksek Kontrast Modunu açma/kapatma kısayolu değişti. Lütfen <ph name="OLD_SHORTCUT" /> yerine <ph name="NEW_SHORTCUT" /> tuşlarını kullanın.</translation>
 <translation id="4917385247580444890">Güçlü</translation>
 <translation id="4918086044614829423">Kabul et</translation>
+<translation id="4924411785043111640">Yeniden başlat ve sıfırla</translation>
 <translation id="4961318399572185831">Ekranı yayınla</translation>
 <translation id="5136175204352732067">Farklı klavye bağlandı</translation>
 <translation id="5168181903108465623">Yayın cihazları kullanılabilir</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Mevcut tüm kullanıcılar zaten bu oturuma eklenmiş.</translation>
 <translation id="5457599981699367932">Misafir olarak Göz At</translation>
 <translation id="54609108002486618">Yönetilen</translation>
+<translation id="5496819745535887422">Yöneticiniz cihazınızı ilk haline döndürüyor. Cihaz yeniden başlatıldığında tüm veriler silinecektir.</translation>
 <translation id="553675580533261935">Oturum kapatılıyor</translation>
 <translation id="5537725057119320332">Yayınla</translation>
 <translation id="5548285847212963613">"<ph name="EXTENSION_NAME" />" uzantısı bu ağa bağlanmaya yardımcı olabilir.</translation>
@@ -410,6 +412,7 @@
 <translation id="8984179138335769204">Hızlı başlat</translation>
 <translation id="8995603266996330174">Yöneten: <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Adobe Flash Player güncellemesi mevcut</translation>
+<translation id="9056839673611986238">Cihaz ilk haline döndürülecek</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Kablosuz: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Mikrofon kullanımda.</translation>

@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">Īsinājumtaustiņi, ar kuriem pārslēgt augsta kontrasta režīmu, ir mainījušies. Lūdzu, izmantojiet <ph name="NEW_SHORTCUT" />, nevis <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Spēcīgs</translation>
 <translation id="4918086044614829423">Pieņemt</translation>
+<translation id="4924411785043111640">Restartēt un atiestatīt</translation>
 <translation id="4961318399572185831">Ekrāna apraide</translation>
 <translation id="5136175204352732067">Ir pievienota cita tastatūra</translation>
 <translation id="5168181903108465623">Pieejamas apraides ierīces</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Visi pieejamie lietotāji jau ir pievienoti šai sesijai.</translation>
 <translation id="5457599981699367932">Pārlūkot kā viesim</translation>
 <translation id="54609108002486618">Pārvaldītais</translation>
+<translation id="5496819745535887422">Administrators jūsu ierīcē veic atriti. Kad ierīce tiks restartēta, visi dati tiks dzēsti.</translation>
 <translation id="553675580533261935">Iziešana no sesijas</translation>
 <translation id="5537725057119320332">Apraidīt</translation>
 <translation id="5548285847212963613">Paplašinājums “<ph name="EXTENSION_NAME" />” var palīdzēt pievienoties šim tīklam.</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">Ātrā palaišana</translation>
 <translation id="8995603266996330174">Pārvalda domēnu <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Ir pieejams Adobe Flash Player atjauninājums</translation>
+<translation id="9056839673611986238">Ierīcē tiks veikta atrite</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi adrese: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Tiek izmantots mikrofons.</translation>

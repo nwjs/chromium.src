@@ -76,6 +76,7 @@
 <translation id="3582788516608077514">Chromium अपडेट करीत आहे...</translation>
 <translation id="358997566136285270">Chromium लोगो</translation>
 <translation id="3713809861844741608">लिंक नवीन Chromium &amp;टॅबमध्ये उघडा</translation>
+<translation id="3728336900324680424">अॅड्रेस बारमध्ये सूचना देण्यासाठी Chromium तुमची ड्राइव्ह अॅक्सेस करेल</translation>
 <translation id="3762167353400286894">Chromium OS या भाषेत प्रदर्शित केले आहे</translation>
 <translation id="378917192836375108">Chromium आपल्याला वेबवरील फोन नंबर क्लिक करू देते आणि Skype सह त्याला कॉल करते!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -122,6 +123,7 @@
 <translation id="5479196819031988440">Chromium OS हे पृष्ठ उघडू शकत नाही.</translation>
 <translation id="5480860683791598150">या साइटसोबत तुमचे स्थान शेअर करण्यासाठी Chromium ला तुमच्या स्थानाचा अॅक्सेस हवा आहे</translation>
 <translation id="549669000822060376">कृपया Chromium नवीनतम सिस्टम अपडेट इंस्टॉल करेपर्यंत प्रतीक्षा करा.</translation>
+<translation id="5514308096618405748">Linux (बीटा) सारखेच, अतिरिक्त <ph name="BEGIN_LINK_CROS_OSS" />मुक्त स्त्रोत सॉफ्टवेअर<ph name="END_LINK_CROS_OSS" /> द्वारे Chrome OS शक्य झाले आहे.</translation>
 <translation id="5631814766731275228">Chromium नाव आणि फोटो</translation>
 <translation id="5634636535844844681">Chromium साठी Windows 7 किंवा नंतरची आवृत्ती आवश्यक आहे.</translation>
 <translation id="5680901439334282664">Chromium वर साइन इन करा</translation>
@@ -142,6 +144,7 @@
 <translation id="6072279588547424923"><ph name="EXTENSION_NAME" /> Chromium मध्‍ये जोडण्यात आले आहे</translation>
 <translation id="608189560609172163">साइन इन करण्यात एरर आल्यामुळे Chromium आपला डेटा संकालित करू शकले नाही.</translation>
 <translation id="6096348254544841612">Chromium कस्टमाइझ करा आणि नियंत्रित करा. अपडेट उपलब्ध आहे.</translation>
+<translation id="6120345080069858279">Chromium हा पासवर्ड तुमच्या Google खात्यामध्ये सेव्ह करेल. तुम्हाला पासवर्ड लक्षात ठेवावा लागणार नाही.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> धोकादायक आहे, त्यामुळे Chromium ने ते अवरोधित केले आहे.</translation>
 <translation id="6212496753309875659">या संगणकावर आधीपासून Chromium ची अगदी अलीकडील आवृत्ती आहे. सॉफ्‍टवेअर कार्य करत नसल्‍यास, कृपया Chromium विस्‍थापित करा आणि पुन्‍हा प्रयत्‍न करा.</translation>
 <translation id="6248213926982192922">Chromium ला डीफॉल्‍ट ब्राउझर बनवा</translation>
@@ -227,6 +230,7 @@ Chromium तुमची सेटिंग्ज पुनर्प्राप
 <translation id="8290862415967981663">ही फाईल कदाचित धोकादायक असू शकते, त्यामुळे Chromium ने ती अवरोधित केली आहे.</translation>
 <translation id="8330519371938183845">तुमच्या डिव्हाइसवर Chromium सिंक आणि पर्सनलाइझ करण्यासाठी साइन इन करा</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> पूर्वी Chromium वापरत होते</translation>
+<translation id="8375950122744241554">Chromium 70 सह सुरू झालेले व्यवस्थापित वापरकर्ता प्रोफाइल यापुढे उपलब्ध असणार नाहीत.</translation>
 <translation id="8453117565092476964">इन्स्टॉलर संग्रहण दूषित किंवा वैध आहे. कृपया Chromium पुन्हा डाउनलोड करा.</translation>
 <translation id="8493179195440786826">Chromium कालबाह्य आहे</translation>
 <translation id="85843667276690461">Chromium वापरून मदत मिळवा</translation>

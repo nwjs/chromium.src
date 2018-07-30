@@ -209,6 +209,7 @@
 <translation id="4905614135390995787">Kortkommandot för att aktivera och inaktivera högkontrastläget har ändrats. Använd <ph name="NEW_SHORTCUT" /> i stället för <ph name="OLD_SHORTCUT" />.</translation>
 <translation id="4917385247580444890">Stark</translation>
 <translation id="4918086044614829423">Acceptera</translation>
+<translation id="4924411785043111640">Starta om och återställ</translation>
 <translation id="4961318399572185831">Casta skärmen</translation>
 <translation id="5136175204352732067">Ett annat tangentbord har anslutits</translation>
 <translation id="5168181903108465623">Överföringsenheter finns tillgängliga</translation>
@@ -223,6 +224,7 @@
 <translation id="544691375626129091">Alla tillgängliga användare har redan lagts till i den här sessionen.</translation>
 <translation id="5457599981699367932">Använd som gäst</translation>
 <translation id="54609108002486618">Hanterade</translation>
+<translation id="5496819745535887422">Enheten återställs av administratören. All data raderas när enheten startas om.</translation>
 <translation id="553675580533261935">Sessionen avslutas</translation>
 <translation id="5537725057119320332">Casta</translation>
 <translation id="5548285847212963613">Tillägget <ph name="EXTENSION_NAME" /> kan hjälpa till med att ansluta till nätverket.</translation>
@@ -409,6 +411,7 @@
 <translation id="8984179138335769204">Snabbstart</translation>
 <translation id="8995603266996330174">Hanteras av <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">En uppdatering av Adobe Flash Player är tillgänglig</translation>
+<translation id="9056839673611986238">Enheten återställs</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Mikrofonen används.</translation>
