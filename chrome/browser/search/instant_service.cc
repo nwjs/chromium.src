@@ -189,34 +189,6 @@ void InstantService::UndoAllMostVisitedDeletions() {
   }
 }
 
-void InstantService::AddCustomLink(const GURL& url, const std::string& title) {
-  if (most_visited_sites_) {
-    // Initializes custom links if they have not been initialized yet.
-    most_visited_sites_->InitializeCustomLinks();
-    most_visited_sites_->AddCustomLink(url, base::UTF8ToUTF16(title));
-  }
-}
-
-void InstantService::DeleteCustomLink(const GURL& url) {
-  if (most_visited_sites_) {
-    // Initializes custom links if they have not been initialized yet.
-    most_visited_sites_->InitializeCustomLinks();
-    most_visited_sites_->DeleteCustomLink(url);
-  }
-}
-
-void InstantService::UndoDeleteCustomLink() {
-  if (most_visited_sites_) {
-    most_visited_sites_->UndoDeleteCustomLink();
-  }
-}
-
-void InstantService::ResetCustomLinks() {
-  if (most_visited_sites_) {
-    most_visited_sites_->UninitializeCustomLinks();
-  }
-}
-
 void InstantService::UpdateThemeInfo() {
   // Initialize |theme_info_| if necessary.
   if (!theme_info_) {
@@ -550,7 +522,6 @@ void InstantService::ResetCustomBackgroundThemeInfo() {
   theme_info_->custom_background_attribution_action_url = GURL();
 }
 
-// static
 void InstantService::RegisterProfilePrefs(PrefRegistrySimple* registry) {
   registry->RegisterDictionaryPref(prefs::kNtpCustomBackgroundDict,
                                    NtpCustomBackgroundDefaults());
