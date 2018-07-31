@@ -55,7 +55,7 @@ bool IsFrameSecure(blink::WebFrame* frame) {
 class WebServiceWorkerNetworkProviderForFrame
     : public blink::WebServiceWorkerNetworkProvider {
  public:
-  WebServiceWorkerNetworkProviderForFrame(
+  explicit WebServiceWorkerNetworkProviderForFrame(
       std::unique_ptr<ServiceWorkerNetworkProvider> provider)
       : provider_(std::move(provider)) {}
 
@@ -139,6 +139,8 @@ class WebServiceWorkerNetworkProviderForFrame
         base::MakeRefCounted<network::WeakWrapperSharedURLLoaderFactory>(
             provider_->context()->GetSubresourceLoaderFactory()));
   }
+
+  void DispatchNetworkQuiet() override { provider_->DispatchNetworkQuiet(); }
 
  private:
   std::unique_ptr<ServiceWorkerNetworkProvider> provider_;
@@ -259,6 +261,12 @@ ServiceWorkerNetworkProvider::IsControlledByServiceWorker() const {
   if (!context())
     return blink::mojom::ControllerServiceWorkerMode::kNoController;
   return context()->IsControlledByServiceWorker();
+}
+
+void ServiceWorkerNetworkProvider::DispatchNetworkQuiet() {
+  if (!context())
+    return;
+  context()->DispatchNetworkQuiet();
 }
 
 // Creates an invalid instance (provider_id() returns

@@ -78,6 +78,10 @@ class WebServiceWorkerNetworkProvider {
       std::unique_ptr<scheduler::WebResourceLoadingTaskRunnerHandle>) {
     return nullptr;
   }
+
+  // For service worker clients. Called when IdlenessDetector emits its network
+  // idle signal.
+  virtual void DispatchNetworkQuiet() {}
 };
 
 }  // namespace blink
