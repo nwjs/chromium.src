@@ -295,6 +295,11 @@
       Se não especificar uma definição, é utilizado um valor predefinido.
 
       Se não definir esta política, são utilizadas predefinições para todas as definições.</translation>
+<translation id="1958138414749279167">Ativa a funcionalidade de Preenchimento automático do <ph name="PRODUCT_NAME" /> e permite que os utilizadores preencham automaticamente informações de endereços em formulários Web ao utilizar informações armazenadas anteriormente.
+
+      Se esta definição estiver desativada, o Preenchimento automático nunca sugere nem preenche com informações de endereços e também não guarda informações adicionais de endereços que o utilizador possa enviar enquanto navega na Web.
+
+      Se esta definição estiver ativada ou não tiver qualquer valor, o utilizador pode controlar o Preenchimento automático para os endereços na IU.</translation>
 <translation id="1960840544413786116">Se deve ou não autorizar os certificados emitidos por âncoras fidedignas locais que têm a extensão subjectAlternativeName em falta</translation>
 <translation id="1964634611280150550">Modo de navegação anónima desativado</translation>
 <translation id="1964802606569741174">Esta política não tem qualquer efeito na aplicação YouTube para Android. Se for necessário aplicar o modo de segurança no YouTube, a autorização para instalar a aplicação YouTube para Android deve ser removida.</translation>
@@ -1847,6 +1852,7 @@ Se esta definição estiver desativada, os utilizadores não podem ativar o prox
 <translation id="6440051664870270040">Permitir que os sites naveguem e abram pop-ups em simultâneo</translation>
 <translation id="6447948611083700881">A cópia de segurança e o restauro estão desativados.</translation>
 <translation id="645425387487868471">Ativar o início de sessão forçado no <ph name="PRODUCT_NAME" /></translation>
+<translation id="6464074037294098618">Ativar o Preenchimento automático para endereços</translation>
 <translation id="6473623140202114570">Configure a lista de domínios em que a Navegação segura não acionará avisos.</translation>
 <translation id="6491139795995924304">Permitir o Bluetooth no dispositivo</translation>
 <translation id="6520802717075138474">Importar motores de pesquisa a partir do navegador predefinido na primeira execução</translation>

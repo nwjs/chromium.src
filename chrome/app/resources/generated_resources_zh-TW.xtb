@@ -4612,6 +4612,7 @@
 <translation id="8028993641010258682">大小</translation>
 <translation id="8030656706657716245">新增印表機</translation>
 <translation id="8032244173881942855">無法投放分頁。</translation>
+<translation id="8033827949643255796">已選取</translation>
 <translation id="8033958968890501070">逾時</translation>
 <translation id="803435727213847625">{COUNT,plural, =0{在無痕式視窗中開啟所有書籤(&amp;I)}=1{在無痕式視窗中開啟(&amp;I)}other{在無痕式視窗中開啟全部 # 個書籤(&amp;I)}}</translation>
 <translation id="8037117027592400564">讀取使用合成語音朗讀的所有文字</translation>
