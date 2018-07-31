@@ -784,6 +784,40 @@ v8::Local<v8::Value> NewTabPageBindings::GetMostVisitedItemData(
 }
 
 // static
+void NewTabPageBindings::UpdateCustomLink(int rid,
+                                          const std::string& url,
+                                          const std::string& title) {
+  if (!ntp_tiles::IsCustomLinksEnabled())
+    return;
+  SearchBox* search_box = GetSearchBoxForCurrentContext();
+  if (!search_box || !HasOrigin(GURL(chrome::kChromeSearchMostVisitedUrl)))
+    return;
+
+  // If rid is -1, adds a new link. Otherwise, updates the existing link
+  // indicated by the rid. This will initialize custom links if they have not
+  // already been initialized.
+  // TODO(856394): Add support for editing links when edit link API is complete.
+  if (rid == -1) {
+    const GURL gurl(url);
+    if (!gurl.is_valid())
+      return;
+    search_box->AddCustomLink(std::move(gurl), title);
+  }
+}
+
+// static
+void NewTabPageBindings::ResetCustomLinks() {
+  if (!ntp_tiles::IsCustomLinksEnabled())
+    return;
+  SearchBox* search_box = GetSearchBoxForCurrentContext();
+  if (!search_box || !(HasOrigin(GURL(chrome::kChromeSearchMostVisitedUrl)) ||
+                       HasOrigin(GURL(chrome::kChromeSearchLocalNtpUrl)))) {
+    return;
+  }
+  search_box->ResetCustomLinks();
+}
+
+// static
 void NewTabPageBindings::LogEvent(int event) {
   SearchBox* search_box = GetSearchBoxForCurrentContext();
   if (!search_box || !(HasOrigin(GURL(chrome::kChromeSearchMostVisitedUrl)) ||
