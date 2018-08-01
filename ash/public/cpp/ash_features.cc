@@ -40,7 +40,7 @@ const base::Feature kOverviewSwipeToClose{"OverviewSwipeToClose",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kSystemTrayUnified{"SystemTrayUnified",
-                                       base::FEATURE_ENABLED_BY_DEFAULT};
+                                       base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kTapVisualizerApp{"TapVisualizerApp",
                                       base::FEATURE_ENABLED_BY_DEFAULT};
