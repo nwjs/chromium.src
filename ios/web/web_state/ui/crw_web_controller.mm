@@ -4248,6 +4248,7 @@ registerLoadRequestForURL:(const GURL&)requestURL
   [self updatePendingNavigationInfoFromNavigationAction:action];
 
   if (web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
+      action.targetFrame.mainFrame &&
       action.navigationType == WKNavigationTypeBackForward) {
     // WKBackForwardList would have already been updated for back/forward
     // navigation. Create the pending item here to match.
