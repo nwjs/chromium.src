@@ -11,6 +11,13 @@
 <script>
 let fakeDevices = fakeXRDevices();
 
+let testName = "XRInputSources with a target ray mode of 'tracked-pointer' "
+  + "properly communicate their poses";
+
+let fakeDeviceInitParams = { supportsImmersive: true };
+
+let requestSessionOptions =  [{ immersive: true }];
+
 xr_session_promise_test( (session, t) => new Promise((resolve) => {
     // Session must have a baseLayer or frame requests will be ignored.
     session.baseLayer = new XRWebGLLayer(session, gl);
@@ -54,8 +61,11 @@ xr_session_promise_test( (session, t) => new Promise((resolve) => {
         t.step( () => {
           // When a grip matrix is present but no pointer offset is specified,
           // the grip and pointer matrices should be the same.
-          assert_matrices_approx_equal(input_pose.gripMatrix, VALID_GRIP, FLOAT_EPSILON, "A");
-          assert_matrices_approx_equal(input_pose.pointerMatrix, input_pose.gripMatrix, FLOAT_EPSILON, "B");
+          assert_matrices_approx_equal(input_pose.gripMatrix, VALID_GRIP,
+            FLOAT_EPSILON, "Grip matrix is not equal to input.");
+          assert_matrices_approx_equal(input_pose.targetRay.transformMatrix,
+            input_pose.gripMatrix, FLOAT_EPSILON,
+            "Grip matrix is not equal to target ray matrix.");
         });
 
         input_source.pointerOffset = VALID_POINTER_OFFSET;
@@ -72,8 +82,11 @@ xr_session_promise_test( (session, t) => new Promise((resolve) => {
           // When a grip matrix and pointer offset are specified,
           // pointer matrix should be grip matrix multiplied with the pointer
           // offset.
-          assert_matrices_approx_equal(input_pose.gripMatrix, VALID_GRIP, FLOAT_EPSILON, "C");
-          assert_matrices_approx_equal(input_pose.pointerMatrix, VALID_GRIP_WITH_POINTER_OFFSET, FLOAT_EPSILON, "D");
+          assert_matrices_approx_equal(input_pose.gripMatrix, VALID_GRIP,
+            FLOAT_EPSILON, "Grip matrix is not equal to input valid grip.");
+          assert_matrices_approx_equal(input_pose.targetRay.transformMatrix,
+            VALID_GRIP_WITH_POINTER_OFFSET, FLOAT_EPSILON,
+            "Grip matrix not multipled properly.");
         });
 
         resolve();
