@@ -3305,6 +3305,11 @@ public class AwContents implements SmartClipProvider {
                     canvas.isHardwareAccelerated(), scrollX, scrollY, globalVisibleRect.left,
                     globalVisibleRect.top, globalVisibleRect.right, globalVisibleRect.bottom,
                     ForceAuxiliaryBitmapRendering.sResult);
+            if (canvas.isHardwareAccelerated()
+                    && nativeNeedToDrawBackgroundColor(mNativeAwContents)) {
+                TraceEvent.instant("DrawBackgroundColor");
+                canvas.drawColor(getEffectiveBackgroundColor());
+            }
             if (did_draw && canvas.isHardwareAccelerated()
                     && !ForceAuxiliaryBitmapRendering.sResult) {
                 did_draw = mCurrentFunctor.requestDrawGL(canvas);
@@ -3669,6 +3674,7 @@ public class AwContents implements SmartClipProvider {
             boolean isHardwareAccelerated, int scrollX, int scrollY, int visibleLeft,
             int visibleTop, int visibleRight, int visibleBottom,
             boolean forceAuxiliaryBitmapRendering);
+    private native boolean nativeNeedToDrawBackgroundColor(long nativeAwContents);
     private native void nativeFindAllAsync(long nativeAwContents, String searchString);
     private native void nativeFindNext(long nativeAwContents, boolean forward);
     private native void nativeClearMatches(long nativeAwContents);
