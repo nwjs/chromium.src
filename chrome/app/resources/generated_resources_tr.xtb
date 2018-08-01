@@ -249,7 +249,7 @@
 <translation id="1367951781824006909">Dosya seç</translation>
 <translation id="1368265273904755308">Sorun bildir</translation>
 <translation id="1370553626198299309">Chromebook'unuzun internete bağlı olduğundan ve telefonunuzun Bluetooth bağlantısının açık olduğundan emin olun.</translation>
-<translation id="1371301976177520732">Tüm cihazlarınızdaki yer işaretleriniz, şifreleriniz, geçmişiniz ve diğer öğeler</translation>
+<translation id="1371301976177520732">Yer işaretleriniz, şifreleriniz, geçmişiniz ve daha fazlası tüm cihazlarınızda sizi bekliyor</translation>
 <translation id="1372681413396468867">{NUM_ITEMS,plural, =1{1 öğe kaldırılacak}other{# öğe kaldırılacak}}</translation>
 <translation id="1372841398847029212">Hesabınızla senkronize edin</translation>
 <translation id="1374844444528092021">"<ph name="NETWORK_NAME" />" ağı için gereken sertifika yüklenmemiş veya artık geçerli değil. Lütfen yeni bir sertifika alın ve tekrar bağlanmayı deneyin.</translation>
@@ -2108,7 +2108,7 @@ Sunucunun mesajı: <ph name="SERVER_MSG" /></translation>
 <translation id="4181602000363099176">20x</translation>
 <translation id="4181841719683918333">Diller</translation>
 <translation id="4184885522552335684">Ekranı taşımak için sürükleyin</translation>
-<translation id="4192273449750167573">Bir sonraki ekranda ayarlarınızı gözden geçirin</translation>
+<translation id="4192273449750167573">Bir sonraki ekranda ayarları gözden geçir</translation>
 <translation id="4193154014135846272">Google dokümanı</translation>
 <translation id="4194570336751258953">Tıklamak için hafifçe vur'u etkinleştir</translation>
 <translation id="4195249722193633765">Uygulamayı Linux (Beta) ile yükleyin</translation>
@@ -3105,7 +3105,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="5723508132121499792">Çalışan hiç arka plan uygulaması yok</translation>
 <translation id="5727728807527375859">Uzantılar, uygulamalar ve temalar bilgisayarınıza zarar verebilir. Devam etmek istediğinizden emin misiniz?</translation>
 <translation id="5729712731028706266">&amp;Görüntüle</translation>
-<translation id="5731185123186077399">Google Pay gibi kişiselleştirilmiş Google hizmetleri</translation>
+<translation id="5731185123186077399">Google Pay gibi kişiselleştirilmiş Google hizmetlerinden yararlanın</translation>
 <translation id="5731247495086897348">Ya&amp;pıştır ve Git</translation>
 <translation id="5731409020711461763">1 yeni fotoğraf</translation>
 <translation id="5734362860645681824">İletişim</translation>
@@ -3835,7 +3835,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="6841186874966388268">Hatalar</translation>
 <translation id="6843725295806269523">sesi kapat</translation>
 <translation id="6845038076637626672">Ekranı Kaplayacak Şekilde Aç</translation>
-<translation id="685040365210406336">Değişiklik yapma</translation>
+<translation id="685040365210406336">Herhangi bir değişiklik yapma</translation>
 <translation id="6851497530878285708">Uygulama Etkinleştirildi</translation>
 <translation id="6853388645642883916">Güncelleyici uyku modunda</translation>
 <translation id="68541483639528434">Diğer sekmeleri kapat</translation>
@@ -4578,7 +4578,7 @@ Hassas bilgileri vermediğinizden emin olun.</translation>
 <translation id="7982789257301363584">Ağ</translation>
 <translation id="7984068253310542383"><ph name="DISPLAY_NAME" /> adlı ekranı yansıt</translation>
 <translation id="7986295104073916105">Kaydedilmiş şifre ayarlarını okuma ve değiştirme</translation>
-<translation id="7987764905897278458">Google'ın akıllı yaklaşımından daha fazla yararlanın</translation>
+<translation id="7987764905897278458">Google zekasından daha fazla yararlanın</translation>
 <translation id="7988355189918024273">Erişilebilirlik özelliklerini etkinleştir</translation>
 <translation id="7994702968232966508">EAP yöntemi</translation>
 <translation id="799547531016638432">Kısayolu kaldır</translation>

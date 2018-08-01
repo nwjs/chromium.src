@@ -210,6 +210,7 @@
 <translation id="4905614135390995787">Le raccourci permettant d'activer ou de désactiver le mode Contraste élevé a été modifié. Veuillez utiliser "<ph name="NEW_SHORTCUT" />" au lieu de "<ph name="OLD_SHORTCUT" />".</translation>
 <translation id="4917385247580444890">Très bon</translation>
 <translation id="4918086044614829423">Accepter</translation>
+<translation id="4924411785043111640">Redémarrer et réinitialiser</translation>
 <translation id="4961318399572185831">Diffuser l'écran</translation>
 <translation id="5136175204352732067">Clavier différent branché</translation>
 <translation id="5168181903108465623">Appareils Cast disponibles</translation>
@@ -224,6 +225,7 @@
 <translation id="544691375626129091">Tous les utilisateurs disponibles ont déjà été ajoutés à cette session.</translation>
 <translation id="5457599981699367932">Naviguer en tant qu'invité</translation>
 <translation id="54609108002486618">Géré</translation>
+<translation id="5496819745535887422">Votre administrateur rétablit votre appareil. Toutes les données seront supprimées lors du redémarrage de l'appareil.</translation>
 <translation id="553675580533261935">Fermeture de la session</translation>
 <translation id="5537725057119320332">Caster</translation>
 <translation id="5548285847212963613">L'extension "<ph name="EXTENSION_NAME" />" peut aider à se connecter à ce réseau.</translation>
@@ -410,6 +412,7 @@
 <translation id="8984179138335769204">Lancement rapide</translation>
 <translation id="8995603266996330174">Géré par <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Mise à jour Adobe Flash Player disponible</translation>
+<translation id="9056839673611986238">L'appareil va être rétabli</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi : <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Le micro est en cours d'utilisation.</translation>

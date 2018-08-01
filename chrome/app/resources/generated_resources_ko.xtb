@@ -426,7 +426,7 @@
 <translation id="1627408615528139100">이미 다운로드됨</translation>
 <translation id="1632803087685957583">키보드 반복 속도, 단어 예측 등을 조정할 수 있습니다.</translation>
 <translation id="1635033183663317347">관리자가 설치함</translation>
-<translation id="1635885551358739414">Google에서 Chrome 및 번역, Google 검색과 같은 기타 Google 서비스 및 광고를 맞춤설정하기 위해 사용자가 방문한 사이트의 콘텐츠, 브라우저 활동 및 상호작용 기록을 사용할 수 있습니다. 이는 설정에서 변경할 수 있습니다.</translation>
+<translation id="1635885551358739414">Google에서 Chrome을 비롯한 번역, Google 검색과 같은 기타 Google 서비스 및 광고를 맞춤설정하기 위해 사용자가 방문한 사이트의 콘텐츠, 브라우저 활동 및 상호작용 기록을 사용할 수 있습니다. 이는 설정에서 변경할 수 있습니다.</translation>
 <translation id="1637224376458524414">iPhone에서 이 북마크 이용하기</translation>
 <translation id="1637765355341780467">프로필을 여는 동안 문제가 발생했습니다. 일부 기능을 사용할 수 없습니다.</translation>
 <translation id="1639239467298939599">로드 중</translation>
@@ -4038,6 +4038,7 @@
 <translation id="7175353351958621980">로드 위치:</translation>
 <translation id="7180611975245234373">새로고침</translation>
 <translation id="7180865173735832675">맞춤설정</translation>
+<translation id="7182359331070524176">Google 포토 앨범 선택</translation>
 <translation id="7186088072322679094">툴바에 보관</translation>
 <translation id="7187428571767585875">삭제 또는 변경할 레지스트리 항목:</translation>
 <translation id="7189234443051076392">기기 저장용량이 충분한지 확인합니다.</translation>
