@@ -172,6 +172,9 @@ const CGFloat kBubblePresentationDelay = 1;
 }
 
 - (void)presentLongPressBubble {
+  if (!IsUIRefreshPhase1Enabled())
+    return;
+
   if (self.longPressToolbarTipBubblePresenter.isUserEngaged)
     return;
 
@@ -224,7 +227,7 @@ presentBubbleForFeature:(const base::Feature&)feature
 // Presents a bubble associated with the bottom toolbar tip in-product help
 // promotion. This method requires that |self.browserState| is not NULL.
 - (void)presentBottomToolbarTipBubble {
-  if (!IsSplitToolbarMode())
+  if (!IsUIRefreshPhase1Enabled() || !IsSplitToolbarMode())
     return;
 
   if (![self canPresentBubble])
