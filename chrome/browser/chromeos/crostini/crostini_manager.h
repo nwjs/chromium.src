@@ -334,7 +334,6 @@ class CrostiniManager : public chromeos::ConciergeClient::Observer,
   static CrostiniManager* GetInstance();
 
   bool IsVmRunning(Profile* profile, std::string vm_name);
-
   bool IsContainerRunning(Profile* profile,
                           std::string vm_name,
                           std::string container_name);
@@ -449,7 +448,6 @@ class CrostiniManager : public chromeos::ConciergeClient::Observer,
   // Running vms as <owner_id, vm_name> pairs.
   std::set<std::pair<std::string, std::string>> running_vms_;
 
-<<<<<<< HEAD
   // Running containers as keyed by <owner_id, vm_name> string pairs.
   std::multimap<std::pair<std::string, std::string>, std::string>
       running_containers_;
@@ -458,8 +456,6 @@ class CrostiniManager : public chromeos::ConciergeClient::Observer,
   std::multimap<std::string, InstallLinuxPackageProgressObserver*>
       install_linux_package_progress_observers_;
 
-=======
->>>>>>> d2b8d0b46219... Adds a "Shut Down Linux" context menu item.
   // Note: This should remain the last member so it'll be destroyed and
   // invalidate its weak pointers before any other members are destroyed.
   base::WeakPtrFactory<CrostiniManager> weak_ptr_factory_;
