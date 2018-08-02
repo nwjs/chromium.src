@@ -1089,10 +1089,15 @@ void CrostiniManager::OnStopVm(
     }
   }
   // Remove from running_vms_.
+<<<<<<< HEAD
   auto key = std::make_pair(std::move(owner_id), std::move(vm_name));
   running_vms_.erase(key);
   // Remove containers from running_containers_
   running_containers_.erase(key);
+=======
+  running_vms_.erase(std::make_pair(std::move(owner_id), std::move(vm_name)));
+
+>>>>>>> d2b8d0b46219... Adds a "Shut Down Linux" context menu item.
   std::move(callback).Run(ConciergeClientResult::SUCCESS);
 }
 
