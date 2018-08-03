@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Įveskite PIN kodą</translation>
 <translation id="2805646850212350655">„Microsoft“ koduojamųjų failų sistema</translation>
 <translation id="2805756323405976993">Taikomosios programos</translation>
+<translation id="2806891468525657116">Spartusis klavišas jau yra</translation>
 <translation id="2807517655263062534">Atsisiųsti failai rodomi čia</translation>
 <translation id="2809586584051668049">ir dar <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">Esamos naršyklės sesijos metu sukurtas naujas langas.</translation>
@@ -1967,6 +1968,7 @@
 „<ph name="CONTROL_PANEL_APPLET_NAME" />“ valdymo skydelyje.
 
 Ar norite paleisti „<ph name="CONTROL_PANEL_APPLET_NAME" />“?</translation>
+<translation id="394183848452296464">Nepavyksta sukurti sparčiojo klavišo</translation>
 <translation id="3943582379552582368">&amp;Grįžti</translation>
 <translation id="3943857333388298514">Įklijuoti</translation>
 <translation id="3948116654032448504">&amp;Ieškoti vaizdo sistemoje „<ph name="SEARCH_ENGINE" />“</translation>

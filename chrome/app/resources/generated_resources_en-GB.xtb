@@ -1213,6 +1213,7 @@
 <translation id="2803375539583399270">Enter PIN</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2805756323405976993">Apps</translation>
+<translation id="2806891468525657116">Shortcut already exists</translation>
 <translation id="2807517655263062534">Files you download appear here</translation>
 <translation id="2809586584051668049">and <ph name="NUMBER_ADDITIONAL_DISABLED" /> more</translation>
 <translation id="281133045296806353">Created new window in existing browser session.</translation>
@@ -1966,6 +1967,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" /> in Control Panel.
 
   Would you like to start <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Can’t create shortcut</translation>
 <translation id="3943582379552582368">&amp;Back</translation>
 <translation id="3943857333388298514">Paste</translation>
 <translation id="3948116654032448504">&amp;Search <ph name="SEARCH_ENGINE" /> for Image</translation>

@@ -225,7 +225,7 @@
 <translation id="544691375626129091">Tất cả người dùng hiện có mặt đã được thêm vào phiên này.</translation>
 <translation id="5457599981699367932">Duyệt với tư cách Khách</translation>
 <translation id="54609108002486618">Được quản lý</translation>
-<translation id="5496819745535887422">Quản trị viên đang khôi phục thiết bị của bạn. Tất cả dữ liệu sẽ bị xóa khi khởi động lại thiết bị.</translation>
+<translation id="5496819745535887422">Quản trị viên đang hạ cấp hệ điều hành của thiết bị của bạn. Tất cả dữ liệu sẽ bị xóa khi thiết bị khởi động lại.</translation>
 <translation id="553675580533261935">Thoát phiên</translation>
 <translation id="5537725057119320332">Truyền</translation>
 <translation id="5548285847212963613">Tiện ích "<ph name="EXTENSION_NAME" />" có thể giúp kết nối với mạng này.</translation>
@@ -412,7 +412,7 @@
 <translation id="8984179138335769204">Khởi động nhanh</translation>
 <translation id="8995603266996330174">Được quản lý bởi <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">Đã có bản cập nhật Adobe Flash Player</translation>
-<translation id="9056839673611986238">Thiết bị sẽ khôi phục</translation>
+<translation id="9056839673611986238">Thiết bị sẽ được hạ cấp hệ điều hành</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Micrô đang được sử dụng.</translation>

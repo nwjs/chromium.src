@@ -1917,7 +1917,7 @@
 <translation id="3871092408932389764">Muy bajo</translation>
 <translation id="3872220884670338524">Más acciones (cuenta guardada para <ph name="USERNAME" /> en <ph name="DOMAIN" />)</translation>
 <translation id="3872991219937722530">Libera espacio en el disco o el dispositivo dejará de funcionar.</translation>
-<translation id="3873315167136380065">Para activar esta opción, <ph name="BEGIN_LINK" />restablece la sincronización<ph name="END_LINK" /> para quitar la frase de contraseña de sincronización</translation>
+<translation id="3873315167136380065">A fin de activar esta opción, <ph name="BEGIN_LINK" />restablece la sincronización<ph name="END_LINK" /> para quitar la frase de contraseña de sincronización</translation>
 <translation id="3878840326289104869">Creando usuario supervisado</translation>
 <translation id="3879748587602334249">Administrador de descargas</translation>
 <translation id="3880709822663530586">La llave de seguridad solo funciona cuando está activada la conexión Bluetooth de tu dispositivo</translation>
@@ -5027,7 +5027,7 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="8698464937041809063">Dibujo de Google</translation>
 <translation id="869884720829132584">Menú Aplicaciones</translation>
 <translation id="869891660844655955">Fecha de vencimiento</translation>
-<translation id="8699566574894671540">Para activar esta opción, primero selecciona Comprobar ortografía mientras se escribe en el menú Editar</translation>
+<translation id="8699566574894671540">Para activar esta opción, primero selecciona Comprobar ortografía mientras se escribe, en el menú Editar</translation>
 <translation id="870073306461175568">Network File Shares</translation>
 <translation id="8701677791353449257">El nombre del dispositivo debe coincidir con la expresión regular <ph name="REGEX" />.</translation>
 <translation id="8704521619148782536">Esta acción está tardando más de lo normal. Puedes seguir esperando o cancelar la acción y volver a intentarlo más tarde.</translation>

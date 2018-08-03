@@ -1219,7 +1219,7 @@
 <translation id="2812944337881233323">Prova a uscire e ad accedere di nuovo</translation>
 <translation id="2812989263793994277">Non mostrare le immagini</translation>
 <translation id="2814489978934728345">Interrompi il caricamento della pagina</translation>
-<translation id="281504910091592009">Visualizza e gestisci le password salvate nel tuo <ph name="BEGIN_LINK" />account Google<ph name="END_LINK" /></translation>
+<translation id="281504910091592009">Visualizza e gestisci le password salvate nel tuo <ph name="BEGIN_LINK" />Account Google<ph name="END_LINK" /></translation>
 <translation id="2815500128677761940">Barra dei Preferiti</translation>
 <translation id="2815693974042551705">Aggiungi la cartella ai segnalibri</translation>
 <translation id="2818476747334107629">Dettagli stampante</translation>
@@ -2571,7 +2571,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="4953808748584563296">Avatar arancione predefinito</translation>
 <translation id="4955814292505481804">Annuale</translation>
 <translation id="4957949153200969297">Attiva solo le funzionalità relative alla sincronizzazione di <ph name="IDS_SHORT_PRODUCT_NAME" /></translation>
-<translation id="4959262764292427323">Le password vengono salvate nel tuo account Google affinché tu possa usarle su qualsiasi dispositivo</translation>
+<translation id="4959262764292427323">Le password vengono salvate nel tuo Account Google affinché tu possa usarle su qualsiasi dispositivo</translation>
 <translation id="4960294539892203357"><ph name="WINDOW_TITLE" /> - <ph name="PROFILE_NAME" /></translation>
 <translation id="4961000125720751066">Tieni le tue schede in un unico posto</translation>
 <translation id="496226124210045887">La cartella che hai selezionato contiene file delicati. Vuoi concedere a "$1" accesso di lettura permanente a questa cartella?</translation>
@@ -4563,7 +4563,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="7974936243149753750">Overscan</translation>
 <translation id="7977551819349545646">Aggiornamento del Chromebox...</translation>
 <translation id="7978412674231730200">Chiave privata</translation>
-<translation id="7978450511781612192">I tuoi account Google verranno scollegati e verrà interrotta la sincronizzazione di preferiti, cronologia, password e altro.</translation>
+<translation id="7978450511781612192">I tuoi Account Google verranno scollegati e verrà interrotta la sincronizzazione di preferiti, cronologia, password e altro.</translation>
 <translation id="7979036127916589816">Errore di sincronizzazione</translation>
 <translation id="7980084013673500153">ID asset: <ph name="ASSET_ID" /></translation>
 <translation id="7981313251711023384">Le pagine vengono precaricate per velocizzare la navigazione e la ricerca</translation>

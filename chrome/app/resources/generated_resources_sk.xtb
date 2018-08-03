@@ -1214,6 +1214,7 @@ dotyku</translation>
 <translation id="2803375539583399270">Zadajte kód PIN</translation>
 <translation id="2805646850212350655">Systém šifrovania súborov spoločnosti Microsoft</translation>
 <translation id="2805756323405976993">Aplikácie</translation>
+<translation id="2806891468525657116">Skratka už existuje</translation>
 <translation id="2807517655263062534">Tu sa zobrazia súbory, ktoré stiahnete</translation>
 <translation id="2809586584051668049">a ďalšie (počet: <ph name="NUMBER_ADDITIONAL_DISABLED" />)</translation>
 <translation id="281133045296806353">Vytvorené nové okno v existujúcej relácii prehliadača.</translation>
@@ -1967,6 +1968,7 @@ dotyku</translation>
   <ph name="CONTROL_PANEL_APPLET_NAME" /> na ovládacom paneli.
 
   Chcete spustiť aplet <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Skratka sa nedá vytvoriť</translation>
 <translation id="3943582379552582368">&amp;Naspäť</translation>
 <translation id="3943857333388298514">Prilepiť</translation>
 <translation id="3948116654032448504">&amp;Hľadať obrázok v službe <ph name="SEARCH_ENGINE" /></translation>

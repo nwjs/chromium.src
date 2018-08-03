@@ -284,6 +284,11 @@ Pokud tato zásada není nastavena, nebude mít zařízení žádné tiskárny a
       Pokud některá možnost nebude nakonfigurována, použije se výchozí hodnota.
 
       Pokud tato zásada není nastavena, budou pro všechna nastavení použity výchozí hodnoty.</translation>
+<translation id="1958138414749279167">Aktivuje v prohlížeči <ph name="PRODUCT_NAME" /> funkci Automatické vyplňování a umožňuje uživatelům automaticky ve webových formulářích vyplňovat informace o adresách pomocí dříve uložených údajů.
+
+      Pokud je toto nastavení vypnuto, automatické vyplňování nebude navrhovat ani vyplňovat informace o adresách a nebude ani ukládat další informace o adresách, které uživatel při prohlížení webu odešle.
+
+      Pokud je toto nastavení zapnuto nebo nemá žádnou hodnotu, uživatel bude moci automatické vyplňování adres ovládat v uživatelském rozhraní.</translation>
 <translation id="1960840544413786116">Udává, zda mají být povoleny certifikáty vydané místními kotvami vztahu důvěryhodnosti bez rozšíření subjectAlternativeName.</translation>
 <translation id="1964634611280150550">Anonymní režim zakázán</translation>
 <translation id="1964802606569741174">Tato zásada nemá vliv na aplikaci YouTube pro Android. Chcete-li na YouTube vynutit bezpečný režim, měli byste instalaci aplikace YouTube pro Android zakázat.</translation>
@@ -1880,6 +1885,7 @@ Nastavením této zásady na hodnotu False přeskočení stránky s upozorněn�
 <translation id="6440051664870270040">Povolit webům zároveň provádět navigaci a otevírat vyskakovací okna</translation>
 <translation id="6447948611083700881">Zálohování a obnovení zakázáno</translation>
 <translation id="645425387487868471">Aktivovat vynucené přihlášení do prohlížeče <ph name="PRODUCT_NAME" /></translation>
+<translation id="6464074037294098618">Povolit automatické vyplňování pro adresy</translation>
 <translation id="6473623140202114570">Konfiguruje seznam domén, na kterých Bezpečné prohlížení nebude zobrazovat upozornění.</translation>
 <translation id="6491139795995924304">Povolit na zařízení Bluetooth</translation>
 <translation id="6520802717075138474">Importování vyhledávačů z výchozího prohlížeče při prvním spuštění</translation>
