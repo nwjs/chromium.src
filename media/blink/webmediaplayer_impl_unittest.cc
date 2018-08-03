@@ -1391,7 +1391,9 @@ TEST_F(WebMediaPlayerImplTest, PlaybackRateChangeMediaLogs) {
 }
 
 // Tests delegate methods are called when Picture-in-Picture is triggered.
-TEST_F(WebMediaPlayerImplTest, PictureInPictureTriggerCallback) {
+// Disabling this test only in the Beta branch where VideoSurfaceLayer is not
+// enabled by defaulty.
+TEST_F(WebMediaPlayerImplTest, DISABLED_PictureInPictureTriggerCallback) {
   InitializeWebMediaPlayerImpl();
 
   EXPECT_CALL(*surface_layer_bridge_ptr_, CreateSurfaceLayer());
