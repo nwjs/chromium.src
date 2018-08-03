@@ -276,7 +276,7 @@ var showTiles = function(info) {
 var updateTheme = function(info) {
   document.body.style.setProperty('--tile-title-color', info.tileTitleColor);
   document.body.classList.toggle('dark-theme', info.isThemeDark);
-  document.body.classList.toggle('background-image', info.hasBackgroundImage);
+  document.body.classList.toggle('using-theme', info.isUsingTheme);
 };
 
 
@@ -368,7 +368,6 @@ var swapInNewTiles = function() {
   tiles = document.createElement('div');
 };
 
-
 /**
  * Truncates titles that are longer than one line and appends an ellipsis. Text
  * overflow in CSS ("text-overflow: ellipsis") requires "overflow: hidden",
@@ -383,12 +382,11 @@ function truncateTitleText(titles) {
     while (el.scrollHeight > el.offsetHeight && truncatedTitle.length > 0) {
       el.innerText = (truncatedTitle = truncatedTitle.slice(0, -1)) + '...';
     }
-    if (truncatedTitle.length == 0) {
+    if (truncatedTitle.length === 0) {
       console.error('Title truncation failed: ' + originalTitle);
     }
   }
 }
-
 
 /**
  * Handler for the 'show' message from the host page, called when it wants to
