@@ -136,18 +136,7 @@ IN_PROC_BROWSER_TEST_P(SecureOriginWhitelistBrowsertest, SecurityIndicators) {
   security_state::SecurityInfo security_info;
   helper->GetSecurityInfo(&security_info);
 
-  if (GetParam() == TestVariant::kPolicyOldAndNew) {
-    // When both policies are set, the new policy overrides the old policy.
-    EXPECT_EQ(security_state::HTTP_SHOW_WARNING, security_info.security_level);
-    ui_test_utils::NavigateToURL(
-        browser(),
-        embedded_test_server()->GetURL(
-            "otherexample.com", "/secure_origin_whitelist_browsertest.html"));
-    helper->GetSecurityInfo(&security_info);
-    EXPECT_EQ(security_state::NONE, security_info.security_level);
-  } else {
-    EXPECT_EQ(ExpectSecureContext() ? security_state::NONE
-                                    : security_state::HTTP_SHOW_WARNING,
-              security_info.security_level);
-  }
+  EXPECT_EQ(ExpectSecureContext() ? security_state::NONE
+                                  : security_state::HTTP_SHOW_WARNING,
+            security_info.security_level);
 }
