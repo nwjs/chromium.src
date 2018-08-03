@@ -443,6 +443,10 @@ customBackgrounds.applySelectedState = function(tile) {
   selectedBorder.appendChild(selectedCircle);
   selectedBorder.appendChild(selectedCheck);
   tile.appendChild(selectedBorder);
+  tile.dataset.oldLabel = tile.getAttribute('aria-label');
+  tile.setAttribute(
+      'aria-label',
+      tile.dataset.oldLabel + ' ' + configData.translatedStrings.selectedLabel);
 };
 
 /**
@@ -452,6 +456,7 @@ customBackgrounds.applySelectedState = function(tile) {
 customBackgrounds.removeSelectedState = function(tile) {
   tile.classList.remove(customBackgrounds.CLASSES.COLLECTION_SELECTED);
   tile.removeChild(tile.firstChild);
+  tile.setAttribute('aria-label', tile.dataset.oldLabel);
 };
 
 /**
