@@ -1212,6 +1212,7 @@
 <translation id="2803375539583399270">Angiv pinkode</translation>
 <translation id="2805646850212350655">Filsystem til Microsoft-kryptering</translation>
 <translation id="2805756323405976993">Apps</translation>
+<translation id="2806891468525657116">Genvejen findes allerede</translation>
 <translation id="2807517655263062534">Dine downloadede filer vises her</translation>
 <translation id="2809586584051668049">og <ph name="NUMBER_ADDITIONAL_DISABLED" /> mere</translation>
 <translation id="281133045296806353">Der blev oprettet et nyt vindue i den aktuelle browsersession.</translation>
@@ -1965,6 +1966,7 @@
 <ph name="CONTROL_PANEL_APPLET_NAME" /> i kontrolpanelet.
 
 Vil du starte <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Genvejen kan ikke oprettes</translation>
 <translation id="3943582379552582368">&amp;Tilbage</translation>
 <translation id="3943857333388298514">Indsæt</translation>
 <translation id="3948116654032448504">&amp;Søg efter billedet på <ph name="SEARCH_ENGINE" /></translation>
@@ -4039,6 +4041,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7175353351958621980">Indlæst fra:</translation>
 <translation id="7180611975245234373">Opdater</translation>
 <translation id="7180865173735832675">Tilpas</translation>
+<translation id="7182359331070524176">Vælg et Google Fotos-album</translation>
 <translation id="7186088072322679094">Behold på værktøjslinjen</translation>
 <translation id="7187428571767585875">Registreringsposter, der skal fjernes eller ændres:</translation>
 <translation id="7189234443051076392">Sørg for, at der er nok ledig plads på din enhed</translation>

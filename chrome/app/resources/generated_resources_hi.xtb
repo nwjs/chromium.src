@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">पिन डालें</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2805756323405976993">ऐप्स</translation>
+<translation id="2806891468525657116">शॉर्टकट पहले से मौजूद है</translation>
 <translation id="2807517655263062534">आपकी डाउनलोड की गई फ़ाइलें यहां दिखाई देती हैं</translation>
 <translation id="2809586584051668049">तथा <ph name="NUMBER_ADDITIONAL_DISABLED" /> और</translation>
 <translation id="281133045296806353">मौजूदा ब्राउज़र सत्र में नई विंडो बनाई गई.</translation>
@@ -1565,7 +1566,7 @@
 <translation id="3360297538363969800">प्रिंट करना विफल रहा. कृपया अपना प्रिंटर जाँचें और पुन: प्रयास करें.</translation>
 <translation id="3364721542077212959">स्टाइलस टूल</translation>
 <translation id="3365598184818502391">Ctrl या फिर Alt का इस्तेमाल करें</translation>
-<translation id="3367047597842238025">अपनी पसंद के हिसाब से अपना <ph name="DEVICE_TYPE" /> सेट अप करें और उन सभी अनोखी क्षमताओं का पता लगाएं जो आपकी आसान पहुंच में हैं.</translation>
+<translation id="3367047597842238025">अपनी पसंद के हिसाब से अपना <ph name="DEVICE_TYPE" /> सेट अप करें और उन सभी अनोखी क्षमताओं का पता लगाएं जिन तक आप आसानी से पहुंच सकते हैं .</translation>
 <translation id="3368922792935385530">कनेक्टेड</translation>
 <translation id="3369624026883419694">होस्ट को परिष्कृत कर रहा है...</translation>
 <translation id="337286756654493126">आपके द्वारा ऐप्लिकेशन में खोले गए फ़ोल्डर पढ़ें</translation>
@@ -1966,6 +1967,7 @@
 <translation id="3941565636838060942">इस प्रोग्राम की एक्सेस छिपाने के लिए, आपको कंट्रोल पैनल में <ph name="CONTROL_PANEL_APPLET_NAME" /> का उपयोग करके उसे अनइंस्टॉल करने की आवश्यकता होगी.
 
   क्या आप <ph name="CONTROL_PANEL_APPLET_NAME" /> को प्रारंभ करना चाहते हैं?</translation>
+<translation id="394183848452296464">शॉर्टकट नहीं बनाए जा सकते</translation>
 <translation id="3943582379552582368">&amp;वापस</translation>
 <translation id="3943857333388298514">चिपकाएं</translation>
 <translation id="3948116654032448504">चित्र को <ph name="SEARCH_ENGINE" /> पर &amp;खोजें</translation>
@@ -4039,6 +4041,7 @@
 <translation id="7175353351958621980">यहां से लोड किया गया:</translation>
 <translation id="7180611975245234373">रीफ्रेश करें</translation>
 <translation id="7180865173735832675">कस्टमाइज़ करें</translation>
+<translation id="7182359331070524176">कोई 'Google फ़ोटो' एल्बम चुनें</translation>
 <translation id="7186088072322679094">टूलबार में रखें</translation>
 <translation id="7187428571767585875">ऐसी रजिस्ट्री प्रविष्टियां जिन्हें हटाया या बदला जाना है:</translation>
 <translation id="7189234443051076392">पक्का करें कि आपके डिवाइस पर ज़रूरी जगह मौजूद हो</translation>

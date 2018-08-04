@@ -283,6 +283,11 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
       Se un'impostazione non viene specificata, viene utilizzato un valore predefinito.
 
       Se questa norma non viene impostata, vengono utilizzati i valori predefiniti per tutte le impostazioni.</translation>
+<translation id="1958138414749279167">Consente di attivare la funzione Compilazione automatica di <ph name="PRODUCT_NAME" /> e permette agli utenti di eseguire il completamento automatico dell'indirizzo nei moduli web utilizzando informazioni memorizzate in precedenza.
+
+      Se questa impostazione è disattivata, la funzione Compilazione automatica non suggerirà o non inserirà mai i dati relativi all'indirizzo, né salverà altre informazioni relative ad altri indirizzi che l'utente potrebbe inviare durante la navigazione sul Web.
+
+      Se questa impostazione è attivata o non è impostata su alcun valore, l'utente potrà gestire la funzione Compilazione automatica per gli indirizzi nell'interfaccia utente.</translation>
 <translation id="1960840544413786116">Consente di stabilire se consentire i certificati privi dell'estensione subjectAlternativeName emessi dai trust anchor locali</translation>
 <translation id="1964634611280150550">Modalità di navigazione in incognito non attiva</translation>
 <translation id="1964802606569741174">Questa norma non ha effetto sull'app YouTube per Android. Se è necessario applicare la modalità di protezione di YouTube, l'installazione dell'app YouTube per Android non deve essere consentita.</translation>
@@ -1801,6 +1806,7 @@ Questa norma viene rispettata soltanto se la norma "DefaultSearchProviderEnabled
 <translation id="6440051664870270040">Consenti ai siti di navigare e aprire popup contemporaneamente</translation>
 <translation id="6447948611083700881">Backup e ripristino disabilitati</translation>
 <translation id="645425387487868471">Attiva l'accesso forzato per <ph name="PRODUCT_NAME" /></translation>
+<translation id="6464074037294098618">Attiva la Compilazione automatica per gli indirizzi</translation>
 <translation id="6473623140202114570">Configura l'elenco di domini sui quali Navigazione sicura non attiverà avvisi.</translation>
 <translation id="6491139795995924304">Consenti Bluetooth sul dispositivo</translation>
 <translation id="6520802717075138474">Importa motori di ricerca dal browser predefinito alla prima esecuzione</translation>

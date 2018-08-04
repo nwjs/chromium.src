@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Wpisz kod PIN</translation>
 <translation id="2805646850212350655">System szyfrowania plików firmy Microsoft</translation>
 <translation id="2805756323405976993">Aplikacje</translation>
+<translation id="2806891468525657116">Skrót już istnieje</translation>
 <translation id="2807517655263062534">Tutaj wyświetlają się pobrane pliki</translation>
 <translation id="2809586584051668049">i jeszcze <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">Utworzono nowe okno w istniejącej sesji przeglądarki.</translation>
@@ -1967,6 +1968,7 @@
   używając apletu <ph name="CONTROL_PANEL_APPLET_NAME" /> w Panelu sterowania.
 
   Uruchomić aplet <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Nie można utworzyć skrótu</translation>
 <translation id="3943582379552582368">&amp;Wstecz</translation>
 <translation id="3943857333388298514">Wklej</translation>
 <translation id="3948116654032448504">&amp;Szukaj obrazu w <ph name="SEARCH_ENGINE" /></translation>
@@ -2172,7 +2174,7 @@
 <translation id="428608937826130504">8 element na półce</translation>
 <translation id="4287502004382794929">Nie masz wystarczającej liczby licencji na oprogramowanie, by zarejestrować to urządzenie. Aby dokupić licencje, skontaktuj się z działem sprzedaży. Jeśli uważasz, że widzisz tę wiadomość z powodu błędu, skontaktuj się z obsługą klienta.</translation>
 <translation id="4289540628985791613">Przegląd</translation>
-<translation id="4295072614469448764">Aplikacja jest teraz dostępna w terminalu. Może mieć też ikonę w Menu z aplikacjami.</translation>
+<translation id="4295072614469448764">Aplikacja jest teraz dostępna na terminalu. Może mieć też ikonę w Menu z aplikacjami.</translation>
 <translation id="4296575653627536209">Dodaj nadzorowanego użytkownika</translation>
 <translation id="4297219207642690536">Uruchom ponownie i zresetuj</translation>
 <translation id="4297322094678649474">Zmień języki</translation>
@@ -3071,7 +3073,7 @@
 <translation id="5677503058916217575">Język strony:</translation>
 <translation id="5677928146339483299">Zablokowane</translation>
 <translation id="5678550637669481956">Uprawnienia do zapisu i odczytu nośnika <ph name="VOLUME_NAME" /> zostały przyznane.</translation>
-<translation id="5678784840044122290">Aplikacja na Linuksa będzie dostępna w terminalu. Może mieć też ikonę w Menu z aplikacjami.</translation>
+<translation id="5678784840044122290">Aplikacja na Linuksa będzie dostępna na terminalu. Może mieć też ikonę w Menu z aplikacjami.</translation>
 <translation id="5678955352098267522">Odczyt Twoich danych na stronie <ph name="WEBSITE_1" /></translation>
 <translation id="5684661240348539843">Identyfikator zasobu</translation>
 <translation id="5686799162999241776"><ph name="BEGIN_BOLD" />Nie można odłączyć archiwum lub dysku wirtualnego<ph name="END_BOLD" />
@@ -5031,7 +5033,7 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="8698464937041809063">Rysunek Google</translation>
 <translation id="869884720829132584">Menu aplikacji</translation>
 <translation id="869891660844655955">Data wygaśnięcia</translation>
-<translation id="8699566574894671540">Aby włączyć tę funkcję, najpierw w menu Edycja włącz opcję Sprawdzaj pisownię w trakcie pisania</translation>
+<translation id="8699566574894671540">Aby włączyć tę funkcję, najpierw w menu Edytuj włącz Sprawdzaj pisownię w trakcie pisania</translation>
 <translation id="870073306461175568">Sieciowe udziały plików</translation>
 <translation id="8701677791353449257">Nazwa urządzenia musi odpowiadać wyrażeniu regularnemu <ph name="REGEX" />.</translation>
 <translation id="8704521619148782536">To trwa o wiele dłużej niż zwykle. Możesz zaczekać albo anulować i spróbować ponownie później.</translation>

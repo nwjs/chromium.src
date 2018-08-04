@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">PIN を入力</translation>
 <translation id="2805646850212350655">Microsoft 暗号化ファイル システム</translation>
 <translation id="2805756323405976993">アプリ</translation>
+<translation id="2806891468525657116">ショートカットがすでに存在します</translation>
 <translation id="2807517655263062534">ダウンロードしたファイルがここに表示されます</translation>
 <translation id="2809586584051668049">、他 <ph name="NUMBER_ADDITIONAL_DISABLED" /> 件</translation>
 <translation id="281133045296806353">既存のブラウザ セッションに新しいウィンドウが作成されました。</translation>
@@ -1967,6 +1968,7 @@
 <ph name="CONTROL_PANEL_APPLET_NAME" /> を使用してプログラムをアンインストールする必要があります。
 
 <ph name="CONTROL_PANEL_APPLET_NAME" /> を開きますか？</translation>
+<translation id="394183848452296464">ショートカットを作成できません</translation>
 <translation id="3943582379552582368">戻る(&amp;B)</translation>
 <translation id="3943857333388298514">貼り付け</translation>
 <translation id="3948116654032448504"><ph name="SEARCH_ENGINE" /> で画像を検索(&amp;S)</translation>
@@ -4040,6 +4042,7 @@
 <translation id="7175353351958621980">ロード元:</translation>
 <translation id="7180611975245234373">更新</translation>
 <translation id="7180865173735832675">カスタマイズ</translation>
+<translation id="7182359331070524176">Google フォトアルバムを選択</translation>
 <translation id="7186088072322679094">ツールバーに残す</translation>
 <translation id="7187428571767585875">削除または変更されるレジストリ項目:</translation>
 <translation id="7189234443051076392">端末に十分な空き容量があることを確認してください</translation>

@@ -1213,6 +1213,7 @@
 <translation id="2803375539583399270">Introdueix el PIN</translation>
 <translation id="2805646850212350655">Sistema de xifratge de fitxers de Microsoft</translation>
 <translation id="2805756323405976993">Aplicacions</translation>
+<translation id="2806891468525657116">Aquesta drecera ja existeix</translation>
 <translation id="2807517655263062534">Aquí es mostren els fitxers baixats</translation>
 <translation id="2809586584051668049">i <ph name="NUMBER_ADDITIONAL_DISABLED" /> més</translation>
 <translation id="281133045296806353">S'ha creat una finestra nova a la sessió del navegador existent.</translation>
@@ -1964,6 +1965,7 @@
 <translation id="3941565636838060942">Per amagar l'accés a aquest programa, heu de desinstal·lar-lo mitjançant <ph name="CONTROL_PANEL_APPLET_NAME" /> al tauler de control.
 
   Voleu iniciar <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">No es pot crear la drecera</translation>
 <translation id="3943582379552582368">&amp;Enrere</translation>
 <translation id="3943857333388298514">Enganxa</translation>
 <translation id="3948116654032448504">&amp;Cerca la imatge a <ph name="SEARCH_ENGINE" /></translation>

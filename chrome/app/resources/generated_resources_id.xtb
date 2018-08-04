@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Masukkan PIN</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2805756323405976993">Apl</translation>
+<translation id="2806891468525657116">Pintasan sudah ada</translation>
 <translation id="2807517655263062534">File yang Anda download muncul di sini</translation>
 <translation id="2809586584051668049">dan <ph name="NUMBER_ADDITIONAL_DISABLED" /> lainnya</translation>
 <translation id="281133045296806353">Jendela baru dibuat pada sesi browser yang ada.</translation>
@@ -1967,6 +1968,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" /> di Panel Kontrol.
 
   Apakah Anda ingin memulai <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Tidak dapat membuat pintasan</translation>
 <translation id="3943582379552582368">&amp;Mundur</translation>
 <translation id="3943857333388298514">Sisipkan</translation>
 <translation id="3948116654032448504">&amp;Telusuri <ph name="SEARCH_ENGINE" /> untuk Gambar</translation>

@@ -1215,6 +1215,7 @@
 <translation id="2803375539583399270">Masukkan PIN</translation>
 <translation id="2805646850212350655">Sistem Fail Penyulitan Microsoft</translation>
 <translation id="2805756323405976993">Apl</translation>
+<translation id="2806891468525657116">Pintasan sudah wujud</translation>
 <translation id="2807517655263062534">Fail yang anda muat turun dipaparkan di sini</translation>
 <translation id="2809586584051668049">dan <ph name="NUMBER_ADDITIONAL_DISABLED" /> lagi</translation>
 <translation id="281133045296806353">Mencipta tetingkap baharu dalam sesi penyemak imbas yang sedia ada.</translation>
@@ -1968,6 +1969,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" /> dalam Panel Kawalan.
 
   Adakah anda ingin memulakan <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Tidak dapat membuat pintasan</translation>
 <translation id="3943582379552582368">&amp;Kembali</translation>
 <translation id="3943857333388298514">Tampal</translation>
 <translation id="3948116654032448504">&amp;Cari Imej di <ph name="SEARCH_ENGINE" /></translation>

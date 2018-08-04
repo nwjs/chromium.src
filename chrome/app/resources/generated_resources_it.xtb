@@ -1213,6 +1213,7 @@
 <translation id="2803375539583399270">Inserisci PIN</translation>
 <translation id="2805646850212350655">Crittografia file system Microsoft</translation>
 <translation id="2805756323405976993">App</translation>
+<translation id="2806891468525657116">Scorciatoia già presente</translation>
 <translation id="2807517655263062534">I file scaricati vengono mostrati qui</translation>
 <translation id="2809586584051668049">e altre <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">È stata creata una nuova finestra nella sessione corrente del browser.</translation>
@@ -1964,6 +1965,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
   <ph name="CONTROL_PANEL_APPLET_NAME" /> nel Pannello di controllo.
 
   Vuoi avviare <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Impossibile creare scorciatoie</translation>
 <translation id="3943582379552582368">&amp;Indietro</translation>
 <translation id="3943857333388298514">Incolla</translation>
 <translation id="3948116654032448504">&amp;Cerca l'immagine su <ph name="SEARCH_ENGINE" /></translation>
@@ -4036,6 +4038,7 @@ Se non modifichi le impostazioni predefinite, <ph name="USER_DISPLAY_NAME" /> pu
 <translation id="7175353351958621980">Caricamento da:</translation>
 <translation id="7180611975245234373">Aggiorna</translation>
 <translation id="7180865173735832675">Personalizza</translation>
+<translation id="7182359331070524176">Seleziona un album di Google Foto</translation>
 <translation id="7186088072322679094">Mantieni in barra degli strumenti</translation>
 <translation id="7187428571767585875">Voci del registro da rimuovere o modificare:</translation>
 <translation id="7189234443051076392">Assicurati di avere spazio sufficiente sul dispositivo</translation>

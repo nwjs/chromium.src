@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Insira o PIN</translation>
 <translation id="2805646850212350655">Sistema de arquivos com criptografia da Microsoft</translation>
 <translation id="2805756323405976993">Apps</translation>
+<translation id="2806891468525657116">O atalho já existe</translation>
 <translation id="2807517655263062534">Os arquivos transferidos por download aparecem aqui</translation>
 <translation id="2809586584051668049">e mais <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">Foi criada uma nova janela em uma sessão existente do navegador.</translation>
@@ -1920,7 +1921,7 @@
 <translation id="3871092408932389764">Mais baixa</translation>
 <translation id="3872220884670338524">Mais ações, contas salvas de <ph name="USERNAME" /> em <ph name="DOMAIN" /></translation>
 <translation id="3872991219937722530">Libere espaço em disco, ou o dispositivo deixará de responder.</translation>
-<translation id="3873315167136380065">Para ativar essa configuração, <ph name="BEGIN_LINK" />redefina a sincronização<ph name="END_LINK" /> para remover sua senha longa de sincronização</translation>
+<translation id="3873315167136380065">Para ativar essa configuração, <ph name="BEGIN_LINK" />redefina a sincronização<ph name="END_LINK" /> e remova sua senha longa de sincronização</translation>
 <translation id="3878840326289104869">Criando usuário supervisionado</translation>
 <translation id="3879748587602334249">Gerenciador de downloads</translation>
 <translation id="3880709822663530586">Sua chave de segurança só funciona quando o Bluetooth do dispositivo está ativado</translation>
@@ -1967,6 +1968,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" /> no Painel de controle.
 
   Quer iniciar o <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Falha ao criar o atalho</translation>
 <translation id="3943582379552582368">&amp;Voltar</translation>
 <translation id="3943857333388298514">Colar</translation>
 <translation id="3948116654032448504">&amp;Procurar imagem no <ph name="SEARCH_ENGINE" /></translation>

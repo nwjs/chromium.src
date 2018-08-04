@@ -37,6 +37,7 @@
 <translation id="5639704535586432836">Отворите Подешавања &gt; Приватност &gt; Камера &gt; Google Chrome и укључите камеру.</translation>
 <translation id="5642200033778930880">Google Chrome не може да користи камеру у режиму подељеног приказа</translation>
 <translation id="5703130498371792817">Уживате у Chrome-у? <ph name="BEGIN_LINK" />Оцените ову апликацију<ph name="END_LINK" /></translation>
+<translation id="5854621639439811139">Савет за Chrome. Нека дугмад се сада налазе у дну екрана, попут дугмади Назад, Напред и Претражи.</translation>
 <translation id="6036420186814142909">Google Chrome има функције које вам помажу да управљате интернет подацима и брзином учитавања веб-страница.
 <ph name="BEGIN_LINK" />Сазнајте више<ph name="END_LINK" /></translation>
 <translation id="6573431926118603307">Овде ће се приказати картице које отворите у Chrome-у на другим уређајима.</translation>
@@ -55,4 +56,5 @@
 <translation id="8459495907675268833">Изабрани подаци су уклоњени из Chrome-а и са синхронизованих уређаја. Google налог можда има друге облике историје прегледања, попут претрага и активности у другим Google услугама на history.google.com.</translation>
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8606668294522778825">Google Chrome може да користи веб-услуге да би побољшао доживљај прегледања. Можете опционално да онемогућите те услуге. <ph name="BEGIN_LINK" />Сазнајте више<ph name="END_LINK" /></translation>
+<translation id="96145293669295453">Савет за Chrome. Ако желите више опција за картице, притисните и задржите дугме Прикажи картице на траци с алаткама, која се налази у дну или у врху екрана.</translation>
 </translationbundle>

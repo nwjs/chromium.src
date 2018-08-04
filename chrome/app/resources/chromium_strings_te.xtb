@@ -73,6 +73,7 @@
 <translation id="3582788516608077514">Chromiumని నవీకరిస్తోంది...</translation>
 <translation id="358997566136285270">Chromium లోగో</translation>
 <translation id="3713809861844741608">కొత్త Chromium &amp;ట్యాబ్‌లో లింక్‌ని తెరువు</translation>
+<translation id="3728336900324680424">చిరునామా బార్‌లో సూచనలు చేయడానికి Chromium మీ డిస్క్‌ను యాక్సెస్ చేస్తుంది</translation>
 <translation id="3762167353400286894">Chromium OS ఈ భాషలో ప్రదర్శించబడుతోంది</translation>
 <translation id="378917192836375108">Chromium వెబ్‌లో ఫోన్ నంబర్ క్లిక్ చేయడానికి మరియు Skypeతో కాల్ చేయడానికి మిమ్మల్ని అనుమతిస్తుంది!</translation>
 <translation id="3848258323044014972"><ph name="PAGE_TITLE" /> - Chromium</translation>
@@ -119,6 +120,7 @@
 <translation id="5479196819031988440">Chromium OS ఈ పేజీని తెరవలేదు.</translation>
 <translation id="5480860683791598150">ఈ సైట్‌తో మీ స్థానాన్ని షేర్ చేయడానికి Chromiumకు మీ స్థాన యాక్సెస్ అవసరం</translation>
 <translation id="549669000822060376">దయచేసి Chromium తాజా సిస్టమ్ నవీకరణలను ఇన్‌స్టాల్ చేస్తున్నప్పుడు వేచి ఉండండి.</translation>
+<translation id="5514308096618405748">Linux (బీటా)గా అదనపు <ph name="BEGIN_LINK_CROS_OSS" />ఓపన్ సోర్స్ సాఫ్ట్‌వేర్‌<ph name="END_LINK_CROS_OSS" /> ద్వారా Chrome OS సాధ్యం అవుతుంది.</translation>
 <translation id="5631814766731275228">Chromium పేరు మరియు చిత్రం</translation>
 <translation id="5634636535844844681">Chromiumకి Windows 7 లేదా అంతకంటే ఆధునికమైనది ఉండటం ఆవశ్యకం.</translation>
 <translation id="5680901439334282664">Chromiumకి సైన్ ఇన్ చేయండి</translation>
@@ -139,6 +141,7 @@
 <translation id="6072279588547424923">Chromiumకు <ph name="EXTENSION_NAME" /> జోడించబడింది</translation>
 <translation id="608189560609172163">సైన్ ఇన్ చేయడంలో లోపం కారణంగా Chromium మీ డేటాను సమకాలీకరించలేకపోయింది.</translation>
 <translation id="6096348254544841612">Chromiumని అనుకూలీకరించండి మరియు నియంత్రించండి. అప్‌డేట్ అందుబాటులో ఉంది.</translation>
+<translation id="6120345080069858279">Chromium ఈ పాస్‌వర్డ్‌ను మీ Google ఖాతాలో సేవ్ చేస్తుంది. మీరు దీనిని గుర్తుంచుకోవాల్సిన అవసరం లేదు.</translation>
 <translation id="6129621093834146363"><ph name="FILE_NAME" /> హానికరం, కావున Chromium దాన్ని బ్లాక్ చేసింది.</translation>
 <translation id="6212496753309875659">ఈ కంప్యూటర్ ఇప్పటికే మరింత తాజా Chromium సంస్కరణని కలిగి ఉంది. సాఫ్ట్‌వేర్ పని చేయకుంటే, దయచేసి Chromiumని అన్ఇన్‌స్టాల్ చేసి, మళ్లీ ప్రయత్నించండి.</translation>
 <translation id="6248213926982192922">Chromiumని డిఫాల్ట్ బ్రౌజర్‌గా చేయి</translation>
@@ -223,6 +226,7 @@
 <translation id="8290862415967981663">ఈ ఫైల్ అపాయకరం కావచ్చు, కాబట్టి Chromium దీన్ని బ్లాక్ చేసింది.</translation>
 <translation id="8330519371938183845">మీ పరికరాల అంతటా Chromiumని సమకాలీకరించడం మరియు వ్యక్తిగతీకరించడం కోసం సైన్ ఇన్ చేయండి</translation>
 <translation id="8340674089072921962"><ph name="USER_EMAIL_ADDRESS" /> మునుపు Chromiumని ఉపయోగించింది</translation>
+<translation id="8375950122744241554">పర్యవేక్షించబడే వినియోగదారు ప్రొఫైల్‌లు Chromium 70తో ప్రారంభమయ్యే వాటిల్లో ఇకపై అందుబాటులో ఉండవు.</translation>
 <translation id="8453117565092476964">ఇన్‌స్టాలర్ ఆర్కైవ్ పాడైంది లేదా చెల్లదు. దయచేసి Chromiumని మళ్లీ డౌన్‌లోడ్ చేయండి.</translation>
 <translation id="8493179195440786826">Chromium కాలం చెల్లినది</translation>
 <translation id="85843667276690461">Chromiumని ఉపయోగించి సహాయాన్ని పొందండి</translation>

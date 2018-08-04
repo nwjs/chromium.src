@@ -1215,6 +1215,7 @@
 <translation id="2803375539583399270">PIN-kód megadása</translation>
 <translation id="2805646850212350655">Microsoft - fájlrendszer titkosítása</translation>
 <translation id="2805756323405976993">Alkalmazások</translation>
+<translation id="2806891468525657116">Ez a billentyűparancs már létezik</translation>
 <translation id="2807517655263062534">A letöltött fájlok itt jelennek meg</translation>
 <translation id="2809586584051668049">és <ph name="NUMBER_ADDITIONAL_DISABLED" /> további</translation>
 <translation id="281133045296806353">Új ablak jött létre a már futó böngésző-programfolyamatban.</translation>
@@ -1967,6 +1968,7 @@
 <translation id="3941565636838060942">Ha többé nem akar hozzáférni ehhez a programhoz, el kell távolítania azt a Vezérlőpulton a(z) <ph name="CONTROL_PANEL_APPLET_NAME" /> segítségével.
 
 Elindítja a következőt: <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Nem sikerült billentyűparancsot létrehozni</translation>
 <translation id="3943582379552582368">&amp;Előző</translation>
 <translation id="3943857333388298514">Beillesztés</translation>
 <translation id="3948116654032448504">Képkere&amp;sés ezzel: <ph name="SEARCH_ENGINE" /></translation>
@@ -4042,6 +4044,7 @@ Győződjön meg arról, hogy nem ad ki bizalmas adatokat.</translation>
 <translation id="7175353351958621980">Betöltve innen:</translation>
 <translation id="7180611975245234373">Frissítés</translation>
 <translation id="7180865173735832675">Testreszabás</translation>
+<translation id="7182359331070524176">Válasszon Google Fotók-albumot</translation>
 <translation id="7186088072322679094">Gomb megtartása az eszköztáron</translation>
 <translation id="7187428571767585875">Eltávolításra vagy módosításra kerülő beállításjegyzékbeli bejegyzések:</translation>
 <translation id="7189234443051076392">Győződjön meg arról, hogy elegendő tárhely áll rendelkezésre az eszközön</translation>

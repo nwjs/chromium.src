@@ -302,6 +302,11 @@
       Kui seadet ei määrata, siis kasutatakse vaikeväärtust.
 
       Kui seda reeglit ei määrata, siis kasutatakse kõikide seadete jaoks vaikevalikuid.</translation>
+<translation id="1958138414749279167">Lubab rakenduse <ph name="PRODUCT_NAME" /> automaattäite funktsiooni ja võimaldab kasutajatel aadressiteabe automaatselt veebivormidele sisestada, kasutades varem salvestatud teavet.
+
+      Selle seade keelamisel ei anna automaattäite funktsioon soovitusi ega sisesta aadressiteavet. Samuti ei salvesta see aadressi lisateavet, mille kasutaja võib veebi sirvimisel esitada.
+
+      Selle seade lubamisel või määramata jätmisel saab kasutaja kasutajaliideses aadresside automaattäite funktsiooni juhtida.</translation>
 <translation id="1960840544413786116">Kas lubada kohalike usaldusvõtmete väljastatud sertifikaadid, millel puudub laiend subjectAlternativeName?</translation>
 <translation id="1964634611280150550">Inkognito režiim on keelatud</translation>
 <translation id="1964802606569741174">See reegel ei mõjuta Androidi YouTube'i rakendust. Kui ohutusrežiim on sisse lülitatud, tuleks YouTube jõustada ja Androidi YouTube'i rakenduse installimine keelata.</translation>
@@ -1914,6 +1919,7 @@ IsolateOrigins ja SitePerProcess testid keelatakse. Kasutajad saavad reegli Isol
 <translation id="6440051664870270040">Saitidel samaaegse navigeerimise ja hüpikakende avamise lubamine</translation>
 <translation id="6447948611083700881">Varundamine ja taastamine on keelatud</translation>
 <translation id="645425387487868471">Teenusesse <ph name="PRODUCT_NAME" /> sundsisselogimise lubamine</translation>
+<translation id="6464074037294098618">Aadresside automaattäite lubamine</translation>
 <translation id="6473623140202114570">Seadistage loend domeenidest, kus Google'i ohutu sirvimise funktsioon hoiatusi ei käivita.</translation>
 <translation id="6491139795995924304">Luba Bluetooth seadmes</translation>
 <translation id="6520802717075138474">Impordi otsingumootorid vaikebrauserist esimesel käitamisel</translation>

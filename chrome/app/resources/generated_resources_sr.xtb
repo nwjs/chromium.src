@@ -1210,6 +1210,7 @@
 <translation id="2803375539583399270">Унесите PIN</translation>
 <translation id="2805646850212350655">Microsoft систем за шифровање датотека</translation>
 <translation id="2805756323405976993">Апликације</translation>
+<translation id="2806891468525657116">Пречица већ постоји</translation>
 <translation id="2807517655263062534">Датотеке које преузмете ће се појавити овде</translation>
 <translation id="2809586584051668049">и још <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">Направљен је нови прозор у постојећој сесији прегледача.</translation>
@@ -1963,6 +1964,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" /> у контролној табли.
 
   Желите ли одмах да покренете <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Прављење пречице није успело</translation>
 <translation id="3943582379552582368">&amp;Назад</translation>
 <translation id="3943857333388298514">Налепи</translation>
 <translation id="3948116654032448504">&amp;Потражи слику у претраживачу <ph name="SEARCH_ENGINE" /></translation>
@@ -4037,6 +4039,7 @@
 <translation id="7175353351958621980">Учитава се са:</translation>
 <translation id="7180611975245234373">Освежи</translation>
 <translation id="7180865173735832675">Прилагоди</translation>
+<translation id="7182359331070524176">Изаберите албум Google слика</translation>
 <translation id="7186088072322679094">Задржи на траци с алаткама</translation>
 <translation id="7187428571767585875">Уноси у регистру које треба уклонити или променити:</translation>
 <translation id="7189234443051076392">Проверите да ли на уређају има довољно простора</translation>

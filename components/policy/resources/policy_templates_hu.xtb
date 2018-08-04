@@ -294,6 +294,11 @@
       Ha egy beállítás nincs megadva, akkor az alapértelmezett érték használandó.
 
       Ha ez a házirend nincs beállítva, az összes beállítás az alapértelmezett értéket használja.</translation>
+<translation id="1958138414749279167">Engedélyezi a(z) <ph name="PRODUCT_NAME" /> Automatikus kitöltés funkcióját, és lehetővé teszi a felhasználók számára az internetes űrlapok automatikus kitöltését korábban tárolt címadatokkal.
+
+      Ha le van tiltva ez a beállítás, az Automatikus kitöltés funkció nem ajánlja fel és nem végzi el a címadatok kitöltését, illetve nem ment további címadatokat, amelyeket a felhasználó az interneten való böngészés közben ad meg.
+
+      Ha engedélyezve van ez a beállítás, vagy nincs értéke, a felhasználó vezérelheti az Automatikus kitöltés funkció címekkel kapcsolatos használatát a kezelőfelületen.</translation>
 <translation id="1960840544413786116">A helyi bizalmi horgonyok által nyújtott, de a subjectAlternativeName bővítménnyel nem rendelkező tanúsítványok engedélyezése</translation>
 <translation id="1964634611280150550">Inkognitómód letiltva</translation>
 <translation id="1964802606569741174">A házirend nincs hatással az androidos YouTube alkalmazásra. Ha a YouTube-on kényszeríteni kell a Biztonságos módot, akkor az androidos YouTube alkalmazás telepítését nem szabad megengedni.</translation>
@@ -1836,6 +1841,7 @@ Ha a házirend értéke hamis, a böngésző nem jelenti a kioszkmunkamenet info
 <translation id="6440051664870270040">Annak engedélyezése a webhelyek számára, hogy egyszerre navigáljanak és nyissanak meg előugró ablakokat</translation>
 <translation id="6447948611083700881">Biztonsági mentés és helyreállítás letiltva</translation>
 <translation id="645425387487868471">A kényszerített bejelentkezés engedélyezése a <ph name="PRODUCT_NAME" /> használatához</translation>
+<translation id="6464074037294098618">Automatikus kitöltés engedélyezése címekhez</translation>
 <translation id="6473623140202114570">Azon domainek listájának beállítása, amelyeken nem aktivál figyelmeztetéseket a Biztonságos Böngészés.</translation>
 <translation id="6491139795995924304">Bluetooth engedélyezése az eszközön</translation>
 <translation id="6520802717075138474">Keresőmotorok importálása az alapértelmezett böngészőből az első indításkor</translation>

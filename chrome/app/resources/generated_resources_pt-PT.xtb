@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Introduzir PIN</translation>
 <translation id="2805646850212350655">Sistema de encriptação de ficheiros Microsoft</translation>
 <translation id="2805756323405976993">Aplicações</translation>
+<translation id="2806891468525657116">O atalho já existe.</translation>
 <translation id="2807517655263062534">Os ficheiros que transferir são apresentados aqui</translation>
 <translation id="2809586584051668049">e mais <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">Nova janela criada na sessão de browser existente</translation>
@@ -1968,6 +1969,7 @@ Pretende pará-lo?</translation>
   <ph name="CONTROL_PANEL_APPLET_NAME" /> no Painel de controlo.
 
   Pretende iniciar <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Não é possível criar o atalho.</translation>
 <translation id="3943582379552582368">&amp;Anterior</translation>
 <translation id="3943857333388298514">Colar</translation>
 <translation id="3948116654032448504">Pe&amp;squisar Imagem no <ph name="SEARCH_ENGINE" /></translation>

@@ -295,6 +295,11 @@
       設定を指定しない場合は、デフォルト値が使用されます。
 
       このポリシーを設定しない場合は、すべての設定でデフォルトが使用されます。</translation>
+<translation id="1958138414749279167"><ph name="PRODUCT_NAME" /> の自動入力機能を有効にし、ユーザーが以前に保存した情報を使ってウェブフォームに住所情報を自動入力できるようにします。
+
+      この設定を無効にした場合は、住所情報が候補として表示されたり、自動入力されたりすることはありません。また、ユーザーがウェブの利用中に送信した住所情報が追加で保存されることもありません。
+
+      この設定を有効にするか、値を設定しない場合、ユーザーは UI で住所の自動入力を制御できます。</translation>
 <translation id="1960840544413786116">ローカルの信頼済みアンカーが発行した、subjectAlternativeName 拡張がない証明書の許可</translation>
 <translation id="1964634611280150550">シークレット モードを無効にする</translation>
 <translation id="1964802606569741174">このポリシーは Android YouTube アプリには適用されません。YouTube でセーフモードを有効にする場合は、Android YouTube アプリのインストールを禁止する必要があります。</translation>
@@ -1835,6 +1840,7 @@
 <translation id="6440051664870270040">移動と同時にポップアップを表示することをサイトに許可する</translation>
 <translation id="6447948611083700881">バックアップと復元が無効</translation>
 <translation id="645425387487868471"><ph name="PRODUCT_NAME" /> への強制ログインを有効にする</translation>
+<translation id="6464074037294098618">住所の自動入力を有効にします</translation>
 <translation id="6473623140202114570">セーフ ブラウジングによる警告の表示を行わないドメインのリストを設定する。</translation>
 <translation id="6491139795995924304">端末で Bluetooth を許可する</translation>
 <translation id="6520802717075138474">初回実行時にデフォルトのブラウザから検索エンジンをインポートする</translation>

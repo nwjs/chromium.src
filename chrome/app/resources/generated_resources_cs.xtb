@@ -223,7 +223,7 @@ Na následující obrazovce prosím zadejte zpětnou vazbu, která nám problém
 <translation id="1316136264406804862">Vyhledávání...</translation>
 <translation id="1316495628809031177">Synchronizace je pozastavena</translation>
 <translation id="1319979322914001937">Aplikace, která zobrazuje filtrovaný seznam rozšíření v Internetovém obchodu Chrome. Rozšíření v seznamu lze nainstalovat přímo z této aplikace.</translation>
-<translation id="1322046419516468189">Uložená hesla můžete zobrazit a spravovat v: <ph name="SAVED_PASSWORDS_STORE" /></translation>
+<translation id="1322046419516468189">K zobrazení a správě uložených hesel můžete použít svůj <ph name="SAVED_PASSWORDS_STORE" /></translation>
 <translation id="1326317727527857210">Chcete-li získat přístup ke kartám ze svých ostatních zařízení, přihlaste se do Chromu.</translation>
 <translation id="1327074568633507428">Tiskárna ve službě Google Cloud Print</translation>
 <translation id="1327977588028644528">Brána</translation>
@@ -2799,7 +2799,7 @@ Pokud nezměníte výchozí nastavení, uživatel <ph name="USER_DISPLAY_NAME" /
 <translation id="529175790091471945">Naformátovat toto zařízení</translation>
 <translation id="5292195676005197571">Většinu klíčů lze použít stisknutím tlačítka</translation>
 <translation id="5293170712604732402">Obnovit nastavení na původní výchozí hodnoty</translation>
-<translation id="5297082477358294722">Heslo bylo uloženo. Uložená hesla můžete zobrazit a spravovat v: <ph name="SAVED_PASSWORDS_STORE" />.</translation>
+<translation id="5297082477358294722">Heslo bylo uloženo. K zobrazení a správě uložených hesel můžete použít svůj <ph name="SAVED_PASSWORDS_STORE" />.</translation>
 <translation id="5298219193514155779">Autor motivu</translation>
 <translation id="5299109548848736476">Do Not Track</translation>
 <translation id="5299682071747318445">Všechny údaje jsou šifrovány pomocí vlastního hesla pro synchronizaci.</translation>

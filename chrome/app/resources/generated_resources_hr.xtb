@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Unesite PIN</translation>
 <translation id="2805646850212350655">Microsoftov sustav šifriranja datoteke</translation>
 <translation id="2805756323405976993">Aplikacije</translation>
+<translation id="2806891468525657116">Prečac već postoji</translation>
 <translation id="2807517655263062534">Ovdje se prikazuju datoteke koje ste preuzeli</translation>
 <translation id="2809586584051668049">i još <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">Stvoren je novi prozor u postojećoj sesiji pregledavanja.</translation>
@@ -1967,6 +1968,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" /> na upravljačkoj ploči.
 
   Želite li pokrenuti <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">Nije moguće izraditi prečac</translation>
 <translation id="3943582379552582368">&amp;Natrag</translation>
 <translation id="3943857333388298514">Zalijepi</translation>
 <translation id="3948116654032448504">&amp;Traži sliku uz <ph name="SEARCH_ENGINE" /></translation>
