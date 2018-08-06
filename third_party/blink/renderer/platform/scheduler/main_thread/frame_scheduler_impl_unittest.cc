@@ -759,7 +759,7 @@ class LowPriorityHiddenFrameExperimentTest : public FrameSchedulerImplTest {
  public:
   LowPriorityHiddenFrameExperimentTest()
       : FrameSchedulerImplTest({kLowPriorityForHiddenFrame},
-                               {kExperimentOnlyWhenLoading}) {}
+                               {kFrameExperimentOnlyWhenLoading}) {}
 };
 
 TEST_F(LowPriorityHiddenFrameExperimentTest, FrameQueuesPriorities) {
@@ -799,7 +799,7 @@ class LowPriorityHiddenFrameDuringLoadingExperimentTest
  public:
   LowPriorityHiddenFrameDuringLoadingExperimentTest()
       : FrameSchedulerImplTest(
-            {kLowPriorityForHiddenFrame, kExperimentOnlyWhenLoading},
+            {kLowPriorityForHiddenFrame, kFrameExperimentOnlyWhenLoading},
             {}) {}
 };
 
@@ -846,7 +846,7 @@ class LowPrioritySubFrameExperimentTest : public FrameSchedulerImplTest {
  public:
   LowPrioritySubFrameExperimentTest()
       : FrameSchedulerImplTest({kLowPriorityForSubFrame},
-                               {kExperimentOnlyWhenLoading}) {}
+                               {kFrameExperimentOnlyWhenLoading}) {}
 };
 
 TEST_F(LowPrioritySubFrameExperimentTest, FrameQueuesPriorities) {
@@ -887,7 +887,7 @@ class LowPrioritySubFrameDuringLoadingExperimentTest
  public:
   LowPrioritySubFrameDuringLoadingExperimentTest()
       : FrameSchedulerImplTest(
-            {kLowPriorityForSubFrame, kExperimentOnlyWhenLoading},
+            {kLowPriorityForSubFrame, kFrameExperimentOnlyWhenLoading},
             {}) {}
 };
 
@@ -934,7 +934,7 @@ class LowPrioritySubFrameThrottleableTaskExperimentTest
  public:
   LowPrioritySubFrameThrottleableTaskExperimentTest()
       : FrameSchedulerImplTest({kLowPriorityForSubFrameThrottleableTask},
-                               {kExperimentOnlyWhenLoading}) {}
+                               {kFrameExperimentOnlyWhenLoading}) {}
 };
 
 TEST_F(LowPrioritySubFrameThrottleableTaskExperimentTest,
@@ -976,7 +976,7 @@ class LowPrioritySubFrameThrottleableTaskDuringLoadingExperimentTest
  public:
   LowPrioritySubFrameThrottleableTaskDuringLoadingExperimentTest()
       : FrameSchedulerImplTest({kLowPriorityForSubFrameThrottleableTask,
-                                kExperimentOnlyWhenLoading},
+                                kFrameExperimentOnlyWhenLoading},
                                {}) {}
 };
 
@@ -1024,7 +1024,7 @@ class LowPriorityThrottleableTaskExperimentTest
  public:
   LowPriorityThrottleableTaskExperimentTest()
       : FrameSchedulerImplTest({kLowPriorityForThrottleableTask},
-                               {kExperimentOnlyWhenLoading}) {}
+                               {kFrameExperimentOnlyWhenLoading}) {}
 };
 
 TEST_F(LowPriorityThrottleableTaskExperimentTest, FrameQueuesPriorities) {
@@ -1065,7 +1065,7 @@ class LowPriorityThrottleableTaskDuringLoadingExperimentTest
  public:
   LowPriorityThrottleableTaskDuringLoadingExperimentTest()
       : FrameSchedulerImplTest(
-            {kLowPriorityForThrottleableTask, kExperimentOnlyWhenLoading},
+            {kLowPriorityForThrottleableTask, kFrameExperimentOnlyWhenLoading},
             {}) {}
 };
 
@@ -1151,7 +1151,8 @@ TEST_F(LowPriorityThrottleableTaskDuringLoadingExperimentTest,
 class LowPriorityAdFrameExperimentTest : public FrameSchedulerImplTest {
  public:
   LowPriorityAdFrameExperimentTest()
-      : FrameSchedulerImplTest({kLowPriorityForAdFrame}, {}) {}
+      : FrameSchedulerImplTest({kLowPriorityForAdFrame},
+                               {kAdFrameExperimentOnlyWhenLoading}) {}
 };
 
 TEST_F(LowPriorityAdFrameExperimentTest, FrameQueuesPriorities) {
@@ -1193,7 +1194,7 @@ class LowPriorityAdFrameDuringLoadingExperimentTest
  public:
   LowPriorityAdFrameDuringLoadingExperimentTest()
       : FrameSchedulerImplTest(
-            {kLowPriorityForAdFrame, kExperimentOnlyWhenLoading},
+            {kLowPriorityForAdFrame, kAdFrameExperimentOnlyWhenLoading},
             {}) {}
 };
 
@@ -1241,7 +1242,8 @@ TEST_F(LowPriorityAdFrameDuringLoadingExperimentTest, FrameQueuesPriorities) {
 class BestEffortPriorityAdFrameExperimentTest : public FrameSchedulerImplTest {
  public:
   BestEffortPriorityAdFrameExperimentTest()
-      : FrameSchedulerImplTest({kBestEffortPriorityForAdFrame}, {}) {}
+      : FrameSchedulerImplTest({kBestEffortPriorityForAdFrame},
+                               {kAdFrameExperimentOnlyWhenLoading}) {}
 };
 
 TEST_F(BestEffortPriorityAdFrameExperimentTest, FrameQueuesPriorities) {
@@ -1283,7 +1285,7 @@ class BestEffortPriorityAdFrameDuringLoadingExperimentTest
  public:
   BestEffortPriorityAdFrameDuringLoadingExperimentTest()
       : FrameSchedulerImplTest(
-            {kBestEffortPriorityForAdFrame, kExperimentOnlyWhenLoading},
+            {kBestEffortPriorityForAdFrame, kAdFrameExperimentOnlyWhenLoading},
             {}) {}
 };
 
@@ -1337,8 +1339,8 @@ class ResourceFetchPriorityExperimentTest : public FrameSchedulerImplTest {
         {"HIGHEST", "HIGH"}, {"MEDIUM", "NORMAL"}, {"LOW", "NORMAL"},
         {"LOWEST", "LOW"},   {"IDLE", "LOW"},      {"THROTTLED", "LOW"}};
 
-    const char kStudyName[] = "BlinkSchedulerResourceFetchPriority";
-    const char kGroupName[] = "GroupName";
+    const char kStudyName[] = "ResourceFetchPriorityExperiment";
+    const char kGroupName[] = "GroupName1";
 
     field_trial_list_ = std::make_unique<base::FieldTrialList>(nullptr);
     base::AssociateFieldTrialParams(kStudyName, kGroupName, params);
@@ -1353,6 +1355,52 @@ TEST_F(ResourceFetchPriorityExperimentTest, DidChangePriority) {
 
   TaskQueue::QueuePriority priority = task_queue->GetQueuePriority();
   EXPECT_EQ(priority, TaskQueue::QueuePriority::kNormalPriority);
+
+  DidChangeResourceLoadingPriority(task_queue, net::RequestPriority::LOWEST);
+  EXPECT_EQ(task_queue->GetQueuePriority(),
+            TaskQueue::QueuePriority::kLowPriority);
+
+  DidChangeResourceLoadingPriority(task_queue, net::RequestPriority::HIGHEST);
+  EXPECT_EQ(task_queue->GetQueuePriority(),
+            TaskQueue::QueuePriority::kHighPriority);
+}
+
+class ResourceFetchPriorityExperimentOnlyWhenLoadingTest
+    : public FrameSchedulerImplTest {
+ public:
+  ResourceFetchPriorityExperimentOnlyWhenLoadingTest()
+      : FrameSchedulerImplTest({kUseResourceFetchPriorityOnlyWhenLoading}, {}) {
+    std::map<std::string, std::string> params{
+        {"HIGHEST", "HIGH"}, {"MEDIUM", "NORMAL"}, {"LOW", "NORMAL"},
+        {"LOWEST", "LOW"},   {"IDLE", "LOW"},      {"THROTTLED", "LOW"}};
+
+    const char kStudyName[] = "ResourceFetchPriorityExperiment";
+    const char kGroupName[] = "GroupName2";
+
+    field_trial_list_ = std::make_unique<base::FieldTrialList>(nullptr);
+    base::AssociateFieldTrialParams(kStudyName, kGroupName, params);
+    base::FieldTrialList::CreateFieldTrial(kStudyName, kGroupName);
+  }
+};
+
+TEST_F(ResourceFetchPriorityExperimentOnlyWhenLoadingTest, DidChangePriority) {
+  std::unique_ptr<ResourceLoadingTaskRunnerHandleImpl> handle =
+      GetResourceLoadingTaskRunnerHandleImpl();
+  scoped_refptr<MainThreadTaskQueue> task_queue = handle->task_queue();
+
+  TaskQueue::QueuePriority priority = task_queue->GetQueuePriority();
+  EXPECT_EQ(priority, TaskQueue::QueuePriority::kNormalPriority);
+
+  // Experiment is only enabled during the loading phase.
+  DidChangeResourceLoadingPriority(task_queue, net::RequestPriority::LOWEST);
+  EXPECT_EQ(task_queue->GetQueuePriority(), priority);
+
+  // Main thread scheduler is in the loading use case.
+  scheduler_->DidStartProvisionalLoad(true);
+  EXPECT_TRUE(page_scheduler_->IsLoading());
+
+  handle = GetResourceLoadingTaskRunnerHandleImpl();
+  task_queue = handle->task_queue();
 
   DidChangeResourceLoadingPriority(task_queue, net::RequestPriority::LOWEST);
   EXPECT_EQ(task_queue->GetQueuePriority(),
@@ -1385,8 +1433,7 @@ TEST_F(
 class LowPriorityCrossOriginTaskExperimentTest : public FrameSchedulerImplTest {
  public:
   LowPriorityCrossOriginTaskExperimentTest()
-      : FrameSchedulerImplTest({kLowPriorityForCrossOrigin},
-                               {kExperimentOnlyWhenLoading}) {}
+      : FrameSchedulerImplTest({kLowPriorityForCrossOrigin}, {}) {}
 };
 
 TEST_F(LowPriorityCrossOriginTaskExperimentTest, FrameQueuesPriorities) {
@@ -1427,9 +1474,8 @@ class LowPriorityCrossOriginTaskDuringLoadingExperimentTest
     : public FrameSchedulerImplTest {
  public:
   LowPriorityCrossOriginTaskDuringLoadingExperimentTest()
-      : FrameSchedulerImplTest(
-            {kLowPriorityForCrossOrigin, kExperimentOnlyWhenLoading},
-            {}) {}
+      : FrameSchedulerImplTest({kLowPriorityForCrossOriginOnlyWhenLoading},
+                               {}) {}
 };
 
 TEST_F(LowPriorityCrossOriginTaskDuringLoadingExperimentTest,

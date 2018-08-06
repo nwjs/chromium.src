@@ -26,12 +26,11 @@
                 "mac",
                 "chromeos",
                 "linux",
-                "ios",
                 "android"
             ],
             "experiments": [
                 {
-                    "name": "LowPriorityAdFrameEnabled",
+                    "name": "LowPriorityForAdFrame",
                     "enable_features": [
                         "BlinkSchedulerLowPriorityForAdFrame"
                     ]
@@ -1664,7 +1663,7 @@
                 {
                     "name": "LowPriorityForHiddenFrameDuringLoading",
                     "enable_features": [
-                        "BlinkSchedulerExperimentOnlyWhenLoading",
+                        "BlinkSchedulerFrameExperimentOnlyWhenLoading",
                         "BlinkSchedulerLowPriorityForHiddenFrame"
                     ]
                 }
