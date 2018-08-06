@@ -210,26 +210,7 @@ TEST_F('SettingsAutofillSectionBrowserTest', 'CreditCardTests', function() {
 
       assertFalse(section.$$('#noCreditCardsLabel').hidden);
       assertTrue(section.$$('#creditCardsHeading').hidden);
-      assertFalse(section.$$('#autofillCreditCardToggle').disabled);
       assertFalse(section.$$('#addCreditCard').disabled);
-    });
-
-    test('verifyDisabled', function() {
-      const section = self.createAutofillSection_(
-          [], [],
-          {enabled: {value: false}, credit_card_enabled: {value: true}});
-
-      assertTrue(section.$$('#autofillCreditCardToggle').disabled);
-      assertTrue(section.$$('#addCreditCard').disabled);
-    });
-
-    test('verifyCreditCardsDisabled', function() {
-      const section = self.createAutofillSection_(
-          [], [],
-          {enabled: {value: true}, credit_card_enabled: {value: false}});
-
-      assertFalse(section.$$('#autofillCreditCardToggle').disabled);
-      assertTrue(section.$$('#addCreditCard').disabled);
     });
 
     test('verifyCreditCardCount', function() {
@@ -253,7 +234,6 @@ TEST_F('SettingsAutofillSectionBrowserTest', 'CreditCardTests', function() {
 
       assertTrue(section.$$('#noCreditCardsLabel').hidden);
       assertFalse(section.$$('#creditCardsHeading').hidden);
-      assertFalse(section.$$('#autofillCreditCardToggle').disabled);
       assertFalse(section.$$('#addCreditCard').disabled);
     });
 
@@ -568,7 +548,6 @@ TEST_F('SettingsAutofillSectionBrowserTest', 'AddressTests', function() {
 
       assertFalse(section.$.noAddressesLabel.hidden);
       assertFalse(section.$$('#addAddress').disabled);
-      assertFalse(section.$$('#autofillProfileToggle').disabled);
     });
 
     test('verifyAddressCount', function() {
@@ -590,24 +569,7 @@ TEST_F('SettingsAutofillSectionBrowserTest', 'AddressTests', function() {
           addresses.length, addressList.querySelectorAll('.list-item').length);
 
       assertTrue(section.$.noAddressesLabel.hidden);
-      assertFalse(section.$$('#autofillProfileToggle').disabled);
       assertFalse(section.$$('#addAddress').disabled);
-    });
-
-    test('verifyDisabled', function() {
-      const section = self.createAutofillSection_(
-          [], [], {enabled: {value: false}, profile_enabled: {value: true}});
-
-      assertTrue(section.$$('#autofillProfileToggle').disabled);
-      assertTrue(section.$$('#addAddress').disabled);
-    });
-
-    test('verifyAddressDisabled', function() {
-      const section = self.createAutofillSection_(
-          [], [], {enabled: {value: true}, profile_enabled: {value: false}});
-
-      assertFalse(section.$$('#autofillProfileToggle').disabled);
-      assertTrue(section.$$('#addAddress').disabled);
     });
 
     test('verifyAddressFields', function() {

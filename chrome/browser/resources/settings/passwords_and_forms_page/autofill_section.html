@@ -82,20 +82,11 @@
         </extension-controlled-indicator>
       </div>
     </template>
-    <settings-toggle-button id="autofillProfileToggle"
-        class="settings-box first"
-        aria-label="$i18n{autofill}" no-extension-indicator
-        label="$i18n{enableProfilesLabel}"
-        pref="{{prefs.autofill.profile_enabled}}"
-        disabled$="[[!prefs.autofill.enabled.value]]">
-    </settings-toggle-button>
     <div class="settings-box continuation">
       <h2 class="start">$i18n{addresses}</h2>
       <paper-button id="addAddress"
           class="secondary-button header-aligned-button"
-          on-click="onAddAddressTap_"
-          disabled$="[[eitherIsDisabled_(prefs.autofill.enabled.value,
-              prefs.autofill.profile_enabled.value)]]">
+          on-click="onAddAddressTap_">
         $i18n{add}
       </paper-button>
     </div>
@@ -147,20 +138,11 @@
           on-close="onAddressDialogClosed_">
       </settings-address-edit-dialog>
     </template>
-    <settings-toggle-button id="autofillCreditCardToggle"
-        class="settings-box first"
-        aria-label="$i18n{autofill}" no-extension-indicator
-        label="$i18n{enableCreditCardsLabel}"
-        pref="{{prefs.autofill.credit_card_enabled}}"
-        disabled$="[[!prefs.autofill.enabled.value]]">
-    </settings-toggle-button>
-    <div class="settings-box continuation">
+    <div class="settings-box first">
       <h2 class="start">$i18n{creditCards}</h2>
       <paper-button id="addCreditCard"
           class="secondary-button header-aligned-button"
-          on-click="onAddCreditCardTap_"
-          disabled$="[[eitherIsDisabled_(prefs.autofill.enabled.value,
-                           prefs.autofill.credit_card_enabled.value)]]">
+          on-click="onAddCreditCardTap_">
         $i18n{add}
       </paper-button>
     </div>

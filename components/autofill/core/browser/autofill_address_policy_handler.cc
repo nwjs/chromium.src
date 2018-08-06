@@ -26,6 +26,10 @@ void AutofillAddressPolicyHandler::ApplyPolicySettings(
   if (value && value->GetAsBoolean(&autofill_profile_enabled) &&
       !autofill_profile_enabled) {
     prefs->SetBoolean(autofill::prefs::kAutofillProfileEnabled, false);
+  } else {
+    // Temporary fix for M69. If there is no policy explicitly disabling this
+    // pref, it should be set to true.
+    prefs->SetBoolean(autofill::prefs::kAutofillProfileEnabled, true);
   }
 }
 
