@@ -101,6 +101,12 @@ void GLContextVirtual::ForceReleaseVirtuallyCurrent() {
   shared_context_->OnReleaseVirtuallyCurrent(this);
 }
 
+#if defined(OS_MACOSX)
+void GLContextVirtual::FlushForDriverCrashWorkaround() {
+  shared_context_->FlushForDriverCrashWorkaround();
+}
+#endif
+
 GLContextVirtual::~GLContextVirtual() {
   Destroy();
 }

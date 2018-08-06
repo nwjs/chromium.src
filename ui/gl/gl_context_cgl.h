@@ -35,6 +35,7 @@ class GL_EXPORT GLContextCGL : public GLContextReal {
   bool ForceGpuSwitchIfNeeded() override;
   YUVToRGBConverter* GetYUVToRGBConverter(
       const gfx::ColorSpace& color_space) override;
+  void FlushForDriverCrashWorkaround() override;
 
  protected:
   ~GLContextCGL() override;

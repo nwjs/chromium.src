@@ -234,6 +234,13 @@ YUVToRGBConverter* GLContextCGL::GetYUVToRGBConverter(
   return yuv_to_rgb_converter.get();
 }
 
+void GLContextCGL::FlushForDriverCrashWorkaround() {
+  TRACE_EVENT0("gpu", "GLContextCGL::FlushForDriverCrashWorkaround");
+  if (!context_ || CGLGetCurrentContext() != context_)
+    return;
+  glFlush();
+}
+
 bool GLContextCGL::MakeCurrent(GLSurface* surface) {
   DCHECK(context_);
 

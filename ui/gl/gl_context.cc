@@ -187,6 +187,10 @@ void GLContext::ForceReleaseVirtuallyCurrent() {
   NOTREACHED();
 }
 
+#if defined(OS_MACOSX)
+void GLContext::FlushForDriverCrashWorkaround() {}
+#endif
+
 bool GLContext::HasExtension(const char* name) {
   return gfx::HasExtension(GetExtensions(), name);
 }

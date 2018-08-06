@@ -46,6 +46,9 @@ class GPU_GLES2_EXPORT GLContextVirtual : public gl::GLContext {
   gl::YUVToRGBConverter* GetYUVToRGBConverter(
       const gfx::ColorSpace& color_space) override;
   void ForceReleaseVirtuallyCurrent() override;
+#if defined(OS_MACOSX)
+  void FlushForDriverCrashWorkaround() override;
+#endif
 
  protected:
   ~GLContextVirtual() override;

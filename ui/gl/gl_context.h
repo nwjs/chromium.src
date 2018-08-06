@@ -193,6 +193,12 @@ class GL_EXPORT GLContext : public base::RefCounted<GLContext> {
   // current.
   virtual void ForceReleaseVirtuallyCurrent();
 
+#if defined(OS_MACOSX)
+  // Flush the underlying context to avoid crashes due to driver bugs on macOS.
+  // https://crbug.com/863817
+  virtual void FlushForDriverCrashWorkaround();
+#endif
+
  protected:
   virtual ~GLContext();
 
