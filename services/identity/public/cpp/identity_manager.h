@@ -47,7 +47,8 @@ class IdentityManager : public SigninManagerBase::Observer,
                         public SigninManager::DiagnosticsClient,
 #endif
                         public ProfileOAuth2TokenService::DiagnosticsClient,
-                        public OAuth2TokenService::DiagnosticsObserver {
+                        public OAuth2TokenService::DiagnosticsObserver,
+                        public OAuth2TokenService::Observer {
  public:
   class Observer {
    public:
@@ -157,6 +158,11 @@ class IdentityManager : public SigninManagerBase::Observer,
   void RemoveDiagnosticsObserver(DiagnosticsObserver* observer);
 
  private:
+  struct PendingTokenAvailableState {
+    AccountInfo account_info;
+    bool refresh_token_is_valid = false;
+  };
+
   // These clients need to call SetPrimaryAccountSynchronouslyForTests().
   friend AccountInfo SetPrimaryAccount(SigninManagerBase* signin_manager,
                                        IdentityManager* identity_manager,
@@ -198,6 +204,10 @@ class IdentityManager : public SigninManagerBase::Observer,
                                        bool is_valid) override;
   void WillFireOnRefreshTokenRevoked(const std::string& account_id) override;
 
+  // OAuth2TokenService::Observer:
+  void OnRefreshTokenAvailable(const std::string& account_id) override;
+  void OnRefreshTokenRevoked(const std::string& account_id) override;
+
 #if !defined(OS_CHROMEOS)
   // SigninManager::DiagnosticsClient:
   // Override these to update |primary_account_info_| before any observers of
@@ -236,6 +246,13 @@ class IdentityManager : public SigninManagerBase::Observer,
   // The latest (cached) value of the accounts with refresh tokens.
   using AccountIDToAccountInfoMap = std::map<std::string, AccountInfo>;
   AccountIDToAccountInfoMap accounts_with_refresh_tokens_;
+
+  // Info that is cached from the PO2TS::DiagnosticsClient callbacks in order to
+  // forward on to the observers of this class in the corresponding
+  // O2TS::Observer callbacks (the information is not directly available at the
+  // time of receiving the O2TS::Observer callbacks).
+  base::Optional<PendingTokenAvailableState> pending_token_available_state_;
+  base::Optional<AccountInfo> pending_token_revoked_info_;
 
   // Lists of observers.
   // Makes sure lists are empty on destruction.
