@@ -435,6 +435,8 @@ RenderWidget::RenderWidget(
       task_runner_(task_runner),
       weak_ptr_factory_(this) {
   DCHECK_NE(routing_id_, MSG_ROUTING_NONE);
+  // TODO(nasko, alexmos): ref count the process based on the lifetime of
+  // RenderFrames rather than RenderWidgets.
   if (!swapped_out)
     RenderProcess::current()->AddRefProcess();
   DCHECK(RenderThread::Get());
@@ -598,14 +600,6 @@ void RenderWidget::SetSwappedOut(bool is_swapped_out) {
   // We should only toggle between states.
   DCHECK(is_swapped_out_ != is_swapped_out);
   is_swapped_out_ = is_swapped_out;
-
-  // If we are swapping out, we will call ReleaseProcess, allowing the process
-  // to exit if all of its RenderViews are swapped out.  We wait until the
-  // WasSwappedOut call to do this, to allow the unload handler to finish.
-  // If we are swapping in, we call AddRefProcess to prevent the process from
-  // exiting.
-  if (!is_swapped_out_)
-    RenderProcess::current()->AddRefProcess();
 }
 
 void RenderWidget::Init(ShowCallback show_callback, WebWidget* web_widget) {
@@ -643,13 +637,6 @@ void RenderWidget::Init(ShowCallback show_callback, WebWidget* web_widget) {
     if (is_hidden_)
       RenderThreadImpl::current()->WidgetHidden();
   }
-}
-
-void RenderWidget::WasSwappedOut() {
-  // If we have been swapped out and no one else is using this process,
-  // it's safe to exit now.
-  CHECK(is_swapped_out_);
-  RenderProcess::current()->ReleaseProcess();
 }
 
 void RenderWidget::SetPopupOriginAdjustmentsForEmulation(

@@ -551,10 +551,6 @@ class CONTENT_EXPORT RenderWidget
   // should be null if show() won't be triggered for this widget.
   void Init(ShowCallback show_callback, blink::WebWidget* web_widget);
 
-  // Allows the process to exit once the unload handler has finished, if there
-  // are no other active RenderWidgets.
-  void WasSwappedOut();
-
   void DoDeferredClose();
   void NotifyOnClose();
 
