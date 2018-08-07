@@ -37,6 +37,7 @@ gclient_gn_args = [
 
 
 vars = {
+  "buildspec_platforms": "win, linux64, mac64, win64",
   # By default, we should check out everything needed to run on the main
   # chromium waterfalls. This var can be also be set to "small", in order
   # to skip things are not strictly needed to build chromium for development
@@ -96,11 +97,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': 'refs/heads/chrome/m68',
+  'skia_revision': '1e419fead7ff3b5247102b29b982b6472a60cd4d',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'refs/heads/6.8-lkgr',
+  'v8_revision': '47a7e965ceb70ea5ab0e89a69f8aa591be8f4887',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -108,11 +109,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling ANGLE
   # and whatever else without interference from each other.
-  'angle_revision': 'refs/heads/chromium/3440',
+  'angle_revision': 'ba16270867793da817417c722abe3a5d98d50fc0',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling build tools
   # and whatever else without interference from each other.
-  'buildtools_revision': 'refs/heads/chromium/3440',
+  'buildtools_revision': '893eb86b02b2571894e328f05551112b96df1cce',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling SwiftShader
   # and whatever else without interference from each other.
@@ -120,7 +121,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling PDFium
   # and whatever else without interference from each other.
-  'pdfium_revision': 'refs/heads/chromium/3440',
+  'pdfium_revision': 'a1c1c63d3454e51ec321cdaa6e3420db2ed6c957',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling openmax_dl
   # and whatever else without interference from each other.
@@ -979,7 +980,7 @@ deps = {
     Var('chromium_git') + '/external/khronosgroup/webgl.git' + '@' + '7c0541da63f571512c49758cbc0767117997a270',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + 'refs/branch-heads/68', # commit position 21742
+    Var('webrtc_git') + '/src.git' + '@' + '350e48ae5ad0e63f9d600dd87cc47799abab5278', # commit position 21742
 
   'src/third_party/xdg-utils': {
       'url': Var('chromium_git') + '/chromium/deps/xdg-utils.git' + '@' + 'd80274d5869b17b8c9067a1022e4416ee7ed5e0d',
@@ -1013,7 +1014,7 @@ deps = {
     Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@refs/heads/chromium/3440',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@adf00129eac9f455463603332c0c22fe26a1f69d',
     'condition': 'checkout_src_internal',
   },
 
