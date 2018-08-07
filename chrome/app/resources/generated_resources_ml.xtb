@@ -1211,6 +1211,7 @@
 <translation id="2803375539583399270">പിൻ നൽകുക</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2805756323405976993">ആപ്സ്</translation>
+<translation id="2806891468525657116">കുറുക്കുവഴി മുമ്പേ നിലവിലുണ്ട്</translation>
 <translation id="2807517655263062534">നിങ്ങൾ ഡൗൺലോഡ് ചെയ്യുന്ന ഫയലുകൾ ഇവിടെ ദൃശ്യമാകും</translation>
 <translation id="2809586584051668049">ഒപ്പം <ph name="NUMBER_ADDITIONAL_DISABLED" /> എണ്ണം കൂടി</translation>
 <translation id="281133045296806353">നിലവിലുള്ള ബ്രൌസിംഗ് സെഷനില്‍ പുതിയ വിന്‍ഡോ സൃഷ്‌ടിച്ചു.</translation>
@@ -1963,6 +1964,7 @@
 <translation id="3941565636838060942">ഈ പ്രോഗ്രാമിലേക്കുള്ള ആക്‌സസ്സ് മറയ്‌ക്കാൻ, നിയന്ത്രണ പാനലിൽ <ph name="CONTROL_PANEL_APPLET_NAME" />   ഉപയോഗിച്ച് നിങ്ങളിത് അൺഇൻസ്‌റ്റാൾ ചെയ്യേണ്ടതാണ്.
 
   <ph name="CONTROL_PANEL_APPLET_NAME" />, ആരംഭിക്കാൻ താൽപ്പര്യമുണ്ടോ?</translation>
+<translation id="394183848452296464">കുറുക്കുവഴി സൃഷ്‌ടിക്കാനാവില്ല</translation>
 <translation id="3943582379552582368">&amp;പിന്നോട്ട്</translation>
 <translation id="3943857333388298514">ഒട്ടിക്കുക</translation>
 <translation id="3948116654032448504">&amp;ചിത്രത്തിനായി തിരയുക <ph name="SEARCH_ENGINE" /></translation>

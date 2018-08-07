@@ -1215,6 +1215,7 @@
 <translation id="2803375539583399270">Введите PIN-код</translation>
 <translation id="2805646850212350655">Зашифрованная файловая система (EFS) Microsoft</translation>
 <translation id="2805756323405976993">Приложения</translation>
+<translation id="2806891468525657116">Ярлык уже добавлен</translation>
 <translation id="2807517655263062534">Скачанные файлы появятся здесь</translation>
 <translation id="2809586584051668049">и ещё <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">В текущем сеансе браузера создано новое окно.</translation>
@@ -1968,6 +1969,7 @@
   "<ph name="CONTROL_PANEL_APPLET_NAME" />" в панели управления.
 
   Запустить компонент "<ph name="CONTROL_PANEL_APPLET_NAME" />"?</translation>
+<translation id="394183848452296464">Не удалось создать ярлык</translation>
 <translation id="3943582379552582368">&amp;Назад</translation>
 <translation id="3943857333388298514">Вставить</translation>
 <translation id="3948116654032448504">&amp;Найти картинку (<ph name="SEARCH_ENGINE" />)</translation>

@@ -223,7 +223,7 @@
 <translation id="1316136264406804862">Recherche en cours…</translation>
 <translation id="1316495628809031177">La synchronisation est mise en veille</translation>
 <translation id="1319979322914001937">Application qui présente une liste filtrée d'extensions du Chrome Web Store. Les extensions figurant sur cette liste peuvent être installées directement depuis l'application.</translation>
-<translation id="1322046419516468189">Afficher et gérer les mots de passe de votre <ph name="SAVED_PASSWORDS_STORE" /></translation>
+<translation id="1322046419516468189">Afficher et gérer les mots de passe enregistrés de votre <ph name="SAVED_PASSWORDS_STORE" /></translation>
 <translation id="1326317727527857210">Connectez-vous à Chrome pour accéder à vos onglets sur vos autres appareils.</translation>
 <translation id="1327074568633507428">Imprimante connectée à Google Cloud Print</translation>
 <translation id="1327977588028644528">Passerelle</translation>
@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Saisir le code</translation>
 <translation id="2805646850212350655">Système de fichiers de chiffrement Microsoft </translation>
 <translation id="2805756323405976993">Applications</translation>
+<translation id="2806891468525657116">Le raccourci existe déjà</translation>
 <translation id="2807517655263062534">Les fichiers téléchargés s'affichent ici</translation>
 <translation id="2809586584051668049">ainsi que <ph name="NUMBER_ADDITIONAL_DISABLED" /> autre(s) extension(s)</translation>
 <translation id="281133045296806353">Nouvelle fenêtre ouverte dans la session du navigateur</translation>
@@ -1920,7 +1921,7 @@
 <translation id="3871092408932389764">Le plus grave</translation>
 <translation id="3872220884670338524">Autres actions (compte <ph name="USERNAME" /> enregistré sur <ph name="DOMAIN" />)</translation>
 <translation id="3872991219937722530">Libérez de l'espace disque, car l'appareil risque de ne plus répondre.</translation>
-<translation id="3873315167136380065">Pour activer cette fonctionnalité, <ph name="BEGIN_LINK" />réinitialiser la synchronisation<ph name="END_LINK" /> pour supprimer votre phrase secrète de synchronisation</translation>
+<translation id="3873315167136380065">Pour activer cette fonctionnalité, <ph name="BEGIN_LINK" />réinitialisez la synchronisation<ph name="END_LINK" /> pour supprimer votre phrase secrète de synchronisation</translation>
 <translation id="3878840326289104869">Création de l'utilisateur supervisé en cours</translation>
 <translation id="3879748587602334249">Gestionnaire de téléchargement</translation>
 <translation id="3880709822663530586">Votre clé de sécurité ne fonctionne que lorsque le Bluetooth est activé sur votre appareil</translation>
@@ -1967,6 +1968,7 @@
 au moyen de <ph name="CONTROL_PANEL_APPLET_NAME" /> dans le panneau de configuration.
 
 Souhaitez-vous lancer <ph name="CONTROL_PANEL_APPLET_NAME" /> ?</translation>
+<translation id="394183848452296464">Impossible de créer un raccourci</translation>
 <translation id="3943582379552582368">R&amp;etour</translation>
 <translation id="3943857333388298514">Coller</translation>
 <translation id="3948116654032448504">&amp;Rechercher une image avec <ph name="SEARCH_ENGINE" /></translation>
@@ -4012,7 +4014,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7127980134843952133">Historique des téléchargements</translation>
 <translation id="7131040479572660648">Lire vos données sur <ph name="WEBSITE_1" />, <ph name="WEBSITE_2" /> et <ph name="WEBSITE_3" /></translation>
 <translation id="713122686776214250">Ajouter une pa&amp;ge...</translation>
-<translation id="7133578150266914903">Votre administrateur rétablit une version antérieure du système d'exploitation sur cet appareil (<ph name="PROGRESS_PERCENT" />)</translation>
+<translation id="7133578150266914903">Votre administrateur rétablit une version antérieure du système d'exploitation sur cet appareil (<ph name="PROGRESS_PERCENT" />)…</translation>
 <translation id="7134098520442464001">Réduit la taille du texte</translation>
 <translation id="7136694880210472378">Utiliser par défaut</translation>
 <translation id="7136984461011502314">Bienvenue dans <ph name="PRODUCT_NAME" /></translation>
@@ -4214,7 +4216,7 @@ Assurez-vous de ne pas dévoiler d'informations sensibles.</translation>
 <translation id="7463006580194749499">Ajouter une personne</translation>
 <translation id="7464490149090366184">Échec de la compression au format .zip, car l'élément existe déjà : $1.</translation>
 <translation id="7465778193084373987">URL de révocation de certificat Netscape</translation>
-<translation id="7469406957790636836">Pour activer cette option, activer d'abord la vérification orthographique sous <ph name="BEGIN_LINK" />Langues et saisie<ph name="END_LINK" /></translation>
+<translation id="7469406957790636836">Pour activer cette option, activez d'abord la vérification orthographique sous <ph name="BEGIN_LINK" />Langues et saisie<ph name="END_LINK" /></translation>
 <translation id="7469894403370665791">Se connecter automatiquement à ce réseau</translation>
 <translation id="747114903913869239">Erreur : impossible de décoder l'extension.</translation>
 <translation id="7473753388963818366">Préparons votre <ph name="DEVICE_TYPE" /></translation>
@@ -5031,7 +5033,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="8698464937041809063">Dessin Google</translation>
 <translation id="869884720829132584">Menu Applications</translation>
 <translation id="869891660844655955">Date d'expiration</translation>
-<translation id="8699566574894671540">Pour activer cette option, sélectionner d'abord Vérifier l'orthographe lors de la frappe depuis le menu Édition</translation>
+<translation id="8699566574894671540">Pour activer cette option, sélectionnez d'abord "Vérifier l'orthographe lors de la frappe" depuis le menu "Édition"</translation>
 <translation id="870073306461175568">Partages de fichiers en réseau</translation>
 <translation id="8701677791353449257">Le nom de l'appareil doit correspondre à l'expression régulière <ph name="REGEX" />.</translation>
 <translation id="8704521619148782536">Cette opération dure beaucoup plus longtemps que d'habitude. Vous pouvez continuer à attendre, ou annuler l'opération et réessayer plus tard.</translation>
@@ -5414,7 +5416,7 @@ Conservez votre fichier de clé en lieu sûr. Vous en aurez besoin lors de la cr
 <translation id="988978206646512040">Phrase secrète obligatoire</translation>
 <translation id="992032470292211616">Les extensions, les applications et les thèmes peuvent endommager votre appareil. Voulez-vous vraiment continuer ?</translation>
 <translation id="992592832486024913">Désactiver ChromeVox (commentaires audio)</translation>
-<translation id="993540765962421562">Installation en cours</translation>
+<translation id="993540765962421562">Installation…</translation>
 <translation id="994289308992179865">&amp;Répéter</translation>
 <translation id="996250603853062861">Établissement de la connexion sécurisée...</translation>
 <translation id="998747458861718449">I&amp;nspecter</translation>

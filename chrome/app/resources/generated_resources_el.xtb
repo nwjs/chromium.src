@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">Εισαγωγή PIN</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2805756323405976993">Εφαρμογές </translation>
+<translation id="2806891468525657116">Η συντόμευση υπάρχει ήδη</translation>
 <translation id="2807517655263062534">Τα αρχεία που κατεβάζετε εμφανίζονται εδώ</translation>
 <translation id="2809586584051668049">και ακόμη <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">Δημιουργήθηκε νέο παράθυρο σε υπάρχουσα περίοδο σύνδεσης του προγράμματος περιήγησης.</translation>
@@ -1967,6 +1968,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" /> στον Πίνακα ελέγχου.
 
    Θέλετε να γίνει εκκίνηση του <ph name="CONTROL_PANEL_APPLET_NAME" />;</translation>
+<translation id="394183848452296464">Δεν είναι δυνατή η δημιουργία συντόμευσης</translation>
 <translation id="3943582379552582368">&amp;Πίσω</translation>
 <translation id="3943857333388298514">Επικόλληση</translation>
 <translation id="3948116654032448504">&amp;Αναζήτηση <ph name="SEARCH_ENGINE" /> για εικόνα</translation>

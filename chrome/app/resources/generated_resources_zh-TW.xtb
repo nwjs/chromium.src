@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">輸入 PIN</translation>
 <translation id="2805646850212350655">Microsoft 加密檔案系統</translation>
 <translation id="2805756323405976993">應用程式</translation>
+<translation id="2806891468525657116">捷徑已經存在</translation>
 <translation id="2807517655263062534">你下載的檔案會顯示在這裡</translation>
 <translation id="2809586584051668049">和另外 <ph name="NUMBER_ADDITIONAL_DISABLED" /> 個</translation>
 <translation id="281133045296806353">已在目前的瀏覽器工作階段開啟新視窗。</translation>
@@ -1966,6 +1967,7 @@
 <translation id="3941565636838060942">如要隱藏這個程式的存取權，你必須使用控制台中的「<ph name="CONTROL_PANEL_APPLET_NAME" />」解除安裝此程式。
 
   是否要開啟「<ph name="CONTROL_PANEL_APPLET_NAME" />」？</translation>
+<translation id="394183848452296464">無法建立捷徑</translation>
 <translation id="3943582379552582368">上一頁(&amp;B)</translation>
 <translation id="3943857333388298514">貼上</translation>
 <translation id="3948116654032448504">透過 <ph name="SEARCH_ENGINE" /> 搜尋圖片(&amp;S)</translation>

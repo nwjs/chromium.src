@@ -464,7 +464,7 @@
 <translation id="1673137583248014546">האתר <ph name="URL" /> מבקש לראות את היצרן והדגם של מפתח האבטחה שלך</translation>
 <translation id="167832068858235403">הפחתת עוצמת הקול</translation>
 <translation id="1679068421605151609">כלים עבור מפתחים</translation>
-<translation id="1680849702532889074">‏התרחשה שגיאה במהלך ההתקנה של אפליקציית Linux.</translation>
+<translation id="1680849702532889074">‏קרתה שגיאה במהלך ההתקנה של אפליקציית Linux.</translation>
 <translation id="16815041330799488">אין להתיר לאתרים לגשת לטקסט ותמונות שהועתקו ללוח</translation>
 <translation id="1682548588986054654">חלון נסתר חדש</translation>
 <translation id="168715261339224929">כדי שהסימניות שלך יופיעו בכל המכשירים, יש להפעיל סינכרון.</translation>
@@ -1192,7 +1192,7 @@
 <translation id="2775104091073479743">עריכת טביעות האצבעות</translation>
 <translation id="2776441542064982094">נראה שאין מכשירים זמינים לרישום ברשת. אם המכשיר שלך מחובר לאינטרנט, נסה לרשום אותו מחדש באמצעות ההוראות המפורטות במדריך למשתמש שלו.</translation>
 <translation id="2781692009645368755">Google Pay</translation>
-<translation id="2782104745158847185">‏שגיאה במהלך ההתקנה של אפליקציית Linux</translation>
+<translation id="2782104745158847185">‏קרתה שגיאה במהלך ההתקנה של אפליקציית Linux</translation>
 <translation id="2783298271312924866">ההורדה בוצעה</translation>
 <translation id="2783321960289401138">צור קיצור דרך...</translation>
 <translation id="2783829359200813069">בחירת סוגי הצפנה</translation>
@@ -1211,6 +1211,7 @@
 <translation id="2803375539583399270">‏הזן PIN</translation>
 <translation id="2805646850212350655">‏מערכת קבצים מצפינה של Microsoft</translation>
 <translation id="2805756323405976993">אפליקציות</translation>
+<translation id="2806891468525657116">קיצור הדרך כבר קיים</translation>
 <translation id="2807517655263062534">קבצים שתוריד יופיעו כאן</translation>
 <translation id="2809586584051668049">ועוד <ph name="NUMBER_ADDITIONAL_DISABLED" /></translation>
 <translation id="281133045296806353">חלון חדש שנוצר בהפעלת דפדפן קיים.</translation>
@@ -1964,6 +1965,7 @@
 <ph name="CONTROL_PANEL_APPLET_NAME" /> בלוח הבקרה.
 
 האם תרצה להפעיל את <ph name="CONTROL_PANEL_APPLET_NAME" />?</translation>
+<translation id="394183848452296464">לא ניתן ליצור קיצור דרך</translation>
 <translation id="3943582379552582368">&amp;אחורה</translation>
 <translation id="3943857333388298514">הדבק</translation>
 <translation id="3948116654032448504">בצע &amp;חיפוש תמונה ב-<ph name="SEARCH_ENGINE" /></translation>
@@ -2776,7 +2778,7 @@
 <translation id="5264148714798105376">הפעולה יכולה להימשך כדקה.</translation>
 <translation id="5264252276333215551">התחבר לאינטרנט כדי להפעיל את היישום במצב קיוסק.</translation>
 <translation id="5265562206369321422">לא מקוונת במשך יותר משבוע</translation>
-<translation id="5265797726250773323">שגיאה במהלך ההתקנה</translation>
+<translation id="5265797726250773323">קרתה שגיאה במהלך ההתקנה</translation>
 <translation id="5266113311903163739">שגיאת ייבוא של רשות אישורים</translation>
 <translation id="5269977353971873915">ההדפסה נכשלה</translation>
 <translation id="5271549068863921519">שמור סיסמה</translation>
@@ -3219,7 +3221,7 @@
 <translation id="5908769186679515905">‏חסום הפעלה של Flash על-ידי אתרים</translation>
 <translation id="5910363049092958439">שמ&amp;ור תמונה כ...</translation>
 <translation id="5911737117543891828">‏תתבצע מחיקה של קבצים זמניים לא מקוונים ב-Google Drive. הקבצים שהגדרת לגישה במצב לא מקוון לא יימחקו מהמכשיר הזה.</translation>
-<translation id="5911887972742538906">‏התרחשה שגיאה במהלך ההתקנה של אפליקציית Linux.</translation>
+<translation id="5911887972742538906">‏קרתה שגיאה במהלך ההתקנה של אפליקציית Linux.</translation>
 <translation id="5912378097832178659">&amp;ערוך מנועי חיפוש...</translation>
 <translation id="5914724413750400082">מודולוס (<ph name="MODULUS_NUM_BITS" /> ביטים):
   <ph name="MODULUS_HEX_DUMP" />
@@ -4038,6 +4040,7 @@
 <translation id="7175353351958621980">נטען מתוך:</translation>
 <translation id="7180611975245234373">רענן</translation>
 <translation id="7180865173735832675">התאם אישית</translation>
+<translation id="7182359331070524176">‏בחירת אלבום בתמונות Google</translation>
 <translation id="7186088072322679094">השאר בסרגל הכלים</translation>
 <translation id="7187428571767585875">ערכים בקובץ הרישום שיש להסיר או לשנות:</translation>
 <translation id="7189234443051076392">צריך לוודא שיש מספיק מקום פנוי במכשיר</translation>

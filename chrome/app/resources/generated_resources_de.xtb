@@ -1210,6 +1210,7 @@
 <translation id="2803375539583399270">PIN eingeben</translation>
 <translation id="2805646850212350655">Verschlüsselndes Microsoft-Dateisystem</translation>
 <translation id="2805756323405976993">Apps</translation>
+<translation id="2806891468525657116">Verknüpfung ist bereits vorhanden</translation>
 <translation id="2807517655263062534">Hier werden heruntergeladene Dateien angezeigt</translation>
 <translation id="2809586584051668049">und <ph name="NUMBER_ADDITIONAL_DISABLED" /> weitere</translation>
 <translation id="281133045296806353">Neues Fenster in aktueller Browsersitzung erstellt.</translation>
@@ -1963,6 +1964,7 @@ Servernachricht: <ph name="SERVER_MSG" /></translation>
 <ph name="CONTROL_PANEL_APPLET_NAME" /> im Steuerfeld deinstalliert wird.
 
 Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
+<translation id="394183848452296464">Verknüpfung kann nicht erstellt werden</translation>
 <translation id="3943582379552582368">&amp;Zurück</translation>
 <translation id="3943857333388298514">Einfügen</translation>
 <translation id="3948116654032448504">Mit <ph name="SEARCH_ENGINE" /> nach Bild &amp;suchen</translation>
@@ -4209,7 +4211,7 @@ Möchten Sie <ph name="CONTROL_PANEL_APPLET_NAME" /> starten?</translation>
 <translation id="7463006580194749499">Person hinzufügen</translation>
 <translation id="7464490149090366184">Fehler beim Zippen, Element bereits vorhanden: "$1"</translation>
 <translation id="7465778193084373987">URL zum Zurückrufen von Netscape-Zertifikaten</translation>
-<translation id="7469406957790636836">Wenn Sie diese Funktion aktivieren möchten, müssen Sie zuerst die Rechtschreibprüfung unter <ph name="BEGIN_LINK" />Sprachen und Eingabe<ph name="END_LINK" /> einschalten</translation>
+<translation id="7469406957790636836">Wenn Sie diese Funktion aktivieren möchten, müssen Sie zuerst die Rechtschreibprüfung unter <ph name="BEGIN_LINK" />Sprache und Eingabe<ph name="END_LINK" /> einschalten</translation>
 <translation id="7469894403370665791">Verbindung zu diesem Netzwerk automatisch herstellen</translation>
 <translation id="747114903913869239">Fehler: Erweiterung kann nicht entschlüsselt werden.</translation>
 <translation id="7473753388963818366"><ph name="DEVICE_TYPE" /> einrichten</translation>

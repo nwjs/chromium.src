@@ -1210,6 +1210,7 @@
 <translation id="2803375539583399270">PIN દાખલ કરો</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2805756323405976993">એપ્સ</translation>
+<translation id="2806891468525657116">શૉર્ટકટ પહેલેથી અસ્તિત્વમાં છે</translation>
 <translation id="2807517655263062534">તમે ડાઉનલોડ કરેલી ફાઇલો અહીં દેખાશે</translation>
 <translation id="2809586584051668049">અને <ph name="NUMBER_ADDITIONAL_DISABLED" /> વધુ</translation>
 <translation id="281133045296806353">અસ્તિત્વમાં રહેલા બ્રાઉઝર સત્રમાં નવી વિંડો બનાવી.</translation>
@@ -1963,6 +1964,7 @@
 <ph name="CONTROL_PANEL_APPLET_NAME" /> નો ઉપયોગ કરીને તેને અનઇન્સ્ટોલ કરવું પડશે.
 
  શું તમે <ph name="CONTROL_PANEL_APPLET_NAME" /> ને પ્રારંભ કરવા માંગો છો?</translation>
+<translation id="394183848452296464">શૉર્ટકટ બનાવી શકતાં નથી</translation>
 <translation id="3943582379552582368">&amp;પાછળ</translation>
 <translation id="3943857333388298514">પેસ્ટ કરો</translation>
 <translation id="3948116654032448504">છબી માટે <ph name="SEARCH_ENGINE" /> પર &amp;શોધો</translation>
@@ -4038,6 +4040,7 @@
 <translation id="7175353351958621980">અહીંથી લોડ કરેલું:</translation>
 <translation id="7180611975245234373">તાજું કરો</translation>
 <translation id="7180865173735832675">કસ્ટમાઇઝ કરો</translation>
+<translation id="7182359331070524176">Google ફોટો આલ્બમ પસંદ કરો</translation>
 <translation id="7186088072322679094">ટુલબારમાં રાખો</translation>
 <translation id="7187428571767585875">કાઢી નાખવા અથવા બદલવા માટેની રજિસ્ટ્રી એન્ટ્રી:</translation>
 <translation id="7189234443051076392">ખાતરી કરો કે તમારા ઉપકરણ પર પૂરતી સ્પેસ છે</translation>

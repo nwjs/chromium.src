@@ -1214,6 +1214,7 @@
 <translation id="2803375539583399270">PIN 입력</translation>
 <translation id="2805646850212350655">Microsoft Encrypting File System</translation>
 <translation id="2805756323405976993">앱</translation>
+<translation id="2806891468525657116">바로가기가 이미 존재합니다.</translation>
 <translation id="2807517655263062534">다운로드한 파일이 여기에 표시됩니다.</translation>
 <translation id="2809586584051668049">외 <ph name="NUMBER_ADDITIONAL_DISABLED" />개</translation>
 <translation id="281133045296806353">기존 브라우저 세션에 새 창을 생성했습니다.</translation>
@@ -1967,6 +1968,7 @@
   <ph name="CONTROL_PANEL_APPLET_NAME" />을(를) 사용하여 프로그램을 제거해야 합니다.
 
   <ph name="CONTROL_PANEL_APPLET_NAME" />을(를) 시작하시겠습니까?</translation>
+<translation id="394183848452296464">바로가기를 만들 수 없음</translation>
 <translation id="3943582379552582368">뒤로(&amp;B)</translation>
 <translation id="3943857333388298514">붙여넣기</translation>
 <translation id="3948116654032448504"><ph name="SEARCH_ENGINE" />에서 이미지 검색(&amp;S)</translation>

@@ -1186,7 +1186,7 @@ Cette option est habituellement désactivée dans le cadre de la protection cont
 
           Si cette règle n'est pas définie, la valeur globale par défaut est utilisée pour tous les sites, et déterminée à partir de la règle "DefaultKeygenSetting" si celle-ci est définie, ou à partir de la configuration personnelle de l'utilisateur.</translation>
 <translation id="4239720644496144453">Le cache n'est pas utilisé pour les applications Android. Si plusieurs utilisateurs installent la même application Android, celle-ci sera à nouveau téléchargée pour chacun d'eux.</translation>
-<translation id="4243336580717651045">Activer la collecte des données anonymes incluant les URL dans <ph name="PRODUCT_NAME" /> et empêche les utilisateurs de modifier ce paramètre.
+<translation id="4243336580717651045">Permet d'activer la collecte des données anonymes incluant les URL dans <ph name="PRODUCT_NAME" /> et empêche l'utilisateur de modifier ce paramètre.
 
       La collecte des données anonymes incluant les URL transmet les URL des pages que l'utilisateur a visitées à Google pour améliorer vos recherches et votre navigation.
 
