@@ -173,6 +173,22 @@ var LOG_TYPE = {
 
   // The One Google Bar was shown.
   NTP_ONE_GOOGLE_BAR_SHOWN: 37,
+
+  // The background has been customized.
+  NTP_BACKGROUND_CUSTOMIZED: 38,
+  // Shortcuts have been customized.
+  NTP_SHORTCUT_CUSTOMIZED: 39,
+  // 'Remove' was clicked in the 'Edit shortcut' dialog.
+  NTP_CUSTOMIZE_SHORTCUT_REMOVE: 53,
+  // 'Cancel' was clicked in the 'Edit shortcut' dialog.
+
+  NTP_CUSTOMIZE_SHORTCUT_CANCEL: 54,
+  // 'Done' was clicked in the 'Edit shortcut' dialog.
+  NTP_CUSTOMIZE_SHORTCUT_DONE: 55,
+  // 'Undo' was clicked in the message pop-up.
+  NTP_CUSTOMIZE_SHORTCUT_UNDO: 56,
+  // 'Restore default shortcuts' was clicked in the message pop-up.
+  NTP_CUSTOMIZE_SHORTCUT_RESTORE_ALL: 57,
 };
 
 
@@ -321,6 +337,7 @@ function renderTheme() {
   setCustomThemeStyle(info);
 
   if (info.customBackgroundConfigured) {
+    ntpApiHandle.logEvent(LOG_TYPE.NTP_BACKGROUND_CUSTOMIZED);
     var imageWithOverlay = [
       customBackgrounds.CUSTOM_BACKGROUND_OVERLAY, 'url(' + info.imageUrl + ')'
     ].join(',').trim();
@@ -543,6 +560,7 @@ function reloadTiles() {
  */
 function onAddCustomLinkDone(success) {
   showNotification(configData.translatedStrings.linkAddedMsg);
+  ntpApiHandle.logEvent(LOG_TYPE.NTP_CUSTOMIZE_SHORTCUT_DONE);
 }
 
 
@@ -554,6 +572,7 @@ function onAddCustomLinkDone(success) {
  */
 function onUpdateCustomLinkDone(success) {
   showNotification(configData.translatedStrings.linkEditedMsg);
+  ntpApiHandle.logEvent(LOG_TYPE.NTP_CUSTOMIZE_SHORTCUT_DONE);
 }
 
 
@@ -565,6 +584,7 @@ function onUpdateCustomLinkDone(success) {
  */
 function onDeleteCustomLinkDone(success) {
   showNotification(configData.translatedStrings.linkRemovedMsg);
+  ntpApiHandle.logEvent(LOG_TYPE.NTP_CUSTOMIZE_SHORTCUT_REMOVE);
 }
 
 
@@ -631,10 +651,12 @@ function hideNotification() {
  */
 function onUndo() {
   hideNotification();
-  if (configData.isCustomLinksEnabled)
+  if (configData.isCustomLinksEnabled) {
     ntpApiHandle.undoCustomLinkAction();
-  else if (lastBlacklistedTile != null)
+    ntpApiHandle.logEvent(LOG_TYPE.NTP_CUSTOMIZE_SHORTCUT_UNDO);
+  } else if (lastBlacklistedTile != null) {
     ntpApiHandle.undoMostVisitedDeletion(lastBlacklistedTile);
+  }
 }
 
 
@@ -644,10 +666,12 @@ function onUndo() {
  */
 function onRestoreAll() {
   hideNotification();
-  if (configData.isCustomLinksEnabled)
+  if (configData.isCustomLinksEnabled) {
     ntpApiHandle.resetCustomLinks();
-  else
+    ntpApiHandle.logEvent(LOG_TYPE.NTP_CUSTOMIZE_SHORTCUT_RESTORE_ALL);
+  } else {
     ntpApiHandle.undoAllMostVisitedDeletions();
+  }
 }
 
 
@@ -761,6 +785,9 @@ function handlePostMessage(event) {
       };
     }
     if (configData.isCustomLinksEnabled) {
+      if (args.showRestoreDefault) {
+        ntpApiHandle.logEvent(LOG_TYPE.NTP_SHORTCUT_CUSTOMIZED);
+      }
       $(customBackgrounds.IDS.CUSTOM_LINKS_RESTORE_DEFAULT)
           .classList.toggle(
               customBackgrounds.CLASSES.OPTION_DISABLED,
