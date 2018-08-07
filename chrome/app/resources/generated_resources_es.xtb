@@ -2551,7 +2551,6 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="4917385247580444890">Buena</translation>
 <translation id="4918021164741308375"><ph name="ORIGIN" /> quiere comunicarse con al extensión <ph name="EXTENSION_NAME" /></translation>
 <translation id="4918086044614829423">Aceptar</translation>
-<translation id="4920350943031252905">Ejecuta IDEs, editores y herramientas de Linux en tu Chromebook.</translation>
 <translation id="4920887663447894854">Los sitios que se indican a continuación se han bloqueado para evitar que puedan hacer un seguimiento de tu ubicación en esta página:</translation>
 <translation id="492299503953721473">Quitar aplicaciones de Android</translation>
 <translation id="4923279099980110923">Sí, quiero ayudar</translation>
@@ -4037,7 +4036,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7175353351958621980">Cargado desde:</translation>
 <translation id="7180611975245234373">Actualizar</translation>
 <translation id="7180865173735832675">Personalizar</translation>
-<translation id="7182359331070524176">Seleccionar un álbum de Google Fotos</translation>
+<translation id="7182359331070524176">Selecciona un álbum de Google Fotos</translation>
 <translation id="7186088072322679094">Mantener en la barra de herramientas</translation>
 <translation id="7187428571767585875">Entradas de registro que se van a eliminar o cambiar:</translation>
 <translation id="7189234443051076392">Deja suficiente espacio en tu dispositivo</translation>

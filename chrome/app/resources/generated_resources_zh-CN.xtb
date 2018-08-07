@@ -1210,6 +1210,7 @@
 <translation id="2803375539583399270">输入 PIN 码</translation>
 <translation id="2805646850212350655">Microsoft 加密文件系统</translation>
 <translation id="2805756323405976993">应用</translation>
+<translation id="2806891468525657116">快捷方式已存在</translation>
 <translation id="2807517655263062534">您下载的文件会显示在此处</translation>
 <translation id="2809586584051668049">及另外<ph name="NUMBER_ADDITIONAL_DISABLED" />个扩展程序</translation>
 <translation id="281133045296806353">已在现有的浏览器会话中创建新的窗口。</translation>
@@ -1960,6 +1961,7 @@
 <translation id="3941565636838060942">要禁止使用此程序，您需要使用控制面板中的“<ph name="CONTROL_PANEL_APPLET_NAME" />”将其卸载。
 
   要启动“<ph name="CONTROL_PANEL_APPLET_NAME" />”吗？</translation>
+<translation id="394183848452296464">无法创建快捷方式</translation>
 <translation id="3943582379552582368">返回(&amp;B)</translation>
 <translation id="3943857333388298514">粘贴</translation>
 <translation id="3948116654032448504">通过<ph name="SEARCH_ENGINE" />搜索图片(&amp;S)</translation>
@@ -2545,7 +2547,6 @@
 <translation id="4917385247580444890">强</translation>
 <translation id="4918021164741308375"><ph name="ORIGIN" /> 希望与“<ph name="EXTENSION_NAME" />”扩展程序通信</translation>
 <translation id="4918086044614829423">接受</translation>
-<translation id="4920350943031252905">在您的 Chromebook 上运行 Linux 工具、编辑器和 IDE。</translation>
 <translation id="4920887663447894854">系统已阻止以下网站跟踪您在此网页上的位置：</translation>
 <translation id="492299503953721473">移除 Android 应用</translation>
 <translation id="4923279099980110923">我愿意提供帮助</translation>
