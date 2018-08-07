@@ -1401,6 +1401,12 @@ void DataReductionProxyCompressionStats::OnDataUsageReportingPrefChanged() {
 
 void DataReductionProxyCompressionStats::InitializeWeeklyAggregateDataUse(
     const base::Time& now) {
+#if defined(OS_ANDROID) && defined(ARCH_CPU_X86)
+  // TODO(rajendrant): Enable aggregate metrics recording in x86 Android.
+  // http://crbug.com/865373
+  return;
+#endif
+
   MaybeInitWeeklyAggregateDataUsePrefs(now, pref_service_);
   // Record the histograms that will show up in the user feedback.
   RecordDictionaryToHistogram(
@@ -1437,6 +1443,11 @@ void DataReductionProxyCompressionStats::RecordWeeklyAggregateDataUse(
     bool is_user_request,
     data_use_measurement::DataUseUserData::DataUseContentType content_type,
     int32_t service_hash_code) {
+#if defined(OS_ANDROID) && defined(ARCH_CPU_X86)
+  // TODO(rajendrant): Enable aggregate metrics recording in x86 Android.
+  // http://crbug.com/865373
+  return;
+#endif
   // Update the prefs if this is a new week. This can happen when chrome is open
   // for weeks without being closed.
   MaybeInitWeeklyAggregateDataUsePrefs(now, pref_service_);
