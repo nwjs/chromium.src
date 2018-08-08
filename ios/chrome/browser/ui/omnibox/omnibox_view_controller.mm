@@ -34,7 +34,6 @@ const CGFloat kClearButtonSize = 28.0f;
 
 @implementation OmniboxViewController
 @synthesize incognito = _incognito;
-@synthesize dispatcher = _dispatcher;
 @synthesize defaultLeadingImage = _defaultLeadingImage;
 @synthesize emptyTextLeadingImage = _emptyTextLeadingImage;
 @dynamic view;
