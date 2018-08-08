@@ -6,6 +6,7 @@
 
 #include "third_party/blink/public/mojom/page/page_visibility_state.mojom-blink.h"
 #include "third_party/blink/public/platform/platform.h"
+#include "third_party/blink/public/platform/web_referrer_policy.h"
 #include "third_party/blink/public/web/web_settings.h"
 #include "third_party/blink/renderer/core/exported/web_view_impl.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
@@ -15,9 +16,16 @@
 
 namespace blink {
 
+namespace {
+
+constexpr char kDoNotTrackHeader[] = "DNT";
+
+}  // namespace
+
 WorkerShadowPage::WorkerShadowPage(
     Client* client,
-    scoped_refptr<network::SharedURLLoaderFactory> loader_factory)
+    scoped_refptr<network::SharedURLLoaderFactory> loader_factory,
+    PrivacyPreferences preferences)
     : client_(client),
       web_view_(WebViewImpl::Create(nullptr,
                                     nullptr,
@@ -30,7 +38,8 @@ WorkerShadowPage::WorkerShadowPage(
                                              nullptr /* opener */,
                                              g_empty_atom,
                                              WebSandboxFlags::kNone)),
-      loader_factory_(std::move(loader_factory)) {
+      loader_factory_(std::move(loader_factory)),
+      preferences_(std::move(preferences)) {
   DCHECK(IsMainThread());
 
   // TODO(http://crbug.com/363843): This needs to find a better way to
@@ -107,6 +116,15 @@ base::UnguessableToken WorkerShadowPage::GetDevToolsFrameToken() {
 std::unique_ptr<WebSocketHandshakeThrottle>
 WorkerShadowPage::CreateWebSocketHandshakeThrottle() {
   return Platform::Current()->CreateWebSocketHandshakeThrottle();
+}
+
+void WorkerShadowPage::WillSendRequest(WebURLRequest& request) {
+  if (preferences_.enable_do_not_track) {
+    request.SetHTTPHeaderField(WebString::FromUTF8(kDoNotTrackHeader), "1");
+  }
+  if (!preferences_.enable_referrers) {
+    request.SetHTTPReferrer(WebString(), kWebReferrerPolicyDefault);
+  }
 }
 
 bool WorkerShadowPage::WasInitialized() const {
