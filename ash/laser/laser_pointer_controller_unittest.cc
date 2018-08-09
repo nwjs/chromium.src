@@ -157,6 +157,7 @@ TEST_F(LaserPointerControllerTest, LaserPointerPrediction) {
 
 // Test to laser pointer is shown for touches over a remote app.
 TEST_F(LaserPointerControllerTest, LaserPointerWorksWithRemoteApp) {
+  LaserPointerControllerTestApi controller_test_api_(controller_.get());
   std::unique_ptr<aura::Window> window =
       CreateTestWindow(gfx::Rect(50, 50, 100, 100));
   ui::ws2::ServerWindow* server_window =
