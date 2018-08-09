@@ -39,17 +39,23 @@ public class AppBannerUiDelegateAndroid
     @Override
     public void addToHomescreen(String title) {
         // The title is ignored for app banners as we respect the developer-provided title.
-        nativeAddToHomescreen(mNativePointer);
+        if (mNativePointer != 0) {
+            nativeAddToHomescreen(mNativePointer);
+        }
     }
 
     @Override
     public void onDialogCancelled() {
-        nativeOnUiCancelled(mNativePointer);
+        if (mNativePointer != 0) {
+            nativeOnUiCancelled(mNativePointer);
+        }
     }
 
     @Override
     public void onNativeAppDetailsRequested() {
-        nativeShowNativeAppDetails(mNativePointer);
+        if (mNativePointer != 0) {
+            nativeShowNativeAppDetails(mNativePointer);
+        }
     }
 
     @Override
