@@ -168,12 +168,12 @@ TEST_F(LaserPointerControllerTest, LaserPointerWorksWithRemoteApp) {
   // The laser pointer mode only works with stylus.
   ui::test::EventGenerator* event_generator = GetEventGenerator();
   event_generator->EnterPenPointerMode();
-  controller_test_api_->SetEnabled(true);
+  controller_test_api_.SetEnabled(true);
 
   event_generator->MoveTouch(gfx::Point(100, 100));
-  EXPECT_FALSE(controller_test_api_->IsShowingLaserPointer());
+  EXPECT_FALSE(controller_test_api_.IsShowingLaserPointer());
   event_generator->PressTouch();
-  EXPECT_TRUE(controller_test_api_->IsShowingLaserPointer());
+  EXPECT_TRUE(controller_test_api_.IsShowingLaserPointer());
 }
 
 }  // namespace ash
