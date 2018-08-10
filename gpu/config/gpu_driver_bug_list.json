@@ -2965,6 +2965,18 @@
       ]
     },
     {
+      "id": 272,
+      "cr_bugs": [858879],
+      "description": "A deleted query id for GL_TIMESTAMP cannot be reused for other query targets",
+      "os": {
+        "type": "android"
+      },
+      "gl_vendor": "Qualcomm.*",
+      "features": [
+        "disable_timestamp_queries"
+      ]
+    },
+    {
       "id":273,
       "cr_bugs": [866613],
       "description": "Frequent crashes on Adreno (TM) 405 on L",
