@@ -224,7 +224,7 @@
 <translation id="544691375626129091">Alle tilgjengelige brukere er allerede lagt til i denne økten.</translation>
 <translation id="5457599981699367932">Surf som gjest</translation>
 <translation id="54609108002486618">Administrert</translation>
-<translation id="5496819745535887422">Administratoren din kaller tilbake enheten din. Alle data blir slettet når enheten starter på nytt.</translation>
+<translation id="5496819745535887422">Administratoren din tilbakestiller enheten din til forrige versjon. Alle data blir slettet når enheten starter på nytt.</translation>
 <translation id="553675580533261935">Avslutning av økten</translation>
 <translation id="5537725057119320332">Cast</translation>
 <translation id="5548285847212963613">Utvidelsen «<ph name="EXTENSION_NAME" />» kan hjelpe deg med å koble deg til dette nettverket.</translation>
@@ -411,7 +411,7 @@
 <translation id="8984179138335769204">Hurtigtaster</translation>
 <translation id="8995603266996330174">Drevet av <ph name="DOMAIN" /></translation>
 <translation id="9029474291399787231">En oppdatering av Adobe Flash Player er tilgjengelig</translation>
-<translation id="9056839673611986238">Enheten blir hentet tilbake</translation>
+<translation id="9056839673611986238">Enheten blir tilbakestilt til forrige versjon</translation>
 <translation id="9074739597929991885">Bluetooth</translation>
 <translation id="9079731690316798640">Wi-Fi: <ph name="ADDRESS" /></translation>
 <translation id="9080206825613744995">Mikrofonen er i bruk.</translation>

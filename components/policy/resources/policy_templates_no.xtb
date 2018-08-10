@@ -1157,15 +1157,15 @@ Hvis verdiene som er angitt av de to reglene, ikke samsvarer, kan det oppstå en
 
           Hvis denne regelen ikke angis, brukes den globale standardverdien for alle nettstedene, enten fra regelen «DefaultKeygenSetting» hvis den er angitt, eller fra brukerens personlige konfigurasjon.</translation>
 <translation id="4239720644496144453">Bufferen brukes ikke til Android-apper. Hvis flere brukere installerer den samme Android-appen, blir den lastet ned på nytt for hver bruker.</translation>
-<translation id="4243336580717651045">Aktiverer anonymisert datainnsamling med nettadressenøkkel i <ph name="PRODUCT_NAME" />,  hindrer brukerne i å endre denne innstillingen. 
+<translation id="4243336580717651045">Aktiverer anonymisert datainnsamling med nettadressenøkkel i <ph name="PRODUCT_NAME" />, og hindrer brukerne i å endre denne innstillingen. 
 
-      Anonymisert datainnsamling med nettadressenøkkel sender nettadressene til sidene som brukeren besøker til Google, for å muliggjøre bedre søk og surfing på nett.
+      Anonymisert datainnsamling med nettadressenøkkel sender nettadressene til sidene som brukeren besøker, til Google, for å muliggjøre bedre søk og surfing på nettet.
 
-      Hvis denne retningslinjen aktiveres, vil anonymisert datainnsamling med nettadressenøkkel alltid være aktiv.
+      Hvis du slår på denne regelen, er anonymisert datainnsamling med nettadressenøkkel alltid aktiv.
 
-     Hvis denne retningslinjen deaktiveres, vil anonymisert datainnsamling med nettadressenøkkel aldri være aktiv.
+      Hvis du slår av denne regelen, er anonymisert datainnsamling med nettadressenøkkel aldri aktiv.
 
-      Hvis denne retningslinjen ikke angis, vil anonymisert datainnsamling med nettadressenøkkel være aktivert, men brukeren kan endre på det.</translation>
+      Hvis du ikke angir noen innstilling for denne regelen, er anonymisert datainnsamling med nettadressenøkkel aktiv, men brukeren kan endre den.</translation>
 <translation id="4250680216510889253">Nei</translation>
 <translation id="4261820385751181068">Lokalitet for påloggingsskjermen på enheten</translation>
 <translation id="427220754384423013">Angir skriverne som en bruker kan bruke.
@@ -1821,7 +1821,7 @@ Hvis verdiene som er angitt av de to reglene, ikke samsvarer, kan det oppstå en
           Den anbefalte måten å låse skjermen på når den er inaktiv, er å aktivere skjermlåsing ved hvilemodus, slik at <ph name="PRODUCT_OS_NAME" /> aktiverer skjermlåsen etter det innstilte inaktive perioden. Tidsinnstillingen for skjermlåsen bør bare brukes når skjermlåsen skal aktiveres lenge før hvilemodus, eller når bruk av hvilemodus ved inaktivitet ikke er ønskelig i det hele tatt.
 
           Innstillingsverdien bør angis i millisekunder. Verdien må være mindre enn inaktivitetsforsinkelsen.</translation>
-<translation id="6097601282776163274">Aktiver anonymisert datainnsamling med nettadressenøkkel</translation>
+<translation id="6097601282776163274">Slå på anonymisert datainnsamling med nettadressenøkkel</translation>
 <translation id="6111936128861357925">Tillat dinosaurspill-påskeegget</translation>
 <translation id="6114416803310251055">avskrevet</translation>
 <translation id="6133088669883929098">Tillat alle nettsteder å bruke nøkkelgenerering</translation>
