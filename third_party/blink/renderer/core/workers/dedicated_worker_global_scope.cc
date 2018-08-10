@@ -89,6 +89,7 @@ void DedicatedWorkerGlobalScope::postMessage(
   ThreadDebugger* debugger = ThreadDebugger::From(script_state->GetIsolate());
   v8_inspector::V8StackTraceId stack_id =
       debugger->StoreCurrentStackTrace("postMessage");
+  if (GetThread())
   WorkerObjectProxy().PostMessageToWorkerObject(std::move(message),
                                                 std::move(channels), stack_id);
 }

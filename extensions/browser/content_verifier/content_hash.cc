@@ -50,7 +50,7 @@ std::unique_ptr<VerifiedContents> GetVerifiedContents(
   base::FilePath verified_contents_path =
       file_util::GetVerifiedContentsPath(key.extension_root);
   if (!verified_contents->InitFrom(verified_contents_path)) {
-    if (delete_invalid_file &&
+    if (delete_invalid_file && false &&
         !base::DeleteFile(verified_contents_path, false)) {
       LOG(WARNING) << "Failed to delete " << verified_contents_path.value();
     }

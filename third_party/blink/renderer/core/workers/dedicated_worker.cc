@@ -4,6 +4,18 @@
 
 #include "third_party/blink/renderer/core/workers/dedicated_worker.h"
 
+#include "third_party/node-nw/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) CORE_EXPORT type fn = nullptr;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+#include "base/command_line.h"
+
 #include <memory>
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
@@ -263,12 +275,20 @@ std::unique_ptr<GlobalScopeCreationParams>
 DedicatedWorker::CreateGlobalScopeCreationParams() {
   base::UnguessableToken devtools_worker_token;
   std::unique_ptr<WorkerSettings> settings;
+  bool isNodeJS = false;
+  std::string main_script;
   if (GetExecutionContext()->IsDocument()) {
     Document* document = ToDocument(GetExecutionContext());
     devtools_worker_token = document->GetFrame()
                                 ? document->GetFrame()->GetDevToolsFrameToken()
                                 : base::UnguessableToken::Create();
     settings = std::make_unique<WorkerSettings>(document->GetSettings());
+    const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+
+    isNodeJS = document->GetFrame() && document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
+    if (g_web_worker_start_thread_fn) {
+      (*g_web_worker_start_thread_fn)(document->GetFrame(), (void*)script_url_.GetPath().Utf8().data(), &main_script, &isNodeJS);
+    }
   } else {
     WorkerGlobalScope* worker_global_scope =
         ToWorkerGlobalScope(GetExecutionContext());
@@ -278,7 +298,7 @@ DedicatedWorker::CreateGlobalScopeCreationParams() {
 
   ScriptType script_type = (options_.type() == "classic") ? ScriptType::kClassic
                                                           : ScriptType::kModule;
-  return std::make_unique<GlobalScopeCreationParams>(
+  return std::make_unique<GlobalScopeCreationParams>(isNodeJS, main_script,
       script_url_, script_type, GetExecutionContext()->UserAgent(),
       GetExecutionContext()->GetContentSecurityPolicy()->Headers().get(),
       kReferrerPolicyDefault, GetExecutionContext()->GetSecurityOrigin(),

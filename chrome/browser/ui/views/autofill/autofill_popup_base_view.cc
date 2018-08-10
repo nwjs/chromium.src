@@ -4,6 +4,10 @@
 
 #include "chrome/browser/ui/views/autofill/autofill_popup_base_view.h"
 
+#include "chrome/browser/apps/app_window_registry_util.h"
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/native_app_window.h"
+
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/single_thread_task_runner.h"
@@ -293,7 +297,12 @@ gfx::Rect AutofillPopupBaseView::CalculateClippingBounds() const {
   gfx::NativeWindow window =
       platform_util::GetTopLevel(delegate_->container_view());
   Browser* browser = chrome::FindBrowserWithWindow(window);
-  DCHECK(browser);
+  //DCHECK(browser);
+  if (!browser) {
+    extensions::AppWindow* app_window =
+      AppWindowRegistryUtil::GetAppWindowForNativeWindowAnyProfile(window);
+    return app_window->GetBaseWindow()->GetBounds();
+  }
 
   // This is not the same as "GetClientAreaBoundsInScreen()", but it gives us
   // the lower bounds the popup will have to clip to on the screen.

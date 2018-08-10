@@ -279,7 +279,8 @@ class CONTENT_EXPORT RenderViewImpl : public RenderWidget,
                              const blink::WebString& frame_name,
                              blink::WebNavigationPolicy policy,
                              bool suppress_opener,
-                             blink::WebSandboxFlags sandbox_flags) override;
+                             blink::WebSandboxFlags sandbox_flags,
+                             blink::WebString* manifest) override;
   blink::WebWidget* CreatePopup(blink::WebLocalFrame* creator,
                                 blink::WebPopupType popup_type) override;
   base::StringPiece GetSessionStorageNamespaceId() override;
@@ -309,6 +310,7 @@ class CONTENT_EXPORT RenderViewImpl : public RenderWidget,
 #endif
   blink::WebString AcceptLanguages() override;
   void NavigateBackForwardSoon(int offset) override;
+  void NavigateBackForwardSoon2(int offset, blink::WebLocalFrame* initiator) override;
   int HistoryBackListCount() override;
   int HistoryForwardListCount() override;
   void ZoomLimitsChanged(double minimum_level, double maximum_level) override;

@@ -54,6 +54,7 @@ class InterfaceProvider;
 namespace blink {
 
 class FontFaceSet;
+class DOMArrayBuffer;
 class ConsoleMessage;
 class ExceptionState;
 class OffscreenFontSelector;
@@ -103,6 +104,7 @@ class CORE_EXPORT WorkerGlobalScope
   DEFINE_ATTRIBUTE_EVENT_LISTENER(unhandledrejection);
 
   // WorkerUtils
+  ScriptValue importNWBin(ScriptState* state, DOMArrayBuffer* buffer);
   virtual void importScripts(const Vector<String>& urls, ExceptionState&);
 
   // ExecutionContext

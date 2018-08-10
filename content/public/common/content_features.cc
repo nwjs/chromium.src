@@ -7,6 +7,9 @@
 
 namespace features {
 
+const base::Feature kNWNewWin{
+    "NWNewWin", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // All features in alphabetical order.
 
 // Enables the allowActivationDelegation attribute on iframes.
@@ -376,7 +379,7 @@ const base::Feature kSlimmingPaintV175{"SlimmingPaintV175",
 // spare renderer process around for the most recently requested BrowserContext.
 // This feature is only consulted in site-per-process mode.
 const base::Feature kSpareRendererForSitePerProcess{
-    "SpareRendererForSitePerProcess", base::FEATURE_ENABLED_BY_DEFAULT};
+    "SpareRendererForSitePerProcess", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Stop scheduler task queues in background after allowed grace time.
 const base::Feature kStopInBackground {

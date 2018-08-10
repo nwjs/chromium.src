@@ -296,12 +296,12 @@ const extensions::Extension* GetExtensionForOrigin(
 // Browser, CreateParams:
 
 Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture)
-    : CreateParams(TYPE_TABBED, profile, user_gesture) {}
+    : CreateParams(TYPE_POPUP, profile, user_gesture) {}
 
 Browser::CreateParams::CreateParams(Type type,
                                     Profile* profile,
                                     bool user_gesture)
-    : type(type), profile(profile), user_gesture(user_gesture) {}
+    : type(TYPE_POPUP), profile(profile), user_gesture(user_gesture) {}
 
 Browser::CreateParams::CreateParams(const CreateParams& other) = default;
 
@@ -1041,7 +1041,8 @@ void Browser::TabDetachedAt(WebContents* contents, int index, bool was_active) {
 
 void Browser::TabDeactivated(WebContents* contents) {
   exclusive_access_manager_->OnTabDeactivated(contents);
-  SearchTabHelper::FromWebContents(contents)->OnTabDeactivated();
+  if (SearchTabHelper::FromWebContents(contents))
+      SearchTabHelper::FromWebContents(contents)->OnTabDeactivated();
 
   // Save what the user's currently typing, so it can be restored when we
   // switch back to this tab.
@@ -1131,7 +1132,7 @@ void Browser::ActiveTabChanged(WebContents* old_contents,
                                        base::TimeTicks::Now());
   }
 
-  SearchTabHelper::FromWebContents(new_contents)->OnTabActivated();
+  //SearchTabHelper::FromWebContents(new_contents)->OnTabActivated();
 }
 
 void Browser::TabMoved(WebContents* contents,
@@ -1683,7 +1684,7 @@ void Browser::WebContentsCreated(WebContents* source_contents,
                                  int opener_render_frame_id,
                                  const std::string& frame_name,
                                  const GURL& target_url,
-                                 WebContents* new_contents) {
+                                 WebContents* new_contents, const base::string16& nw_window_manifest) {
   // Adopt the WebContents now, so all observers are in place, as the network
   // requests for its initial navigation will start immediately. The WebContents
   // will later be inserted into this browser using Browser::Navigate via
@@ -2176,11 +2177,13 @@ void Browser::OnExtensionUnloaded(content::BrowserContext* browser_context,
 
 void Browser::OnIsPageTranslatedChanged(content::WebContents* source) {
   DCHECK(source);
+#if 0
   if (tab_strip_model_->GetActiveWebContents() == source) {
     window_->SetTranslateIconToggled(
         ChromeTranslateClient::FromWebContents(
             source)->GetLanguageState().IsPageTranslated());
   }
+#endif
 }
 
 void Browser::OnTranslateEnabledChanged(content::WebContents* source) {
@@ -2410,14 +2413,14 @@ void Browser::SetAsDelegate(WebContents* web_contents, bool set_delegate) {
   WebContentsModalDialogManager::FromWebContents(web_contents)->
       SetDelegate(delegate);
   CoreTabHelper::FromWebContents(web_contents)->set_delegate(delegate);
-  translate::ContentTranslateDriver& content_translate_driver =
-      ChromeTranslateClient::FromWebContents(web_contents)->translate_driver();
+  //translate::ContentTranslateDriver& content_translate_driver =
+  //    ChromeTranslateClient::FromWebContents(web_contents)->translate_driver();
   if (delegate) {
     zoom::ZoomController::FromWebContents(web_contents)->AddObserver(this);
-    content_translate_driver.AddObserver(this);
+    //content_translate_driver.AddObserver(this);
   } else {
     zoom::ZoomController::FromWebContents(web_contents)->RemoveObserver(this);
-    content_translate_driver.RemoveObserver(this);
+    //content_translate_driver.RemoveObserver(this);
   }
 }
 

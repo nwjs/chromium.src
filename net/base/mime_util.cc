@@ -81,6 +81,7 @@ static const MimeInfo kPrimaryMappings[] = {
     {"video/webm", "webm"},
 
     {"application/javascript", "js"},
+    {"application/javascript", "mjs"},
     {"application/wasm", "wasm"},
     {"application/x-chrome-extension", "crx"},
     {"application/xhtml+xml", "xhtml,xht,xhtm"},

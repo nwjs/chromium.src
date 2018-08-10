@@ -149,7 +149,7 @@ const char kEphemeralAppLaunchingNotSupported[] =
     "Ephemeral launching of apps is no longer supported.";
 
 // The number of user gestures to trace back for the referrer chain.
-const int kExtensionReferrerUserGestureLimit = 2;
+// const int kExtensionReferrerUserGestureLimit = 2;
 
 WebstoreInstaller::Delegate* test_webstore_installer_delegate = nullptr;
 
@@ -682,11 +682,11 @@ WebstorePrivateGetReferrerChainFunction::
 
 ExtensionFunction::ResponseAction
 WebstorePrivateGetReferrerChainFunction::Run() {
-  Profile* profile = chrome_details_.GetProfile();
-  if (!SafeBrowsingNavigationObserverManager::IsEnabledAndReady(profile))
+#if 1
     return RespondNow(ArgumentList(GetReferrerChain::Results::Create("")));
-
-  content::WebContents* web_contents = GetSenderWebContents();
+#else
+  Profile* profile = chrome_details_.GetProfile();
+  conent::WebContents* web_contents = GetSenderWebContents();
   if (!web_contents) {
     return RespondNow(ErrorWithArguments(GetReferrerChain::Results::Create(""),
                                          kUserCancelledError));
@@ -724,6 +724,7 @@ WebstorePrivateGetReferrerChainFunction::Run() {
   base::Base64Encode(serialized_referrer_proto, &serialized_referrer_proto);
   return RespondNow(ArgumentList(
       GetReferrerChain::Results::Create(serialized_referrer_proto)));
+#endif
 }
 
 }  // namespace extensions

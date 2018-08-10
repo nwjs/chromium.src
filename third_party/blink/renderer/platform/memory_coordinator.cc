@@ -16,11 +16,27 @@
 #include "third_party/blink/renderer/platform/web_task_runner.h"
 #include "third_party/blink/renderer/platform/wtf/allocator/partitions.h"
 
+#include "third_party/blink/renderer/modules/gamepad/navigator_gamepad.h"
+#include "third_party/blink/public/web/web_frame.h"
+#include "third_party/blink/public/web/web_document.h"
+#include "third_party/blink/renderer/core/dom/document.h"
+#include "third_party/blink/public/web/web_local_frame.h"
+
 #if defined(OS_ANDROID)
 #include "base/android/sys_utils.h"
 #endif
 
 namespace blink {
+
+void fix_gamepad_nw(WebLocalFrame* frame)
+{
+#if 0
+  Document* doc = frame->GetDocument();
+  NavigatorGamepad* gamepad = NavigatorGamepad::From(*doc);
+  ((ContextLifecycleObserver*)gamepad)->SetContext(static_cast<ExecutionContext*>(doc));
+  gamepad->Gamepads();
+#endif
+}
 
 // Wrapper function defined in WebKit.h
 void DecommitFreeableMemory() {

@@ -9,5 +9,5 @@ if (is_ios) {
 }
 
 declare_args() {
-  enable_remoting = !is_chromecast && !is_fuchsia
+  enable_remoting = false
 }

@@ -30,7 +30,7 @@ using safe_browsing::ReferrerChain;
 namespace {
 
 // The number of user gestures to trace back for CWS pings.
-const int kExtensionReferrerUserGestureLimit = 2;
+//const int kExtensionReferrerUserGestureLimit = 2;
 }
 
 namespace extensions {
@@ -116,10 +116,12 @@ bool WebstoreInlineInstaller::IsRequestorPermitted(
 }
 
 bool WebstoreInlineInstaller::SafeBrowsingNavigationEventsEnabled() const {
-  return SafeBrowsingNavigationObserverManager::IsEnabledAndReady(profile());
+  return false; //SafeBrowsingNavigationObserverManager::IsEnabledAndReady(profile());
 }
 
 std::string WebstoreInlineInstaller::GetPostData() {
+  return std::string();
+#if 0
   // web_contents() might return null during tab destruction. This object would
   // also be destroyed shortly thereafter but check to be on the safe side.
   if (!web_contents())
@@ -155,6 +157,7 @@ std::string WebstoreInlineInstaller::GetPostData() {
       recent_navigations_to_collect);
 
   return request.SerializeAsString();
+#endif
 }
 
 bool WebstoreInlineInstaller::CheckRequestorAlive() const {

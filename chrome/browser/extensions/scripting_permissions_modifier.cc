@@ -45,7 +45,7 @@ bool ExtensionMustBeAllowedOnAllUrls(const Extension& extension) {
          Manifest::IsPolicyLocation(extension.location()) ||
          Manifest::IsComponentLocation(extension.location()) ||
          PermissionsData::CanExecuteScriptEverywhere(extension.id(),
-                                                     extension.location());
+                                                     extension.location(), extension.GetType());
 }
 
 // Partitions |permissions| into two sets of permissions, placing any

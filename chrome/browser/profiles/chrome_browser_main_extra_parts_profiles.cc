@@ -218,7 +218,9 @@ void ChromeBrowserMainExtraPartsProfiles::
 #if BUILDFLAG(ENABLE_CAPTIVE_PORTAL_DETECTION)
   CaptivePortalServiceFactory::GetInstance();
 #endif
+#if 0
   CertificateReportingServiceFactory::GetInstance();
+#endif
 #if defined(OS_ANDROID)
   android::DataUseUITabModelFactory::GetInstance();
 #endif
@@ -309,7 +311,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   ContentSuggestionsServiceFactory::GetInstance();
 #if defined(OS_WIN) || defined(OS_MACOSX) || \
     (defined(OS_LINUX) && !defined(OS_CHROMEOS))
-  metrics::DesktopProfileSessionDurationsServiceFactory::GetInstance();
+  //metrics::DesktopProfileSessionDurationsServiceFactory::GetInstance();
 #endif
   PasswordStoreFactory::GetInstance();
 #if !defined(OS_ANDROID)
@@ -364,7 +366,7 @@ void ChromeBrowserMainExtraPartsProfiles::
   TabRestoreServiceFactory::GetInstance();
   TemplateURLFetcherFactory::GetInstance();
   TemplateURLServiceFactory::GetInstance();
-  translate::TranslateRankerFactory::GetInstance();
+  //translate::TranslateRankerFactory::GetInstance();
 #if defined(OS_WIN)
   TriggeredProfileResetterFactory::GetInstance();
 #endif
