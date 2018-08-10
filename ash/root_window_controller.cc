@@ -50,6 +50,7 @@
 #include "ash/wm/fullscreen_window_finder.h"
 #include "ash/wm/lock_action_handler_layout_manager.h"
 #include "ash/wm/lock_layout_manager.h"
+#include "ash/wm/overlay_layout_manager.h"
 #include "ash/wm/panels/attached_panel_window_targeter.h"
 #include "ash/wm/panels/panel_layout_manager.h"
 #include "ash/wm/panels/panel_window_event_handler.h"
@@ -1016,6 +1017,8 @@ void RootWindowController::CreateContainers() {
                       lock_screen_related_containers);
   wm::SetSnapsChildrenToPhysicalPixelBoundary(overlay_container);
   overlay_container->SetProperty(::wm::kUsesScreenCoordinatesKey, true);
+  overlay_container->SetLayoutManager(
+      new OverlayLayoutManager(overlay_container));  // Takes ownership.
 
   CreateContainer(kShellWindowId_DockedMagnifierContainer,
                   "DockedMagnifierContainer", lock_screen_related_containers);
