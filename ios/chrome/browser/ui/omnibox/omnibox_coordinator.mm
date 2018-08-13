@@ -9,6 +9,7 @@
 #include "components/omnibox/browser/omnibox_edit_model.h"
 #include "components/strings/grit/components_strings.h"
 #include "ios/chrome/browser/browser_state/chrome_browser_state.h"
+#import "ios/chrome/browser/ui/commands/load_query_commands.h"
 #import "ios/chrome/browser/ui/location_bar/location_bar_constants.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_mediator.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_text_field_ios.h"
@@ -19,6 +20,7 @@
 #include "ios/chrome/browser/ui/omnibox/popup/omnibox_popup_view_ios.h"
 #import "ios/chrome/browser/ui/toolbar/keyboard_assist/toolbar_assistive_keyboard_delegate.h"
 #import "ios/chrome/browser/ui/toolbar/keyboard_assist/toolbar_assistive_keyboard_views.h"
+#import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
@@ -70,6 +72,8 @@
       imageWithRenderingMode:UIImageRenderingModeAlwaysTemplate];
   self.viewController.emptyTextLeadingImage = defaultEmptyOmniboxLeadingImage;
 
+  self.viewController.dispatcher =
+      static_cast<id<LoadQueryCommands, OmniboxFocuser>>(self.dispatcher);
   self.mediator = [[OmniboxMediator alloc] init];
   self.mediator.consumer = self.viewController;
 

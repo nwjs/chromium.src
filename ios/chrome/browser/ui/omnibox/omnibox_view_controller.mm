@@ -5,8 +5,10 @@
 #import "ios/chrome/browser/ui/omnibox/omnibox_view_controller.h"
 
 #include "components/strings/grit/components_strings.h"
+#import "ios/chrome/browser/ui/commands/load_query_commands.h"
 #import "ios/chrome/browser/ui/omnibox/omnibox_container_view.h"
 #import "ios/chrome/browser/ui/toolbar/buttons/toolbar_constants.h"
+#import "ios/chrome/browser/ui/toolbar/public/omnibox_focuser.h"
 #include "ios/chrome/browser/ui/ui_util.h"
 #include "ios/chrome/browser/ui/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/uikit_ui_util.h"
@@ -36,6 +38,7 @@ const CGFloat kClearButtonSize = 28.0f;
 @synthesize incognito = _incognito;
 @synthesize defaultLeadingImage = _defaultLeadingImage;
 @synthesize emptyTextLeadingImage = _emptyTextLeadingImage;
+@synthesize dispatcher = _dispatcher;
 @dynamic view;
 
 - (instancetype)initWithIncognito:(BOOL)isIncognito {
@@ -73,6 +76,13 @@ const CGFloat kClearButtonSize = 28.0f;
 
 - (void)viewDidLoad {
   [super viewDidLoad];
+
+  // Add Paste and Go option to the editing menu
+  UIMenuController* menu = [UIMenuController sharedMenuController];
+  UIMenuItem* pasteAndGo = [[UIMenuItem alloc]
+      initWithTitle:l10n_util::GetNSString(IDS_IOS_PASTE_AND_GO)
+             action:NSSelectorFromString(@"pasteAndGo:")];
+  [menu setMenuItems:@[ pasteAndGo ]];
 
   self.textField.placeholderTextColor = [self placeholderAndClearButtonColor];
   self.textField.placeholder = l10n_util::GetNSString(IDS_OMNIBOX_EMPTY_HINT);
@@ -216,6 +226,23 @@ const CGFloat kClearButtonSize = 28.0f;
   BOOL hasText = self.textField.text.length > 0;
   [self.textField setRightViewMode:hasText ? UITextFieldViewModeAlways
                                            : UITextFieldViewModeNever];
+}
+
+#pragma mark - UIMenuItem
+
+- (BOOL)canPerformAction:(SEL)action withSender:(id)sender {
+  if (UIPasteboard.generalPasteboard.string.length > 0 && action == @selector
+                                                              (pasteAndGo:)) {
+    return YES;
+  }
+
+  return NO;
+}
+
+- (void)pasteAndGo:(id)sender {
+  [self.dispatcher loadQuery:UIPasteboard.generalPasteboard.string
+                 immediately:YES];
+  [self.dispatcher cancelOmniboxEdit];
 }
 
 @end

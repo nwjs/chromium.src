@@ -12,6 +12,9 @@
 #import "ios/chrome/browser/ui/orchestrator/edit_view_animatee.h"
 #import "ios/chrome/browser/ui/orchestrator/location_bar_offset_provider.h"
 
+@protocol LoadQueryCommands;
+@protocol OmniboxFocuser;
+
 // The view controller managing the omnibox textfield and its container view.
 @interface OmniboxViewController : UIViewController<EditViewAnimatee,
                                                     LocationBarOffsetProvider,
@@ -29,6 +32,9 @@
 
 // Designated initializer.
 - (instancetype)initWithIncognito:(BOOL)isIncognito;
+
+// The dispatcher for the paste and go action.
+@property(nonatomic, weak) id<LoadQueryCommands, OmniboxFocuser> dispatcher;
 
 @end
 
