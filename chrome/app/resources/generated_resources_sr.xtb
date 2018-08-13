@@ -1363,6 +1363,7 @@
 <translation id="3031557471081358569">Изаберите ставке за увоз:</translation>
 <translation id="3031601332414921114">Настави штампање</translation>
 <translation id="303198083543495566">Географија</translation>
+<translation id="3033999583152214331">Покрените Linux алатке, уређиваче и IDE-ове на Chromebook-у. &lt;a target="_blank" href="<ph name="URL" />"&gt;Сазнајте више&lt;/a&gt;</translation>
 <translation id="3036546437875325427">Омогући Flash</translation>
 <translation id="3037754279345160234">Не можемо да рашчланимо конфигурацију ради придруживања домену. Обратите се администратору.</translation>
 <translation id="3038612606416062604">Ручно додајте штампач</translation>
@@ -4100,7 +4101,7 @@
 <translation id="7270858098575133036">Питај када сајт жели да користи ексклузивне поруке система за приступ MIDI уређајима</translation>
 <translation id="7272674038937250585">Није наведен ниједан опис</translation>
 <translation id="7273110280511444812">последњи пут је прикључено <ph name="DATE" /></translation>
-<translation id="727441411541283857"><ph name="PERCENTAGE" />% – <ph name="TIME" /> док се не напуни</translation>
+<translation id="727441411541283857"><ph name="PERCENTAGE" />% – <ph name="TIME" /> до краја пуњења</translation>
 <translation id="727952162645687754">Грешка при преузимању</translation>
 <translation id="7279701417129455881">Управљај блокирањем колачића...</translation>
 <translation id="7280041992884344566">Дошло је до грешке док је Chrome тражио штетан софтвер</translation>
