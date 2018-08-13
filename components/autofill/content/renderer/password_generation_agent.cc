@@ -716,7 +716,8 @@ void PasswordGenerationAgent::PasswordNoLongerGenerated() {
   password_generation::LogPasswordGenerationEvent(
       password_generation::PASSWORD_DELETED);
   // Clear all other password fields.
-  for (WebInputElement& element : generation_form_data_->password_elements) {
+  for (blink::WebInputElement& element :
+       generation_form_data_->password_elements) {
     if (generation_element_ != element)
       element.SetAutofillValue(blink::WebString());
   }
