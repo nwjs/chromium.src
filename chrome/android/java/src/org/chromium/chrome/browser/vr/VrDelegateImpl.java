@@ -129,6 +129,11 @@ import org.chromium.chrome.browser.ChromeActivity;
     }
 
     @Override
+    public void doPreInflationStartup(ChromeActivity activity, Bundle savedInstanceState) {
+        VrShellDelegate.doPreInflationStartup(activity, savedInstanceState);
+    }
+
+    @Override
     public boolean bootsToVr() {
         return VrShellDelegate.bootsToVr();
     }
@@ -161,5 +166,10 @@ import org.chromium.chrome.browser.ChromeActivity;
     @Override
     public Bundle getVrIntentOptions(Context context) {
         return VrIntentUtils.getVrIntentOptions(context);
+    }
+
+    @Override
+    public void onSaveInstanceState(Bundle outState) {
+        VrShellDelegate.onSaveInstanceState(outState);
     }
 }
