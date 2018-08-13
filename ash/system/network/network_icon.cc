@@ -164,9 +164,16 @@ const double kConnectingImageAlpha = 0.5;
 // Number of discrete images to use for alpha fade animation
 const int kNumFadeImages = 10;
 
+bool IsTrayIcon(IconType icon_type) {
+  return icon_type == ICON_TYPE_TRAY_REGULAR ||
+         icon_type == ICON_TYPE_TRAY_OOBE;
+}
+
 SkColor GetDefaultColorForIconType(IconType icon_type) {
-  if (icon_type == ICON_TYPE_TRAY)
+  if (icon_type == ICON_TYPE_TRAY_REGULAR)
     return kTrayIconColor;
+  if (icon_type == ICON_TYPE_TRAY_OOBE)
+    return kOobeTrayIconColor;
   if (features::IsSystemTrayUnifiedEnabled())
     return kUnifiedMenuIconColor;
   else
@@ -174,7 +181,7 @@ SkColor GetDefaultColorForIconType(IconType icon_type) {
 }
 
 bool IconTypeIsDark(IconType icon_type) {
-  return (icon_type != ICON_TYPE_TRAY);
+  return icon_type != ICON_TYPE_TRAY_REGULAR;
 }
 
 bool IconTypeHasVPNBadge(IconType icon_type) {
@@ -213,7 +220,7 @@ ImageType ImageTypeForNetworkType(const std::string& type) {
 // have an associated Tether network. Used to display the correct icon.
 std::string GetEffectiveNetworkType(const NetworkState* network,
                                     IconType icon_type) {
-  if (icon_type == ICON_TYPE_TRAY && network->type() == shill::kTypeWifi &&
+  if (IsTrayIcon(icon_type) && network->type() == shill::kTypeWifi &&
       !network->tether_guid().empty()) {
     return chromeos::kTypeTether;
   }
@@ -226,7 +233,7 @@ ImageType ImageTypeForNetwork(const NetworkState* network, IconType icon_type) {
 }
 
 gfx::Size GetSizeForIconType(IconType icon_type) {
-  int side = icon_type == ICON_TYPE_TRAY ? kTrayIconSize : kMenuIconSize;
+  int side = IsTrayIcon(icon_type) ? kTrayIconSize : kMenuIconSize;
   return gfx::Size(side, side);
 }
 
@@ -343,7 +350,7 @@ gfx::ImageSkia GetIcon(const NetworkState* network,
                             strength_index);
   }
   if (network->Matches(NetworkTypePattern::VPN())) {
-    DCHECK_NE(ICON_TYPE_TRAY, icon_type);
+    DCHECK(!IsTrayIcon(icon_type));
     return gfx::CreateVectorIcon(kNetworkVpnIcon,
                                  GetDefaultColorForIconType(ICON_TYPE_LIST));
   }
@@ -358,7 +365,7 @@ gfx::ImageSkia GetIcon(const NetworkState* network,
 gfx::ImageSkia GetConnectingVpnImage(IconType icon_type) {
   NetworkStateHandler* handler = NetworkHandler::Get()->network_state_handler();
   const NetworkState* connected_network = nullptr;
-  if (icon_type == ICON_TYPE_TRAY) {
+  if (IsTrayIcon(icon_type)) {
     connected_network =
         handler->ConnectedNetworkByType(NetworkTypePattern::NonVirtual());
   }
@@ -701,7 +708,7 @@ void GetDefaultNetworkImageAndLabel(IconType icon_type,
       state_handler->ConnectedNetworkByType(NetworkTypePattern::NonVirtual());
   const NetworkState* connecting_network =
       state_handler->ConnectingNetworkByType(NetworkTypePattern::Wireless());
-  if (!connecting_network && icon_type == ICON_TYPE_TRAY) {
+  if (!connecting_network && IsTrayIcon(icon_type)) {
     connecting_network =
         state_handler->ConnectingNetworkByType(NetworkTypePattern::VPN());
   }
@@ -719,7 +726,7 @@ void GetDefaultNetworkImageAndLabel(IconType icon_type,
   }
 
   // Don't show ethernet in the tray
-  if (icon_type == ICON_TYPE_TRAY && network &&
+  if (IsTrayIcon(icon_type) && network &&
       network->Matches(NetworkTypePattern::Ethernet())) {
     *image = gfx::ImageSkia();
     *animating = false;
@@ -779,7 +786,8 @@ void PurgeNetworkIconCache() {
        iter != networks.end(); ++iter) {
     network_paths.insert((*iter)->path());
   }
-  PurgeIconMap(ICON_TYPE_TRAY, network_paths);
+  PurgeIconMap(ICON_TYPE_TRAY_OOBE, network_paths);
+  PurgeIconMap(ICON_TYPE_TRAY_REGULAR, network_paths);
   PurgeIconMap(ICON_TYPE_DEFAULT_VIEW, network_paths);
   PurgeIconMap(ICON_TYPE_LIST, network_paths);
   PurgeIconMap(ICON_TYPE_MENU_LIST, network_paths);
