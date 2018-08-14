@@ -143,6 +143,8 @@ void ThreadControllerImpl::WillQueueTask(PendingTask* pending_task) {
 }
 
 void ThreadControllerImpl::DoWork(WorkType work_type) {
+  TRACE_EVENT0("sequence_manager", "ThreadControllerImpl::DoWork");
+
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   DCHECK(sequence_);
 
@@ -162,8 +164,10 @@ void ThreadControllerImpl::DoWork(WorkType work_type) {
     if (!task)
       break;
 
-    TRACE_TASK_EXECUTION("ThreadControllerImpl::DoWork", *task);
-    task_annotator_.RunTask("ThreadControllerImpl::DoWork", &*task);
+    {
+      TRACE_TASK_EXECUTION("ThreadControllerImpl::RunTask", *task);
+      task_annotator_.RunTask("ThreadControllerImpl::RunTask", &*task);
+    }
 
     if (!weak_ptr)
       return;
