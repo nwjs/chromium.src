@@ -1014,8 +1014,6 @@ void BrowserNonClientFrameViewAsh::SetUpForHostedApp(
   base::Optional<SkColor> theme_color =
       browser->hosted_app_controller()->GetThemeColor();
   if (theme_color) {
-    theme_color = SkColorSetA(*theme_color, SK_AlphaOPAQUE);
-
     // Not necessary in Mash as the frame colors are set in OnThemeChanged().
     if (!IsMash()) {
       frame()->GetNativeWindow()->SetProperty(
@@ -1081,12 +1079,9 @@ void BrowserNonClientFrameViewAsh::UpdateFrameColors() {
     inactive_color = GetFrameColor(false);
   } else if (extensions::HostedAppBrowserController::
                  IsForExperimentalHostedAppBrowser(browser_view()->browser())) {
-    base::Optional<SkColor> theme_color =
+    active_color =
         browser_view()->browser()->hosted_app_controller()->GetThemeColor();
-    window->SetProperty(ash::kFrameIsThemedByHostedAppKey, !!theme_color);
-
-    if (theme_color)
-      active_color = SkColorSetA(*theme_color, SK_AlphaOPAQUE);
+    window->SetProperty(ash::kFrameIsThemedByHostedAppKey, !!active_color);
   } else {
     active_color = kMdWebUiFrameColor;
   }
