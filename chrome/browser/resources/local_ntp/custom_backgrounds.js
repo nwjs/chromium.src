@@ -38,8 +38,8 @@ var BACKGROUND_CUSTOMIZATION_LOG_TYPE = {
   NTP_CUSTOMIZE_CHROME_BACKGROUND_SELECT_IMAGE: 48,
   // 'Cancel' was clicked in the 'Chrome backgrounds' dialog.
   NTP_CUSTOMIZE_CHROME_BACKGROUND_CANCEL: 49,
-  // 'Done' was clicked in the 'Chrome backgrounds' dialog.
-  NTP_CUSTOMIZE_CHROME_BACKGROUND_DONE: 50,
+  // NOTE: NTP_CUSTOMIZE_CHROME_BACKGROUND_DONE (50) is logged on the backend
+  // when the selected image is saved.
   // 'Cancel' was clicked in the 'Upload an image' dialog.
   NTP_CUSTOMIZE_LOCAL_IMAGE_CANCEL: 51,
   // 'Done' was clicked in the 'Upload an image' dialog.
@@ -296,8 +296,6 @@ customBackgrounds.setBackground = function(
   customBackgrounds.closeCollectionDialog($(customBackgrounds.IDS.MENU));
   window.chrome.embeddedSearch.newTabPage.setBackgroundURLWithAttributions(
       url, attributionLine1, attributionLine2, attributionActionUrl);
-  ntpApiHandle.logEvent(
-      BACKGROUND_CUSTOMIZATION_LOG_TYPE.NTP_CUSTOMIZE_CHROME_BACKGROUND_DONE);
 };
 
 /**
@@ -756,8 +754,6 @@ customBackgrounds.init = function() {
   let editBackgroundInteraction = function() {
     customBackgrounds.loadCollections();
     editDialog.showModal();
-    ntpApiHandle.logEvent(BACKGROUND_CUSTOMIZATION_LOG_TYPE
-                              .NTP_CUSTOMIZE_CHROME_BACKGROUNDS_CLICKED);
   };
   $(customBackgrounds.IDS.EDIT_BG).onclick = function(event) {
     editDialog.classList.add(customBackgrounds.CLASSES.MOUSE_NAV);
@@ -951,13 +947,18 @@ customBackgrounds.initCustomBackgrounds = function() {
 
   // Interactions with the "Chrome backgrounds" option.
   var defaultWallpapersInteraction = function(event) {
-    editDialog.close();
-    if (typeof coll != 'undefined' && coll.length > 0) {
-      customBackgrounds.showCollectionSelectionDialog(
-          customBackgrounds.SOURCES.CHROME_BACKGROUNDS);
-    } else {
-      customBackgrounds.handleError(coll_errors);
-    }
+    customBackgrounds.loadChromeBackgrounds();
+    $('ntp-collection-loader').onload = function() {
+      editDialog.close();
+      if (typeof coll != 'undefined' && coll.length > 0) {
+        customBackgrounds.showCollectionSelectionDialog(
+            customBackgrounds.SOURCES.CHROME_BACKGROUNDS);
+      } else {
+        customBackgrounds.handleError(coll_errors);
+      }
+    };
+    ntpApiHandle.logEvent(BACKGROUND_CUSTOMIZATION_LOG_TYPE
+                              .NTP_CUSTOMIZE_CHROME_BACKGROUNDS_CLICKED);
   };
   $(customBackgrounds.IDS.DEFAULT_WALLPAPERS).onclick = function() {
     $(customBackgrounds.IDS.MENU)
