@@ -187,6 +187,7 @@ static_library("browser") {
     "//components/autofill/core/browser",
     "//components/autofill/core/browser/proto",
     "//components/autofill/core/common",
+    "//components/favicon/core",
     "//components/keyed_service/core",
     "//components/os_crypt",
     "//components/password_manager/core/browser/form_parsing",
@@ -425,6 +426,7 @@ source_set("unit_tests") {
     "//components/autofill/core/browser:test_support",
     "//components/autofill/core/browser/proto",
     "//components/autofill/core/common",
+    "//components/favicon/core/test:test_support",
     "//components/os_crypt",
     "//components/os_crypt:test_support",
     "//components/password_manager/core/browser:proto",
@@ -447,6 +449,7 @@ source_set("unit_tests") {
     "//testing/gmock",
     "//testing/gtest",
     "//ui/base",
+    "//ui/gfx:test_support",
     "//url",
   ]
 
