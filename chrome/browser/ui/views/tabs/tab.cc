@@ -1296,9 +1296,10 @@ void Tab::PaintTabBackground(gfx::Canvas* canvas,
   // |y_inset| is only set when |fill_id| is being used.
   DCHECK(!y_inset || fill_id);
 
-  const SkColor active_color = controller_->GetTabBackgroundColor(TAB_ACTIVE);
+  const SkColor active_color =
+      controller_->GetTabBackgroundColor(TAB_ACTIVE, false);
   const SkColor inactive_color =
-      controller_->GetTabBackgroundColor(TAB_INACTIVE);
+      controller_->GetTabBackgroundColor(TAB_INACTIVE, false);
   const SkColor stroke_color = controller_->GetToolbarTopSeparatorColor();
   const bool paint_hover_effect = !active && hover_controller_.ShouldDraw();
 

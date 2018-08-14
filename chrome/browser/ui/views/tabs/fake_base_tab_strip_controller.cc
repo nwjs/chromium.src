@@ -162,8 +162,8 @@ SkColor FakeBaseTabStripController::GetTabSeparatorColor() const {
   return gfx::kPlaceholderColor;
 }
 
-SkColor FakeBaseTabStripController::GetTabBackgroundColor(
-    TabState state) const {
+SkColor FakeBaseTabStripController::GetTabBackgroundColor(TabState state,
+                                                          bool opaque) const {
   return gfx::kPlaceholderColor;
 }
 
