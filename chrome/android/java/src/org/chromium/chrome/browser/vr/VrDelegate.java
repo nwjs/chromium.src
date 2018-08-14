@@ -6,7 +6,6 @@ package org.chromium.chrome.browser.vr;
 
 import android.app.Activity;
 import android.content.Intent;
-import android.os.Bundle;
 
 import org.chromium.chrome.browser.ChromeActivity;
 
@@ -35,9 +34,7 @@ public interface VrDelegate {
     void onNewIntentWithNative(ChromeActivity activity, Intent intent);
     void maybeHandleVrIntentPreNative(ChromeActivity activity, Intent intent);
     void setVrModeEnabled(Activity activity, boolean enabled);
-    void doPreInflationStartup(ChromeActivity activity, Bundle savedInstanceState);
     boolean bootsToVr();
     boolean isDaydreamReadyDevice();
     boolean isDaydreamCurrentViewer();
-    void onSaveInstanceState(Bundle outState);
 }

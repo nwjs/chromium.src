@@ -139,9 +139,6 @@ public class VrShellDelegate
     // how slow it already is.
     private static final int WINDOW_FADE_ANIMATION_DURATION_MS = 500;
 
-    /** ID for SavedInstanceState Bundle for whether Chrome was in VR when killed. */
-    private static final String IN_VR = "in_vr";
-
     private static VrShellDelegate sInstance;
     private static VrBroadcastReceiver sVrBroadcastReceiver;
     private static VrLifecycleObserver sVrLifecycleObserver;
@@ -665,30 +662,6 @@ public class VrShellDelegate
             getVrClassesWrapper().setVrModeEnabled(activity, false);
             sVrModeEnabledActivitys.remove(activity);
         }
-    }
-
-    /**
-     * Performs pre-inflation VR-related startup.
-     */
-    public static void doPreInflationStartup(ChromeActivity activity, Bundle savedInstanceState) {
-        // We need to explicitly enable VR mode here so that the system doesn't kick us out of VR,
-        // or drop us into the 2D-in-VR rendering mode, while we prepare for VR rendering.
-        if (VrIntentUtils.isLaunchingIntoVr(activity, activity.getIntent())) {
-            setVrModeEnabled(activity, true);
-        } else if (savedInstanceState != null && savedInstanceState.getBoolean(IN_VR, false)) {
-            // When Chrome is restored from a SavedInstanceState with VR mode still on we need to
-            // Explicitly turn VR mode off even though we can't really know for sure whether or not
-            // it's currently on.
-            AndroidCompat.setVrModeEnabled(activity, false);
-            sVrModeEnabledActivitys.remove(activity);
-        }
-    }
-
-    /**
-     * See {@link Activity#onSaveInstanceState(Bundle)}
-     */
-    public static void onSaveInstanceState(Bundle outState) {
-        if (isInVr()) outState.putBoolean(IN_VR, true);
     }
 
     /**

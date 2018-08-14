@@ -108,9 +108,6 @@ import org.chromium.chrome.browser.ChromeActivity;
     }
 
     @Override
-    public void doPreInflationStartup(ChromeActivity activity, Bundle savedInstanceState) {}
-
-    @Override
     public boolean bootsToVr() {
         return false;
     }
@@ -146,7 +143,4 @@ import org.chromium.chrome.browser.ChromeActivity;
         assert false;
         return null;
     }
-
-    @Override
-    public void onSaveInstanceState(Bundle outState) {}
 }
