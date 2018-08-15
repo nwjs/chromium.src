@@ -1704,11 +1704,58 @@ void Tab::OnButtonColorMaybeChanged() {
     title_->SetEnabledColor(title_color);
     alert_indicator_button_->OnParentTabButtonColorChanged();
   }
-  SkColor icon_color =
+  UpdateCloseButtonColors(title_color);
+}
+
+void Tab::UpdateCloseButtonColors(SkColor title_color) {
+  // These ratios are calculated from the default colors specified in the
+  // Material Refresh design document. Active/inactive are the contrast ratios
+  // of the close X against the tab background. Hovered/pressed are the contrast
+  // ratios of the highlight circle against the tab background.
+  constexpr float kMinimumActiveContrastRatio = 6.05f;
+  constexpr float kMinimumInactiveContrastRatio = 4.61f;
+  constexpr float kMinimumHoveredContrastRatio = 5.02f;
+  constexpr float kMinimumPressedContrastRatio = 4.41f;
+
+  const SkColor tab_bg_color = controller_->GetTabBackgroundColor(
+      IsActive() ? TAB_ACTIVE : TAB_INACTIVE);
+  const SkColor base_icon_color =
       MD::GetMode() == ui::MaterialDesignController::MATERIAL_TOUCH_OPTIMIZED
           ? GetCloseTabButtonColor(views::Button::STATE_NORMAL)
-          : button_color_;
-  close_button_->SetIconColors(icon_color);
+          : title_color;
+  const SkColor base_hovered_pressed_icon_color =
+      MD::IsNewerMaterialUi() ? base_icon_color : SK_ColorWHITE;
+  const SkColor base_hovered_color =
+      GetCloseTabButtonColor(views::Button::STATE_HOVERED);
+  const SkColor base_pressed_color =
+      GetCloseTabButtonColor(views::Button::STATE_PRESSED);
+
+  const auto get_color_for_contrast_ratio = [](SkColor fg_color,
+                                               SkColor bg_color,
+                                               float contrast_ratio) {
+    const SkAlpha blend_alpha = color_utils::GetBlendValueWithMinimumContrast(
+        bg_color, fg_color, bg_color, contrast_ratio);
+    return color_utils::AlphaBlend(fg_color, bg_color, blend_alpha);
+  };
+
+  const SkColor generated_icon_color = get_color_for_contrast_ratio(
+      base_icon_color, tab_bg_color,
+      IsActive() ? kMinimumActiveContrastRatio : kMinimumInactiveContrastRatio);
+  const SkColor generated_hovered_color = get_color_for_contrast_ratio(
+      base_hovered_color, tab_bg_color, kMinimumHoveredContrastRatio);
+  const SkColor generated_pressed_color = get_color_for_contrast_ratio(
+      base_pressed_color, tab_bg_color, kMinimumPressedContrastRatio);
+
+  const SkColor generated_hovered_icon_color =
+      color_utils::GetColorWithMinimumContrast(base_hovered_pressed_icon_color,
+                                               generated_hovered_color);
+  const SkColor generated_pressed_icon_color =
+      color_utils::GetColorWithMinimumContrast(base_hovered_pressed_icon_color,
+                                               generated_pressed_color);
+  close_button_->SetIconColors(
+      generated_icon_color, generated_hovered_icon_color,
+      generated_pressed_icon_color, generated_hovered_color,
+      generated_pressed_color);
 }
 
 Tab::BackgroundCache::BackgroundCache() = default;

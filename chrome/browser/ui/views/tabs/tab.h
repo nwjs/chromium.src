@@ -306,6 +306,9 @@ class Tab : public gfx::AnimationDelegate,
   // time the theme or active state may have changed.
   void OnButtonColorMaybeChanged();
 
+  // Generate and update close button colors for proper contrast.
+  void UpdateCloseButtonColors(SkColor title_color);
+
   // The controller, never NULL.
   TabController* const controller_;
 
