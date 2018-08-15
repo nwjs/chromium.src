@@ -54,7 +54,6 @@ class FakeBaseTabStripController : public TabStripController {
   void OnStoppedDraggingTabs() override;
   SkColor GetFrameColor() const override;
   SkColor GetToolbarTopSeparatorColor() const override;
-  SkColor GetTabSeparatorColor() const override;
   SkColor GetTabBackgroundColor(TabState state, bool opaque) const override;
   SkColor GetTabForegroundColor(TabState state) const override;
   int GetTabBackgroundResourceId(bool* has_custom_image) const override;
