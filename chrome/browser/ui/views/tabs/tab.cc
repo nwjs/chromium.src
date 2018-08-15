@@ -1707,7 +1707,7 @@ void Tab::UpdateButtonIconColors(SkColor title_color) {
   title_->SetEnabledColor(title_color);
 
   const SkColor tab_bg_color = controller_->GetTabBackgroundColor(
-      IsActive() ? TAB_ACTIVE : TAB_INACTIVE);
+      IsActive() ? TAB_ACTIVE : TAB_INACTIVE, true);
   const SkColor base_icon_color =
       MD::GetMode() == ui::MaterialDesignController::MATERIAL_TOUCH_OPTIMIZED
           ? GetCloseTabButtonColor(views::Button::STATE_NORMAL)
