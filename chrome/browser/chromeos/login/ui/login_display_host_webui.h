@@ -183,6 +183,9 @@ class LoginDisplayHostWebUI : public LoginDisplayHostCommon,
   // Creates or recreates |existing_user_controller_|.
   void CreateExistingUserController();
 
+  // Plays startup sound if needed and audio device is ready.
+  void PlayStartupSoundIfPossible();
+
   // Sign in screen controller.
   std::unique_ptr<ExistingUserController> existing_user_controller_;
 
@@ -256,6 +259,9 @@ class LoginDisplayHostWebUI : public LoginDisplayHostCommon,
   bool oobe_startup_sound_played_ = false;
 
   bool is_voice_interaction_oobe_ = false;
+
+  // True if we need to play startup sound when audio device becomes available.
+  bool need_to_play_startup_sound_ = false;
 
   base::WeakPtrFactory<LoginDisplayHostWebUI> weak_factory_;
 
