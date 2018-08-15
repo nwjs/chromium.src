@@ -947,16 +947,13 @@ customBackgrounds.initCustomBackgrounds = function() {
 
   // Interactions with the "Chrome backgrounds" option.
   var defaultWallpapersInteraction = function(event) {
-    customBackgrounds.loadChromeBackgrounds();
-    $('ntp-collection-loader').onload = function() {
-      editDialog.close();
-      if (typeof coll != 'undefined' && coll.length > 0) {
-        customBackgrounds.showCollectionSelectionDialog(
-            customBackgrounds.SOURCES.CHROME_BACKGROUNDS);
-      } else {
-        customBackgrounds.handleError(coll_errors);
-      }
-    };
+    editDialog.close();
+    if (typeof coll != 'undefined' && coll.length > 0) {
+      customBackgrounds.showCollectionSelectionDialog(
+          customBackgrounds.SOURCES.CHROME_BACKGROUNDS);
+    } else {
+      customBackgrounds.handleError(coll_errors);
+    }
     ntpApiHandle.logEvent(BACKGROUND_CUSTOMIZATION_LOG_TYPE
                               .NTP_CUSTOMIZE_CHROME_BACKGROUNDS_CLICKED);
   };
