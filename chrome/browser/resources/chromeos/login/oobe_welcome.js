@@ -97,6 +97,10 @@ Polymer({
     });
 
     this.$.networkSelectionScreen.onBeforeShow();
+
+    let activeScreen = this.getActiveScreen_();
+    if (activeScreen.show)
+      activeScreen.show();
   },
 
   /**
