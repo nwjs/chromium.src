@@ -19,7 +19,7 @@
       <hd-iron-icon slot="oobe-icon"
           icon1x="sync-consent-32:googleg" icon2x="sync-consent-64:googleg">
       </hd-iron-icon>
-      <h1 slot="title" consent-description>
+      <h1 slot="title">
         [[i18nDynamic(locale, 'syncConsentScreenTitle')]]
       </h1>
       <div slot="footer" class="layout vertical">
@@ -30,10 +30,10 @@
           </img>
           <div class="overview-list-item-text flex layout vertical
               center-justified">
-            <div class="overview-list-item-title" consent-description>
+            <div class="overview-list-item-title">
               [[i18nDynamic(locale, 'syncConsentScreenChromeSyncName')]]
             </div>
-            <div class="overview-list-item-description" consent-description>
+            <div class="overview-list-item-description">
               [[i18nDynamic(locale, 'syncConsentScreenChromeSyncDescription')]]
             </div>
           </div>
@@ -44,26 +44,24 @@
           </hd-iron-icon>
           <div class="overview-list-item-text flex layout vertical
               center-justified">
-            <div class="overview-list-item-title" consent-description>
+            <div class="overview-list-item-title">
               [[i18nDynamic(locale,
                 'syncConsentScreenPersonalizeGoogleServicesName')]]
             </div>
-            <div class="overview-list-item-description" consent-description>
+            <div class="overview-list-item-description">
               [[i18nDynamic(locale,
                 'syncConsentScreenPersonalizeGoogleServicesDescription')]]
             </div>
           </div>
         </div>
-        <cr-checkbox id="reviewSettingsBox" consent-description>
+        <cr-checkbox id="reviewSettingsBox">
           [[i18nDynamic(locale, 'syncConsentReviewSyncOptionsText')]]
         </cr-checkbox>
       </div>
       <div slot="bottom-buttons" class="layout horizontal end-justified">
-        <oobe-text-button id="settingsSaveAndContinueButton"
+        <oobe-text-button
             on-tap="onSettingsSaveAndContinue_" class="focus-on-show" inverse>
-          <div consent-description consent-confirmation>
-            [[i18nDynamic(locale, 'syncConsentAcceptAndContinue')]]
-          </div>
+          <div>[[i18nDynamic(locale, 'syncConsentAcceptAndContinue')]]</div>
         </oobe-text-button>
       </div>
     </oobe-dialog>
@@ -75,7 +73,7 @@
                    chrome://oobe/logo_24px-2x.svg 2x"
           slot="oobe-icon">
       </img>
-      <h1 slot="title" consent-description>
+      <h1 slot="title">
         [[i18nRecursive(locale, 'syncConsentNewScreenTitle', 'productName')]]
       </h1>
       <div slot="footer" class="layout vertical">
@@ -84,7 +82,7 @@
             icon1x="sync-consent-24:sync_ic" icon2x="sync-consent-48:sync_ic">
           </hd-iron-icon>
           <div class="sync-feature-item-text flex layout vertical
-              center-justified" consent-description>
+              center-justified">
             [[i18nDynamic(locale, 'syncConsentNewBookmarksDesc')]]
           </div>
         </div>
@@ -94,7 +92,7 @@
               icon2x="sync-consent-48:assistant_ic">
           </hd-iron-icon>
           <div class="sync-feature-item-text flex layout vertical
-              center-justified" consent-description>
+              center-justified">
             [[i18nDynamic(locale, 'syncConsentNewServicesDesc')]]
           </div>
         </div>
@@ -104,7 +102,7 @@
               icon2x="sync-consent-48:googleg_ic">
           </hd-iron-icon>
           <div class="sync-feature-item-text flex layout vertical
-              center-justified" consent-description>
+              center-justified">
             [[i18nRecursive(locale, 'syncConsentNewImproveChrome',
                             'productName')]]
           </div>
@@ -116,7 +114,7 @@
               icon2x="sync-consent-48:settings_ic">
           </hd-iron-icon>
           <div class="sync-feature-item-text flex layout vertical
-              center-justified" consent-description>
+              center-justified">
             [[i18nRecursive(locale, 'syncConsentNewGoogleMayUse',
                             'productName')]]
           </div>
@@ -128,15 +126,13 @@
             on-tap="onMoreOptionsButton_"
             label-for-aria$="[[i18nDynamic(locale,
                 'syncConsentNewMoreOptions')]]">
-          <div consent-description>
+          <div>
             [[i18nDynamic(locale, 'syncConsentNewMoreOptions')]]
           </div>
         </oobe-welcome-secondary-button>
         <oobe-text-button id="yesIAmInButton"
           on-tap="onYesIAmInButton_" class="focus-on-show" inverse>
-          <div consent-description consent-confirmation>
-            [[i18nDynamic(locale, 'syncConsentNewYesIAmIn')]]
-          </div>
+          <div>[[i18nDynamic(locale, 'syncConsentNewYesIAmIn')]]</div>
         </oobe-text-button>
       </div>
     </oobe-dialog>
@@ -147,15 +143,15 @@
                    chrome://oobe/logo_24px-2x.svg 2x"
           slot="oobe-icon">
       </img>
-      <h1 slot="title" consent-description>
+      <h1 slot="title">
         [[i18nDynamic(locale, 'syncConsentNewSyncOptions')]]
       </h1>
       <div slot="subtitle">
-        <div consent-description>
+        <div>
           [[i18nRecursive(locale, 'syncConsentNewSyncOptionsSubtitle',
                           'productName')]]
         </div>
-        <div consent-description>
+        <div>
           [[i18nDynamic(locale, 'syncConsentNewChooseOption')]]
         </div>
       </div>
@@ -164,41 +160,39 @@
             on-paper-radio-group-changed="onOptionsSelectionChanged_">
           <paper-radio-button name="reviewOptions"
               class="options-list-item flex layout horizontal center
-                  focus-on-show" consent-option>
+                  focus-on-show">
             <div class="options-list-item-text flex layout vertical
                 center-justified">
-                <div class="sync-option-title" consent-description>
+                <div class="sync-option-title">
                   [[i18nDynamic(locale, 'syncConsentNewOptionReview')]]
                 </div>
-                <div class="sync-option-subtitle" consent-description>
+                <div class="sync-option-subtitle">
                   [[i18nDynamic(locale, 'syncConsentNewOptionReviewDsc')]]
                 </div>
             </div>
           </paper-radio-button>
           <paper-radio-button name="justSync" name="justSync"
-              class="options-list-item flex layout horizontal center"
-              consent-option>
+              class="options-list-item flex layout horizontal center">
             <div class="options-list-item-text flex layout vertical
                 center-justified">
-                <div class="sync-option-title" consent-description>
+                <div class="sync-option-title">
                   [[i18nDynamic(locale, 'syncConsentNewOptionJustSync')]]
                 </div>
-                <div class="sync-option-subtitle" consent-description>
+                <div class="sync-option-subtitle">
                   [[i18nRecursive(locale, 'syncConsentNewOptionJustSyncDsc',
                                   'productName')]]
                 </div>
             </div>
           </paper-radio-button>
           <paper-radio-button name="syncAndPersonalization"
-              class="options-list-item flex layout horizontal center"
-              consent-option>
+              class="options-list-item flex layout horizontal center">
             <div class="options-list-item-text flex layout vertical
                 center-justified">
-                <div class="sync-option-title" consent-description>
+                <div class="sync-option-title">
                   [[i18nDynamic(locale,
                                 'syncConsentNewOptionSyncAndPersonalization')]]
                 </div>
-                <div class="sync-option-subtitle" consent-description>
+                <div class="sync-option-subtitle">
                   [[i18nDynamic(locale,
                       'syncConsentNewOptionSyncAndPersonalizationDsc')]]
                 </div>
@@ -209,9 +203,7 @@
       <div slot="bottom-buttons" class="layout horizontal end-justified">
         <oobe-text-button
             on-tap="onOptionsAcceptAndContinue_" inverse>
-          <div consent-description consent-confirmation>
-            [[i18nDynamic(locale, 'syncConsentAcceptAndContinue')]]
-          </div>
+          <div>[[i18nDynamic(locale, 'syncConsentAcceptAndContinue')]]</div>
         </oobe-text-button>
       </div>
     </oobe-dialog>
