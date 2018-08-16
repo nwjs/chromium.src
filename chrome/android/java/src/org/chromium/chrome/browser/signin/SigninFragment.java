@@ -147,7 +147,10 @@ public class SigninFragment extends SigninFragmentBase {
                 histogram = "Signin.SigninCompletedAccessPoint.NotDefault";
                 break;
             case PromoAction.NEW_ACCOUNT:
-                histogram = "Signin.SigninCompletedAccessPoint.NewAccount";
+                // On Android, the promo does not have a button to add an account when there is
+                // already an account on the device. That flow goes through the NotDefault promo
+                // instead. Always use the NoExistingAccount variant.
+                histogram = "Signin.SigninCompletedAccessPoint.NewAccountNoExistingAccount";
                 break;
             default:
                 assert false : "Unexpected sign-in flow type!";
@@ -170,7 +173,10 @@ public class SigninFragment extends SigninFragmentBase {
                 histogram = "Signin.SigninStartedAccessPoint.NotDefault";
                 break;
             case PromoAction.NEW_ACCOUNT:
-                histogram = "Signin.SigninStartedAccessPoint.NewAccount";
+                // On Android, the promo does not have a button to add an account when there is
+                // already an account on the device. That flow goes through the NotDefault promo
+                // instead. Always use the NoExistingAccount variant.
+                histogram = "Signin.SigninStartedAccessPoint.NewAccountNoExistingAccount";
                 break;
             default:
                 assert false : "Unexpected sign-in flow type!";

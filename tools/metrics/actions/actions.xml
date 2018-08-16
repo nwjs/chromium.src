@@ -16884,6 +16884,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromAvatarBubbleSignin">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -16893,6 +16895,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromBookmarkBubble">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -16902,7 +16906,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromBookmarkManager">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER, with a new
@@ -16911,6 +16918,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromExtensionInstallBubble">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -16920,7 +16929,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromNTPContentSuggestions">
+  <obsolete>Deprecated 08/2018</obsolete>
   <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS, with a
@@ -16929,6 +16940,8 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromPasswordBubble">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -16938,7 +16951,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromRecentTabs">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS, with a new account.
@@ -16946,7 +16962,10 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromSettings">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS, with a new account.
@@ -16954,14 +16973,303 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNewAccount_FromTabSwitcher">
+  <obsolete>Deprecated 08/2018</obsolete>
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_TAB_SWITCHER, with a new account.
   </description>
 </action>
 
+<action name="Signin_SigninNewAccountExistingAccount_FromAvatarBubbleSignin">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN, with a new
+    account, while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountExistingAccount_FromBookmarkBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_BUBBLE, with a new
+    account, while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountExistingAccount_FromBookmarkManager">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER, with a new
+    account, while Chrome already has other accounts.
+  </description>
+</action>
+
+<action
+    name="Signin_SigninNewAccountExistingAccount_FromExtensionInstallBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_EXTENSION_INSTALL_BUBBLE, with a
+    new account, while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountExistingAccount_FromNTPContentSuggestions">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS, with a
+    new account, while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountExistingAccount_FromPasswordBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE, with a new
+    account, while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountExistingAccount_FromRecentTabs">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS, with a new account,
+    while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountExistingAccount_FromSettings">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS, with a new account,
+    while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountExistingAccount_FromTabSwitcher">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_TAB_SWITCHER, with a new account,
+    while Chrome already has other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountNoExistingAccount_FromAvatarBubbleSignin">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN, with a new
+    account, while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountNoExistingAccount_FromBookmarkBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_BUBBLE, with a new
+    account, while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountNoExistingAccount_FromBookmarkManager">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER, with a new
+    account, while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action
+    name="Signin_SigninNewAccountNoExistingAccount_FromExtensionInstallBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_EXTENSION_INSTALL_BUBBLE, with a
+    new account, while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action
+    name="Signin_SigninNewAccountNoExistingAccount_FromNTPContentSuggestions">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS, with a
+    new account, while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountNoExistingAccount_FromPasswordBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE, with a new
+    account, while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountNoExistingAccount_FromRecentTabs">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS, with a new account,
+    while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountNoExistingAccount_FromSettings">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS, with a new account,
+    while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountNoExistingAccount_FromTabSwitcher">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_TAB_SWITCHER, with a new account,
+    while Chrome does not have other accounts.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromAvatarBubbleSignin">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_AVATAR_BUBBLE_SIGN_IN, with a new
+    account, on desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromBookmarkBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_BUBBLE, with a new
+    account, on desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromBookmarkManager">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER, with a new
+    account, on desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromExtensionInstallBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_EXTENSION_INSTALL_BUBBLE, with a
+    new account, on desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromNTPContentSuggestions">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS, with a
+    new account, on desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromPasswordBubble">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_PASSWORD_BUBBLE, with a new
+    account, on desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromRecentTabs">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS, with a new account,
+    on desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromSettings">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS, with a new account, on
+    desktop pre-Dice.
+  </description>
+</action>
+
+<action name="Signin_SigninNewAccountPreDice_FromTabSwitcher">
+  <owner>bsazonov@chromium.org</owner>
+  <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
+  <description>
+    Recorded on sign in start from access point
+    signin_metrics::AccessPoint::ACCESS_POINT_TAB_SWITCHER, with a new account,
+    on desktop pre-Dice.
+  </description>
+</action>
+
 <action name="Signin_SigninNotDefault_FromAvatarBubbleSignin">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -16971,6 +17279,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNotDefault_FromBookmarkBubble">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -16980,7 +17289,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNotDefault_FromBookmarkManager">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER, using another
@@ -16989,6 +17300,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNotDefault_FromExtensionInstallBubble">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -16999,6 +17311,7 @@ should be able to be added at any place in this file.
 
 <action name="Signin_SigninNotDefault_FromNTPContentSuggestions">
   <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS, using
@@ -17007,6 +17320,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNotDefault_FromPasswordBubble">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -17016,7 +17330,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNotDefault_FromRecentTabs">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS, using another account
@@ -17025,7 +17341,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNotDefault_FromSettings">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS, using another account
@@ -17034,7 +17352,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninNotDefault_FromTabSwitcher">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_TAB_SWITCHER, using another
@@ -17053,6 +17373,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromAvatarBubbleSignin">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -17062,6 +17383,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromBookmarkBubble">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -17071,7 +17393,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromBookmarkManager">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_BOOKMARK_MANAGER, using the
@@ -17080,6 +17404,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromExtensionInstallBubble">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -17090,6 +17415,7 @@ should be able to be added at any place in this file.
 
 <action name="Signin_SigninWithDefault_FromNTPContentSuggestions">
   <owner>bsazonov@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_NTP_CONTENT_SUGGESTIONS, using the
@@ -17098,6 +17424,7 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromPasswordBubble">
+  <owner>bsazonov@chromium.org</owner>
   <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
@@ -17107,7 +17434,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromRecentTabs">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_RECENT_TABS, using the default
@@ -17116,7 +17445,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromSettings">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_SETTINGS, using the default
@@ -17125,7 +17456,9 @@ should be able to be added at any place in this file.
 </action>
 
 <action name="Signin_SigninWithDefault_FromTabSwitcher">
+  <owner>bsazonov@chromium.org</owner>
   <owner>jlebel@chromium.org</owner>
+  <owner>msarda@chromium.org</owner>
   <description>
     Recorded on sign in start from access point
     signin_metrics::AccessPoint::ACCESS_POINT_TAB_SWITCHER, using the default
