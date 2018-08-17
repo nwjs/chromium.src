@@ -1194,7 +1194,7 @@
 <translation id="2781692009645368755">Google Pay</translation>
 <translation id="2782104745158847185">Se produjo un error al instalar la app de Linux</translation>
 <translation id="2783298271312924866">Descargado</translation>
-<translation id="2783321960289401138">Crear combinación de teclas...</translation>
+<translation id="2783321960289401138">Crear acceso directo…</translation>
 <translation id="2783829359200813069">Seleccionar tipos de encriptación</translation>
 <translation id="2784407158394623927">Activando el servicio de datos para celulares</translation>
 <translation id="2785873697295365461">Descriptores de archivo</translation>
@@ -4174,7 +4174,6 @@
 <translation id="7387829944233909572">Diálogo "Eliminar datos de navegación"</translation>
 <translation id="7388044238629873883">Falta muy poco</translation>
 <translation id="7388222713940428051">Abrir una ventana como invitado</translation>
-<translation id="7391648274628927397">Se agregó un favorito para ti</translation>
 <translation id="7392118418926456391">Error en el análisis antivirus</translation>
 <translation id="7392915005464253525">Volver a abrir una ventana cerrada</translation>
 <translation id="7396845648024431313"><ph name="APP_NAME" /> empezará a ejecutarse cuando se inicie el sistema y seguirá ejecutándose en segundo plano aunque cierres todas las demás ventanas de <ph name="PRODUCT_NAME" />.</translation>
