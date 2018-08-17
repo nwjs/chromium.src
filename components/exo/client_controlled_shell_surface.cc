@@ -326,10 +326,7 @@ ClientControlledShellSurface::ClientControlledShellSurface(Surface* surface,
 }
 
 ClientControlledShellSurface::~ClientControlledShellSurface() {
-  if (wide_frame_)
-    wide_frame_->Close();
-
-  WMHelper::GetInstance()->RemoveDisplayConfigurationObserver(this);
+  wide_frame_.reset();
   display::Screen::GetScreen()->RemoveObserver(this);
 }
 
@@ -969,7 +966,7 @@ gfx::Point ClientControlledShellSurface::GetSurfaceOrigin() const {
 // ClientControlledShellSurface, private:
 
 void ClientControlledShellSurface::UpdateFrame() {
-  if (!widget_ || !GetFrameView()->visible())
+  if (!widget_)
     return;
   gfx::Rect work_area =
       display::Screen::GetScreen()
@@ -980,19 +977,18 @@ void ClientControlledShellSurface::UpdateFrame() {
   if (window_state->IsMaximizedOrFullscreenOrPinned() &&
       work_area.width() != geometry().width()) {
     if (!wide_frame_) {
-      wide_frame_ = ash::WideFrameView::Create(widget_);
+      wide_frame_ = std::make_unique<ash::WideFrameView>(widget_);
       immersive_fullscreen_controller_->SetEnabled(
           ash::ImmersiveFullscreenController::WINDOW_TYPE_OTHER, false);
       wide_frame_->Init(immersive_fullscreen_controller_.get());
-      wide_frame_->Show();
+      wide_frame_->GetWidget()->Show();
       UpdateCaptionButtonModel();
     }
   } else {
     if (wide_frame_) {
-      wide_frame_->Close();
-      wide_frame_ = nullptr;
       immersive_fullscreen_controller_->SetEnabled(
           ash::ImmersiveFullscreenController::WINDOW_TYPE_OTHER, false);
+      wide_frame_.reset();
       GetFrameView()->InitImmersiveFullscreenControllerForView(
           immersive_fullscreen_controller_.get());
       UpdateCaptionButtonModel();
