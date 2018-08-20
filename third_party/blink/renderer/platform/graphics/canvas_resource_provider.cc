@@ -494,7 +494,8 @@ CanvasResourceProvider::CanvasImageProvider::CanvasImageProvider(
     const gfx::ColorSpace& target_color_space)
     : playback_image_provider_(cache,
                                target_color_space,
-                               cc::PlaybackImageProvider::Settings()) {}
+                               cc::PlaybackImageProvider::Settings()),
+      weak_factory_(this) {}
 
 CanvasResourceProvider::CanvasImageProvider::~CanvasImageProvider() = default;
 
@@ -506,7 +507,9 @@ CanvasResourceProvider::CanvasImageProvider::GetDecodedDrawImage(
   if (!scoped_decoded_image.needs_unlock())
     return scoped_decoded_image;
 
-  if (!scoped_decoded_image.decoded_image().is_budgeted()) {
+  constexpr int kMaxLockedImagesCount = 500;
+  if (!scoped_decoded_image.decoded_image().is_budgeted() ||
+      locked_images_.size() > kMaxLockedImagesCount) {
     // If we have exceeded the budget, ReleaseLockedImages any locked decodes.
     ReleaseLockedImages();
   }
@@ -526,6 +529,12 @@ void CanvasResourceProvider::CanvasImageProvider::ReleaseLockedImages() {
 
 void CanvasResourceProvider::CanvasImageProvider::CanUnlockImage(
     ScopedDecodedDrawImage image) {
+  if (locked_images_.empty()) {
+    Platform::Current()->CurrentThread()->GetTaskRunner()->PostTask(
+        FROM_HERE, base::BindOnce(&CanvasImageProvider::ReleaseLockedImages,
+                                  weak_factory_.GetWeakPtr()));
+  }
+
   locked_images_.push_back(std::move(image));
 }
 
