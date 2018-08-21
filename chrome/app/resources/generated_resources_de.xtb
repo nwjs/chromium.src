@@ -408,7 +408,7 @@
 <translation id="1608626060424371292">Diesen Nutzer entfernen</translation>
 <translation id="1609170755653088773">Passwort mit meinem iPhone synchronisieren</translation>
 <translation id="1609862759711084604">Vorheriger Nutzer</translation>
-<translation id="1611584202130317952">Bereitstellungsverfahren unterbrochen. Bitte wenden Sie sich an den Inhaber Ihres Geräts oder an den Administrator oder versuchen Sie es noch einmal.</translation>
+<translation id="1611584202130317952">Bereitstellungsverfahren unterbrochen. Bitte wenden Sie sich an den Eigentümer Ihres Geräts oder an den Administrator oder versuchen Sie es noch einmal.</translation>
 <translation id="1611649489706141841">Weiter</translation>
 <translation id="1611704746353331382">Lesezeichen in HTML-Datei exportieren...</translation>
 <translation id="161460670679785907">Ihr Smartphone wurde nicht erkannt</translation>
@@ -814,7 +814,7 @@
 <translation id="221872881068107022">Gegenläufiges Scrollen</translation>
 <translation id="2220529011494928058">Problem melden</translation>
 <translation id="2220572644011485463">PIN oder Passwort</translation>
-<translation id="2224444042887712269">Inhaber dieser Einstellung ist <ph name="OWNER_EMAIL" />.</translation>
+<translation id="2224444042887712269">Eigentümer dieser Einstellung ist <ph name="OWNER_EMAIL" />.</translation>
 <translation id="2224551243087462610">Ordnername bearbeiten</translation>
 <translation id="2226449515541314767">Dieser Website wurde keine vollständige Kontrolle über MIDI-Geräte gewährt.</translation>
 <translation id="2226720438730111184">Sagen Sie uns, was los ist</translation>
@@ -1702,7 +1702,7 @@ Servernachricht: <ph name="SERVER_MSG" /></translation>
 <translation id="3574917942258583917">Inkognitomodus trotzdem beenden?</translation>
 <translation id="3576324189521867626">Installation war erfolgreich</translation>
 <translation id="3578594933904494462">Der Inhalt dieses Tabs wird geteilt.</translation>
-<translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; möchte den Drucker &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; für eine Gruppe freigeben, deren Inhaber Sie sind: &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;. Falls Sie zustimmen, können alle Gruppenmitglieder diesen Drucker nutzen.</translation>
+<translation id="357886715122934472">&lt;strong&gt;<ph name="SENDER" />&lt;/strong&gt; möchte den Drucker &lt;strong&gt;<ph name="PRINTER_NAME" />&lt;/strong&gt; für eine Gruppe freigeben, deren Eigentümer Sie sind: &lt;strong&gt;<ph name="GROUP_NAME" />&lt;/strong&gt;. Falls Sie zustimmen, können alle Gruppenmitglieder diesen Drucker nutzen.</translation>
 <translation id="3580923162759633716">Profilerstellungsdienst</translation>
 <translation id="3584169441612580296">Fotos, Musik und andere Medien auf Ihrem Computer lesen und ändern</translation>
 <translation id="3587482841069643663">Alle</translation>
@@ -4677,7 +4677,7 @@ Speichern Sie Ihre Schlüsseldatei an einem sicheren Ort. Sie benötigen die Dat
 <translation id="8131740175452115882">Bestätigen</translation>
 <translation id="8133676275609324831">&amp;In Ordner anzeigen</translation>
 <translation id="8135557862853121765"><ph name="NUM_KILOBYTES" /> KB</translation>
-<translation id="8137331602592933310">"<ph name="FILENAME" />" wurde mit Ihnen geteilt. Sie können die Datei nicht löschen, da Sie nicht der Inhaber sind.</translation>
+<translation id="8137331602592933310">"<ph name="FILENAME" />" wurde mit Ihnen geteilt. Sie können die Datei nicht löschen, da Sie nicht der Eigentümer sind.</translation>
 <translation id="8137559199583651773">Erweiterungen verwalten</translation>
 <translation id="8138082791834443598">Optional: Eingabe neuer oder Aktualisierung vorhandener Informationen für dieses Gerät.</translation>
 <translation id="813913629614996137">Initialisierung…</translation>

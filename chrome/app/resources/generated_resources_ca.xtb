@@ -684,7 +684,7 @@
 <translation id="2007404777272201486">Informa d'un problema...</translation>
 <translation id="2016237810978710652">S'estan obrint els fitxers de Linux...</translation>
 <translation id="2016430552235416146">Tradicional</translation>
-<translation id="2017334798163366053">Desactiva la recopilació de dades de rendiment</translation>
+<translation id="2017334798163366053">Desactiva la recollida de dades de rendiment</translation>
 <translation id="2017836877785168846">Esborra l'historial i les complecions automàtiques a la barra d'adreces.</translation>
 <translation id="2018352199541442911">El teu dispositiu d'emmagatzematge extern no és compatible en aquests moments.</translation>
 <translation id="2019718679933488176">&amp;Obre l'àudio en una pestanya nova</translation>
@@ -999,7 +999,7 @@
 <translation id="2499747912851752301">S'estan exportant les contrasenyes...</translation>
 <translation id="2500471369733289700">S'ha bloquejat per protegir la teva privadesa</translation>
 <translation id="2501173422421700905">Certificat retingut</translation>
-<translation id="2501278716633472235">Enrere</translation>
+<translation id="2501278716633472235">Torna</translation>
 <translation id="2501797496290880632">Escriviu una drecera</translation>
 <translation id="2502441965851148920">Les actualitzacions automàtiques estan activades. En canvi, el vostre administrador ha desactivat les manuals.</translation>
 <translation id="2505324914378689427">{SCREEN_INDEX,plural, =1{Pantalla #}other{Pantalla #}}</translation>
@@ -1008,7 +1008,7 @@
 <translation id="2509495747794740764">El valor de l'escala ha d'oscil·lar entre 10 i 200.</translation>
 <translation id="2509566264613697683">8x</translation>
 <translation id="2512222046227390255">Emplena formularis automàticament</translation>
-<translation id="2513403576141822879">Per trobar més opcions relacionades amb la privadesa, la seguretat i la recopilació de dades, consulta <ph name="BEGIN_LINK" />Sincronització i serveis de Google<ph name="END_LINK" /></translation>
+<translation id="2513403576141822879">Per trobar més opcions relacionades amb la privadesa, la seguretat i la recollida de dades, consulta <ph name="BEGIN_LINK" />Sincronització i serveis de Google<ph name="END_LINK" /></translation>
 <translation id="2515586267016047495">Alt</translation>
 <translation id="2517472476991765520">Cerca</translation>
 <translation id="2518024842978892609">Utilitzar els certificats de client</translation>
@@ -1587,7 +1587,7 @@
 <translation id="3405664148539009465">Personalitza els tipus de lletra</translation>
 <translation id="3405763860805964263">…</translation>
 <translation id="3406605057700382950">&amp;Mostra la Barra d'adreces d'interès</translation>
-<translation id="3407837288045706722">Per trobar més opcions relacionades amb la privadesa, la seguretat i la recopilació de dades, consulta <ph name="BEGIN_LINK" />Sincronització i personalització<ph name="END_LINK" /></translation>
+<translation id="3407837288045706722">Per trobar més opcions relacionades amb la privadesa, la seguretat i la recollida de dades, consulta <ph name="BEGIN_LINK" />Sincronització i personalització<ph name="END_LINK" /></translation>
 <translation id="3412265149091626468">Ves directament a la selecció</translation>
 <translation id="3413122095806433232">Emissors de CA: <ph name="LOCATION" /></translation>
 <translation id="3414856743105198592">Si formateu els suports extraïbles esborrareu totes les dades. Voleu continuar?</translation>
@@ -1865,7 +1865,7 @@
 <translation id="3798449238516105146">Versió</translation>
 <translation id="3799201711591988491">{COUNT,plural, =0{&amp;Obre-les totes}=1{&amp;Obre l'adreça d'interès}other{&amp;Obre-les totes (#)}}</translation>
 <translation id="3800806661949714323">Mostra-ho tot (opció recomanada)</translation>
-<translation id="380408572480438692">L'activació de la recopilació de dades de rendiment ajudarà Google a millorar el sistema amb el temps. No s'enviarà cap dada fins que no empleneu un informe de comentaris (Alt-Maj-I) i les dades de rendiment. Podeu tornar a aquesta pantalla per desactivar la recopilació en qualsevol moment.</translation>
+<translation id="380408572480438692">L'activació de la recollida de dades de rendiment ajudarà Google a millorar el sistema amb el temps. No s'enviarà cap dada fins que no empleneu un informe de comentaris (Alt-Maj-I) i les dades de rendiment. Podeu tornar a aquesta pantalla per desactivar la recopilació en qualsevol moment.</translation>
 <translation id="3806965327722135869">Cerca i suprimeix programari perjudicial</translation>
 <translation id="3807249107536149332"><ph name="EXTENSION_NAME" /> (amb identificador d'extensió "<ph name="EXTENSION_ID" />") no es permet a les pantalles d'inici de sessió.</translation>
 <translation id="3807747707162121253">&amp;Cancel·la</translation>
@@ -2524,7 +2524,7 @@
 <translation id="4883178195103750615">Exporta les adreces d'interès a un fitxer HTML...</translation>
 <translation id="4883436287898674711">Tots els llocs de <ph name="WEBSITE_1" /></translation>
 <translation id="48838266408104654">&amp;Gestor de tasques</translation>
-<translation id="4883898390143004266">Ajuda les aplicacions a detectar la ubicació. Utilitza el servei d'ubicació de Google per ajudar a millorar la ubicació de les aplicacions. Google pot recopilar dades d'ubicació periòdicament i utilitzar-les de manera anònima per millorar la precisió de la ubicació i els serveis basats en la ubicació. <ph name="BEGIN_LINK1" />Obtén més informació<ph name="END_LINK1" />.</translation>
+<translation id="4883898390143004266">Ajuda les aplicacions a detectar la ubicació. Utilitza el servei d'ubicació de Google per ajudar a millorar la ubicació de les aplicacions. Google pot recollir dades d'ubicació periòdicament i utilitzar-les de manera anònima per millorar la precisió de la ubicació i els serveis basats en la ubicació. <ph name="BEGIN_LINK1" />Obtén més informació<ph name="END_LINK1" />.</translation>
 <translation id="4884740091792292473"><ph name="BEGIN_PARAGRAPH1" />Fes còpies de seguretat a Google Drive. Canvia de dispositiu o restaura'n les dades fàcilment en qualsevol moment. A la còpia de seguretat s'hi inclouen dades d'aplicacions.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />Les dades de les aplicacions poden ser qualsevol tipus de dada que hagi desat una aplicació (en funció de la configuració del desenvolupador), inclòs el contingut potencialment confidencial, com ara els contactes, els missatges i les fotos.<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />Les dades de les còpies de seguretat no es tenen en compte per a la quota d'emmagatzematge de Drive.<ph name="END_PARAGRAPH3" />
@@ -3634,7 +3634,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="6530681427077572136">Envia dades del sistema. Actualment, aquest dispositiu envia automàticament a Google dades de diagnòstic i d'ús del dispositiu i de les aplicacions. Ho pots canviar en qualsevol moment des de la configuració del dispositiu. Si també has activat l'opció Activitat al web i en aplicacions, aquesta informació es desarà al teu compte perquè la puguis gestionar a La meva activitat. <ph name="BEGIN_LINK1" />Obtén més informació<ph name="END_LINK1" />.</translation>
 <translation id="6531282281159901044">Desa el fitxer perillós</translation>
 <translation id="6534583978616527129">Inicialitzeu la connexió</translation>
-<translation id="654039047105555694"><ph name="BEGIN_BOLD" />Nota:<ph name="END_BOLD" /> activeu aquesta opció només si sabeu què esteu fent o si se us ha demanat que ho feu, ja que la recopilació de dades pot reduir el rendiment.</translation>
+<translation id="654039047105555694"><ph name="BEGIN_BOLD" />Nota:<ph name="END_BOLD" /> activeu aquesta opció només si sabeu què esteu fent o si se us ha demanat que ho feu, ja que la recollida de dades pot reduir el rendiment.</translation>
 <translation id="654233263479157500">Utilitza un servei web per solucionar els errors de navegació</translation>
 <translation id="6544215763872433504">El navegador web de Google, pensat per a tu</translation>
 <translation id="6545665334409411530">Freqüència de repetició</translation>
@@ -4252,7 +4252,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="7507930499305566459">Certificat de resposta d'estat</translation>
 <translation id="7508545000531937079">Presentació de diapositives</translation>
 <translation id="7513029293694390567">Inicia la sessió automàticament als llocs web amb les credencials emmagatzemades. Si la funció està desactivada, se't demanarà sempre que confirmis les credencials per iniciar la sessió en un lloc web.</translation>
-<translation id="7515154058529101840"><ph name="BEGIN_PARAGRAPH1" />Ajuda les aplicacions a trobar la ubicació. Utilitza el servei d'ubicació de Google per ajudar a millorar la ubicació de les aplicacions. Google pot recopilar dades d'ubicació regularment i utilitzar-les de manera anònima per millorar la precisió de la ubicació i els serveis basats en la ubicació.<ph name="END_PARAGRAPH1" />
+<translation id="7515154058529101840"><ph name="BEGIN_PARAGRAPH1" />Ajuda les aplicacions a trobar la ubicació. Utilitza el servei d'ubicació de Google per ajudar a millorar la ubicació de les aplicacions. Google pot recollir dades d'ubicació regularment i utilitzar-les de manera anònima per millorar la precisió de la ubicació i els serveis basats en la ubicació.<ph name="END_PARAGRAPH1" />
     <ph name="BEGIN_PARAGRAPH2" />El servei d'ubicació de Google utilitza fonts com ara sensors, xarxes mòbils i Wi-Fi per calcular la ubicació del dispositiu. Aquest servei s'activa quan l'opció Ubicació del dispositiu està activada.<ph name="END_PARAGRAPH2" />
     <ph name="BEGIN_PARAGRAPH3" />Pots desactivar la ubicació desactivant l'opció Ubicació principal del dispositiu. També pots desactivar l'ús de Wi-Fi, xarxes mòbils i sensors per calcular la ubicació a la configuració d'ubicació.<ph name="END_PARAGRAPH3" /></translation>
 <translation id="7517786267097410259">Crea una contrasenya</translation>
@@ -4561,7 +4561,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="7961015016161918242">Mai</translation>
 <translation id="7966241909927244760">C&amp;opia l'adreça de la imatge</translation>
 <translation id="7968742106503422125">Llegeix i modifica les dades que copies i enganxes</translation>
-<translation id="7968833647796919681">Activa la recopilació de dades de rendiment</translation>
+<translation id="7968833647796919681">Activa la recollida de dades de rendiment</translation>
 <translation id="7972714317346275248">PKCS #1 SHA-384 amb encriptació RSA</translation>
 <translation id="7973962044839454485">L'autenticació de PPA ha fallat perquè el nom d'usuari o la contrasenya no eren correctes</translation>
 <translation id="7974566588408714340">Torna-ho a provar amb <ph name="EXTENSIONNAME" /></translation>
