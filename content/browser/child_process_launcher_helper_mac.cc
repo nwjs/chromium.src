@@ -259,7 +259,7 @@ void ChildProcessLauncherHelper::SetProcessPriorityOnLauncherThread(
     const ChildProcessLauncherPriority& priority) {
   if (process.CanBackgroundProcesses()) {
     process.SetProcessBackgrounded(MachBroker::GetInstance(),
-                                   priority.background);
+                                   priority.is_background());
   }
 }
 

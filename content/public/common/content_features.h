@@ -139,6 +139,8 @@ CONTENT_EXPORT extern const base::Feature kWorkStealingInScriptRunner;
 
 #if defined(OS_ANDROID)
 CONTENT_EXPORT extern const base::Feature kAndroidAutofillAccessibility;
+CONTENT_EXPORT extern const base::Feature
+    kBackgroundMediaRendererHasModerateBinding;
 CONTENT_EXPORT extern const base::Feature kDisplayCutoutAPI;
 CONTENT_EXPORT extern const base::Feature kHideIncorrectlySizedFullscreenFrames;
 CONTENT_EXPORT extern const base::Feature kWebNfc;
