@@ -118,8 +118,8 @@ GlassBrowserFrameView::GlassBrowserFrameView(BrowserFrame* frame,
     // here and call it on demand in
     // HostedAppButtonContainer::UpdateIconsColor() via a delegate interface.
     hosted_app_button_container_ = new HostedAppButtonContainer(
-        browser_view, GetTitlebarFeatureColor(true),
-        GetTitlebarFeatureColor(false));
+        browser_view, GetTitlebarFeatureColor(kActive),
+        GetTitlebarFeatureColor(kInactive));
     AddChildView(hosted_app_button_container_);
     // TODO(https://crbug.com/854479): Add FrameHeaderOriginText animation here.
     hosted_app_button_container_->StartTitlebarAnimation(base::TimeDelta());
@@ -172,7 +172,8 @@ bool GlassBrowserFrameView::HasClientEdge() const {
          BrowserNonClientFrameView::HasClientEdge();
 }
 
-bool GlassBrowserFrameView::HasVisibleBackgroundTabShapes() const {
+bool GlassBrowserFrameView::HasVisibleBackgroundTabShapes(
+    ActiveState active_state) const {
   // Pre-Win 8, tabs never match the glass frame appearance.
   if (base::win::GetVersion() < base::win::VERSION_WIN8)
     return true;
@@ -186,7 +187,7 @@ bool GlassBrowserFrameView::HasVisibleBackgroundTabShapes() const {
   if (ui::NativeTheme::GetInstanceForNativeUi()->UsesHighContrastColors())
     return true;
 
-  return BrowserNonClientFrameView::HasVisibleBackgroundTabShapes();
+  return BrowserNonClientFrameView::HasVisibleBackgroundTabShapes(active_state);
 }
 
 void GlassBrowserFrameView::UpdateThrobber(bool running) {
@@ -559,8 +560,6 @@ int GlassBrowserFrameView::FrameTopBorderThickness(bool restored) const {
   // not maximized or fullscreen. When maximized, the OS sizes the window such
   // that the border extends beyond the screen edges. In that case, we must
   // return the default value.
-  // TODO(pkasting): https://crbug.com/862276  Increase this height when we
-  // can't extend the drag handle into the tabstrip.
   if (MD::IsRefreshUi() &&
       ((!frame()->IsFullscreen() && !IsMaximized()) || restored)) {
     constexpr int kTopResizeFrameArea = 5;
@@ -593,15 +592,23 @@ int GlassBrowserFrameView::TopAreaHeight(bool restored) const {
     return 0;
 
   int top = FrameTopBorderThickness(restored);
-  if (!IsMaximized() || restored) {
-    // Besides the frame border, there's empty space atop the window in restored
-    // mode, to use to drag the window around.
+  if (IsMaximized() && !restored)
+    return top;
+
+  // Besides the frame border, there's empty space atop the window in restored
+  // mode, to use to drag the window around.
+  if (!MD::IsRefreshUi()) {
     constexpr int kNonClientRestoredExtraThickness = 11;
-    constexpr int kRefreshNonClientRestoredExtraThickness = 4;
-    top += MD::IsRefreshUi() ? kRefreshNonClientRestoredExtraThickness
-                             : kNonClientRestoredExtraThickness;
+    return top + kNonClientRestoredExtraThickness;
   }
-  return top;
+
+  constexpr int kRefreshNonClientRestoredExtraThickness = 4;
+  int thickness = kRefreshNonClientRestoredExtraThickness;
+  if (EverHasVisibleBackgroundTabShapes()) {
+    thickness =
+        std::max(thickness, BrowserNonClientFrameView::kMinimumDragHeight);
+  }
+  return top + thickness;
 }
 
 int GlassBrowserFrameView::TitlebarMaximizedVisualHeight() const {
@@ -617,11 +624,13 @@ int GlassBrowserFrameView::TitlebarHeight(bool restored) const {
   return TitlebarMaximizedVisualHeight() + FrameTopBorderThickness(false);
 }
 
-SkColor GlassBrowserFrameView::GetTitlebarFeatureColor(bool active) const {
-  const SkAlpha title_alpha =
-      active ? SK_AlphaOPAQUE : kInactiveTitlebarFeatureAlpha;
-  return SkColorSetA(color_utils::BlendTowardOppositeLuma(GetFrameColor(active),
-                                                          SK_AlphaOPAQUE),
+SkColor GlassBrowserFrameView::GetTitlebarFeatureColor(
+    ActiveState active_state) const {
+  const SkAlpha title_alpha = ShouldPaintAsActive(active_state)
+                                  ? SK_AlphaOPAQUE
+                                  : kInactiveTitlebarFeatureAlpha;
+  return SkColorSetA(color_utils::BlendTowardOppositeLuma(
+                         GetFrameColor(active_state), SK_AlphaOPAQUE),
                      title_alpha);
 }
 
@@ -730,7 +739,6 @@ Windows10CaptionButton* GlassBrowserFrameView::CreateCaptionButton(
 
 void GlassBrowserFrameView::PaintTitlebar(gfx::Canvas* canvas) const {
   TRACE_EVENT0("views.frame", "GlassBrowserFrameView::PaintTitlebar");
-  gfx::Rect tabstrip_bounds = GetBoundsForTabStrip(browser_view()->tabstrip());
 
   cc::PaintFlags flags;
   gfx::ScopedCanvas scoped_canvas(canvas);
@@ -774,8 +782,12 @@ void GlassBrowserFrameView::PaintTitlebar(gfx::Canvas* canvas) const {
           : inactive_border_color);
   canvas->DrawRect(gfx::RectF(0, 0, width() * scale, y), flags);
 
+  const int titlebar_height =
+      browser_view()->IsTabStripVisible()
+          ? GetBoundsForTabStrip(browser_view()->tabstrip()).bottom()
+          : TitlebarHeight(false);
   const gfx::Rect titlebar_rect = gfx::ToEnclosingRect(
-      gfx::RectF(0, y, width() * scale, tabstrip_bounds.bottom() * scale - y));
+      gfx::RectF(0, y, width() * scale, titlebar_height * scale - y));
   // Paint the titlebar first so we have a background if an area isn't covered
   // by the theme image.
   flags.setColor(titlebar_color);
@@ -798,10 +810,8 @@ void GlassBrowserFrameView::PaintTitlebar(gfx::Canvas* canvas) const {
                          frame_overlay_image.height() * scale, true);
   }
 
-  if (ShowCustomTitle()) {
-    window_title_->SetEnabledColor(
-        GetTitlebarFeatureColor(ShouldPaintAsActive()));
-  }
+  if (ShowCustomTitle())
+    window_title_->SetEnabledColor(GetTitlebarFeatureColor(kUseCurrent));
 }
 
 void GlassBrowserFrameView::PaintClientEdge(gfx::Canvas* canvas) const {

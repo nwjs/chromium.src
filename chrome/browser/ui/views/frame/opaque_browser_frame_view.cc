@@ -455,6 +455,10 @@ bool OpaqueBrowserFrameView::UseCustomFrame() const {
   return frame()->UseCustomFrame();
 }
 
+bool OpaqueBrowserFrameView::EverHasVisibleBackgroundTabShapes() const {
+  return BrowserNonClientFrameView::EverHasVisibleBackgroundTabShapes();
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, protected:
 
