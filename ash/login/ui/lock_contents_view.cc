@@ -1436,9 +1436,7 @@ void LockContentsView::DisableLockScreenNote() {
 }
 
 void LockContentsView::RegisterAccelerators() {
-  // TODO: Add more accelerators that are applicable to login screen.
-  accel_map_[ui::Accelerator(ui::VKEY_I, ui::EF_SHIFT_DOWN | ui::EF_ALT_DOWN)] =
-      AcceleratorAction::kShowFeedback;
+  // Accelerators that apply on login and lock:
   accel_map_[ui::Accelerator(ui::VKEY_RIGHT, 0)] =
       AcceleratorAction::kFocusNextUser;
   accel_map_[ui::Accelerator(ui::VKEY_LEFT, 0)] =
