@@ -855,7 +855,7 @@
 <translation id="2271088077909873520">Zarządzaj zsynchronizowanymi danymi w <ph name="BEGIN_LINK" />Panelu Google<ph name="END_LINK" />.</translation>
 <translation id="2272570998639520080">Kieliszek do martini</translation>
 <translation id="2276503375879033601">Dodaj więcej aplikacji</translation>
-<translation id="2277255602909579701">Wszystkie pliki cookie i dane stron</translation>
+<translation id="2277255602909579701">Wszystkie pliki cookie i dane witryn</translation>
 <translation id="2277769717710009150">{COUNT,plural, =1{Skopiowano 1 element}few{Skopiowano # elementy}many{Skopiowano # elementów}other{Skopiowano # elementu}}</translation>
 <translation id="2278562042389100163">Otwórz okno przeglądarki</translation>
 <translation id="2279874276457403668">Można utworzyć tylko jedną sesję na raz.</translation>
@@ -1504,7 +1504,7 @@
 <translation id="3269093882174072735">Wczytaj obraz</translation>
 <translation id="326999365752735949">Pobieram zmiany</translation>
 <translation id="3270965368676314374">Odczyt, zmiana i usuwanie zdjęć, muzyki oraz innych multimediów na komputerze</translation>
-<translation id="327147043223061465">Wyświetl wszystkie pliki cookie i dane stron</translation>
+<translation id="327147043223061465">Wyświetl wszystkie pliki cookie i dane witryn</translation>
 <translation id="3271648667212143903"><ph name="ORIGIN" /> chce się połączyć</translation>
 <translation id="3274763671541996799">Pracujesz w trybie pełnoekranowym.</translation>
 <translation id="3275778913554317645">Otwórz jako okno</translation>
@@ -4528,6 +4528,7 @@
 <translation id="7908378463497120834">Nie można podłączyć co najmniej jednej partycji na urządzeniu zewnętrznej pamięci masowej.</translation>
 <translation id="7909969815743704077">Pobrano w trybie incognito</translation>
 <translation id="7910768399700579500">&amp;Nowy folder</translation>
+<translation id="7911118814695487383">Linux</translation>
 <translation id="7912080627461681647">Twoje hasło zostało zmienione na serwerze. Wyloguj się i zaloguj się ponownie.</translation>
 <translation id="7915471803647590281">Zanim wyślesz opinię, powiedz nam, co się dzieje.</translation>
 <translation id="7916556741383518510">Po kliknięciu</translation>
