@@ -281,6 +281,12 @@ class MEDIA_GPU_EXPORT MediaCodecVideoDecoder
   // Do we need a hw-secure codec?
   bool requires_secure_codec_ = false;
 
+  // Should we flush the codec on the next decode, and pretend that it is
+  // drained currently?  Note that we'll automatically flush if the codec is
+  // drained; this flag indicates that we also elided the drain, so the codec is
+  // in some random state, possibly with output buffers pending.
+  bool deferred_flush_pending_ = false;
+
   // Optional crypto object from the Cdm.
   base::android::ScopedJavaGlobalRef<jobject> media_crypto_;
 
