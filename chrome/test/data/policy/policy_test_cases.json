@@ -469,29 +469,11 @@
   },
 
   "AutofillAddressEnabled": {
-    "os": ["win", "linux", "mac", "chromeos"],
-    "can_be_recommended": true,
-    "test_policy": { "AutofillAddressEnabled": false },
-    "pref_mappings": [
-      { "pref": "autofill.profile_enabled",
-        "indicator_tests": [
-          { "policy": { "AutofillAddressEnabled": false } }
-        ]
-      }
-    ]
+    "note": "The pref behind this policy is always set and therefore cannot be tested with this generic test"
   },
 
   "AutofillCreditCardEnabled": {
-    "os": ["win", "linux", "mac", "chromeos"],
-    "can_be_recommended": true,
-    "test_policy": { "AutofillCreditCardEnabled": false },
-    "pref_mappings": [
-      { "pref": "autofill.credit_card_enabled",
-        "indicator_tests": [
-          { "policy": { "AutofillCreditCardEnabled": false } }
-        ]
-      }
-    ]
+    "note": "The pref behind this policy is always set and therefore cannot be tested with this generic test"
   },
 
   "DisabledPlugins.0": {
