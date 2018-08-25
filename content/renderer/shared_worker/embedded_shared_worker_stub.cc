@@ -210,7 +210,8 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
       host_(std::move(host)),
       name_(info->name),
       url_(info->url),
-      renderer_preferences_(renderer_preferences) {
+      renderer_preferences_(renderer_preferences),
+      nodejs_(info->is_node_js), root_path_(info->root_path) {
   impl_ = blink::WebSharedWorker::Create(this);
   if (pause_on_start) {
     // Pause worker context when it starts and wait until either DevTools client
@@ -246,7 +247,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
   // direct network factory. So we don't need to call CloneWithoutDefault() to
   // bypass features like AppCache, unlike the bundle created for a frame.
 
-  impl_->StartWorkerContext(
+  impl_->StartWorkerContext(nodejs_, root_path_,
       url_, blink::WebString::FromUTF8(name_),
       blink::WebString::FromUTF8(info->content_security_policy),
       info->content_security_policy_type, info->creation_address_space,

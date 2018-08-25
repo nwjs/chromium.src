@@ -118,4 +118,5 @@ const char kEnableCrashReporterForTesting[] =
 const char kOrderfileMemoryOptimization[] = "orderfile-memory-optimization";
 #endif
 
+const char kNWJS[] = "nwjs";
 }  // namespace switches

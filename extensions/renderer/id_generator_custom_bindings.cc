@@ -8,6 +8,8 @@
 
 #include "base/bind.h"
 #include "base/callback.h"
+#include "base/feature_list.h"
+#include "content/public/common/content_features.h"
 
 namespace extensions {
 
@@ -23,6 +25,11 @@ void IdGeneratorCustomBindings::AddRoutes() {
 void IdGeneratorCustomBindings::GetNextId(
     const v8::FunctionCallbackInfo<v8::Value>& args) {
   static int32_t next_id = 0;
+  // nwjs: conflict with SetElementInstanceID in BrowserPlugin and GuestViewContainer.prototype.attachWindow
+  // cound be a bug in upstream
+  if (next_id == 0 && base::FeatureList::IsEnabled(::features::kGuestViewCrossProcessFrames))
+    next_id = 1000;
+
   ++next_id;
   // Make sure 0 is never returned because some APIs (particularly WebRequest)
   // have special meaning for 0 IDs.

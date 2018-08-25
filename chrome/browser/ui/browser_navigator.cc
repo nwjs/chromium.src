@@ -455,7 +455,7 @@ void Navigate(NavigateParams* params) {
   if (!AdjustNavigateParamsForURL(params))
     return;
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if 0 //BUILDFLAG(ENABLE_EXTENSIONS)
   const extensions::Extension* extension =
     extensions::ExtensionRegistry::Get(params->initiating_profile)->
         enabled_extensions().GetExtensionOrAppByURL(params->url);
