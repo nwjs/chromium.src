@@ -266,7 +266,7 @@ TEST_F(FidoGetAssertionTaskTest, TestU2fSignRequestWithEmptyAllowedList) {
       get_assertion_callback_receiver().callback());
 
   get_assertion_callback_receiver().WaitForCallback();
-  EXPECT_EQ(CtapDeviceResponseCode::kCtap2ErrCredentialNotValid,
+  EXPECT_EQ(CtapDeviceResponseCode::kCtap2ErrNoCredentials,
             get_assertion_callback_receiver().status());
   EXPECT_FALSE(get_assertion_callback_receiver().value());
 }
