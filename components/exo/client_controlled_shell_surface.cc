@@ -328,6 +328,7 @@ ClientControlledShellSurface::ClientControlledShellSurface(Surface* surface,
 ClientControlledShellSurface::~ClientControlledShellSurface() {
   wide_frame_.reset();
   display::Screen::GetScreen()->RemoveObserver(this);
+  WMHelper::GetInstance()->RemoveDisplayConfigurationObserver(this);
 }
 
 void ClientControlledShellSurface::SetMaximized() {
