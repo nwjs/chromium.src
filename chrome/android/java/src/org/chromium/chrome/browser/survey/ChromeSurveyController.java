@@ -140,8 +140,10 @@ public class ChromeSurveyController implements InfoBarContainer.InfoBarAnimation
             }
         };
 
-        String siteContext = String.format(
-                "Is Modern Design Enabled? %s", FeatureUtilities.isChromeModernDesignEnabled());
+        String siteContext =
+                ChromeFeatureList.isEnabled(ChromeFeatureList.HORIZONTAL_TAB_SWITCHER_ANDROID)
+                ? "HorizontalTabSwitcher"
+                : "NotHorizontalTabSwitcher";
         surveyController.downloadSurvey(context, siteId, onSuccessRunnable, siteContext);
     }
 
@@ -323,6 +325,20 @@ public class ChromeSurveyController implements InfoBarContainer.InfoBarAnimation
             maxNumber = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
                     ChromeFeatureList.CHROME_MODERN_DESIGN, MAX_NUMBER, maxNumber);
         }
+
+        int maxForHorizontalTabSwitcher = -1;
+        if (ChromeFeatureList.isEnabled(ChromeFeatureList.HORIZONTAL_TAB_SWITCHER_ANDROID)) {
+            maxForHorizontalTabSwitcher = ChromeFeatureList.getFieldTrialParamByFeatureAsInt(
+                    ChromeFeatureList.HORIZONTAL_TAB_SWITCHER_ANDROID, MAX_NUMBER, -1);
+        }
+        if (maxForHorizontalTabSwitcher != -1) {
+            if (maxNumber == -1) {
+                maxNumber = maxForHorizontalTabSwitcher;
+            } else {
+                maxNumber = Math.min(maxNumber, maxForHorizontalTabSwitcher);
+            }
+        }
+
         if (maxNumber == -1) {
             recordSurveyFilteringResult(FilteringResult.MAX_NUMBER_MISSING);
             return false;
