@@ -136,8 +136,8 @@ public final class ChildProcessLauncherHelperImpl {
 
                     sLauncherByPid.put(pid, ChildProcessLauncherHelperImpl.this);
                     if (mRanking != null) {
-                        mRanking.addConnection(connection, false /* foreground */,
-                                1 /* frameDepth */, ChildProcessImportance.MODERATE);
+                        mRanking.addConnection(connection, false /* visible */, 1 /* frameDepth */,
+                                ChildProcessImportance.MODERATE);
                     }
 
                     // If the connection fails and pid == 0, the Java-side cleanup was already
@@ -171,7 +171,7 @@ public final class ChildProcessLauncherHelperImpl {
     // This is the current computed importance from all the inputs from setPriority.
     // The initial value is MODERATE since a newly created connection has moderate bindings.
     private @ChildProcessImportance int mEffectiveImportance = ChildProcessImportance.MODERATE;
-    private boolean mForeground;
+    private boolean mVisible;
 
     @CalledByNative
     private static FileDescriptorInfo makeFdInfo(
@@ -434,9 +434,8 @@ public final class ChildProcessLauncherHelperImpl {
     }
 
     @CalledByNative
-    private void setPriority(int pid, boolean foreground, boolean hasMediaStream, long frameDepth,
-            boolean boostForPendingViews,
-            @ChildProcessImportance int importance) {
+    private void setPriority(int pid, boolean visible, boolean hasMediaStream, long frameDepth,
+            boolean boostForPendingViews, @ChildProcessImportance int importance) {
         assert LauncherThread.runningOnLauncherThread();
         assert mLauncher.getPid() == pid;
         if (getByPid(pid) == null) {
@@ -446,7 +445,7 @@ public final class ChildProcessLauncherHelperImpl {
 
         ChildProcessConnection connection = mLauncher.getConnection();
         if (ChildProcessCreationParamsImpl.getIgnoreVisibilityForImportance()) {
-            foreground = false;
+            visible = false;
             boostForPendingViews = false;
         }
 
@@ -455,10 +454,10 @@ public final class ChildProcessLauncherHelperImpl {
 
         @ChildProcessImportance
         int newEffectiveImportance;
-        if ((foreground && frameDepth == 0) || importance == ChildProcessImportance.IMPORTANT
+        if ((visible && frameDepth == 0) || importance == ChildProcessImportance.IMPORTANT
                 || (hasMediaStream && !mediaRendererHasModerate)) {
             newEffectiveImportance = ChildProcessImportance.IMPORTANT;
-        } else if ((foreground && frameDepth > 0) || boostForPendingViews
+        } else if ((visible && frameDepth > 0) || boostForPendingViews
                 || importance == ChildProcessImportance.MODERATE
                 || (hasMediaStream && mediaRendererHasModerate)) {
             newEffectiveImportance = ChildProcessImportance.MODERATE;
@@ -467,13 +466,13 @@ public final class ChildProcessLauncherHelperImpl {
         }
 
         // Add first and remove second.
-        if (foreground && !mForeground) {
+        if (visible && !mVisible) {
             BindingManager manager = getBindingManager();
             if (mUseBindingManager && manager != null) {
                 manager.increaseRecency(connection);
             }
         }
-        mForeground = foreground;
+        mVisible = visible;
 
         if (mEffectiveImportance != newEffectiveImportance) {
             switch (newEffectiveImportance) {
@@ -495,7 +494,7 @@ public final class ChildProcessLauncherHelperImpl {
         }
 
         if (mRanking != null) {
-            mRanking.updateConnection(connection, foreground, frameDepth, importance);
+            mRanking.updateConnection(connection, visible, frameDepth, importance);
         }
 
         if (mEffectiveImportance != newEffectiveImportance) {
