@@ -201,10 +201,12 @@ void PictureInPictureWindowControllerImpl::OnLeavingPictureInPicture(
 
 void PictureInPictureWindowControllerImpl::CloseInternal(
     bool should_pause_video) {
-  initiator_->SetHasPictureInPictureVideo(false);
+  if (initiator_->IsBeingDestroyed())
+    return;
 
   surface_id_ = viz::SurfaceId();
 
+  initiator_->SetHasPictureInPictureVideo(false);
   OnLeavingPictureInPicture(should_pause_video);
 }
 
