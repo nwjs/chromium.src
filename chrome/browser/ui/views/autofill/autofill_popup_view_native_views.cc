@@ -48,9 +48,16 @@ constexpr int kAutofillPopupMaxWidth = 456;
 constexpr int kAutofillPopupUsernameMaxWidth = 272;
 constexpr int kAutofillPopupPasswordMaxWidth = 108;
 
+// The additional height of the row in case it has two labels on top of each
+// other in comparison to the normal row with one line of text.
+constexpr int kAutofillPopupAdditionalDoubleRowHeight = 22;
+
 // A space between the input element and the dropdown, so that the dropdown's
 // border doesn't look too close to the element.
 constexpr int kElementBorderPadding = 1;
+
+// Vertical spacing between labels in one row.
+constexpr int kAdjacentLabelsVerticalSpacing = 2;
 
 int GetContentsVerticalPadding() {
   return ChromeLayoutProvider::Get()->GetDistanceMetric(
@@ -142,6 +149,8 @@ class AutofillPopupItemView : public AutofillPopupRowView {
 
   virtual int GetPrimaryTextStyle() = 0;
   virtual views::View* CreateValueLabel();
+  // Creates an optional label below the value.
+  virtual views::View* CreateSubtextLabel();
   // The description view can be nullptr.
   virtual views::View* CreateDescriptionLabel();
 
@@ -192,6 +201,7 @@ class PasswordPopupSuggestionView : public AutofillPopupSuggestionView {
  protected:
   // AutofillPopupItemView:
   views::View* CreateValueLabel() override;
+  views::View* CreateSubtextLabel() override;
   views::View* CreateDescriptionLabel() override;
 
  private:
@@ -290,6 +300,7 @@ void AutofillPopupItemView::GetAccessibleNodeData(ui::AXNodeData* node_data) {
   std::vector<base::string16> text;
   text.push_back(suggestion.value);
   text.push_back(suggestion.label);
+  text.push_back(suggestion.additional_label);
 
   base::string16 icon_description;
   if (!suggestion.icon.empty()) {
@@ -348,8 +359,6 @@ void AutofillPopupItemView::CreateContent() {
 
   layout->set_cross_axis_alignment(
       views::BoxLayout::CrossAxisAlignment::CROSS_AXIS_ALIGNMENT_STRETCH);
-  layout->set_minimum_cross_axis_size(
-      views::MenuConfig::instance().touchable_menu_height + extra_height_);
 
   const gfx::ImageSkia icon =
       controller->layout_model().GetIconImage(line_number_);
@@ -362,7 +371,29 @@ void AutofillPopupItemView::CreateContent() {
                       /*resize=*/false, layout);
   }
 
-  AddChildView(CreateValueLabel());
+  views::View* value_label = CreateValueLabel();
+  views::View* lower_value_label = CreateSubtextLabel();
+  const int kStandardRowHeight =
+      views::MenuConfig::instance().touchable_menu_height + extra_height_;
+  if (!lower_value_label) {
+    layout->set_minimum_cross_axis_size(kStandardRowHeight);
+    AddChildView(value_label);
+  } else {
+    layout->set_minimum_cross_axis_size(
+        kStandardRowHeight + kAutofillPopupAdditionalDoubleRowHeight);
+    views::View* values_container = new views::View();
+    auto* vertical_layout =
+        values_container->SetLayoutManager(std::make_unique<views::BoxLayout>(
+            views::BoxLayout::kVertical, gfx::Insets(),
+            kAdjacentLabelsVerticalSpacing));
+    vertical_layout->set_main_axis_alignment(
+        views::BoxLayout::MAIN_AXIS_ALIGNMENT_CENTER);
+    vertical_layout->set_cross_axis_alignment(
+        views::BoxLayout::CROSS_AXIS_ALIGNMENT_START);
+    values_container->AddChildView(value_label);
+    values_container->AddChildView(lower_value_label);
+    AddChildView(values_container);
+  }
 
   AddSpacerWithSize(views::MenuConfig::instance().item_horizontal_padding,
                     /*resize=*/true, layout);
@@ -399,7 +430,12 @@ views::View* AutofillPopupItemView::CreateValueLabel() {
   text_label->SetEnabledColor(
       views::style::GetColor(*this, ChromeTextContext::CONTEXT_BODY_TEXT_LARGE,
                              GetPrimaryTextStyle()));
+  text_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   return text_label;
+}
+
+views::View* AutofillPopupItemView::CreateSubtextLabel() {
+  return nullptr;
 }
 
 views::View* AutofillPopupItemView::CreateDescriptionLabel() {
@@ -416,6 +452,7 @@ views::Label* AutofillPopupItemView::CreateSecondaryLabel(
   subtext_label->SetEnabledColor(
       views::style::GetColor(*this, ChromeTextContext::CONTEXT_BODY_TEXT_LARGE,
                              ChromeTextStyle::STYLE_SECONDARY));
+  subtext_label->SetHorizontalAlignment(gfx::ALIGN_LEFT);
 
   return subtext_label;
 }
@@ -480,18 +517,22 @@ PasswordPopupSuggestionView* PasswordPopupSuggestionView::Create(
 
 views::View* PasswordPopupSuggestionView::CreateValueLabel() {
   views::View* label = AutofillPopupSuggestionView::CreateValueLabel();
-  // Empty username is rendered as a secondary text. It doesn't need to be
-  // truncated.
-  if (popup_view_->controller()
-          ->GetSuggestionAt(line_number_)
-          .is_value_secondary)
-    return label;
+  return new ConstrainedWidthView(label, kAutofillPopupUsernameMaxWidth);
+}
+
+views::View* PasswordPopupSuggestionView::CreateSubtextLabel() {
+  base::string16 label_text =
+      popup_view_->controller()->GetElidedLabelAt(line_number_);
+  if (label_text.empty())
+    return nullptr;
+  views::Label* label = CreateSecondaryLabel(label_text);
+  label->SetElideBehavior(gfx::ELIDE_HEAD);
   return new ConstrainedWidthView(label, kAutofillPopupUsernameMaxWidth);
 }
 
 views::View* PasswordPopupSuggestionView::CreateDescriptionLabel() {
   base::string16 text =
-      popup_view_->controller()->GetElidedLabelAt(line_number_);
+      popup_view_->controller()->GetSuggestionAt(line_number_).additional_label;
   if (text.empty())
     return nullptr;
 
