@@ -229,13 +229,11 @@ class NetworkContext::ContextNetworkDelegate
   ContextNetworkDelegate(
       std::unique_ptr<net::NetworkDelegate> nested_network_delegate,
       bool enable_referrers,
-      bool validate_referrer_policy_on_initial_request,
-      NetworkContext* network_context)
+      bool validate_referrer_policy_on_initial_request)
       : LayeredNetworkDelegate(std::move(nested_network_delegate)),
         enable_referrers_(enable_referrers),
         validate_referrer_policy_on_initial_request_(
-            validate_referrer_policy_on_initial_request),
-        network_context_(network_context) {}
+            validate_referrer_policy_on_initial_request) {}
 
   ~ContextNetworkDelegate() override {}
 
@@ -290,35 +288,6 @@ class NetworkContext::ContextNetworkDelegate
     return true;
   }
 
-  bool OnCanGetCookiesInternal(const net::URLRequest& request,
-                               const net::CookieList& cookie_list,
-                               bool allowed_from_caller) override {
-    return allowed_from_caller &&
-           network_context_->cookie_manager()
-               ->cookie_settings()
-               .IsCookieAccessAllowed(request.url(),
-                                      request.site_for_cookies());
-  }
-
-  bool OnCanSetCookieInternal(const net::URLRequest& request,
-                              const net::CanonicalCookie& cookie,
-                              net::CookieOptions* options,
-                              bool allowed_from_caller) override {
-    return allowed_from_caller &&
-           network_context_->cookie_manager()
-               ->cookie_settings()
-               .IsCookieAccessAllowed(request.url(),
-                                      request.site_for_cookies());
-  }
-
-  bool OnCanEnablePrivacyModeInternal(
-      const GURL& url,
-      const GURL& site_for_cookies) const override {
-    return !network_context_->cookie_manager()
-                ->cookie_settings()
-                .IsCookieAccessAllowed(url, site_for_cookies);
-  }
-
   void set_enable_referrers(bool enable_referrers) {
     enable_referrers_ = enable_referrers;
   }
@@ -326,7 +295,6 @@ class NetworkContext::ContextNetworkDelegate
  private:
   bool enable_referrers_;
   bool validate_referrer_policy_on_initial_request_;
-  NetworkContext* network_context_;
 
   DISALLOW_COPY_AND_ASSIGN(ContextNetworkDelegate);
 };
@@ -985,7 +953,6 @@ URLRequestContextOwner NetworkContext::ApplyContextParamsToBuilder(
   builder->SetCreateLayeredNetworkDelegateCallback(base::BindOnce(
       [](mojom::NetworkContextParams* network_context_params,
          ContextNetworkDelegate** out_context_network_delegate,
-         NetworkContext* network_context,
          std::unique_ptr<net::NetworkDelegate> nested_network_delegate)
           -> std::unique_ptr<net::NetworkDelegate> {
         std::unique_ptr<ContextNetworkDelegate> context_network_delegate =
@@ -993,13 +960,12 @@ URLRequestContextOwner NetworkContext::ApplyContextParamsToBuilder(
                 std::move(nested_network_delegate),
                 network_context_params->enable_referrers,
                 network_context_params
-                    ->validate_referrer_policy_on_initial_request,
-                network_context);
+                    ->validate_referrer_policy_on_initial_request);
         if (out_context_network_delegate)
           *out_context_network_delegate = context_network_delegate.get();
         return context_network_delegate;
       },
-      params_.get(), &context_network_delegate_, this));
+      params_.get(), &context_network_delegate_));
 
   std::vector<scoped_refptr<const net::CTLogVerifier>> ct_logs;
   if (!params_->ct_logs.empty()) {
