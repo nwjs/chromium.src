@@ -70,6 +70,8 @@
 #include "chrome/common/pref_names.h"
 #include "chromeos/chromeos_switches.h"
 #include "chromeos/cryptohome/async_method_caller.h"
+#include "chromeos/dbus/dbus_thread_manager.h"
+#include "chromeos/dbus/upstart_client.h"
 #include "chromeos/login/login_state.h"
 #include "chromeos/settings/cros_settings_names.h"
 #include "chromeos/timezone/timezone_resolver.h"
@@ -114,6 +116,8 @@ const char kDeviceLocalAccounts[] = "PublicAccounts";
 // be removed after logout.
 const char kDeviceLocalAccountPendingDataRemoval[] =
     "PublicAccountPendingDataRemoval";
+
+constexpr char kGoogleDotCom[] = "@google.com";
 
 bool FakeOwnership() {
   return base::CommandLine::ForCurrentProcess()->HasSwitch(
@@ -183,6 +187,17 @@ policy::MinimumVersionPolicyHandler* GetMinimumVersionPolicyHandler() {
 base::WeakPtr<ExternalPrinters> GetExternalPrinters(
     const AccountId& account_id) {
   return ExternalPrintersFactory::Get()->GetForAccountId(account_id);
+}
+
+// Starts bluetooth logging service for accounts ending with |kGoogleDotCom|.
+void MaybeStartBluetoothLogging(const AccountId& account_id) {
+  if (!base::EndsWith(account_id.GetUserEmail(), kGoogleDotCom,
+                      base::CompareCase::INSENSITIVE_ASCII)) {
+    return;
+  }
+  chromeos::DBusThreadManager::Get()
+      ->GetUpstartClient()
+      ->StartBluetoothLogging();
 }
 
 }  // namespace
@@ -832,6 +847,8 @@ void ChromeUserManagerImpl::RegularUserLoggedIn(
     const user_manager::UserType user_type) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
   ChromeUserManager::RegularUserLoggedIn(account_id, user_type);
+
+  MaybeStartBluetoothLogging(account_id);
 
   if (FakeOwnership()) {
     std::string owner_email;
