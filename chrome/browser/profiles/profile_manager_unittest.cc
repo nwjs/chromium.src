@@ -68,6 +68,10 @@
 #include "extensions/common/features/feature_session_type.h"
 #endif  // defined(OS_CHROMEOS)
 
+#if BUILDFLAG(ENABLE_SUPERVISED_USERS)
+#include "chrome/browser/supervised_user/supervised_user_constants.h"
+#endif
+
 using base::ASCIIToUTF16;
 
 namespace {
