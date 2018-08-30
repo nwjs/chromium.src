@@ -90,7 +90,7 @@
 <translation id="2575685495496069081">A opção de login múltiplo foi desativada</translation>
 <translation id="2582112259361606227">Reiniciar para atualizar</translation>
 <translation id="2597972630681408282">Modo noturno: <ph name="NIGHT_LIGHT_STATUS" /></translation>
-<translation id="2617342710774726426">O cartão SIM está bloqueado</translation>
+<translation id="2617342710774726426">O chip está bloqueado</translation>
 <translation id="2653659639078652383">Enviar</translation>
 <translation id="2696763960464195425">Suas informações serão removidas quando você sair. <ph name="LEARN_MORE" /></translation>
 <translation id="2700493154570097719">Configurar teclado</translation>
@@ -384,7 +384,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="8431190899827883166">Mostrar toques</translation>
 <translation id="8433186206711564395">Configurações de rede</translation>
 <translation id="8433977262951327081">O atalho para mostrar o balão de menu de opções de entrada na estante foi alterado. Use <ph name="NEW_SHORTCUT" /> em vez de <ph name="OLD_SHORTCUT" />.</translation>
-<translation id="8452135315243592079">Cartão SIM ausente</translation>
+<translation id="8452135315243592079">Chip ausente</translation>
 <translation id="8454013096329229812">O Wi-Fi está ligado.</translation>
 <translation id="847056008324733326">Exibir configurações de escala</translation>
 <translation id="8477270416194247200">Pressione Alt+Pesquisar ou Shift para cancelar.</translation>
