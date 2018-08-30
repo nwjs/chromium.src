@@ -753,7 +753,7 @@ bool UsageTimeLimitProcessor::IsTodayTimeWindowLimitActive() {
 }
 
 base::TimeDelta UsageTimeLimitProcessor::UsageLimitResetTime() {
-  return GetUsageLimitResetTime(time_usage_limit_);
+  return GetUsageLimitResetTime(time_usage_limit);
 }
 
 base::TimeDelta UsageTimeLimitProcessor::LockOverrideResetTime() {
