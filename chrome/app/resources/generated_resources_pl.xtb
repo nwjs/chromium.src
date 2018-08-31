@@ -373,7 +373,7 @@
 <translation id="1545177026077493356">Automatyczny tryb kiosku</translation>
 <translation id="1545775234664667895">Zainstalowano motyw „<ph name="THEME_NAME" />”</translation>
 <translation id="1545786162090505744">URL z parametrem %s (zapytanie)</translation>
-<translation id="1546280085599573572">To rozszerzenie ustawiło inną stronę wyświetlaną po kliknięciu przycisku strony startowej.</translation>
+<translation id="1546280085599573572">To rozszerzenie ustawiło inną stronę wyświetlaną po kliknięciu przycisku strony głównej.</translation>
 <translation id="1549788673239553762"><ph name="APP_NAME" /> chce uzyskać dostęp do dysku <ph name="VOLUME_NAME" />. Będzie mogła tam zmieniać i usuwać pliki.</translation>
 <translation id="1553538517812678578">nieograniczona</translation>
 <translation id="1554390798506296774">Zawsze zezwalaj na wtyczki spoza piaskownicy na <ph name="HOST" /></translation>
@@ -2469,7 +2469,7 @@
 <translation id="4804818685124855865">Rozłącz</translation>
 <translation id="4807098396393229769">Imię i nazwisko na karcie</translation>
 <translation id="4808667324955055115">Zablokowane wyskakujące okienka:</translation>
-<translation id="480990236307250886">Otwórz stronę startową</translation>
+<translation id="480990236307250886">Otwórz stronę główną</translation>
 <translation id="4812632551187706935">Nie można zainicjować połączenia</translation>
 <translation id="4813136279048157860">Moje obrazy</translation>
 <translation id="4813512666221746211">Błąd sieci</translation>
@@ -2694,7 +2694,7 @@
 <translation id="5137501176474113045">Usuń ten element</translation>
 <translation id="5139955368427980650">&amp;Otwórz</translation>
 <translation id="5142961317498132443">Uwierzytelnianie</translation>
-<translation id="5143374789336132547">Rozszerzenie „<ph name="EXTENSION_NAME" />” ustawiło inną stronę wyświetlaną po kliknięciu przycisku strony startowej.</translation>
+<translation id="5143374789336132547">Rozszerzenie „<ph name="EXTENSION_NAME" />” ustawiło inną stronę wyświetlaną po kliknięciu przycisku strony głównej.</translation>
 <translation id="5143712164865402236">Przejdź do pełnego ekranu</translation>
 <translation id="5145331109270917438">Data modyfikacji</translation>
 <translation id="514575469079499857">Użyj swojego adresu IP, by określić lokalizację (domyślnie)</translation>
@@ -2965,7 +2965,7 @@
 <translation id="551752069230578406">Dodaję drukarkę do konta. Może to chwilę potrwać...</translation>
 <translation id="5518219166343146486">Pytaj, gdy strona chce uzyskać dostęp do tekstu i obrazów skopiowanych do schowka</translation>
 <translation id="5518584115117143805">Certyfikat szyfrowania poczty e-mail</translation>
-<translation id="5521078259930077036">Czy to oczekiwana strona startowa?</translation>
+<translation id="5521078259930077036">Czy to oczekiwana strona główna?</translation>
 <translation id="5522156646677899028">To rozszerzenie zawiera poważną lukę w zabezpieczeniach.</translation>
 <translation id="5524517123096967210">Nie można odczytać pliku.</translation>
 <translation id="5525677322972469346">Utwórz nowego nadzorowanego użytkownika</translation>
@@ -3046,7 +3046,7 @@
 <translation id="5623842676595125836">Dziennik</translation>
 <translation id="5624120631404540903">Zarządzaj hasłami</translation>
 <translation id="5626134646977739690">Nazwa:</translation>
-<translation id="5627086634964711283">Kontroluje także to, jaka strona wyświetla się po kliknięciu przycisku strony startowej.</translation>
+<translation id="5627086634964711283">Kontroluje także to, jaka strona wyświetla się po kliknięciu przycisku strony głównej.</translation>
 <translation id="5627676517703583263">Przeglądaj inteligentnie z Chrome</translation>
 <translation id="562935524653278697">Synchronizację zakładek, historii, haseł i innych ustawień wyłączył administrator.</translation>
 <translation id="563535393368633106">Pytaj przed uzyskaniem dostępu (zalecane)</translation>
@@ -3262,7 +3262,7 @@
 <translation id="5959471481388474538">Sieć niedostępna</translation>
 <translation id="595959584676692139">Aby użyć tego rozszerzenia, załaduj ponownie stronę</translation>
 <translation id="5963453369025043595"><ph name="NUM_HANDLES" /> (<ph name="NUM_KILOBYTES_LIVE" /> w szczycie)</translation>
-<translation id="5965661248935608907">Kontroluje także to, jaka strona wyświetla się po kliknięciu przycisku strony startowej lub wyszukiwaniu w omniboksie.</translation>
+<translation id="5965661248935608907">Kontroluje także to, jaka strona wyświetla się po kliknięciu przycisku strony głównej lub wyszukiwaniu w omniboksie.</translation>
 <translation id="5971037678316050792">Kontrolowanie stanu adaptera Bluetooth i parowania</translation>
 <translation id="5972017421290582825">Zarządzaj ustawieniami MIDI...</translation>
 <translation id="5972708806901999743">Przenieś na początek</translation>
@@ -3594,7 +3594,7 @@
 <translation id="6466988389784393586">&amp;Otwórz wszystkie zakładki</translation>
 <translation id="6468485451923838994">Czcionki</translation>
 <translation id="6472207088655375767">Hasło jednorazowe</translation>
-<translation id="6472893788822429178">Pokaż przycisk strony startowej</translation>
+<translation id="6472893788822429178">Pokaż przycisk strony głównej</translation>
 <translation id="6473842110411557830">Ilustracja: myjka ciśnieniowa</translation>
 <translation id="6474706907372204693">Poprzednia metoda wprowadzania</translation>
 <translation id="6474884162850599008">Odłącz konto na Dysku Google</translation>
@@ -3939,7 +3939,7 @@
 <translation id="7017480957358237747">zezwalać na dostęp do określonych witryn lub blokować go,</translation>
 <translation id="7018275672629230621">Odczyt i zmiana historii przeglądania</translation>
 <translation id="7019805045859631636">Szybko</translation>
-<translation id="7022562585984256452">Strona startowa została ustawiona.</translation>
+<translation id="7022562585984256452">Strona główna została ustawiona.</translation>
 <translation id="7025190659207909717">Zarządzanie komórkową usługą transmisji danych</translation>
 <translation id="7025325401470358758">Następny panel</translation>
 <translation id="7027125358315426638">Nazwa bazy danych:</translation>
@@ -4768,7 +4768,7 @@ Przechowuj plik klucza w bezpiecznym miejscu. Będzie on potrzebny do utworzenia
 <translation id="8263744495942430914">Witryna <ph name="FULLSCREEN_ORIGIN" /> wyłączyła kursor myszy.</translation>
 <translation id="8264718194193514834">Rozszerzenie <ph name="EXTENSION_NAME" /> uruchomiło tryb pełnoekranowy.</translation>
 <translation id="8270242299912238708">Dokumenty PDF</translation>
-<translation id="827097179112817503">Pokaż przycisk strony startowej</translation>
+<translation id="827097179112817503">Pokaż przycisk strony głównej</translation>
 <translation id="8271246892936492311">{COUNT,plural, =1{Usunięto 1 zakładkę}few{Usunięto # zakładki}many{Usunięto # zakładek}other{Usunięto # zakładki}}</translation>
 <translation id="8272443605911821513">Aby zarządzać zainstalowanymi rozszerzeniami, kliknij Rozszerzenia w menu Więcej narzędzi.</translation>
 <translation id="8274332263553132018">Prześlij plik</translation>
@@ -5142,7 +5142,7 @@ Osoby z wolnym połączeniem mogą nie zobaczyć treści, które przesyłasz.</
 <translation id="8862003515646449717">Przejdź na szybką przeglądarkę</translation>
 <translation id="8863753581171631212">Otwórz link w nowym oknie aplikacji <ph name="APP" /></translation>
 <translation id="8868626022555786497">Używane</translation>
-<translation id="8870318296973696995">Strona startowa</translation>
+<translation id="8870318296973696995">Strona główna</translation>
 <translation id="8870413625673593573">Ostatnio zamknięte</translation>
 <translation id="8871551568777368300">Przypięte przez administratora</translation>
 <translation id="8871696467337989339">Użyto nieobsługiwanej flagi wiersza polecenia: <ph name="BAD_FLAG" />. Ma to negatywny wpływ na stabilność i zabezpieczenia.</translation>
