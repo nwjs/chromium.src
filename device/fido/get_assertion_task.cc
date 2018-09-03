@@ -122,7 +122,8 @@ void GetAssertionTask::OnCtapGetAssertionResponseReceived(
 
   // TODO(martinkr): CheckRpIdHash invocation needs to move into the Request
   // handler. See https://crbug.com/863988.
-  if (!device_response || !device_response->CheckRpIdHash(request_.rp_id()) ||
+  if (!device_response ||
+      !request_.CheckResponseRpIdHash(device_response->GetRpIdHash()) ||
       !CheckRequirementsOnReturnedCredentialId(*device_response) ||
       !CheckRequirementsOnReturnedUserEntities(*device_response)) {
     std::move(callback_).Run(CtapDeviceResponseCode::kCtap2ErrOther,

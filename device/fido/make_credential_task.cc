@@ -11,6 +11,7 @@
 #include "device/fido/ctap2_device_operation.h"
 #include "device/fido/ctap_empty_authenticator_request.h"
 #include "device/fido/device_response_converter.h"
+#include "device/fido/fido_parsing_utils.h"
 #include "device/fido/u2f_command_constructor.h"
 #include "device/fido/u2f_register_operation.h"
 
@@ -96,10 +97,12 @@ void MakeCredentialTask::OnCtapMakeCredentialResponseReceived(
     return;
   }
 
+  const auto rp_id_hash =
+      fido_parsing_utils::CreateSHA256Hash(request_parameter_.rp().rp_id());
+
   // TODO(martinkr): CheckRpIdHash invocation needs to move into the Request
   // handler. See https://crbug.com/863988.
-  if (!response_data ||
-      !response_data->CheckRpIdHash(request_parameter_.rp().rp_id())) {
+  if (!response_data || response_data->GetRpIdHash() != rp_id_hash) {
     std::move(callback_).Run(CtapDeviceResponseCode::kCtap2ErrOther,
                              base::nullopt);
     return;
