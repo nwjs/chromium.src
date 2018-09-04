@@ -1,24 +1,4 @@
 {
-    "AccountConsistencyVariations": [
-        {
-            "platforms": [
-                "linux",
-                "mac",
-                "windows"
-            ],
-            "experiments": [
-                {
-                    "name": "DiceMigration",
-                    "params": {
-                        "method": "dice_migration"
-                    },
-                    "enable_features": [
-                        "AccountConsistency"
-                    ]
-                }
-            ]
-        }
-    ],
     "AdFramePriority": [
         {
             "platforms": [
@@ -2416,8 +2396,8 @@
             ],
             "experiments": [
                 {
-                    "name": "Enabled",
-                    "enable_features": [
+                    "name": "Disabled",
+                    "disable_features": [
                         "NativeCrxBindings"
                     ]
                 }
@@ -3963,24 +3943,6 @@
             ]
         }
     ],
-    "SitePerProcess": [
-        {
-            "platforms": [
-                "chromeos",
-                "linux",
-                "windows",
-                "mac"
-            ],
-            "experiments": [
-                {
-                    "name": "SitePerProcess_Enabled",
-                    "enable_features": [
-                        "site-per-process"
-                    ]
-                }
-            ]
-        }
-    ],
     "SocketReadIfReady": [
         {
             "platforms": [
@@ -4619,21 +4581,6 @@
                     "name": "Enabled",
                     "enable_features": [
                         "UseSurfaceLayerForVideo"
-                    ]
-                }
-            ]
-        }
-    ],
-    "ViewsBrowserWindows": [
-        {
-            "platforms": [
-                "mac"
-            ],
-            "experiments": [
-                {
-                    "name": "Enabled_20180703",
-                    "enable_features": [
-                        "ViewsBrowserWindows"
                     ]
                 }
             ]

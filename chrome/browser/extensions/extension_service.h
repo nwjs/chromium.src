@@ -177,7 +177,7 @@ class ExtensionServiceInterface
 class ExtensionService : public ExtensionServiceInterface,
                          public ExternalProviderInterface::VisitorInterface,
                          public content::NotificationObserver,
-                         public Blacklist::Observer,
+  //public Blacklist::Observer,
                          public ExtensionManagement::Observer,
                          public UpgradeObserver,
                          public ExtensionRegistrar::Delegate {
@@ -455,7 +455,7 @@ class ExtensionService : public ExtensionServiceInterface,
                const content::NotificationDetails& details) override;
 
   // Blacklist::Observer implementation.
-  void OnBlacklistUpdated() override;
+  // void OnBlacklistUpdated() override;
 
   // UpgradeObserver implementation.
   void OnUpgradeRecommended() override;

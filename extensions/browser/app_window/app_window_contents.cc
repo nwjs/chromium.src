@@ -4,6 +4,8 @@
 
 #include "extensions/browser/app_window/app_window_contents.h"
 
+#include "content/browser/web_contents/web_contents_impl.h"
+
 #include <memory>
 #include <string>
 #include <utility>
@@ -19,26 +21,40 @@
 #include "extensions/browser/app_window/native_app_window.h"
 #include "extensions/common/extension_messages.h"
 
+#include "content/nw/src/nw_content.h"
+
 namespace extensions {
 
-AppWindowContentsImpl::AppWindowContentsImpl(AppWindow* host) : host_(host) {}
+AppWindowContentsImpl::AppWindowContentsImpl(AppWindow* host, std::unique_ptr<content::WebContents> web_contents)
+  :host_(host), web_contents_(std::move(web_contents)) {}
 
 AppWindowContentsImpl::~AppWindowContentsImpl() {}
 
 void AppWindowContentsImpl::Initialize(content::BrowserContext* context,
                                        content::RenderFrameHost* creator_frame,
-                                       const GURL& url) {
+                                       const GURL& url,
+                                       const Extension* extension,
+                                       bool skip_blocking_parser) {
   url_ = url;
 
+  bool new_site = url.SchemeIs("chrome") || !nw::PinningRenderer();
   content::WebContents::CreateParams create_params(
-      context, creator_frame->GetSiteInstance());
+                                                   //NWJS#5163: fix regression
+       context, nw::PinningRenderer() ? creator_frame->GetSiteInstance() : content::SiteInstance::CreateForURL(context, url_));
   create_params.opener_render_process_id = creator_frame->GetProcess()->GetID();
   create_params.opener_render_frame_id = creator_frame->GetRoutingID();
-  web_contents_ = content::WebContents::Create(create_params);
+  if (!web_contents_)
+    web_contents_ = content::WebContents::Create(create_params);
 
+  static_cast<content::WebContentsImpl*>(web_contents_.get())->SetSkipBlockingParser(skip_blocking_parser || new_site);
   Observe(web_contents_.get());
-  web_contents_->GetMutableRendererPrefs()->
-      browser_handles_all_top_level_requests = true;
+  content::RendererPreferences* render_prefs =
+      web_contents_->GetMutableRendererPrefs();
+  if (!extension || !extension->is_nwjs_app())
+    render_prefs->browser_handles_all_top_level_requests = true;
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    render_prefs->user_agent_override = user_agent;
   web_contents_->GetRenderViewHost()->SyncRendererPrefs();
 }
 

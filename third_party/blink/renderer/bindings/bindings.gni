@@ -9,6 +9,8 @@ import("//third_party/blink/renderer/bindings/modules/v8/v8.gni")
 
 bindings_core_v8_files =
     get_path_info([
+                    "core/v8/custom/v8_html_iframe_element_custom.cc",
+                    "core/v8/custom/v8_filelist_custom.cc",
                     "core/v8/custom/v8_custom_xpath_ns_resolver.cc",
                     "core/v8/custom/v8_custom_xpath_ns_resolver.h",
                     "core/v8/custom/v8_dev_tools_host_custom.cc",

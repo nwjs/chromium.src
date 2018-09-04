@@ -59,6 +59,7 @@ scoped_refptr<FileChooser> FileChooser::Create(
 FileChooser::~FileChooser() = default;
 
 void FileChooser::ChooseFiles(const Vector<FileChooserFileInfo>& files) {
+  bool canceled = false;
   // FIXME: This is inelegant. We should not be looking at params_ here.
   if (params_.selected_files.size() == files.size()) {
     bool was_changed = false;
@@ -69,11 +70,11 @@ void FileChooser::ChooseFiles(const Vector<FileChooserFileInfo>& files) {
       }
     }
     if (!was_changed)
-      return;
+      canceled = true;
   }
 
   if (client_)
-    client_->FilesChosen(files);
+    client_->FilesChosen(files, canceled);
 }
 
 }  // namespace blink

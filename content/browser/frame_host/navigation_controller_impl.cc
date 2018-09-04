@@ -360,7 +360,7 @@ base::Time NavigationControllerImpl::TimeSmoother::GetSmoothedTime(
 NavigationControllerImpl::NavigationControllerImpl(
     NavigationControllerDelegate* delegate,
     BrowserContext* browser_context)
-    : browser_context_(browser_context),
+    : history_initiator_(nullptr), browser_context_(browser_context),
       pending_entry_(nullptr),
       failed_pending_entry_id_(0),
       last_committed_entry_index_(-1),
@@ -2220,14 +2220,24 @@ void NavigationControllerImpl::NavigateToExistingPendingEntry(
   CHECK(!in_navigate_to_pending_entry_);
   in_navigate_to_pending_entry_ = true;
 
+  FrameTreeNode* nwfaketop_node = nullptr;
+  if (history_initiator_) {
+    if (history_initiator_->frame_tree_node()->frame_owner_properties().nwfaketop)
+      nwfaketop_node = history_initiator_->frame_tree_node();
+  }
+
   // Send all the same document frame loads before the different document loads.
   for (auto& item : same_document_loads) {
     FrameTreeNode* frame = item->frame_tree_node();
+    if (nwfaketop_node && nwfaketop_node->IsDescendantOf(frame))
+      continue;
     frame->navigator()->Navigate(std::move(item), reload_type,
                                  pending_entry_->restore_type());
   }
   for (auto& item : different_document_loads) {
     FrameTreeNode* frame = item->frame_tree_node();
+    if (nwfaketop_node && nwfaketop_node->IsDescendantOf(frame))
+      continue;
     frame->navigator()->Navigate(std::move(item), reload_type,
                                  pending_entry_->restore_type());
   }

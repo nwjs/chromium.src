@@ -85,6 +85,7 @@ void SendTrialVerificationReport(void* profile_id,
                                  const net::CertVerifier::RequestParams& params,
                                  const net::CertVerifyResult& primary_result,
                                  const net::CertVerifyResult& trial_result) {
+#if 0
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   if (!g_browser_process->profile_manager()->IsValidProfile(profile_id))
     return;
@@ -102,6 +103,7 @@ void SendTrialVerificationReport(void* profile_id,
 
   CertificateReportingServiceFactory::GetForBrowserContext(profile)->Send(
       serialized_report);
+#endif
 }
 
 std::unique_ptr<base::Value> TrialVerificationJobResultCallback(
@@ -316,7 +318,7 @@ class TrialComparisonCertVerifier::TrialVerificationJob {
       RequestParams reverification_params(
           params_.certificate(), params_.hostname(),
           params_.flags() | net::CertVerifier::VERIFY_REV_CHECKING_ENABLED,
-          params_.ocsp_response(), params_.additional_trust_anchors());
+          params_.ocsp_response(), *params_.additional_trust_anchors());
 
       int rv = cert_verifier_->trial_verifier()->Verify(
           reverification_params, crl_set_.get(), &reverification_result_,
@@ -340,7 +342,7 @@ class TrialComparisonCertVerifier::TrialVerificationJob {
       // using the platform verifier and compare results again.
       RequestParams reverification_params(
           trial_result_.verified_cert, params_.hostname(), params_.flags(),
-          params_.ocsp_response(), params_.additional_trust_anchors());
+          params_.ocsp_response(), *params_.additional_trust_anchors());
 
       int rv = cert_verifier_->primary_reverifier()->Verify(
           reverification_params, crl_set_.get(), &reverification_result_,
