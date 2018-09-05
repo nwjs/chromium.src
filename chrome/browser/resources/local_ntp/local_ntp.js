@@ -1101,7 +1101,8 @@ function init() {
   if (configData.isCustomLinksEnabled) {
     args.push('enableCustomLinks=1');
     args.push(
-        'addLink=' + encodeURIComponent(configData.translatedStrings.addLink));
+        'addLink=' +
+        encodeURIComponent(configData.translatedStrings.addLinkTitle));
     args.push(
         'addLinkTooltip=' +
         encodeURIComponent(configData.translatedStrings.addLinkTooltip));
