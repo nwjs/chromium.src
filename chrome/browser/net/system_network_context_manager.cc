@@ -103,7 +103,7 @@ void GetStubResolverConfig(
   }
 
   *stub_resolver_enabled =
-      !!dns_over_https_servers ||
+      dns_over_https_servers->has_value() ||
       local_state->GetBoolean(prefs::kBuiltInDnsClientEnabled);
 }
 

@@ -1461,8 +1461,9 @@ class HostResolverImpl::Job : public PrioritizedDispatcher::Job,
     DNS_HISTOGRAM_BY_PRIORITY("Net.DNS.JobQueueTimeAfterChange", priority(),
                               queue_time_after_change);
 
-    bool system_only =
-        (key_.host_resolver_flags & HOST_RESOLVER_SYSTEM_ONLY) != 0;
+    bool system_only = (key_.host_resolver_flags &
+                        (HOST_RESOLVER_CANONNAME |
+                         HOST_RESOLVER_SYSTEM_ONLY)) != 0;
 
     // Caution: Job::Start must not complete synchronously.
     if (!system_only && had_dns_config_ &&
