@@ -51,6 +51,10 @@
 #include "ash/public/cpp/window_pin_type.h"
 #endif
 
+#include "components/guest_view/browser/guest_view_manager.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+#include "extensions/browser/app_window/app_window.h"
+
 using content::NavigationEntry;
 using content::WebContents;
 
@@ -138,7 +142,7 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(
     if (!browser)
       return nullptr;
   }
-
+#if 0
   // Ensure the selected browser is tabbed.
   if (!browser->is_type_tabbed() && browser->IsAttemptingToCloseBrowser())
     browser = chrome::FindTabbedBrowser(
@@ -148,7 +152,7 @@ base::DictionaryValue* ExtensionTabUtil::OpenTab(
       *error = tabs_constants::kNoCurrentWindowError;
     return nullptr;
   }
-
+#endif
   // TODO(jstritar): Add a constant, chrome.tabs.TAB_ID_ACTIVE, that
   // represents the active tab.
   WebContents* opener = nullptr;
@@ -395,6 +399,7 @@ std::unique_ptr<api::tabs::Tab> ExtensionTabUtil::CreateTabObject(
 
   if (scrub_tab_behavior == kScrubTab)
     ScrubTabForExtension(extension, contents, tab_object.get());
+  tab_object->main_frame_id = contents->GetMainFrame()->GetRoutingID();
   return tab_object;
 }
 
@@ -578,6 +583,27 @@ bool ExtensionTabUtil::GetTabById(int tab_id,
       include_incognito && profile->HasOffTheRecordProfile()
           ? profile->GetOffTheRecordProfile()
           : nullptr;
+  extensions::AppWindowRegistry* registry = AppWindowRegistry::Get(profile);
+  for (extensions::AppWindow* app_window : registry->app_windows()) {
+    WebContents* target_contents = app_window->web_contents();
+    if (SessionTabHelper::IdForTab(target_contents).id() == tab_id) {
+      if (contents)
+        *contents = target_contents;
+      return true;
+    }
+  }
+  guest_view::GuestViewManager* manager =
+    guest_view::GuestViewManager::FromBrowserContext(browser_context);
+  if (manager) {
+    const std::map<int, content::WebContents*>& guest_contents = manager->guest_web_contents_by_instance_id();
+    for (std::map<int, content::WebContents*>::const_iterator it = guest_contents.begin(); it != guest_contents.end(); it++) {
+      if (SessionTabHelper::IdForTab(it->second).id() == tab_id) {
+        if (contents)
+          *contents = it->second;
+        return true;
+      }
+    }
+  }
   for (auto* target_browser : *BrowserList::GetInstance()) {
     if (target_browser->profile() == profile ||
         target_browser->profile() == incognito_profile) {

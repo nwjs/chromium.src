@@ -143,9 +143,11 @@ SandboxLinux::SandboxLinux()
 }
 
 SandboxLinux::~SandboxLinux() {
+#if 0
   if (pre_initialized_) {
     CHECK(initialize_sandbox_ran_);
   }
+#endif
 }
 
 SandboxLinux* SandboxLinux::GetInstance() {

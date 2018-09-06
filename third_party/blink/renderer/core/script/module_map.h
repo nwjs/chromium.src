@@ -50,6 +50,7 @@ class CORE_EXPORT ModuleMap final : public GarbageCollected<ModuleMap>,
   // If the URL wasn't fetched, or is currently being fetched, this returns a
   // nullptr.
   ModuleScript* GetFetchedModuleScript(const KURL&) const;
+  void AddToMap(const KURL&, ModuleScript*);
 
   Modulator* GetModulator() { return modulator_; }
 

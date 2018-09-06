@@ -52,6 +52,7 @@ class LifecycleObserver : public LifecycleObserverBase {
     SetContext(context);
   }
 
+ public:
   void SetContext(Context*);
 
  private:

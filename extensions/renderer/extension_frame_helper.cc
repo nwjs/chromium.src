@@ -4,6 +4,7 @@
 
 #include "extensions/renderer/extension_frame_helper.h"
 
+#include "content/renderer/render_frame_impl.h"
 #include <set>
 
 #include "base/metrics/histogram_macros.h"
@@ -28,6 +29,11 @@
 #include "third_party/blink/public/web/web_document.h"
 #include "third_party/blink/public/web/web_document_loader.h"
 #include "third_party/blink/public/web/web_local_frame.h"
+
+#include "content/nw/src/nw_content.h"
+#include "extensions/renderer/script_context_set.h"
+#include "content/nw/src/renderer/nw_chrome_renderer_hooks.h"
+#include "content/nw/src/renderer/nw_extensions_renderer_hooks.h"
 
 namespace extensions {
 
@@ -58,9 +64,12 @@ bool RenderFrameMatches(const ExtensionFrameHelper* frame_helper,
   blink::WebSecurityOrigin origin =
       frame_helper->render_frame()->GetWebFrame()->GetSecurityOrigin();
   if (origin.IsUnique() ||
-      !base::EqualsASCII(origin.Protocol().Utf16(), kExtensionScheme) ||
-      !base::EqualsASCII(origin.Host().Utf16(), match_extension_id.c_str()))
-    return false;
+      !base::EqualsASCII(origin.Protocol().Utf16(), kExtensionScheme) || (!match_extension_id.empty() &&
+      !base::EqualsASCII(origin.Host().Utf16(), match_extension_id.c_str())))
+    if (!(match_extension_id == nw::get_main_extension_id() && 
+          !base::EqualsASCII(origin.Protocol().Utf16(), kExtensionScheme)))
+      //NWJS#5181: getall() with remote window
+      return false;
 
   if (match_window_id != extension_misc::kUnknownWindowId &&
       frame_helper->browser_window_id() != match_window_id)
@@ -162,11 +171,19 @@ v8::Local<v8::Array> ExtensionFrameHelper::GetV8MainFrames(
       continue;
 
     blink::WebLocalFrame* web_frame = frame->GetWebFrame();
+#if 0
+    //remote page need to call GetExtensionViews in api_nw_window.js #5312
     if (!blink::WebFrame::ScriptCanAccess(web_frame))
       continue;
+#endif
 
     v8::Local<v8::Context> frame_context = web_frame->MainWorldScriptContext();
     if (!frame_context.IsEmpty()) {
+      if (extension_id.empty()) {
+        ScriptContext* ctx = ScriptContextSet::GetContextByV8Context(frame_context);
+        if (!ctx->extension()->is_nwjs_app())
+          continue;
+      }
       v8::Local<v8::Value> window = frame_context->Global();
       CHECK(!window.IsEmpty());
       v8::Maybe<bool> maybe =
@@ -275,6 +292,13 @@ void ExtensionFrameHelper::DidCreateDocumentElement() {
   did_create_current_document_element_ = true;
   extension_dispatcher_->DidCreateDocumentElement(
       render_frame()->GetWebFrame());
+  nw::DocumentHook2(true, render_frame(), extension_dispatcher_);
+}
+
+void ExtensionFrameHelper::DidFinishDocumentLoad() {
+  extension_dispatcher_->DidFinishDocumentLoad(
+      render_frame()->GetWebFrame());
+  nw::DocumentHook2(false, render_frame(), extension_dispatcher_);
 }
 
 void ExtensionFrameHelper::DidCreateNewDocument() {
@@ -322,9 +346,9 @@ void ExtensionFrameHelper::DidStartProvisionalLoad(
   // needs to be called prior to the new window's 'load' event. The parser will
   // be resumed when it happens. It doesn't apply to sandboxed pages.
   if (view_type_ == VIEW_TYPE_APP_WINDOW && render_frame()->IsMainFrame() &&
-      !has_started_first_navigation_ &&
-      GURL(document_loader->GetRequest().Url()).SchemeIs(kExtensionScheme) &&
-      !ScriptContext::IsSandboxedPage(document_loader->GetRequest().Url())) {
+      !has_started_first_navigation_ && !static_cast<content::RenderFrameImpl*>(render_frame())->skip_blocking_parser_) { // &&
+    //      GURL(document_loader->GetRequest().Url()).SchemeIs(kExtensionScheme) &&
+    //  !ScriptContext::IsSandboxedPage(document_loader->GetRequest().Url())) {
     document_loader->BlockParser();
   }
 

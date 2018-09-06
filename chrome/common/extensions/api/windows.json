@@ -233,6 +233,10 @@
               "width": {"type": "integer", "minimum": 0, "optional": true, "description": "The width in pixels of the new window, including the frame. If not specified defaults to a natural width."},
               "height": {"type": "integer", "minimum": 0, "optional": true, "description": "The height in pixels of the new window, including the frame. If not specified defaults to a natural height."},
               "focused": {"type": "boolean", "optional": true, "description": "If true, opens an active window. If false, opens an inactive window."},
+              "hidden": {"type": "boolean", "optional": true, "description": ""},
+              "new_instance": {"type": "boolean", "optional": true, "description": ""},
+              "inject_js_start": {"type":"string", "optional": true, "description": ""},
+              "inject_js_end": {"type":"string", "optional": true, "description": ""},
               "incognito": {"type": "boolean", "optional": true, "description": "Whether the new window should be an incognito window."},
               "type": {
                 "$ref": "CreateType",
