@@ -32,7 +32,7 @@ const base::Feature kNewOverviewAnimations{"NewOverviewAnimations",
                                            base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kNewWallpaperPicker{"NewWallpaperPicker",
-                                        base::FEATURE_ENABLED_BY_DEFAULT};
+                                        base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kNightLight{"NightLight", base::FEATURE_ENABLED_BY_DEFAULT};
 
