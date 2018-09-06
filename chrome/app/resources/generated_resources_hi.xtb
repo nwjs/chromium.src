@@ -718,7 +718,7 @@
 <translation id="2075959085554270910">आपको क्लिक-के-लिए-टैप और टैप करके खींचने की सुविधा को चालू/बंद करने देता है</translation>
 <translation id="2076269580855484719">यह प्लग इन छुपाएं</translation>
 <translation id="2076672359661571384">मध्यम (सुझाया गया)</translation>
-<translation id="2077129598763517140">उपलब्ध होने पर हार्डवेयर त्वरण का उपयोग करें</translation>
+<translation id="2077129598763517140">उपलब्ध होने पर 'हार्डवेयर से तेज़ी लाएं' सुविधा का उपयोग करें</translation>
 <translation id="2078019350989722914">छोड़ने के पहले चेतावनी दें (<ph name="KEY_EQUIVALENT" />)</translation>
 <translation id="2079053412993822885">यदि आप अपने प्रमाणपत्रों में से किसी एक को हटाते हैं, तो आप आगे इसका उपयोग स्वयं की पहचान करने के लिए नहीं कर सकते हैं.</translation>
 <translation id="2079545284768500474">वापस लाएं</translation>
@@ -1789,7 +1789,7 @@
 <translation id="3691231116639905343">कीबोर्ड ऐप्लिकेशन</translation>
 <translation id="3691267899302886494"><ph name="HOST" /> आपकी स्क्रीन शेयर करना चाहता है</translation>
 <translation id="3693415264595406141">पासवर्ड:</translation>
-<translation id="3694027410380121301">पिछला टैब को चुनें</translation>
+<translation id="3694027410380121301">'पिछला टैब' चुनें</translation>
 <translation id="3699624789011381381">ईमेल पता</translation>
 <translation id="3699920817649120894">सिंक करना और मनमुताबिक बनाना बंद करें?</translation>
 <translation id="3700888195348409686">पेश है (<ph name="PAGE_ORIGIN" />)</translation>
@@ -2565,7 +2565,7 @@
 <translation id="4927753642311223124">यहां देखने के लिए कुछ भी नहीं है, आगे चलें.</translation>
 <translation id="4927846293686536410">अपने सभी डिवाइस पर अपने बुकमार्क, इतिहास, पासवर्ड और अन्‍य सेटिंग प्राप्‍त करने के लिए साइन इन करें. आप अपनी Google सेवाओं में भी अपने आप साइन इन कर जाएंगे.</translation>
 <translation id="4929386379796360314">प्रिंट करने की जगहें</translation>
-<translation id="4931132176527519925">स्क्रीन हमेशा शेयर करें</translation>
+<translation id="4931132176527519925">हमेशा स्क्रीन शेयर करें</translation>
 <translation id="4933484234309072027"><ph name="URL" /> पर एम्बेड किया गया</translation>
 <translation id="493571969993549666">'निगरानी में रखा गया उपयोगकर्ता' जोड़ें</translation>
 <translation id="4941246025622441835">एंटरप्राइज़ प्रबंधन के लिए डिवाइस को नामांकित करते समय इस डिवाइस अनुरोध का उपयोग करें:</translation>
@@ -2982,7 +2982,7 @@
 <translation id="5534520101572674276">आकार की गणना कर रहा है</translation>
 <translation id="5535941515421698170">इस डिवाइस से अपना मौजूदा डेटा भी निकालें</translation>
 <translation id="5537725057119320332">कास्‍ट करें</translation>
-<translation id="5539221284352502426">आपने जो पासवर्ड डाला है उसे सर्वर ने अस्वीकार कर दिया है. संभावित कारण ये हो सकते हैं: पासवर्ड बहुत छोटा है. पासवर्ड में संख्याएं या चिह्न होने चाहिए. पासवर्ड, पिछले पासवर्ड से अलग होना चाहिए.</translation>
+<translation id="5539221284352502426">आपने जो पासवर्ड डाला है, उसे सर्वर ने अस्वीकार कर दिया है. संभावित कारण ये हो सकते हैं: पासवर्ड बहुत छोटा है. पासवर्ड में संख्याएं या चिह्न होने चाहिए. पासवर्ड, पिछले पासवर्ड से अलग होना चाहिए.</translation>
 <translation id="5541687815721799001">ऐप्लिकेशन का उपयोग करें</translation>
 <translation id="5542132724887566711">प्रोफ़ाइल</translation>
 <translation id="5542750926112347543"><ph name="DOMAIN" /> की कुकी ब्लॉक की गई हैं</translation>
@@ -3286,7 +3286,7 @@
 <translation id="6011193465932186973">फ़िंगरप्रिंट</translation>
 <translation id="6011449291337289699">साइट डेटा साफ़ करें</translation>
 <translation id="6015796118275082299">वर्ष</translation>
-<translation id="6016551720757758985">पिछले वर्ज़न पर वापस लौटने के साथ ही पावरवॉश की पुष्‍टि करें</translation>
+<translation id="6016551720757758985">पिछले वर्शन पर वापस लौटने के साथ ही पावरवॉश की पुष्‍टि करें</translation>
 <translation id="6016972670657536680">भाषा और कीबोर्ड बटन चुनें. इस समय चुनी गई भाषा <ph name="LANGUAGE" /> है.</translation>
 <translation id="6019169947004469866">काटें</translation>
 <translation id="6020431688553761150">सर्वर ने इस स्रोत को एक्सेस करने के लिए आपको प्राधिकृत नहीं किया था.</translation>
@@ -4163,7 +4163,7 @@
 <translation id="7364796246159120393">फ़ाइल चुनें</translation>
 <translation id="7366415735885268578">साइट जोड़ें</translation>
 <translation id="7366909168761621528">ब्राउज़िंग डेटा</translation>
-<translation id="7371006317849674875">प्रारंभ समय</translation>
+<translation id="7371006317849674875">शुरू करने का समय</translation>
 <translation id="737439367876257440">Google को सिस्टम और इस्तेमाल से जुड़ी जानकारी भेजकर Chrome और उसकी सुरक्षा को बेहतर बनाएं</translation>
 <translation id="7374989181012106167">आपका Chromebook आपके फ़ोन के साथ और भी बेहतर काम करता है. <ph name="LINK_BEGIN" />ज़्यादा जानें.<ph name="LINK_END" /></translation>
 <translation id="7375053625150546623">EAP</translation>
@@ -4469,7 +4469,7 @@
 <translation id="7829298379596169484">ऑडियो इनपुट ऐक्सेस हो रहा है</translation>
 <translation id="7831491651892296503">नेटवर्क कॉन्फ़िगर करने में गड़बड़ी</translation>
 <translation id="7831754656372780761"><ph name="TAB_TITLE" /> <ph name="EMOJI_MUTING" /></translation>
-<translation id="7832084384634357321">समाप्ति समय</translation>
+<translation id="7832084384634357321">खत्म होने का समय</translation>
 <translation id="7832327313660264358">Google में सिंक किए गए डेटा और आपके इस्तेमाल किए जा रहे फ़ीचर में कोई बदलाव नहीं होगा</translation>
 <translation id="7833720883933317473">सहेजे गए कस्टम शब्द यहां दिखाई देंगे</translation>
 <translation id="7837307963048806839">•  $1</translation>

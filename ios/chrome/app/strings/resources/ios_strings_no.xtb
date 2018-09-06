@@ -58,7 +58,7 @@ Noen nettsteder kan for eksempel svare på forespørselen ved å vise deg annons
 <translation id="1752547299766512813">Lagre passord</translation>
 <translation id="1753905327828125965">Mest besøkt</translation>
 <translation id="1809939268435598390">Slett mappen</translation>
-<translation id="1813414402673211292">Tøm nettlesingsdata</translation>
+<translation id="1813414402673211292">Slett nettleserdata</translation>
 <translation id="1820259098641718022">Lagt til i leselisten</translation>
 <translation id="1821253160463689938">Bruker informasjonskapsler til å huske preferansene dine, selv om du ikke går til de sidene</translation>
 <translation id="1876721852596493031">Send bruksdata</translation>
@@ -107,7 +107,7 @@ Noen nettsteder kan for eksempel svare på forespørselen ved å vise deg annons
 <translation id="2704606927547763573">Kopiert</translation>
 <translation id="2709516037105925701">Autofyll</translation>
 <translation id="2712127207578915686">Kan ikke åpne filen</translation>
-<translation id="2718352093833049315">Bare på Wi-Fi</translation>
+<translation id="2718352093833049315">Bare når Wi-Fi er på</translation>
 <translation id="2747003861858887689">Forrige felt</translation>
 <translation id="2780046210906776326">Ingen e-postkontoer</translation>
 <translation id="2781692009645368755">Google Pay</translation>
@@ -396,7 +396,7 @@ Dataene dine er kryptert med passordfrasen din for synkronisering <ph name="TIME
 <translation id="780301667611848630">Nei takk</translation>
 <translation id="7830720446622801252">Tjenester uten personlig preg</translation>
 <translation id="7856733331829174190">Kunne ikke laste ned</translation>
-<translation id="7859704718976024901">Nettlesingsloggen</translation>
+<translation id="7859704718976024901">Nettleserlogg</translation>
 <translation id="7918293828610777738">Leselisten din er tilgjengelig uten nett. Du kan legge til sider i leselisten ved å trykke på <ph name="SHARE_OPENING_ICON" /> og deretter <ph name="READ_LATER_TEXT" />.</translation>
 <translation id="7938254975914653459">FaceTime</translation>
 <translation id="7939128259257418052">Eksportér passord</translation>
