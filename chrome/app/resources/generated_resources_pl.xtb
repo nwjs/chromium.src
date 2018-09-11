@@ -349,7 +349,7 @@
 <translation id="1509281256533087115">Dostęp do każdego urządzenia <ph name="DEVICE_NAME_AND_VENDOR" /> przez USB</translation>
 <translation id="150962533380566081">Nieprawidłowy PUK.</translation>
 <translation id="1510030919967934016">Tej stronie zablokowano możliwość śledzenia Twojej lokalizacji.</translation>
-<translation id="1510238584712386396">Program uruchamiający</translation>
+<translation id="1510238584712386396">Menu z aplikacjami</translation>
 <translation id="1510785804673676069">Jeśli używasz serwera proxy, sprawdź jego ustawienia lub
     skontaktuj się z administratorem sieci, by sprawdzić, czy
     on działa. Jeśli sądzisz, że serwer proxy nie powinien
@@ -3312,7 +3312,7 @@
 <translation id="6043317578411397101"><ph name="APP_NAME" /> udostępnia kartę Chrome karcie <ph name="TAB_NAME" />.</translation>
 <translation id="6044805581023976844"><ph name="APP_NAME" /> udostępnia kartę i dźwięk z Chrome karcie <ph name="TAB_NAME" />.</translation>
 <translation id="6049004884579590341">Naciśnij i przytrzymaj |<ph name="ACCELERATOR" />|, by zamknąć pełny ekran</translation>
-<translation id="6049065490165456785">Zdjęcie z wbudowanego aparatu</translation>
+<translation id="6049065490165456785">Zdjęcie z wbudowanej kamery</translation>
 <translation id="6051354611314852653">Ups. System nie może autoryzować dostępu do interfejsu API dla tego urządzenia.</translation>
 <translation id="6052976518993719690">Urząd certyfikacji protokołu SSL</translation>
 <translation id="6053401458108962351">&amp;Wyczyść dane przeglądania...</translation>
@@ -3927,7 +3927,7 @@
 <translation id="7002454948392136538">Wybierz menedżera dla tego użytkownika nadzorowanego</translation>
 <translation id="7003339318920871147">Sieciowe bazy danych</translation>
 <translation id="7003723821785740825">Skonfiguruj szybszy sposób odblokowania urządzenia</translation>
-<translation id="7004499039102548441">Niedawno używane karty</translation>
+<translation id="7004499039102548441">Ostatnie karty</translation>
 <translation id="7005848115657603926">Nieprawidłowy zakres stron, użyj formatu <ph name="EXAMPLE_PAGE_RANGE" /></translation>
 <translation id="7006634003215061422">Dolny margines</translation>
 <translation id="7006844981395428048">Plik dźwiękowy ($1)</translation>
@@ -4118,7 +4118,7 @@
 <translation id="7287411021188441799">Przywróć domyślne tło</translation>
 <translation id="7288676996127329262"><ph name="HORIZONTAL_DPI" /> x <ph name="VERTICAL_DPI" /> dpi</translation>
 <translation id="7289225569524511578">Otwórz aplikację tapety</translation>
-<translation id="7290242001003353852">Ta usługa logowania, pochodząca z domeny <ph name="SAML_DOMAIN" />, ma dostęp do aparatu.</translation>
+<translation id="7290242001003353852">Ta usługa logowania, pochodząca z domeny <ph name="SAML_DOMAIN" />, ma dostęp do kamery.</translation>
 <translation id="7290594223351252791">Potwierdź rejestrację</translation>
 <translation id="729459249680637905">Liczba pozostałych prób: $1</translation>
 <translation id="7295662345261934369">Udostępnij innym</translation>

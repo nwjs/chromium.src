@@ -1779,7 +1779,7 @@
 <translation id="3678156199662914018">एक्‍सटेंशन: <ph name="EXTENSION_NAME" /></translation>
 <translation id="3681311097828166361">आपके फ़ीडबैक के लिए धन्यवाद. आप अब ऑफ़लाइन हैं और आपकी रिपोर्ट बाद में भेज दी जाएगी.</translation>
 <translation id="3683023058278427253">हमें आपके डोमेन के लिए एक से अधिक प्रकार के लाइसेंस मिले हैं. कृपया जारी रखने के लिए एक को चुनें.</translation>
-<translation id="3683524264665795342"><ph name="APP_NAME" /> स्क्रीन साझाकरण अनुरोध</translation>
+<translation id="3683524264665795342"><ph name="APP_NAME" /> स्क्रीन शेयर करने का अनुरोध</translation>
 <translation id="3685122418104378273">मोबाइल डेटा का उपयोग करते समय, Google डिस्‍क समन्‍वयन डिफ़ॉल्‍ट रूप से अक्षम रहता है.</translation>
 <translation id="368789413795732264">फ़ाइल में लिखने का प्रयास करते समय कोई गड़बड़ी आई: <ph name="ERROR_TEXT" />.</translation>
 <translation id="3688507211863392146">आपके द्वारा ऐप्लिकेशन में खोली गईं फ़ाइलों और फ़ोल्डर में लिखें</translation>
@@ -2744,7 +2744,7 @@
 <translation id="5227808808023563348">पि‍छला टेक्‍स्‍ट ढूंढें</translation>
 <translation id="5228076606934445476">इस डिवाइस में कुछ गलत है.  इस गड़बड़ी को ठीक के लिए आपको डिवाइस को रीबूट करना होगा और फिर से प्रयास करना होगा.</translation>
 <translation id="5229189185761556138">इनपुट विधियां प्रबंधित करें</translation>
-<translation id="5230516054153933099">खिड़की</translation>
+<translation id="5230516054153933099">विंडो</translation>
 <translation id="5233019165164992427">NaCl डीबग पोर्ट</translation>
 <translation id="5233231016133573565">प्रक्रिया आईडी</translation>
 <translation id="5233638681132016545">नया टैब</translation>
