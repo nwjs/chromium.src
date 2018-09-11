@@ -1265,6 +1265,10 @@ void AppListView::StartAnimationForState(AppListViewState target_state) {
   settings.AddObserver(transition_animation_observer_.get());
 
   layer->SetTransform(gfx::Transform());
+
+  // In transition animation, layout is only performed after it is complete,
+  // which makes the child views jump. So layout in advance here to avoid that.
+  Layout();
 }
 
 void AppListView::StartCloseAnimation(base::TimeDelta animation_duration) {
