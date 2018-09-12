@@ -62,6 +62,7 @@ config("content_implementation") {
 
 if (!is_nacl_nonsfi) {
   content_shared_components = [
+    "//content/nw:nw_base",
     "//content/gpu:gpu_sources",
     "//content/public/browser:browser_sources",
     "//content/public/child:child_sources",
@@ -81,6 +82,9 @@ if (is_component_build) {
   component("content") {
     public_deps =
         content_shared_components + [ "//content/public/app:both_sources" ]
+    deps = [
+      "//content/nw:nw_content",
+    ]
   }
 } else if (is_nacl_nonsfi) {
   source_set("content") {

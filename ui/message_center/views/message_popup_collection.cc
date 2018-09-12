@@ -172,7 +172,7 @@ void MessagePopupCollection::UpdateWidgets() {
     if (!view->IsManuallyExpandedOrCollapsed())
       view->SetExpanded(view->IsAutoExpandingAllowed());
 
-#if !defined(OS_CHROMEOS)
+#if 0
     view->set_context_menu_controller(context_menu_controller_.get());
 #endif
 

@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/views/status_icons/status_tray_win.h"
 
+#include "ui/views/controls/menu/menu_controller.h"
 #include <commctrl.h>
 
 #include <utility>
@@ -101,7 +102,7 @@ class StatusTrayStateChangerProxyImpl : public StatusTrayStateChangerProxy {
 };
 
 StatusTrayWin::StatusTrayWin()
-    : next_icon_id_(1),
+    : key_handler_(nullptr), next_icon_id_(1),
       atom_(0),
       instance_(NULL),
       window_(NULL) {
@@ -211,6 +212,13 @@ LRESULT CALLBACK StatusTrayWin::WndProc(HWND hwnd,
     // it gets that Windows is exiting. Make sure we shutdown in an orderly
     // fashion.
     chrome::SessionEnding();
+  } else if (message == WM_KEYDOWN || message == WM_KEYUP) {
+    MSG msg = {hwnd, message, wparam, lparam,
+               static_cast<DWORD>(GetMessageTime())};
+    ui::KeyEvent key(msg);
+    views::MenuController* controller = views::MenuController::GetActiveInstance();
+    if (controller)
+      controller->OnWillDispatchKeyEvent(&key);
   }
   return ::DefWindowProc(hwnd, message, wparam, lparam);
 }

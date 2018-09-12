@@ -4,6 +4,8 @@
 
 #include "extensions/browser/extension_registrar.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/logging.h"
 #include "base/metrics/histogram_macros.h"
 #include "base/stl_util.h"
@@ -330,6 +332,7 @@ void ExtensionRegistrar::ReloadExtension(
     // BeingUpgraded is set back to false when the extension is added.
     extension_system_->runtime_data()->SetBeingUpgraded(enabled_extension->id(),
                                                         true);
+    nw::ReloadExtensionHook(enabled_extension);
     DisableExtension(extension_id, disable_reason::DISABLE_RELOAD);
     DCHECK(registry_->disabled_extensions().Contains(extension_id));
     reloading_extensions_.insert(extension_id);
@@ -363,6 +366,7 @@ void ExtensionRegistrar::TerminateExtension(const ExtensionId& extension_id) {
   registry_->AddTerminated(extension);
   registry_->RemoveEnabled(extension_id);
   DeactivateExtension(extension.get(), UnloadedExtensionReason::TERMINATE);
+
 }
 
 void ExtensionRegistrar::UntrackTerminatedExtension(

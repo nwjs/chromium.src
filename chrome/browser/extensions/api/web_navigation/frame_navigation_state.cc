@@ -35,7 +35,7 @@ FrameNavigationState::FrameState::FrameState() {
 }
 
 // static
-bool FrameNavigationState::allow_extension_scheme_ = false;
+bool FrameNavigationState::allow_extension_scheme_ = true;
 
 FrameNavigationState::FrameNavigationState() {
 }

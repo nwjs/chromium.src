@@ -58,11 +58,35 @@ ContentVerifyJob::ContentVerifyJob(const ExtensionId& extension_id,
       extension_root_(extension_root),
       relative_path_(relative_path),
       failure_callback_(std::move(failure_callback)),
-      failed_(false) {}
+      failed_(false), len_(0), buf_(nullptr) {
+  buf_ = new char[32768];
+}
+
+ContentVerifyJob::ContentVerifyJob(ContentHashReader* hash_reader,
+                                   const ContentVerifierKey& key,
+                                   FailureCallback failure_callback,
+                                   const ReadyCallback& ready_callback)
+    : done_reading_(false),
+      hashes_ready_(false),
+      total_bytes_read_(0),
+      current_block_(0),
+      current_hash_byte_count_(0),
+      hash_reader_(hash_reader),
+      failure_callback_(std::move(failure_callback)),
+      ready_callback_(ready_callback),
+      failed_(false),
+      len_(0),
+      buf_(nullptr)
+{
+  buf_ = new char[32768];
+}
+
 
 ContentVerifyJob::~ContentVerifyJob() {
   UMA_HISTOGRAM_COUNTS("ExtensionContentVerifyJob.TimeSpentUS",
                        time_spent_.InMicroseconds());
+  delete[] buf_;
+  buf_ = nullptr;
 }
 
 void ContentVerifyJob::Start(ContentVerifier* verifier) {
@@ -110,6 +134,8 @@ void ContentVerifyJob::DoneReading() {
       g_content_verify_job_test_observer->JobFinished(extension_id_,
                                                       relative_path_, NONE);
     }
+    else if (!success_callback_.is_null())
+      success_callback_.Run();
   }
 }
 
@@ -208,6 +234,8 @@ void ContentVerifyJob::OnHashesReady(
         g_content_verify_job_test_observer->JobFinished(extension_id_,
                                                         relative_path_, NONE);
       }
+      if (!success_callback_.is_null())
+        success_callback_.Run();
       return;
     }
     DispatchFailureCallback(NO_HASHES_FOR_FILE);
@@ -233,6 +261,9 @@ void ContentVerifyJob::OnHashesReady(
                                                       relative_path_, NONE);
     }
   }
+  if (!ready_callback_.is_null()) {
+    ready_callback_.Run(this);
+  }
 }
 
 // static
@@ -255,7 +286,7 @@ void ContentVerifyJob::DispatchFailureCallback(FailureReason reason) {
   if (!failure_callback_.is_null()) {
     VLOG(1) << "job failed for " << extension_id_ << " "
             << relative_path_.MaybeAsASCII() << " reason:" << reason;
-    std::move(failure_callback_).Run(reason);
+    std::move(failure_callback_).Run(reason, this);
   }
   if (g_content_verify_job_test_observer) {
     g_content_verify_job_test_observer->JobFinished(extension_id_,

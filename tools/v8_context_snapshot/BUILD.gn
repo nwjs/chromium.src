@@ -57,7 +57,7 @@ if (use_v8_context_snapshot) {
   }
 
   action("generate_v8_context_snapshot") {
-    script = "//build/gn_run_binary.py"
+    script = "run.py"
     output_file = "$root_out_dir/v8_context_snapshot.bin"
     output_path = rebase_path(output_file, root_build_dir)
 
@@ -106,6 +106,9 @@ if (use_v8_context_snapshot) {
       "//v8",
     ]
 
+    if (is_linux && !is_component_build) {
+      configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
+    }
     if (is_linux && (is_component_build || using_sanitizer) &&
         use_custom_libcxx) {
       deps += [ "//buildtools/third_party/libc++:libc++" ]

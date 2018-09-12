@@ -49,7 +49,7 @@ DOMWindow* CreateWindow(const String& url_string,
                         LocalFrame& opener_frame,
                         ExceptionState&);
 
-void CreateWindowForRequest(const FrameLoadRequest&, LocalFrame& opener_frame);
+void CreateWindowForRequest(const FrameLoadRequest&, LocalFrame& opener_frame, WebString& manifest);
 
 // Exposed for testing
 CORE_EXPORT WebWindowFeatures GetWindowFeaturesFromString(const String&);

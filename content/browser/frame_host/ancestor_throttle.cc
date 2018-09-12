@@ -145,6 +145,9 @@ NavigationThrottle::ThrottleCheckResult AncestorThrottle::ProcessResponseImpl(
   HeaderDisposition disposition =
       ParseHeader(handle->GetResponseHeaders(), &header_value);
 
+  if (handle->frame_tree_node()->frame_owner_properties().nwfaketop)
+    return NavigationThrottle::PROCEED;
+
   switch (disposition) {
     case HeaderDisposition::CONFLICT:
       if (logging == LoggingDisposition::LOG_TO_CONSOLE)

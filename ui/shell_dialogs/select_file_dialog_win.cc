@@ -542,7 +542,7 @@ bool SelectFileDialogImpl::RunSelectFolderDialog(
   if (title.empty() && params.type == SELECT_UPLOAD_FOLDER) {
     // If it's for uploading don't use default dialog title to
     // make sure we clearly tell it's for uploading.
-    title = l10n_util::GetStringUTF16(IDS_SELECT_UPLOAD_FOLDER_DIALOG_TITLE);
+    title = l10n_util::GetStringUTF16(IDS_SELECT_FOLDER_DIALOG_TITLE);
   }
 
   wchar_t dir_buffer[MAX_PATH + 1];
@@ -560,12 +560,14 @@ bool SelectFileDialogImpl::RunSelectFolderDialog(
   SelectFolderDialogOptions dialog_options = {0};
   if (path->value().length())
     dialog_options.default_path = path->value().c_str();
+#if 0
   if (params.type == SELECT_UPLOAD_FOLDER) {
     dialog_options.is_upload = true;
   }
   if (params.type == SELECT_UPLOAD_FOLDER ||
       params.type == SELECT_EXISTING_FOLDER)
     browse_info.ulFlags |= BIF_NONEWFOLDERBUTTON;
+#endif
   if (dialog_options.is_upload || dialog_options.default_path) {
     browse_info.lParam = reinterpret_cast<LPARAM>(&dialog_options);
     browse_info.lpfn = &BrowseCallbackProc;

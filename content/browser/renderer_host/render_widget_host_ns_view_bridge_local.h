@@ -14,6 +14,8 @@
 #include "ui/accelerated_widget_mac/display_ca_layer_tree.h"
 #include "ui/display/display_observer.h"
 
+@class CALayer;
+
 namespace content {
 
 // Bridge to a locally-hosted NSView -- this is always instantiated in the same
@@ -61,6 +63,7 @@ class RenderWidgetHostNSViewBridgeLocal
       const base::Optional<std::vector<uint32_t>>& uint_dom_codes) override;
   void UnlockKeyboard() override;
 
+  CALayer* GetBackgroundLayer();
  private:
   bool IsPopup() const {
     // TODO(ccameron): If this is not equivalent to |popup_window_| then

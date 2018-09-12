@@ -95,6 +95,9 @@
 #include "services/content/simple_browser/public/mojom/constants.mojom.h"
 #include "services/content/simple_browser/simple_browser_service.h"
 #endif
+#if defined(OS_WIN)
+#pragma warning(disable:4065)
+#endif
 
 namespace {
 

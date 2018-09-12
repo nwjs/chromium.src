@@ -63,6 +63,7 @@ component("embedder") {
     deps += [
       "//base/allocator:buildflags",
       "//components/tracing:startup_tracing",
+      "//content/nw:nw_base"
     ]
 
     if (!is_nacl) {

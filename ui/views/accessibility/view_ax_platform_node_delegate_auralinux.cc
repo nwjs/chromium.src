@@ -4,6 +4,8 @@
 
 #include "ui/views/accessibility/view_ax_platform_node_delegate_auralinux.h"
 
+#include "content/public/browser/browser_thread.h"
+
 #include <algorithm>
 #include <memory>
 #include <vector>

@@ -79,6 +79,7 @@ struct NavigateParams {
   GURL url;
   content::Referrer referrer;
 
+  std::string inject_js_start, inject_js_end;
   // The frame name to be used for the main frame.
   std::string frame_name;
 

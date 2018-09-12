@@ -9,6 +9,10 @@
 
 namespace content {
 
+RenderViewHostDelegate::RenderViewHostDelegate()
+  :skip_blocking_parser_(true) {
+}
+
 RenderViewHostDelegateView* RenderViewHostDelegate::GetDelegateView() {
   return nullptr;
 }
@@ -65,4 +69,11 @@ RenderFrameHost* RenderViewHostDelegate::GetPendingMainFrame() {
   return nullptr;
 }
 
+bool RenderViewHostDelegate::GetSkipBlockingParser() {
+  return skip_blocking_parser_;
+}
+
+void RenderViewHostDelegate::SetSkipBlockingParser(bool value) {
+  skip_blocking_parser_ = value;
+}
 }  // namespace content

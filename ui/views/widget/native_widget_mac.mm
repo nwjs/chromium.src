@@ -33,6 +33,10 @@
 #include "ui/views/widget/widget_delegate.h"
 #include "ui/views/window/native_frame_view.h"
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 // Self-owning animation delegate that starts a hide animation, then calls
 // -[NSWindow close] when the animation ends, releasing itself.
 @interface ViewsNSWindowCloseAnimator : NSObject<NSAnimationDelegate> {
@@ -641,7 +645,7 @@ void NativeWidgetMac::SetVisibilityAnimationTransition(
 }
 
 bool NativeWidgetMac::IsTranslucentWindowOpacitySupported() const {
-  return false;
+  return content::g_support_transparency;
 }
 
 void NativeWidgetMac::OnSizeConstraintsChanged() {

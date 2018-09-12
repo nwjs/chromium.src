@@ -38,7 +38,7 @@ bool CanWithholdFromExtension(const Extension& extension) {
          !Manifest::IsPolicyLocation(extension.location()) &&
          !Manifest::IsComponentLocation(extension.location()) &&
          !PermissionsData::CanExecuteScriptEverywhere(extension.id(),
-                                                      extension.location());
+                                                      extension.location(), extension.GetType());
 }
 
 // Partitions |requested_permissions| into two sets of permissions, granted and

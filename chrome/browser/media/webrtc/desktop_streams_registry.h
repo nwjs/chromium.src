@@ -39,7 +39,8 @@ class DesktopStreamsRegistry {
                                                   int render_process_id,
                                                   int render_frame_id,
                                                   const GURL& origin,
-                                                  std::string* extension_name);
+                                                  std::string* extension_name,
+                                                  bool nodejs = false);
 
  private:
   // Type used to store list of accepted desktop media streams.
