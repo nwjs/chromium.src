@@ -89,21 +89,30 @@ SerializedScriptValue* History::state(ExceptionState& exception_state) {
 }
 
 SerializedScriptValue* History::StateInternal() const {
-  if (!GetFrame())
+  LocalFrame* frame = GetFrame();
+  if (!frame)
     return nullptr;
 
-  if (HistoryItem* history_item =
-          GetFrame()->Loader().GetDocumentLoader()->GetHistoryItem()) {
-    return history_item->StateObject();
-  }
+  // TODO(kouhei, dcheng): The DocumentLoader null check should be unnecessary.
+  // Investigate and see if it can be removed.
+  DocumentLoader* document_loader = frame->Loader().GetDocumentLoader();
+  if (!document_loader)
+    return nullptr;
 
-  return nullptr;
+  HistoryItem* history_item = document_loader->GetHistoryItem();
+  if (!history_item)
+    return nullptr;
+
+  return history_item->StateObject();
 }
 
 void History::setScrollRestoration(const String& value,
                                    ExceptionState& exception_state) {
   DCHECK(value == "manual" || value == "auto");
-  if (!GetFrame() || !GetFrame()->Client()) {
+  // TODO(kouhei, dcheng): The DocumentLoader null check should be unnecessary.
+  // Investigate and see if it can be removed.
+  if (!GetFrame() || !GetFrame()->Client() ||
+      !GetFrame()->Loader().GetDocumentLoader()) {
     exception_state.ThrowSecurityError(
         "May not use a History object associated with a Document that is not "
         "fully active");
@@ -134,11 +143,23 @@ String History::scrollRestoration(ExceptionState& exception_state) {
 }
 
 HistoryScrollRestorationType History::ScrollRestorationInternal() const {
-  HistoryItem* history_item =
-      GetFrame() ? GetFrame()->Loader().GetDocumentLoader()->GetHistoryItem()
-                 : nullptr;
-  return history_item ? history_item->ScrollRestorationType()
-                      : kScrollRestorationAuto;
+  constexpr HistoryScrollRestorationType default_type = kScrollRestorationAuto;
+
+  LocalFrame* frame = GetFrame();
+  if (!frame)
+    return default_type;
+
+  // TODO(kouhei, dcheng): The DocumentLoader null check should be unnecessary.
+  // Investigate and see if it can be removed.
+  DocumentLoader* document_loader = frame->Loader().GetDocumentLoader();
+  if (!document_loader)
+    return default_type;
+
+  HistoryItem* history_item = document_loader->GetHistoryItem();
+  if (!history_item)
+    return default_type;
+
+  return history_item->ScrollRestorationType();
 }
 
 // TODO(crbug.com/394296): This is not the long-term fix to IPC flooding that we
