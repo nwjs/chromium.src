@@ -160,6 +160,10 @@ void AccountManagerUIHandler::OnAccountRemoved(const AccountInfo& account_key) {
 }
 
 void AccountManagerUIHandler::RefreshUI() {
+  if (!IsJavascriptAllowed()) {
+    return;
+  }
+
   FireWebUIListener("accounts-changed");
 }
 
