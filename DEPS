@@ -609,7 +609,7 @@ deps = {
 
   # Used for embedded builds. CrOS & Linux use the system version.
   'src/third_party/fontconfig/src': {
-      'url': Var('chromium_git') + '/external/fontconfig.git' + '@' + 'd1f48f11d5dffa1d954a1b0abe44ce9e4bfc3709',
+      'url': Var('chromium_git') + '/external/fontconfig.git' + '@' + 'ba206df9b9a7ca300265f650842c1459ff7c634a',
       'condition': 'checkout_linux',
   },
 
