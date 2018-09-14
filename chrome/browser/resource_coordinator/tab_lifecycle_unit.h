@@ -29,6 +29,11 @@ namespace resource_coordinator {
 class UsageClock;
 class TabLifecycleObserver;
 
+// Time during which backgrounded tabs are protected from urgent discarding
+// (not on ChromeOS).
+static constexpr base::TimeDelta kBackgroundUrgentProtectionTime =
+    base::TimeDelta::FromMinutes(10);
+
 // Time during which a tab cannot be discarded after having played audio.
 static constexpr base::TimeDelta kTabAudioProtectionTime =
     base::TimeDelta::FromMinutes(1);
@@ -109,6 +114,8 @@ class TabLifecycleUnitSource::TabLifecycleUnit
   bool DiscardTab() override;
   bool IsDiscarded() const override;
   int GetDiscardCount() const override;
+
+  void SetDiscardCountForTesting(size_t discard_count);
 
  protected:
   friend class TabManagerTest;
