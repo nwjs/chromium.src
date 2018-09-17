@@ -59,7 +59,7 @@ class CORE_EXPORT SharedWorkerRepositoryClientImpl final
                MessagePortChannel,
                const KURL&,
                mojom::blink::BlobURLTokenPtr,
-               const String& name) override;
+               const String& name, bool) override;
   void DocumentDetached(Document*) override;
 
  private:

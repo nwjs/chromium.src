@@ -234,8 +234,20 @@ void FrameLoader::Init() {
   document_loader_->SetSentDidFinishLoad();
   if (frame_->GetPage()->Paused())
     SetDefersLoading(true);
-
+  if (HTMLFrameOwnerElement* ownerElement = frame_->DeprecatedLocalOwner()) {
+    setUserAgentOverride(ownerElement->FastGetAttribute(nwuseragentAttr));
+  }
   TakeObjectSnapshot();
+}
+
+void FrameLoader::setUserAgentOverride(const String& agent)
+{
+  user_agent_override_ = agent;
+}
+ 
+String FrameLoader::userAgentOverride() const
+{
+  return user_agent_override_;
 }
 
 LocalFrameClient* FrameLoader::Client() const {
@@ -800,16 +812,26 @@ void FrameLoader::StartNavigation(const FrameLoadRequest& passed_request,
 
   SetReferrerForFrameRequest(request);
 
-  if (!target_frame && !request.FrameName().IsEmpty()) {
+  if ((!target_frame && !request.FrameName().IsEmpty()) ||
+      policy == kNavigationPolicyNewBackgroundTab || policy == kNavigationPolicyNewForegroundTab) {
+    if (request.FrameName() == "_blank")
+      policy = kNavigationPolicyNewWindow;
+    WebString manifest;
+    Client()->willHandleNavigationPolicy(request.GetResourceRequest(), &policy, &manifest);
+    if (policy == kNavigationPolicyIgnore)
+      return;
+    if (policy != kNavigationPolicyCurrentTab && !target_frame && !request.FrameName().IsEmpty()) {
     if (policy == kNavigationPolicyDownload) {
       Client()->DownloadURL(request.GetResourceRequest(),
                             DownloadCrossOriginRedirects::kFollow);
-      return;  // Navigation/download will be handled by the client.
-    } else if (should_navigate_target_frame) {
+    } else {
+      //revert be2f0da0b064edc7e59d08129538a09d3b2f30c1
+      //WebContents created via ctrl-click should be in a new process
       request.GetResourceRequest().SetFrameType(
           network::mojom::RequestContextFrameType::kAuxiliary);
-      CreateWindowForRequest(request, *frame_);
+      CreateWindowForRequest(request, *frame_, manifest);
       return;  // Navigation will be handled by the new frame/window.
+    }
     }
   }
 
@@ -1213,6 +1235,15 @@ void FrameLoader::RestoreScrollPositionAndViewState(
 }
 
 String FrameLoader::UserAgent() const {
+  LocalFrame* frame = frame_;
+  while (frame) {
+    if (!frame->Loader().user_agent_override_.IsEmpty())
+      return frame->Loader().user_agent_override_;
+    Frame* f = frame->Tree().Parent();
+    if (!f || !f->IsLocalFrame())
+      break;
+    frame = ToLocalFrame(f);
+  }
   String user_agent = Client()->UserAgent();
   probe::applyUserAgentOverride(frame_->GetDocument(), &user_agent);
   return user_agent;
@@ -1433,6 +1464,18 @@ void FrameLoader::StartLoad(
     resource_request.SetInitiatorCSP(initiator_csp);
   }
 
+  bool policy_override = false;
+  NavigationPolicy policy = navigation_policy;
+  WebURLRequest::RequestContext context = resource_request.GetRequestContext();
+  if (context == WebURLRequest::kRequestContextHyperlink ||
+      context == WebURLRequest::kRequestContextForm) {
+    Client()->willHandleNavigationPolicy(resource_request, &policy, NULL, false);
+    if (policy == kNavigationPolicyIgnore) {
+      navigation_policy = policy;
+      policy_override = true;
+    }
+  }
+
   // Record the latest requiredCSP value that will be used when sending this
   // request.
   RecordLatestRequiredCSP();
@@ -1453,6 +1496,7 @@ void FrameLoader::StartLoad(
   // Report-only CSP headers are checked in browser.
   ModifyRequestForCSP(resource_request, origin_document);
 
+  if (!policy_override)
   navigation_policy = ShouldContinueForNavigationPolicy(
       resource_request, origin_document, frame_load_request.GetSubstituteData(),
       nullptr, frame_load_request.ShouldCheckMainWorldContentSecurityPolicy(),

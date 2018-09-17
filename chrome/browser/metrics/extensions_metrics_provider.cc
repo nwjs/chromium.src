@@ -142,6 +142,7 @@ ExtensionInstallProto::Type GetType(Manifest::Type type) {
     case Manifest::TYPE_LEGACY_PACKAGED_APP:
       return ExtensionInstallProto::LEGACY_PACKAGED_APP;
     case Manifest::TYPE_PLATFORM_APP:
+    case Manifest::TYPE_NWJS_APP:
       return ExtensionInstallProto::PLATFORM_APP;
     case Manifest::TYPE_SHARED_MODULE:
       return ExtensionInstallProto::SHARED_MODULE;

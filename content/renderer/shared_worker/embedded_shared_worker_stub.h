@@ -10,6 +10,7 @@
 
 #include "base/macros.h"
 #include "base/unguessable_token.h"
+#include "base/files/file_path.h"
 #include "content/child/scoped_child_process_reference.h"
 #include "content/common/service_worker/service_worker_provider.mojom.h"
 #include "content/common/shared_worker/shared_worker.mojom.h"
@@ -110,6 +111,9 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
   GURL url_;
   RendererPreferences renderer_preferences_;
   std::unique_ptr<blink::WebSharedWorker> impl_;
+
+  bool nodejs_ = false;
+  base::FilePath root_path_;
 
   using PendingChannel =
       std::pair<int /* connection_request_id */, blink::MessagePortChannel>;

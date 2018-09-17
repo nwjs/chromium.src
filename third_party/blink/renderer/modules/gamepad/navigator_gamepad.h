@@ -42,6 +42,9 @@ class Document;
 class Gamepad;
 class GamepadList;
 class Navigator;
+class WebLocalFrame;
+
+MODULES_EXPORT void fix_gamepad_nw(WebLocalFrame*);
 
 class MODULES_EXPORT NavigatorGamepad final
     : public GarbageCollectedFinalized<NavigatorGamepad>,
@@ -63,7 +66,7 @@ class MODULES_EXPORT NavigatorGamepad final
 
   void Trace(blink::Visitor*) override;
 
- private:
+ public:
   explicit NavigatorGamepad(Navigator&);
 
   void DispatchOneEvent();

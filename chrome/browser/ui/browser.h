@@ -222,6 +222,8 @@ class Browser : public TabStripModelObserver,
   explicit Browser(const CreateParams& params);
   ~Browser() override;
 
+  bool NWCanClose(bool user_force = false);
+
   // Set overrides for the initial window bounds and maximized state.
   void set_override_bounds(const gfx::Rect& bounds) {
     override_bounds_ = bounds;
@@ -628,7 +630,8 @@ class Browser : public TabStripModelObserver,
                           int opener_render_frame_id,
                           const std::string& frame_name,
                           const GURL& target_url,
-                          content::WebContents* new_contents) override;
+                          content::WebContents* new_contents,
+                          const base::string16& nw_window_manifest) override;
   void RendererUnresponsive(
       content::WebContents* source,
       content::RenderWidgetHost* render_widget_host,
