@@ -286,7 +286,12 @@ ProfileNetworkContextService::CreateNetworkContextParams(
 
   network_context_params->enable_certificate_reporting = true;
   network_context_params->enable_expect_ct_reporting = true;
-
+  const base::CommandLine& command_line =
+    *base::CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch("disable-cookie-encryption")) {
+    network_context_params->enable_encrypted_cookies = false;
+  }
+  
   return network_context_params;
 }
 

@@ -160,6 +160,9 @@ struct CONTENT_EXPORT RendererPreferences {
   // The width of the arrow bitmap on a horizontal scroll bar in dips.
   int32_t arrow_bitmap_width_horizontal_scroll_bar_in_dips;
 #endif
+
+  std::string nw_inject_js_doc_start;
+  std::string nw_inject_js_doc_end;
 };
 
 }  // namespace content

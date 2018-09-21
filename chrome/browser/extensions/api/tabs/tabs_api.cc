@@ -11,6 +11,8 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/bind.h"
 #include "base/command_line.h"
 #include "base/location.h"
@@ -109,6 +111,8 @@
 #include "ui/base/clipboard/clipboard_types.h"
 #include "ui/base/ui_base_features.h"
 #endif
+
+#include "extensions/browser/guest_view/web_view/web_view_guest.h"
 
 using content::BrowserThread;
 using content::NavigationController;
@@ -537,8 +541,12 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
   gfx::Rect window_bounds;
   bool focused = true;
+  bool hidden = false;
+  bool new_instance = false;
+  bool frameless = false;
   std::string extension_id;
 
+  std::string inject_js_start, inject_js_end;
   if (create_data) {
     // Report UMA stats to decide when to remove the deprecated "docked" windows
     // state (crbug.com/703733).
@@ -584,11 +592,23 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
 
     if (create_data->focused)
       focused = *create_data->focused;
+
+    if (create_data->hidden)
+      hidden = *create_data->hidden;
+    if (create_data->inject_js_start)
+      inject_js_start = *create_data->inject_js_start;
+    if (create_data->inject_js_end)
+      inject_js_end = *create_data->inject_js_end;
+    if (create_data->new_instance)
+      new_instance = *create_data->new_instance;
+    if (create_data->frameless)
+      frameless = *create_data->frameless;
   }
 
   // Create a new BrowserWindow.
   Browser::CreateParams create_params(window_type, window_profile,
                                       user_gesture());
+  create_params.frameless = frameless;
   if (extension_id.empty()) {
     create_params.initial_bounds = window_bounds;
   } else {
@@ -623,7 +643,14 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
     navigate_params.source_site_instance =
         render_frame_host()->GetSiteInstance();
 
+    navigate_params.inject_js_start = inject_js_start;
+    navigate_params.inject_js_end = inject_js_end;
+
+    if (new_instance)
+      nw::SetPinningRenderer(false);
     Navigate(&navigate_params);
+    if (new_instance)
+      nw::SetPinningRenderer(true);
   }
 
   WebContents* contents = NULL;
@@ -647,10 +674,14 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   }
   chrome::SelectNumberedTab(new_window, 0);
 
+  if (!hidden) {
   if (focused)
     new_window->window()->Show();
   else
     new_window->window()->ShowInactive();
+  } else {
+    new_window->window()->Hide();
+  }
 
 #if defined(OS_CHROMEOS)
   // Lock the window fullscreen only after the new tab has been created
@@ -1084,6 +1115,7 @@ ExtensionFunction::ResponseAction TabsCreateFunction::Run() {
   AssignOptionalValue(params->create_properties.index, &options.index);
   AssignOptionalValue(params->create_properties.url, &options.url);
 
+  options.create_browser_if_needed = true;
   std::string error;
   std::unique_ptr<base::DictionaryValue> result(
       ExtensionTabUtil::OpenTab(this, options, user_gesture(), &error));
@@ -1820,6 +1852,8 @@ ExtensionFunction::ResponseAction TabsDetectLanguageFunction::Run() {
       tabs::DetectLanguage::Params::Create(*args_));
   EXTENSION_FUNCTION_VALIDATE(params.get());
 
+  return RespondNow(Error("disabled in NW.js"));
+#if 0
   int tab_id = 0;
   Browser* browser = NULL;
   WebContents* contents = NULL;
@@ -1879,6 +1913,7 @@ ExtensionFunction::ResponseAction TabsDetectLanguageFunction::Run() {
       this, content::NOTIFICATION_NAV_ENTRY_COMMITTED,
       content::Source<NavigationController>(&(contents->GetController())));
   return RespondLater();
+#endif
 }
 
 void TabsDetectLanguageFunction::Observe(
@@ -2027,12 +2062,17 @@ ScriptExecutor* ExecuteCodeInTabFunction::GetScriptExecutor(
   bool success = GetTabById(execute_tab_id_, browser_context(),
                             include_incognito_information(), &browser, nullptr,
                             &contents, nullptr, error) &&
-                 contents && browser;
+                 contents;
 
   if (!success)
     return nullptr;
 
-  return TabHelper::FromWebContents(contents)->script_executor();
+  if (TabHelper::FromWebContents(contents))
+    return TabHelper::FromWebContents(contents)->script_executor();
+  auto* web_view = extensions::WebViewGuest::FromWebContents(contents);
+  if (web_view)
+    return web_view->script_executor();
+  return nullptr;
 }
 
 bool ExecuteCodeInTabFunction::IsWebView() const {

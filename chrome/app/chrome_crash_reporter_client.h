@@ -24,14 +24,15 @@ class ChromeCrashReporterClient : public crash_reporter::CrashReporterClient {
   void SetCrashReporterClientIdFromGUID(
       const std::string& client_guid) override;
 #endif
-
-#if defined(OS_POSIX) && !defined(OS_MACOSX)
+#if defined(OS_POSIX)
   void GetProductNameAndVersion(const char** product_name,
                                 const char** version) override;
   void GetProductNameAndVersion(std::string* product_name,
                                 std::string* version,
                                 std::string* channel) override;
+#if !defined(OS_MACOSX)
   base::FilePath GetReporterLogFilename() override;
+#endif
 #endif
 
   bool GetCrashDumpLocation(base::FilePath* crash_dir) override;

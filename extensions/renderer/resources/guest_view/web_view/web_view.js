@@ -38,6 +38,8 @@ WebViewImpl.setupElement = function(proto) {
 
 // Sets up all of the webview attributes.
 WebViewImpl.prototype.setupAttributes = function() {
+  this.attributes[WebViewConstants.ATTRIBUTE_ALLOWNW] =
+      new WebViewAttributes.AllowNWAttribute(this);
   this.attributes[WebViewConstants.ATTRIBUTE_ALLOWSCALING] =
       new WebViewAttributes.AllowScalingAttribute(this);
   this.attributes[WebViewConstants.ATTRIBUTE_ALLOWTRANSPARENCY] =
@@ -249,12 +251,20 @@ WebViewImpl.prototype.forward = function(callback) {
   return this.go(1, callback);
 };
 
+WebViewImpl.prototype.getCookieStoreId = function() {
+    return this.processId + "," + this.guest.getId();
+};
+
 WebViewImpl.prototype.getProcessId = function() {
   return this.processId;
 };
 
 WebViewImpl.prototype.getUserAgent = function() {
   return this.userAgentOverride || navigator.userAgent;
+};
+
+WebViewImpl.prototype.getGuestId = function() {
+  return this.guest.getId();
 };
 
 WebViewImpl.prototype.isUserAgentOverridden = function() {
@@ -271,6 +281,20 @@ WebViewImpl.prototype.setUserAgentOverride = function(userAgentOverride) {
   }
   WebViewInternal.overrideUserAgent(this.guest.getId(), userAgentOverride);
   return true;
+};
+
+WebViewImpl.prototype.showDevTools = function(show, container) {
+  if (!this.guest.getId()) {
+    return;
+  }
+  if (container)
+    WebViewInternal.showDevTools(this.guest.getId(), show, container.getProcessId(), container.getGuestId());
+  else
+    WebViewInternal.showDevTools(this.guest.getId(), show);
+};
+
+WebViewImpl.prototype.inspectElementAt = function(x, y) {
+  WebViewInternal.inspectElementAt(this.guest.getId(), x, y);
 };
 
 WebViewImpl.prototype.loadDataWithBaseUrl = function(

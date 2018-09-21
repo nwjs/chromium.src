@@ -34,6 +34,20 @@
 #include "services/network/public/cpp/shared_url_loader_factory.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_provider.h"
+
+#include "third_party/node-nw/src/node_webkit.h"
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) CORE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
+#include "base/command_line.h"
+
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_url_request.h"
 #include "third_party/blink/public/platform/web_worker_fetch_context.h"
@@ -324,6 +338,8 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
   DCHECK(!asked_to_terminate_);
 
   Document* document = shadow_page_->GetDocument();
+  const base::CommandLine& command_line = *base::CommandLine::ForCurrentProcess();
+  bool isNodeJS = document->GetFrame() && document->GetFrame()->isNodeJS() && command_line.HasSwitch("enable-node-worker");
 
   // FIXME: this document's origin is pristine and without any extra privileges.
   // (crbug.com/254993)
@@ -355,6 +371,11 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
   std::unique_ptr<WorkerSettings> worker_settings =
       std::make_unique<WorkerSettings>(document->GetSettings());
 
+  std::string main_script;
+  KURL script_url = worker_start_data_.script_url;
+  if (g_web_worker_start_thread_fn) {
+    (*g_web_worker_start_thread_fn)(shadow_page_->GetDocument()->GetFrame(), (void*)script_url.GetPath().Utf8().data(), &main_script, &isNodeJS);
+  }
   std::unique_ptr<GlobalScopeCreationParams> global_scope_creation_params;
   String source_code;
   std::unique_ptr<Vector<char>> cached_meta_data;
@@ -375,6 +396,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
           kDoNotSupportReferrerPolicyLegacyKeywords, &referrer_policy);
     }
     global_scope_creation_params = std::make_unique<GlobalScopeCreationParams>(
+        isNodeJS, main_script,
         worker_start_data_.script_url, script_type,
         worker_start_data_.user_agent,
         content_security_policy ? content_security_policy->Headers()
@@ -394,6 +416,7 @@ void WebEmbeddedWorkerImpl::StartWorkerThread() {
     // We don't have to set ContentSecurityPolicy and ReferrerPolicy. They're
     // served by the installed scripts manager on the worker thread.
     global_scope_creation_params = std::make_unique<GlobalScopeCreationParams>(
+        isNodeJS, main_script,
         worker_start_data_.script_url, script_type,
         worker_start_data_.user_agent, Vector<CSPHeaderAndType>(),
         kReferrerPolicyDefault, starter_origin, starter_secure_context,

@@ -419,6 +419,7 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
     CR_MSG_WM_SETTINGCHANGE(OnSettingChange)
     CR_MSG_WM_SIZE(OnSize)
     CR_MSG_WM_SIZING(OnSizing)
+    CR_MSG_WM_STYLECHANGING(OnStyleChanging)
     CR_MSG_WM_SYSCOMMAND(OnSysCommand)
     CR_MSG_WM_THEMECHANGED(OnThemeChanged)
     CR_MSG_WM_TIMECHANGE(OnTimeChange)
@@ -479,6 +480,7 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   void OnSettingChange(UINT flags, const wchar_t* section);
   void OnSize(UINT param, const gfx::Size& size);
   void OnSizing(UINT param, RECT* rect);
+  void OnStyleChanging(int nStyleType, LPSTYLESTRUCT lpStyleStruct);
   void OnSysCommand(UINT notification_code, const gfx::Point& point);
   void OnThemeChanged();
   void OnTimeChange();

@@ -215,7 +215,8 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
       url_(info->url),
       renderer_preferences_(renderer_preferences),
       preference_watcher_request_(std::move(preference_watcher_request)),
-      appcache_host_id_(appcache_host_id) {
+      appcache_host_id_(appcache_host_id),
+      nodejs_(info->is_node_js), root_path_(info->root_path) {
   // The ID of the precreated AppCacheHost can be valid only when the
   // NetworkService is enabled.
   DCHECK(base::FeatureList::IsEnabled(network::features::kNetworkService) ||
@@ -256,7 +257,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
   // direct network factory. So we don't need to call CloneWithoutDefault() to
   // bypass features like AppCache, unlike the bundle created for a frame.
 
-  impl_->StartWorkerContext(
+  impl_->StartWorkerContext(nodejs_, root_path_,
       url_, blink::WebString::FromUTF8(name_),
       blink::WebString::FromUTF8(info->content_security_policy),
       info->content_security_policy_type, info->creation_address_space,

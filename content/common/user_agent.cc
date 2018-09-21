@@ -160,7 +160,16 @@ std::string BuildUserAgentFromProduct(const std::string& product) {
   return BuildUserAgentFromOSAndProduct(os_info, product);
 }
 
-#if defined(OS_ANDROID)
+std::string BuildOSInfo() {
+  std::string os_info;
+  base::StringAppendF(
+      &os_info,
+      "%s%s",
+      getUserAgentPlatform().c_str(),
+      BuildOSCpuInfo().c_str());
+  return os_info;
+}
+
 std::string BuildUserAgentFromProductAndExtraOSInfo(
     const std::string& product,
     const std::string& extra_os_info,
@@ -171,7 +180,6 @@ std::string BuildUserAgentFromProductAndExtraOSInfo(
                       extra_os_info.c_str());
   return BuildUserAgentFromOSAndProduct(os_info, product);
 }
-#endif
 
 std::string BuildUserAgentFromOSAndProduct(const std::string& os_info,
                                            const std::string& product) {

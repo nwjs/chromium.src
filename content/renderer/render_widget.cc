@@ -9,6 +9,8 @@
 #include <memory>
 #include <utility>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/auto_reset.h"
 #include "base/base_switches.h"
 #include "base/bind.h"
@@ -169,6 +171,15 @@ using blink::WebTouchEvent;
 using blink::WebTouchPoint;
 using blink::WebVector;
 using blink::WebWidget;
+
+namespace nw {
+typedef bool (*RenderWidgetWasHiddenHookFn)(content::RenderWidget*);
+#if defined(COMPONENT_BUILD)
+CONTENT_EXPORT RenderWidgetWasHiddenHookFn gRenderWidgetWasHiddenHook = nullptr;
+#else
+RenderWidgetWasHiddenHookFn gRenderWidgetWasHiddenHook = nullptr;
+#endif
+}
 
 namespace content {
 
@@ -893,6 +904,8 @@ void RenderWidget::OnDisableDeviceEmulation() {
 }
 
 void RenderWidget::OnWasHidden() {
+  if (nw::gRenderWidgetWasHiddenHook && nw::gRenderWidgetWasHiddenHook(this))
+    return;
   TRACE_EVENT0("renderer", "RenderWidget::OnWasHidden");
   // Go into a mode where we stop generating paint and scrolling events.
   SetHidden(true);

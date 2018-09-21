@@ -70,6 +70,7 @@ base::string16 GetApplicationTitle(content::WebContents* web_contents,
 bool ShouldDisplayNotification(const extensions::Extension* extension) {
   return !(extension &&
            (extension->location() == extensions::Manifest::COMPONENT ||
+            extension->is_nwjs_app() ||
             extension->location() == extensions::Manifest::EXTERNAL_COMPONENT));
 }
 
@@ -232,6 +233,7 @@ bool DesktopCaptureAccessHandler::IsDefaultApproved(
     const extensions::Extension* extension) {
   return extension &&
          (extension->location() == extensions::Manifest::COMPONENT ||
+          extension->is_nwjs_app() ||
           extension->location() == extensions::Manifest::EXTERNAL_COMPONENT ||
           IsExtensionWhitelistedForScreenCapture(extension));
 }
@@ -285,6 +287,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
       content::WebContents::FromRenderFrameHost(
           content::RenderFrameHost::FromID(request.render_process_id,
                                            request.render_frame_id));
+  content::RenderFrameHost* frame_host = content::RenderFrameHost::FromID(request.render_process_id, request.render_frame_id);
   content::RenderFrameHost* const main_frame =
       web_contents_for_stream ? web_contents_for_stream->GetMainFrame() : NULL;
   if (main_frame) {
@@ -293,7 +296,7 @@ void DesktopCaptureAccessHandler::HandleRequest(
             request.requested_video_device_id,
             main_frame->GetProcess()->GetID(), main_frame->GetRoutingID(),
             request.security_origin, &original_extension_name,
-            content::kRegistryStreamTypeDesktop);
+            content::kRegistryStreamTypeDesktop, frame_host->nodejs());
   }
 
   // Received invalid device id.

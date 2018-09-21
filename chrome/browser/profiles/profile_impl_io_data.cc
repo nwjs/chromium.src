@@ -5,6 +5,10 @@
 #include "chrome/browser/profiles/profile_impl_io_data.h"
 
 #include <memory>
+
+#include "content/nw/src/nw_base.h"
+#include "extensions/common/manifest_constants.h"
+
 #include <set>
 #include <string>
 #include <utility>
@@ -514,6 +518,10 @@ void ProfileImplIOData::
   // store.
   net::URLRequestContext* extensions_context = extensions_request_context();
 
+  std::string domain;
+  if (nw::package()->root()->GetString(extensions::manifest_keys::kNWJSDomain, &domain)) {
+    extensions_context->set_cookie_store(main_request_context()->cookie_store());
+  } else {
   content::CookieStoreConfig cookie_config(
       lazy_params_->extensions_cookie_path,
       lazy_params_->restore_old_session_cookies,
@@ -525,6 +533,7 @@ void ProfileImplIOData::
   extensions_cookie_store_ = content::CreateCookieStore(
       cookie_config, profile_params->io_thread->net_log());
   extensions_context->set_cookie_store(extensions_cookie_store_.get());
+  }
 }
 
 net::URLRequestContext* ProfileImplIOData::InitializeMediaRequestContext(

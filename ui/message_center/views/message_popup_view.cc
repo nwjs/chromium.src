@@ -37,7 +37,7 @@ MessagePopupView::MessagePopupView(const Notification& notification,
       a11y_feedback_on_init_(
           notification.rich_notification_data()
               .should_make_spoken_feedback_for_popup_updates) {
-#if !defined(OS_CHROMEOS)
+#if 0
   if (!base::FeatureList::IsEnabled(message_center::kNewStyleNotifications)) {
     context_menu_controller_ =
         std::make_unique<MessageViewContextMenuController>();

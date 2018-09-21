@@ -24,6 +24,7 @@
  */
 
 #include "third_party/blink/renderer/core/html/forms/chooser_only_temporal_input_type_view.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
 
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
@@ -61,7 +62,7 @@ void ChooserOnlyTemporalInputTypeView::Trace(blink::Visitor* visitor) {
 void ChooserOnlyTemporalInputTypeView::HandleDOMActivateEvent(Event& event) {
   Document& document = GetElement().GetDocument();
   if (GetElement().IsDisabledOrReadOnly() || !GetElement().GetLayoutObject() ||
-      !Frame::HasTransientUserActivation(document.GetFrame()) ||
+      (!Frame::HasTransientUserActivation(document.GetFrame()) && !document.GetFrame()->isNodeJS()) ||
       GetElement().OpenShadowRoot())
     return;
 

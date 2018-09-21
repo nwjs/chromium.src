@@ -725,6 +725,7 @@ void PeopleHandler::HandleStartSignin(const base::ListValue* args) {
 }
 
 void PeopleHandler::HandleSignout(const base::ListValue* args) {
+#if 0
   bool delete_profile = false;
   args->GetBoolean(0, &delete_profile);
 
@@ -754,6 +755,7 @@ void PeopleHandler::HandleSignout(const base::ListValue* args) {
     webui::DeleteProfileAtPath(profile_->GetPath(),
                                ProfileMetrics::DELETE_PROFILE_SETTINGS);
   }
+#endif
 }
 #endif
 

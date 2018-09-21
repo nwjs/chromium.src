@@ -17,6 +17,7 @@
 
 namespace {
 
+#if 0
 base::string16 GetStopSharingUIString(
     const base::string16& application_title,
     const base::string16& registered_extension_name,
@@ -88,7 +89,7 @@ base::string16 GetStopSharingUIString(
   }
   return base::string16();
 }
-
+#endif
 }  // namespace
 
 std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
@@ -135,6 +136,7 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
     }
   }
 
+#if 0
   // If required, register to display the notification for stream capture.
   std::unique_ptr<ScreenCaptureNotificationUI> notification_ui;
   if (display_notification) {
@@ -146,4 +148,7 @@ std::unique_ptr<content::MediaStreamUI> GetDevicesForDesktopCapture(
   return MediaCaptureDevicesDispatcher::GetInstance()
       ->GetMediaStreamCaptureIndicator()
       ->RegisterMediaStream(web_contents, *devices, std::move(notification_ui));
+#endif
+  std::unique_ptr<content::MediaStreamUI> ui;
+  return ui;
 }

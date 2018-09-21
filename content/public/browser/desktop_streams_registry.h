@@ -50,7 +50,7 @@ class CONTENT_EXPORT DesktopStreamsRegistry {
       int render_frame_id,
       const GURL& origin,
       std::string* extension_name,
-      const DesktopStreamRegistryType type) = 0;
+      const DesktopStreamRegistryType type, bool nodejs = false) = 0;
 };
 
 }  // namespace content

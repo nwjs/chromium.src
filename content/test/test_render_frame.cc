@@ -50,6 +50,8 @@ class MockFrameHost : public mojom::FrameHost {
 
  protected:
   // mojom::FrameHost:
+  void SetNodeJS(bool) override {}
+  void SetContextCreated(bool) override {}
   void CreateNewWindow(mojom::CreateNewWindowParamsPtr,
                        CreateNewWindowCallback) override {
     NOTREACHED() << "We should never dispatch to the service side signature.";

@@ -148,14 +148,14 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
   if (GetElement().IsDisabledFormControl())
     return;
 
-  if (!Frame::HasTransientUserActivation(GetElement().GetDocument().GetFrame()))
+  if (!Frame::HasTransientUserActivation(GetElement().GetDocument().GetFrame()) && !GetElement().GetDocument().GetFrame()->isNodeJS())
     return;
 
   if (ChromeClient* chrome_client = GetChromeClient()) {
     WebFileChooserParams params;
     HTMLInputElement& input = GetElement();
     Document& document = input.GetDocument();
-    bool is_directory = input.FastHasAttribute(webkitdirectoryAttr);
+    bool is_directory = input.FastHasAttribute(webkitdirectoryAttr) || input.FastHasAttribute(nwdirectoryAttr);
     params.directory = is_directory;
     params.need_local_path = is_directory;
     params.multi_select = is_directory || input.FastHasAttribute(multipleAttr);
@@ -164,6 +164,14 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
     params.use_media_capture = RuntimeEnabledFeatures::MediaCaptureEnabled() &&
                                input.FastHasAttribute(captureAttr);
     params.requestor = document.Url();
+    params.initial_path = input.nwworkingdir();
+    params.save_as = input.FastHasAttribute(nwsaveasAttr);
+    params.initial_value = input.nwsaveas();
+    params.extract_directory = input.FastHasAttribute(webkitdirectoryAttr);
+    if (params.selected_files.size() > 0)
+      params.initial_value = params.selected_files[0];
+    if (input.FastHasAttribute(nwdirectorydescAttr))
+      params.title = input.FastGetAttribute(nwdirectorydescAttr);
 
     UseCounter::Count(
         document, document.IsSecureContext()
@@ -210,7 +218,15 @@ String FileInputType::ValueInFilenameValueMode() const {
   // decided to try to parse the value by looking for backslashes
   // (because that's what Windows file paths use). To be compatible
   // with that code, we make up a fake path for the file.
-  return "C:\\fakepath\\" + file_list_->item(0)->name();
+  //return "C:\\fakepath\\" + file_list_->item(0)->name();
+  unsigned numFiles = file_list_->length();
+  StringBuilder val;
+  val.Append(file_list_->item(0)->path());
+  for (unsigned i = 1; i < numFiles; ++i) {
+    val.Append(';');
+    val.Append(file_list_->item(i)->path());
+  }
+  return val.ToString();
 }
 
 void FileInputType::SetValue(const String&,
@@ -345,7 +361,12 @@ void FileInputType::SetFiles(FileList* files) {
   }
 }
 
-void FileInputType::FilesChosen(const Vector<FileChooserFileInfo>& files) {
+void FileInputType::FilesChosen(const Vector<FileChooserFileInfo>& files, bool canceled) {
+  if (canceled) {
+    GetElement().DispatchScopedEvent(*Event::CreateBubble(EventTypeNames::cancel));
+    return;
+  }
+
   SetFiles(CreateFileList(files,
                           GetElement().FastHasAttribute(webkitdirectoryAttr)));
   if (HasConnectedFileChooser())

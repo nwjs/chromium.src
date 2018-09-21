@@ -523,7 +523,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   TRACE_EVENT0("browser", "chrome::RegisterProfilePrefs");
   SCOPED_UMA_HISTOGRAM_TIMER("Settings.RegisterProfilePrefsTime");
   // User prefs. Please keep this list alphabetized.
-  AccessibilityUIMessageHandler::RegisterProfilePrefs(registry);
+  //AccessibilityUIMessageHandler::RegisterProfilePrefs(registry);
   autofill::prefs::RegisterProfilePrefs(registry);
   browsing_data::prefs::RegisterBrowserUserPrefs(registry);
   certificate_transparency::prefs::RegisterPrefs(registry);
@@ -588,7 +588,9 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   extensions::ActivityLog::RegisterProfilePrefs(registry);
   extensions::AudioAPI::RegisterUserPrefs(registry);
   extensions::ExtensionPrefs::RegisterProfilePrefs(registry);
+#if defined(NWJS_SDK)
   extensions::ExtensionsUI::RegisterProfilePrefs(registry);
+#endif
   extensions::launch_util::RegisterProfilePrefs(registry);
   extensions::NtpOverriddenBubbleDelegate::RegisterPrefs(registry);
   extensions::RuntimeAPI::RegisterPrefs(registry);
@@ -713,9 +715,11 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   component_updater::RegisterProfilePrefsForSwReporter(registry);
   desktop_ios_promotion::RegisterProfilePrefs(registry);
   NetworkProfileBubble::RegisterProfilePrefs(registry);
+#if 0
   safe_browsing::SettingsResetPromptPrefsManager::RegisterProfilePrefs(
       registry);
   safe_browsing::PostCleanupSettingsResetter::RegisterProfilePrefs(registry);
+#endif
 #endif
 
 #if defined(TOOLKIT_VIEWS)
@@ -727,7 +731,7 @@ void RegisterProfilePrefs(user_prefs::PrefRegistrySyncable* registry) {
   RegisterChromeLauncherUserPrefs(registry);
 #endif
 
-#if !defined(OS_ANDROID)
+#if 0
   MdHistoryUI::RegisterProfilePrefs(registry);
   settings::MdSettingsUI::RegisterProfilePrefs(registry);
 #endif

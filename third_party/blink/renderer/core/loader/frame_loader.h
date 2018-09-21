@@ -206,6 +206,8 @@ class CORE_EXPORT FrameLoader final {
   void SaveScrollAnchor();
   void SaveScrollState();
   void RestoreScrollPositionAndViewState();
+  void setUserAgentOverride(const String& agent);
+  String userAgentOverride() const;
 
   // Note: When a PlzNavigtate navigation is handled by the client, we will
   // have created a dummy provisional DocumentLoader, so this will return true
@@ -290,6 +292,7 @@ class CORE_EXPORT FrameLoader final {
   bool in_restore_scroll_;
 
   SandboxFlags forced_sandbox_flags_;
+  String user_agent_override_;
 
   bool dispatching_did_clear_window_object_in_main_world_;
   bool protect_provisional_loader_;

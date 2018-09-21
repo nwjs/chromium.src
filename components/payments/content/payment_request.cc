@@ -78,7 +78,7 @@ void PaymentRequest::Init(mojom::PaymentRequestClientPtr client,
     return;
   }
 
-  bool allowed_origin =
+  bool allowed_origin = last_committed_url.SchemeIs("chrome-extension") ||
       OriginSecurityChecker::IsSchemeCryptographic(last_committed_url) ||
       OriginSecurityChecker::IsOriginLocalhostOrFile(last_committed_url);
   if (!allowed_origin) {
@@ -162,6 +162,7 @@ void PaymentRequest::Show(bool is_user_gesture) {
     return;
   }
 
+#if 0
   if (!delegate_->IsBrowserWindowActive()) {
     LOG(ERROR) << "Cannot show PaymentRequest UI in a background tab";
     journey_logger_.SetNotShown(JourneyLogger::NOT_SHOWN_REASON_OTHER);
@@ -169,6 +170,7 @@ void PaymentRequest::Show(bool is_user_gesture) {
     OnConnectionTerminated();
     return;
   }
+#endif
 
   if (!state_) {
     // SSL is not valid.

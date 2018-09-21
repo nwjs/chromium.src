@@ -34,7 +34,7 @@ const size_t kDerivedKeySizeInBits = 128;
 const size_t kEncryptionIterations = 1003;
 
 // TODO(dhollowa): Refactor to allow dependency injection of Keychain.
-bool use_mock_keychain = false;
+bool use_mock_keychain = true;
 
 // This flag is used to make the GetEncryptionKey method return NULL if used
 // along with mock Keychain.

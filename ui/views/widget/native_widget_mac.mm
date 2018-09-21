@@ -38,6 +38,10 @@
 
 using views_bridge_mac::mojom::WindowVisibilityState;
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace views {
 namespace {
 
@@ -268,8 +272,8 @@ ui::InputMethod* NativeWidgetMac::GetInputMethod() {
 }
 
 void NativeWidgetMac::CenterWindow(const gfx::Size& size) {
-  SetSize(
-      BridgedNativeWidget::GetWindowSizeForClientSize(GetNativeWindow(), size));
+  SetSize(size);
+      //BridgedNativeWidget::GetWindowSizeForClientSize(GetNativeWindow(), size));
   // Note that this is not the precise center of screen, but it is the standard
   // location for windows like dialogs to appear on screen for Mac.
   // TODO(tapted): If there is a parent window, center in that instead.
@@ -596,7 +600,7 @@ void NativeWidgetMac::SetVisibilityAnimationTransition(
 }
 
 bool NativeWidgetMac::IsTranslucentWindowOpacitySupported() const {
-  return false;
+  return content::g_support_transparency;
 }
 
 ui::GestureRecognizer* NativeWidgetMac::GetGestureRecognizer() {

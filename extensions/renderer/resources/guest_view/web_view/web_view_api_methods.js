@@ -34,11 +34,13 @@ var WEB_VIEW_API_METHODS = [
 
   // Returns audio state.
   'getAudioState',
+  // Return storeId which can be used in chrome.cookies API
+  'getCookieStoreId',
 
   // Returns Chrome's internal process ID for the guest web page's current
   // process.
   'getProcessId',
-
+  'getGuestId',
   // Returns the user agent string used by the webview for guest page requests.
   'getUserAgent',
 
@@ -67,6 +69,8 @@ var WEB_VIEW_API_METHODS = [
   // of the data URL.
   'loadDataWithBaseUrl',
 
+  'showDevTools',
+  'inspectElementAt',
   // Prints the contents of the webview.
   'print',
 

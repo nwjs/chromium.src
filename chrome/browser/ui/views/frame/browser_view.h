@@ -276,6 +276,9 @@ class BrowserView : public BrowserWindow,
   }
 
   // BrowserWindow:
+  void UpdateDraggableRegions(
+      const std::vector<extensions::DraggableRegion>& regions) override;
+  SkRegion* GetDraggableRegion() override;
   void Show() override;
   void ShowInactive() override;
   void Hide() override;
@@ -426,6 +429,9 @@ class BrowserView : public BrowserWindow,
                                   ui::Accelerator* accelerator) const override;
 
   // views::WidgetDelegate:
+  bool ShouldDescendIntoChildForEventHandling(
+      gfx::NativeView child,
+      const gfx::Point& location) override;
   bool CanResize() const override;
   bool CanMaximize() const override;
   bool CanMinimize() const override;
@@ -655,6 +661,7 @@ class BrowserView : public BrowserWindow,
   // |overlay_view_|.
   void ReparentTopContainerForEndOfImmersive();
 
+  std::unique_ptr<SkRegion> draggable_region_;
   // The BrowserFrame that hosts this view.
   BrowserFrame* frame_ = nullptr;
 

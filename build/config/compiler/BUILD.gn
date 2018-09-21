@@ -459,7 +459,9 @@ config("compiler") {
     ldflags += [ "-fuse-ld=bfd" ]
   }
 
-  if (use_icf) {
+  if (is_linux && current_cpu == "x86") {
+    ldflags += [ "-Wl,--icf=none" ]
+  } else if (use_icf) {
     ldflags += [ "-Wl,--icf=all" ]
   }
 
@@ -1373,6 +1375,7 @@ config("default_warnings") {
 
       "/wd4715",  # 'function' : not all control paths return a value'
                   # MSVC does not analyze switch (enum) for completeness.
+      "/wd4275",
     ]
 
     cflags_cc += [

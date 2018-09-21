@@ -523,7 +523,7 @@ void ChildThreadImpl::Init(const Options& options) {
     source_ptr->Init(GetConnector());
   }
 
-#if defined(OS_POSIX)
+#if 0  // for supporting 'exit' event of process
   // Check that --process-type is specified so we don't do this in unit tests
   // and single-process mode.
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kProcessType))

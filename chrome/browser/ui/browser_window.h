@@ -8,6 +8,8 @@
 #include <string>
 #include <vector>
 
+#include "extensions/common/draggable_region.h"
+
 #include "base/callback_forward.h"
 #include "build/build_config.h"
 #include "chrome/browser/lifetime/browser_close_manager.h"
@@ -30,6 +32,7 @@
 #include "chrome/browser/chromeos/apps/intent_helper/apps_navigation_types.h"
 #endif  // defined(OS_CHROMEOS)
 
+class SkRegion;
 class Browser;
 class DownloadShelf;
 class ExclusiveAccessContext;
@@ -113,6 +116,9 @@ class BrowserWindow : public ui::BaseWindow {
 
   //////////////////////////////////////////////////////////////////////////////
   // Browser specific methods:
+  virtual void UpdateDraggableRegions(
+                                      const std::vector<extensions::DraggableRegion>& regions) = 0;
+  virtual SkRegion* GetDraggableRegion() = 0;
 
   // Return the status bubble associated with the frame
   virtual StatusBubble* GetStatusBubble() = 0;

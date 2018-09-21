@@ -22,6 +22,8 @@
 #include "components/nacl/common/buildflags.h"
 #include "components/version_info/channel.h"
 
+std::wstring g_nwjs_prod_name, g_nwjs_prod_version;
+
 namespace install_static {
 
 enum class ProcessType {
@@ -94,6 +96,7 @@ void Trace(const wchar_t* format_string, ...) {
   va_end(args);
 }
 
+#if 0
 bool GetLanguageAndCodePageFromVersionResource(const char* version_resource,
                                                WORD* language,
                                                WORD* code_page) {
@@ -171,6 +174,7 @@ bool GetValueFromVersionResource(const char* version_resource,
   }
   return false;
 }
+#endif
 
 bool DirectoryExists(const std::wstring& path) {
   DWORD file_attributes = ::GetFileAttributes(path.c_str());
@@ -503,7 +507,10 @@ std::wstring& AppendChromeInstallSubDirectory(const InstallConstants& mode,
     path->append(kCompanyPathName);
     path->push_back(L'\\');
   }
-  path->append(kProductPathName, kProductPathNameLength);
+  if (!g_nwjs_prod_name.empty())
+    path->append(g_nwjs_prod_name);
+  else
+    path->append(kProductPathName, kProductPathNameLength);
   if (!include_suffix)
     return *path;
   return path->append(mode.install_suffix);
@@ -611,10 +618,10 @@ void GetExecutableVersionDetails(const std::wstring& exe_path,
   assert(channel_name);
 
   // Default values in case we don't find a version resource.
-  *product_name = L"Chrome";
-  *version = L"0.0.0.0-devel";
+  *product_name = g_nwjs_prod_name;
+  *version = g_nwjs_prod_version;
   special_build->clear();
-
+#if 0
   DWORD dummy = 0;
   DWORD length = ::GetFileVersionInfoSize(exe_path.c_str(), &dummy);
   if (length) {
@@ -633,6 +640,7 @@ void GetExecutableVersionDetails(const std::wstring& exe_path,
     }
   }
   *channel_name = GetChromeChannelName();
+#endif
 }
 
 version_info::Channel GetChromeChannel() {

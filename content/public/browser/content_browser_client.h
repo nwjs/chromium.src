@@ -574,6 +574,7 @@ class CONTENT_EXPORT ContentBrowserClient {
       const std::vector<GlobalFrameRoutingId>& render_frames,
       base::Callback<void(bool)> callback);
 
+  virtual base::FilePath GetRootPath();
   // Allow the embedder to control if access to IndexedDB by a shared worker
   // is allowed.
   // This is called on the IO thread.

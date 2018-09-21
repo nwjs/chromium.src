@@ -509,7 +509,8 @@ bool DevToolsUIBindings::IsValidFrontendURL(const GURL& url) {
     return true;
   }
 
-  return SanitizeFrontendURL(url).spec() == url.spec();
+  //NW: webview.showDevTools in container; webview-localfile case; changed in c2db881506f
+  return SanitizeFrontendURL(url).spec() == url.spec() || url == GURL(url::kAboutBlankURL);
 }
 
 bool DevToolsUIBindings::IsValidRemoteFrontendURL(const GURL& url) {
@@ -836,7 +837,7 @@ void DevToolsUIBindings::AppendToFile(const std::string& url,
 }
 
 void DevToolsUIBindings::RequestFileSystems() {
-  CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
+    //CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
   std::vector<DevToolsFileHelper::FileSystem> file_systems =
       file_helper_->GetFileSystems();
   base::ListValue file_systems_value;
@@ -847,20 +848,20 @@ void DevToolsUIBindings::RequestFileSystems() {
 }
 
 void DevToolsUIBindings::AddFileSystem(const std::string& type) {
-  CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
+  //CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
   file_helper_->AddFileSystem(
       type, base::Bind(&DevToolsUIBindings::ShowDevToolsInfoBar,
                        weak_factory_.GetWeakPtr()));
 }
 
 void DevToolsUIBindings::RemoveFileSystem(const std::string& file_system_path) {
-  CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
+  //CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
   file_helper_->RemoveFileSystem(file_system_path);
 }
 
 void DevToolsUIBindings::UpgradeDraggedFileSystemPermissions(
     const std::string& file_system_url) {
-  CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
+  //CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
   file_helper_->UpgradeDraggedFileSystemPermissions(
       file_system_url, base::Bind(&DevToolsUIBindings::ShowDevToolsInfoBar,
                                   weak_factory_.GetWeakPtr()));
@@ -871,7 +872,7 @@ void DevToolsUIBindings::IndexPath(
     const std::string& file_system_path,
     const std::string& excluded_folders_message) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
+  //CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
   if (!file_helper_->IsFileSystemAdded(file_system_path)) {
     IndexingDone(index_request_id, file_system_path);
     return;
@@ -918,7 +919,7 @@ void DevToolsUIBindings::SearchInPath(int search_request_id,
                                       const std::string& file_system_path,
                                       const std::string& query) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
-  CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
+  //CHECK(IsValidFrontendURL(web_contents_->GetURL()) && frontend_host_);
   if (!file_helper_->IsFileSystemAdded(file_system_path)) {
     SearchCompleted(search_request_id,
                     file_system_path,
@@ -1337,11 +1338,15 @@ void DevToolsUIBindings::SearchCompleted(
 void DevToolsUIBindings::ShowDevToolsInfoBar(
     const base::string16& message,
     const DevToolsInfoBarDelegate::Callback& callback) {
+#if 1
+  callback.Run(true); // #4602
+#else
   if (!delegate_->GetInfoBarService()) {
     callback.Run(false);
     return;
   }
   DevToolsInfoBarDelegate::Create(message, callback);
+#endif
 }
 
 void DevToolsUIBindings::AddDevToolsExtensionsToClient() {

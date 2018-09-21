@@ -69,6 +69,7 @@ json_features("api_features") {
   feature_type = "APIFeature"
   method_name = "AddChromeAPIFeatures"
   sources = [
+    "../../../../content/nw/src/api/_api_features.json",
     "_api_features.json",
   ]
 }

@@ -66,7 +66,7 @@ struct FileChooserFileInfo {
 
 class CORE_EXPORT FileChooserClient : public PopupOpeningObserver {
  public:
-  virtual void FilesChosen(const Vector<FileChooserFileInfo>&) = 0;
+  virtual void FilesChosen(const Vector<FileChooserFileInfo>&, bool canceled = false) = 0;
   virtual LocalFrame* FrameOrNull() const = 0;
   ~FileChooserClient() override;
 

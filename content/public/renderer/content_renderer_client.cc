@@ -16,6 +16,10 @@
 
 namespace content {
 
+base::FilePath ContentRendererClient::GetRootPath() {
+  return base::FilePath();
+}
+
 SkBitmap* ContentRendererClient::GetSadPluginBitmap() {
   return nullptr;
 }
