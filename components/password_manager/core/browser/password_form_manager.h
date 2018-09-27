@@ -120,7 +120,7 @@ class PasswordFormManager : public PasswordFormManagerForUI,
   // origin matching of the public suffix, instead of the signon realm of the
   // form.
   bool IsPendingCredentialsPublicSuffixMatch() const;
-
+  bool IsPendingCredentialsOriginExtension() const;
   // Through |driver|, supply the associated frame with appropriate information
   // (fill data, whether to allow password generation, etc.). If this is called
   // before |this| has data from the PasswordStore, the execution will be

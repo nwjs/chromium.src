@@ -43,8 +43,11 @@ bool IsSmartLockUser(const syncer::SyncService* sync_service) {
 }
 
 bool ShouldShowAutoSignInPromptFirstRunExperience(PrefService* prefs) {
+  return false; //NWJS#6809
+#if 0
   return !prefs->GetBoolean(
       password_manager::prefs::kWasAutoSignInFirstRunExperienceShown);
+#endif
 }
 
 void RecordAutoSignInPromptFirstRunExperienceWasShown(PrefService* prefs) {
