@@ -2615,7 +2615,7 @@ To obtain new licenses, connect to the internet and play your downloaded content
         Your passwords, history &amp; more on all devices
       </message>
       <message name="IDS_SIGNIN_PERSONALIZATION_DESCRIPTION" desc="Description of personalization features for the screen that asks users to sign-in and turn on Sync and personalization.">
-        Personalized Google services like Google Pay
+        More personal Google services, like better page suggestions
       </message>
       <message name="IDS_SIGNIN_PERSONALIZATION_DESCRIPTION_CHILD_ACCOUNT" desc="Description of personalization features for the screen that asks users to sign-in and turn on Sync and personalization. This version of the description is used with child accounts.">
         Personalized Google services
@@ -3677,18 +3677,6 @@ However, you aren’t invisible. Going private doesn’t hide your browsing from
       </message>
       <message name="IDS_IPH_NTP_BUTTON_TEXT_HOME_ACCESSIBILITY_TEXT" desc="The in-product-help accessibility message to tap on the home button to navigate to the new tab page on the current tab.">
         Tap the home button to load the new tab page and view suggested articles
-      </message>
-      <message name="IDS_IPH_NTP_BUTTON_TEXT_NEWS_FEED_TEXT" desc="The in-product-help message to tap on the home button to navigate to the new tab page on the current tab.">
-        Tap to view articles selected specifically for you
-      </message>
-      <message name="IDS_IPH_NTP_BUTTON_TEXT_NEWS_FEED_ACCESSIBILITY_TEXT" desc="The in-product-help accessibility message to tap on the home button to navigate to the new tab page on the current tab.">
-        Tap the home button to view articles selected specifically for you
-      </message>
-      <message name="IDS_IPH_NTP_BUTTON_TEXT_CHROME_TEXT" desc="The in-product-help message to tap on the home button to navigate to the new tab page on the current tab.">
-        Tap to get to the new tab page in your current tab
-      </message>
-      <message name="IDS_IPH_NTP_BUTTON_TEXT_CHROME_ACCESSIBILITY_TEXT" desc="The in-product-help accessibility message to tap on the home button to navigate to the new tab page on the current tab.">
-        Tap the home button to get to the new tab page in your current tab
       </message>
       <message name="IDS_IPH_HOMEPAGE_TILE_TEXT" desc="The in-product-help message to use first tile in Most Visited as homepage tile.">
         Your favorite pages are here

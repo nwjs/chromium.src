@@ -194,6 +194,8 @@ bool IconTypeHasVPNBadge(IconType icon_type) {
 }
 
 gfx::Size GetSizeForBaseIconSize(const gfx::Size& base_icon_size) {
+  if (features::IsSystemTrayUnifiedEnabled())
+    return base_icon_size;
   gfx::Size size = base_icon_size;
   const int badge_offset = base_icon_size.width() == kTrayIconSize
                                ? kTrayIconBadgeOffset
@@ -240,7 +242,7 @@ ImageType ImageTypeForNetwork(const NetworkState* network, IconType icon_type) {
 gfx::Size GetSizeForIconType(IconType icon_type) {
   int size = kMenuIconSize;
   if (IsTrayIcon(icon_type)) {
-    size = kTrayIconSize;
+    size = TrayConstants::GetTrayIconSize();
   } else if (features::IsSystemTrayUnifiedEnabled() &&
              icon_type == ICON_TYPE_DEFAULT_VIEW) {
     size = kUnifiedFeaturePodVectorIconSize;

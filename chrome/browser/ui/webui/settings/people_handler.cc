@@ -51,6 +51,7 @@
 #include "components/sync/base/passphrase_enums.h"
 #include "components/sync/base/sync_prefs.h"
 #include "components/unified_consent/feature.h"
+#include "components/unified_consent/unified_consent_metrics.h"
 #include "content/public/browser/render_view_host.h"
 #include "content/public/browser/web_contents.h"
 #include "content/public/browser/web_contents_delegate.h"
@@ -183,6 +184,27 @@ std::string GetSyncErrorAction(sync_ui_util::ActionType action_type) {
   }
 }
 
+#if BUILDFLAG(ENABLE_DICE_SUPPORT)
+// Returns the base::Value associated with the account, to use in the stored
+// accounts list.
+base::Value GetAccountValue(const AccountInfo& account,
+                            AccountTrackerService* account_tracker) {
+  DCHECK(!account.IsEmpty());
+  base::Value dictionary(base::Value::Type::DICTIONARY);
+  dictionary.SetKey("email", base::Value(account.email));
+  dictionary.SetKey("fullName", base::Value(account.full_name));
+  dictionary.SetKey("givenName", base::Value(account.given_name));
+  const gfx::Image& account_image =
+      account_tracker->GetAccountImage(account.account_id);
+  if (!account_image.IsEmpty()) {
+    dictionary.SetKey(
+        "avatarImage",
+        base::Value(webui::GetBitmapDataUrl(account_image.AsBitmap())));
+  }
+  return dictionary;
+}
+#endif  // BUILDFLAG(ENABLE_DICE_SUPPORT)
+
 }  // namespace
 
 namespace settings {
@@ -242,6 +264,10 @@ void PeopleHandler::RegisterMessages() {
   web_ui()->RegisterMessageCallback(
       "SyncSetupManageOtherPeople",
       base::BindRepeating(&PeopleHandler::HandleManageOtherPeople,
+                          base::Unretained(this)));
+  web_ui()->RegisterMessageCallback(
+      "UnifiedConsentToggleChanged",
+      base::BindRepeating(&PeopleHandler::OnUnifiedConsentToggleChanged,
                           base::Unretained(this)));
 #if defined(OS_CHROMEOS)
   web_ui()->RegisterMessageCallback(
@@ -491,38 +517,45 @@ void PeopleHandler::OnAccountUpdated(const AccountInfo& info) {
   FireWebUIListener("stored-accounts-updated", *GetStoredAccountsList());
 }
 
+void PeopleHandler::OnAccountImageUpdated(const std::string& account_id,
+                                          const gfx::Image& image) {
+  FireWebUIListener("stored-accounts-updated", *GetStoredAccountsList());
+}
+
 void PeopleHandler::OnAccountRemoved(const AccountInfo& info) {
   FireWebUIListener("stored-accounts-updated", *GetStoredAccountsList());
 }
 
 std::unique_ptr<base::ListValue> PeopleHandler::GetStoredAccountsList() {
-  if (!AccountConsistencyModeManager::IsDiceEnabledForProfile(profile_)) {
-    // During the DICE migration, the settings code should not have access to
-    // the list of accounts as they should not be visible to the user.
-    return std::make_unique<base::ListValue>();
-  }
+  std::unique_ptr<base::ListValue> accounts_list =
+      std::make_unique<base::ListValue>();
+  bool dice_enabled =
+      AccountConsistencyModeManager::IsDiceEnabledForProfile(profile_);
 
-  std::vector<AccountInfo> accounts =
-      signin_ui_util::GetAccountsForDicePromos(profile_);
+  // Dice and unified consent both disabled: do not show the list of accounts.
+  if (!dice_enabled && !unified_consent::IsUnifiedConsentFeatureEnabled())
+    return accounts_list;
 
   AccountTrackerService* account_tracker =
       AccountTrackerServiceFactory::GetForProfile(profile_);
-  std::unique_ptr<base::ListValue> accounts_list(new base::ListValue);
-  accounts_list->Reserve(accounts.size());
 
-  for (auto const& account : accounts) {
-    accounts_list->GetList().push_back(
-        base::Value(base::Value::Type::DICTIONARY));
-    base::Value& acc = accounts_list->GetList().back();
-    acc.SetKey("email", base::Value(account.email));
-    acc.SetKey("fullName", base::Value(account.full_name));
-    acc.SetKey("givenName", base::Value(account.given_name));
-    const gfx::Image& account_image =
-        account_tracker->GetAccountImage(account.account_id);
-    if (!account_image.IsEmpty()) {
-      acc.SetKey(
-          "avatarImage",
-          base::Value(webui::GetBitmapDataUrl(account_image.AsBitmap())));
+  if (dice_enabled) {
+    // If dice is enabled, show all the accounts.
+    std::vector<AccountInfo> accounts =
+        signin_ui_util::GetAccountsForDicePromos(profile_);
+    accounts_list->Reserve(accounts.size());
+    for (auto const& account : accounts) {
+      accounts_list->GetList().push_back(
+          GetAccountValue(account, account_tracker));
+    }
+  } else {
+    // If dice is disabled (and unified consent enabled), show only the primary
+    // account.
+    std::string primary_account = SigninManagerFactory::GetForProfile(profile_)
+                                      ->GetAuthenticatedAccountId();
+    if (!primary_account.empty()) {
+      accounts_list->GetList().push_back(GetAccountValue(
+          account_tracker->GetAccountInfo(primary_account), account_tracker));
     }
   }
 
@@ -671,11 +704,25 @@ void PeopleHandler::HandleShowSetupUI(const base::ListValue* args) {
   if (sync_startup_tracker_)
     return;
 
-  if (!service->IsEngineInitialized()) {
+  if (!service->IsEngineInitialized() ||
+      service->HasDisableReason(
+          syncer::SyncService::DISABLE_REASON_USER_CHOICE)) {
     // Requesting the sync service to start may trigger call to PushSyncPrefs.
     // Setting up the startup tracker beforehand correctly signals the
     // re-entrant call to early exit.
-    sync_startup_tracker_.reset(new SyncStartupTracker(profile_, this));
+    sync_startup_tracker_ =
+        std::make_unique<SyncStartupTracker>(profile_, this);
+    // RequestStart() does two things:
+    // 1) If DISABLE_REASON_USER_CHOICE is set (meaning that Sync was reset via
+    //    the dashboard), clears it.
+    // 2) Pokes the sync service to start *immediately*, i.e. bypass deferred
+    //    startup.
+    // It's possible that both of these are already the case, i.e. the engine is
+    // already in the process of initializing, in which case RequestStart() will
+    // effectively do nothing. It's also possible that the sync service is
+    // already running in standalone transport mode and so the engine is already
+    // initialized. In that case, this will trigger the service to switch to
+    // full Sync-the-feature mode.
     service->RequestStart();
 
     // See if it's even possible to bring up the sync engine - if not
@@ -774,6 +821,15 @@ void PeopleHandler::HandleManageOtherPeople(const base::ListValue* /* args */) {
   UserManager::Show(base::FilePath(),
                     profiles::USER_MANAGER_SELECT_PROFILE_NO_ACTION);
 #endif  // !defined(OS_CHROMEOS)
+}
+
+void PeopleHandler::OnUnifiedConsentToggleChanged(const base::ListValue* args) {
+  bool is_toggle_checked = args->GetList()[0].GetBool();
+  if (!is_toggle_checked) {
+    unified_consent::metrics::RecordUnifiedConsentRevoked(
+        unified_consent::metrics::UnifiedConsentRevokeReason::
+            kUserDisabledSettingsToggle);
+  }
 }
 
 void PeopleHandler::CloseSyncSetup() {

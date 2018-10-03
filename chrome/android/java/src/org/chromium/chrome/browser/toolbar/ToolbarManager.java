@@ -705,8 +705,10 @@ public class ToolbarManager implements ToolbarTabController, UrlFocusChangeListe
             recordBottomToolbarUseForIPH();
             openHomepage();
         };
-        final Drawable drawable =
-                ContextCompat.getDrawable(mActivity, mToolbarModel.getHomeButtonIcon());
+        final int homeButtonIcon = FeatureUtilities.isNewTabPageButtonEnabled()
+                ? R.drawable.ic_home
+                : R.drawable.btn_toolbar_home;
+        final Drawable drawable = ContextCompat.getDrawable(mActivity, homeButtonIcon);
         final CharSequence accessibilityString =
                 mActivity.getString(R.string.accessibility_toolbar_btn_home);
         return new ToolbarButtonData(
@@ -732,7 +734,8 @@ public class ToolbarManager implements ToolbarTabController, UrlFocusChangeListe
             ACCELERATOR_BUTTON_TAP_ACTION.record();
             setUrlBarFocus(true);
         };
-        final Drawable drawable = ContextCompat.getDrawable(mActivity, R.drawable.ic_search);
+        final Drawable drawable =
+                ContextCompat.getDrawable(mActivity, R.drawable.ic_search).mutate();
         final CharSequence accessibilityString =
                 mActivity.getString(R.string.accessibility_toolbar_btn_search_accelerator);
         return new ToolbarButtonData(drawable, accessibilityString, accessibilityString,

@@ -64,6 +64,8 @@ constexpr SkColor kTitleBarFeatureColor = SK_ColorWHITE;
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, public:
 
+const char OpaqueBrowserFrameView::kClassName[] = "OpaqueBrowserFrameView";
+
 OpaqueBrowserFrameView::OpaqueBrowserFrameView(
     BrowserFrame* frame,
     BrowserView* browser_view,
@@ -123,7 +125,8 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(
 
   window_title_ = new views::Label(browser_view->GetWindowTitle());
   window_title_->SetVisible(browser_view->ShouldShowWindowTitle());
-  window_title_->SetEnabledColor(kTitleBarFeatureColor);
+  // Readability is ensured by |GetReadableFrameForegroundColor()|.
+  window_title_->SetAutoColorReadabilityEnabled(false);
   window_title_->SetSubpixelRenderingEnabled(false);
   window_title_->SetHorizontalAlignment(gfx::ALIGN_LEFT);
   window_title_->set_id(VIEW_ID_WINDOW_TITLE);
@@ -132,11 +135,8 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(
   if (extensions::HostedAppBrowserController::IsForExperimentalHostedAppBrowser(
           browser_view->browser())) {
     hosted_app_button_container_ = new HostedAppButtonContainer(
-        frame, browser_view,
-        color_utils::GetReadableColor(kTitleBarFeatureColor,
-                                      GetFrameColor(kActive)),
-        color_utils::GetReadableColor(kTitleBarFeatureColor,
-                                      GetFrameColor(kInactive)));
+        frame, browser_view, GetReadableFrameForegroundColor(kActive),
+        GetReadableFrameForegroundColor(kInactive));
     hosted_app_button_container_->set_id(VIEW_ID_HOSTED_APP_BUTTON_CONTAINER);
     AddChildView(hosted_app_button_container_);
   }
@@ -259,7 +259,7 @@ int OpaqueBrowserFrameView::NonClientHitTest(const gfx::Point& point) {
     gfx::Rect sysmenu_rect(IconBounds());
     // In maximized mode we extend the rect to the screen corner to take
     // advantage of Fitts' Law.
-    if (layout_->IsTitleBarCondensed())
+    if (IsFrameCondensed())
       sysmenu_rect.SetRect(0, 0, sysmenu_rect.right(), sysmenu_rect.bottom());
     sysmenu_rect = GetMirroredRect(sysmenu_rect);
     if (sysmenu_rect.Contains(point))
@@ -312,7 +312,7 @@ void OpaqueBrowserFrameView::GetWindowMask(const gfx::Size& size,
                                            gfx::Path* window_mask) {
   DCHECK(window_mask);
 
-  if (layout_->IsTitleBarCondensed() || frame()->IsFullscreen())
+  if (IsFrameCondensed())
     return;
 
   views::GetDefaultWindowMask(
@@ -355,6 +355,10 @@ void OpaqueBrowserFrameView::ActivationChanged(bool active) {
 
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, views::View overrides:
+
+const char* OpaqueBrowserFrameView::GetClassName() const {
+  return kClassName;
+}
 
 void OpaqueBrowserFrameView::ChildPreferredSizeChanged(views::View* child) {
   BrowserNonClientFrameView::ChildPreferredSizeChanged(child);
@@ -477,10 +481,6 @@ bool OpaqueBrowserFrameView::IsMinimized() const {
   return frame()->IsMinimized();
 }
 
-bool OpaqueBrowserFrameView::IsFullscreen() const {
-  return frame()->IsFullscreen();
-}
-
 bool OpaqueBrowserFrameView::IsTabStripVisible() const {
   return browser_view()->IsTabStripVisible();
 }
@@ -519,6 +519,11 @@ bool OpaqueBrowserFrameView::UseCustomFrame() const {
   return frame()->UseCustomFrame();
 }
 
+bool OpaqueBrowserFrameView::IsFrameCondensed() const {
+  return BrowserNonClientFrameView::IsFrameCondensed() ||
+         !ShouldShowCaptionButtons();
+}
+
 bool OpaqueBrowserFrameView::EverHasVisibleBackgroundTabShapes() const {
   return BrowserNonClientFrameView::EverHasVisibleBackgroundTabShapes();
 }
@@ -533,7 +538,7 @@ void OpaqueBrowserFrameView::OnPaint(gfx::Canvas* canvas) {
     return;  // Nothing is visible, so don't bother to paint.
 
   SkColor frame_color = GetFrameColor();
-  window_title_->SetBackgroundColor(frame_color);
+  window_title_->SetEnabledColor(GetReadableFrameForegroundColor(kUseCurrent));
   frame_background_->set_frame_color(frame_color);
   frame_background_->set_use_custom_frame(frame()->UseCustomFrame());
   frame_background_->set_is_active(ShouldPaintAsActive());
@@ -547,7 +552,7 @@ void OpaqueBrowserFrameView::OnPaint(gfx::Canvas* canvas) {
   frame_background_->set_theme_overlay_image(GetFrameOverlayImage());
   frame_background_->set_top_area_height(GetTopAreaHeight());
 
-  if (layout_->IsTitleBarCondensed())
+  if (IsFrameCondensed())
     PaintMaximizedFrameBorder(canvas);
   else
     PaintRestoredFrameBorder(canvas);
@@ -560,8 +565,6 @@ void OpaqueBrowserFrameView::OnPaint(gfx::Canvas* canvas) {
    * So we'd need to sample the background color at the right location and
    * synthesize a good shadow color. */
 
-  if (IsToolbarVisible() && IsTabStripVisible())
-    PaintToolbarTopStroke(canvas);
   PaintClientEdge(canvas);
 }
 
@@ -639,6 +642,19 @@ bool OpaqueBrowserFrameView::ShouldShowWindowTitleBar() const {
       IsMaximized());
 }
 
+SkColor OpaqueBrowserFrameView::GetReadableFrameForegroundColor(
+    ActiveState active_state) const {
+  if (extensions::HostedAppBrowserController::IsForExperimentalHostedAppBrowser(
+          browser_view()->browser())) {
+    base::Optional<SkColor> theme_color =
+        browser_view()->browser()->hosted_app_controller()->GetThemeColor();
+    if (theme_color)
+      return color_utils::GetThemedAssetColor(*theme_color);
+  }
+  return color_utils::GetReadableColor(kTitleBarFeatureColor,
+                                       GetFrameColor(active_state));
+}
+
 void OpaqueBrowserFrameView::PaintRestoredFrameBorder(
     gfx::Canvas* canvas) const {
   const ui::ThemeProvider* tp = GetThemeProvider();
@@ -685,7 +701,7 @@ void OpaqueBrowserFrameView::PaintClientEdge(gfx::Canvas* canvas) const {
   }
 
   // In maximized mode, the only edge to draw is the top one, so we're done.
-  if (layout_->IsTitleBarCondensed())
+  if (IsFrameCondensed())
     return;
 
   const ui::ThemeProvider* tp = GetThemeProvider();

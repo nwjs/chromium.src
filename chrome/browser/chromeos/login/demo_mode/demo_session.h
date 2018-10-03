@@ -89,6 +89,13 @@ class DemoSession : public session_manager::SessionManagerObserver,
   // StartIfInDemoMode() or PreloadOfflineResourcesIfInDemoMode()).
   static DemoSession* Get();
 
+  // Returns the id of the screensaver app based on the board name.
+  static std::string GetScreensaverAppId();
+
+  // Returns whether the app with |app_id| should be displayed in app launcher
+  // in demo mode. Returns true for all apps in non-demo mode.
+  static bool ShouldDisplayInAppLauncher(const std::string& app_id);
+
   // Ensures that the load of offline demo session resources is requested.
   // |load_callback| will be run once the offline resource load finishes.
   void EnsureOfflineResourcesLoaded(base::OnceClosure load_callback);
@@ -118,6 +125,10 @@ class DemoSession : public session_manager::SessionManagerObserver,
   // in Demo Mode and offline.
   bool ShouldIgnorePinPolicy(const std::string& app_id_or_package);
 
+  // Sets |extensions_external_loader_| and starts installing the screensaver.
+  void SetExtensionsExternalLoader(
+      scoped_refptr<DemoExtensionsExternalLoader> extensions_external_loader);
+
   // Sets app IDs and package names that shouldn't be pinned by policy when the
   // device is offline in Demo Mode.
   void OverrideIgnorePinPolicyAppsForTesting(std::vector<std::string> apps);
@@ -127,11 +138,6 @@ class DemoSession : public session_manager::SessionManagerObserver,
   bool started() const { return started_; }
 
   bool offline_resources_loaded() const { return offline_resources_loaded_; }
-
-  void set_extensions_external_loader(
-      scoped_refptr<DemoExtensionsExternalLoader> extensions_external_loader) {
-    extensions_external_loader_ = extensions_external_loader;
-  }
 
  private:
   DemoSession();
@@ -161,8 +167,8 @@ class DemoSession : public session_manager::SessionManagerObserver,
   void LoadAndLaunchHighlightsApp();
 
   // Installs the CRX file from an update URL. Observes |ExtensionRegistry| to
-  // launch the highlights app upon installation.
-  void InstallHighlightsAppFromUpdateUrl();
+  // launch the app upon installation.
+  void InstallAppFromUpdateUrl(const std::string& id);
 
   // session_manager::SessionManagerObserver:
   void OnSessionStateChanged() override;

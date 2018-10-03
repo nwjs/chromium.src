@@ -551,11 +551,14 @@ void LockContentsView::OnUsersChanged(
     const std::vector<mojom::LoginUserInfoPtr>& users) {
   // The debug view will potentially call this method many times. Make sure to
   // invalidate any child references.
-  main_view_->RemoveAllChildViews(true /*delete_children*/);
   primary_big_view_ = nullptr;
   opt_secondary_big_view_ = nullptr;
   users_list_ = nullptr;
   layout_actions_.clear();
+  // Removing child views can change focus, which may result in LockContentsView
+  // getting focused. Make sure to clear internal references before that happens
+  // so there is not stale-pointer usage. See crbug.com/884402.
+  main_view_->RemoveAllChildViews(true /*delete_children*/);
 
   // Build user state list. Preserve previous state if the user already exists.
   std::vector<UserState> new_users;
@@ -602,6 +605,11 @@ void LockContentsView::OnUsersChanged(
   // Force layout.
   PreferredSizeChanged();
   Layout();
+
+  // If one of the child views had focus before we deleted them, then this view
+  // will get focused. Move focus back to the primary big view.
+  if (HasFocus())
+    primary_big_view_->RequestFocus();
 }
 
 void LockContentsView::OnPinEnabledForUserChanged(const AccountId& user,
@@ -986,9 +994,9 @@ void LockContentsView::OnStateChanged(
 
 void LockContentsView::SuspendImminent(
     power_manager::SuspendImminent::Reason reason) {
-  LoginAuthUserView* auth_user = CurrentBigUserView()->auth_user();
-  if (auth_user)
-    auth_user->password_view()->Clear();
+  LoginBigUserView* big_user = CurrentBigUserView();
+  if (big_user && big_user->auth_user())
+    big_user->auth_user()->password_view()->Clear();
 }
 
 void LockContentsView::ShowAuthErrorMessageForDebug(int unlock_attempt) {
@@ -1530,6 +1538,25 @@ keyboard::KeyboardController* LockContentsView::GetKeyboardController() const {
 }
 
 void LockContentsView::OnPublicAccountTapped(bool is_primary) {
+  const LoginBigUserView* user = CurrentBigUserView();
+  // If the pod should not show an expanded view, tapping on it will launch
+  // Public Session immediately.
+  if (!user->GetCurrentUser()->public_account_info->show_expanded_view) {
+    std::string default_input_method;
+    for (const auto& keyboard :
+         user->GetCurrentUser()->public_account_info->keyboard_layouts) {
+      if (keyboard->selected) {
+        default_input_method = keyboard->ime_id;
+        break;
+      }
+    }
+    Shell::Get()->login_screen_controller()->LaunchPublicSession(
+        user->GetCurrentUser()->basic_user_info->account_id,
+        user->GetCurrentUser()->public_account_info->default_locale,
+        default_input_method);
+    return;
+  }
+
   // Set the public account user to be the active user.
   SwapActiveAuthBetweenPrimaryAndSecondary(is_primary);
 
@@ -1539,7 +1566,7 @@ void LockContentsView::OnPublicAccountTapped(bool is_primary) {
   // primary to secondary.
   // 2. LoginUserInfo in the big user could be changed if we get updates from
   // OnPublicSessionDisplayNameChanged and OnPublicSessionLocalesChanged.
-  expanded_view_->UpdateForUser(CurrentBigUserView()->GetCurrentUser());
+  expanded_view_->UpdateForUser(user->GetCurrentUser());
   SetDisplayStyle(DisplayStyle::kExclusivePublicAccountExpandedView);
 }
 

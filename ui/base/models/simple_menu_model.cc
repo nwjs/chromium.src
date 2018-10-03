@@ -53,8 +53,7 @@ bool SimpleMenuModel::Delegate::GetIconForCommandId(
 void SimpleMenuModel::Delegate::CommandIdHighlighted(int command_id) {
 }
 
-void SimpleMenuModel::Delegate::MenuWillShow(SimpleMenuModel* /*source*/) {
-}
+void SimpleMenuModel::Delegate::OnMenuWillShow(SimpleMenuModel* /*source*/) {}
 
 bool SimpleMenuModel::Delegate::HasIcon(int command_id) {
   return false;
@@ -442,7 +441,7 @@ MenuModel* SimpleMenuModel::GetSubmenuModelAt(int index) const {
 
 void SimpleMenuModel::MenuWillShow() {
   if (delegate_)
-    delegate_->MenuWillShow(this);
+    delegate_->OnMenuWillShow(this);
 }
 
 void SimpleMenuModel::MenuWillClose() {

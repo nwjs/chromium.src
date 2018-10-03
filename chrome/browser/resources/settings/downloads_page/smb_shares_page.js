@@ -5,7 +5,10 @@
 Polymer({
   is: 'settings-smb-shares-page',
 
-  behaviors: [WebUIListenerBehavior],
+  behaviors: [
+    WebUIListenerBehavior,
+    settings.RouteObserverBehavior,
+  ],
 
   properties: {
     /**
@@ -21,6 +24,18 @@ Polymer({
 
     /** @private */
     addShareResultText_: String,
+  },
+
+  /**
+   * Overridden from settings.RouteObserverBehavior.
+   * @param {!settings.Route} route
+   * @protected
+   */
+  currentRouteChanged: function(route) {
+    if (route == settings.routes.SMB_SHARES) {
+      this.showAddSmbDialog_ =
+          settings.getQueryParameters().get('showAddShare') == 'true';
+    }
   },
 
   /** @override */
@@ -63,6 +78,10 @@ Polymer({
       case SmbMountResult.MOUNT_EXISTS:
         this.addShareResultText_ =
             loadTimeData.getString('smbShareAddedMountExistsMessage');
+        break;
+      case SmbMountResult.INVALID_URL:
+        this.addShareResultText_ =
+            loadTimeData.getString('smbShareAddedInvalidURLMessage');
         break;
       default:
         this.addShareResultText_ =

@@ -28,8 +28,8 @@ if (manifest.window) {
     options.hidden = true;
   // if (manifest.window.show_in_taskbar === false)
   //   options.show_in_taskbar = false;
-  // if (manifest.window['always_on_top'] === true)
-  //   options.alwaysOnTop = true;
+  if (manifest.window['always_on_top'] === true)
+    options.alwaysOnTop = true;
   // if (manifest.window['visible_on_all_workspaces'] === true)
   //   options.visibleOnAllWorkspaces = true;
   // if (manifest.window.transparent)

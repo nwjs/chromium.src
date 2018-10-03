@@ -2643,6 +2643,9 @@ TEST_F(PasswordManagerTest, ProcessingNormalFormSubmission) {
       EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_)).Times(0);
     }
     manager()->OnPasswordFormsRendered(&driver_, observed, true);
+
+    // Multiple calls of OnPasswordFormsRendered should be handled gracefully.
+    manager()->OnPasswordFormsRendered(&driver_, observed, true);
   }
 }
 
@@ -2696,6 +2699,66 @@ TEST_F(PasswordManagerTest, SubmittedGaiaFormWithoutVisiblePasswordField) {
 
   EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_)).Times(0);
   manager()->OnPasswordFormSubmittedNoChecks(&driver_, form);
+}
+
+// Tests that PasswordFormManager and NewPasswordFormManager for the same form
+// have the same metrics recorder.
+TEST_F(PasswordManagerTest, CheckMetricsRecorder) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  TurnOnNewParsingForSaving(&scoped_feature_list);
+
+  EXPECT_CALL(client_, IsSavingAndFillingEnabledForCurrentPage())
+      .WillRepeatedly(Return(true));
+
+  PasswordForm form(MakeSimpleForm());
+  EXPECT_CALL(*store_, GetLogins(_, _))
+      .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
+
+  std::vector<PasswordForm> observed;
+  observed.push_back(form);
+  manager()->OnPasswordFormsParsed(&driver_, observed);
+
+  const std::vector<std::unique_ptr<PasswordFormManager>>&
+      password_form_managers = manager()->pending_login_managers();
+
+  const std::vector<std::unique_ptr<NewPasswordFormManager>>&
+      new_password_form_managers = manager()->form_managers();
+
+  ASSERT_EQ(1u, password_form_managers.size());
+  ASSERT_EQ(1u, new_password_form_managers.size());
+
+  EXPECT_TRUE(password_form_managers[0]->GetMetricsRecorder());
+  EXPECT_EQ(password_form_managers[0]->GetMetricsRecorder(),
+            new_password_form_managers[0]->GetMetricsRecorder());
+}
+
+TEST_F(PasswordManagerTest, MetricForSchemeOfSuccessfulLogins) {
+  for (bool origin_is_secure : {false, true}) {
+    SCOPED_TRACE(testing::Message("origin_is_secure = ") << origin_is_secure);
+    PasswordForm form(MakeSimpleForm());
+    form.origin =
+        GURL(origin_is_secure ? "https://example.com" : "http://example.com");
+    std::vector<PasswordForm> observed = {form};
+    EXPECT_CALL(*store_, GetLogins(_, _))
+        .WillRepeatedly(WithArg<1>(InvokeEmptyConsumerWithForms()));
+    manager()->OnPasswordFormsParsed(&driver_, observed);
+    manager()->OnPasswordFormsRendered(&driver_, observed, true);
+
+    EXPECT_CALL(client_, IsSavingAndFillingEnabledForCurrentPage())
+        .WillRepeatedly(Return(true));
+    OnPasswordFormSubmitted(form);
+
+    std::unique_ptr<PasswordFormManagerForUI> form_manager_to_save;
+    EXPECT_CALL(client_, PromptUserToSaveOrUpdatePasswordPtr(_))
+        .WillOnce(WithArg<0>(SaveToScopedPtr(&form_manager_to_save)));
+
+    observed.clear();
+    base::HistogramTester histogram_tester;
+    manager()->OnPasswordFormsParsed(&driver_, observed);
+    manager()->OnPasswordFormsRendered(&driver_, observed, true);
+    histogram_tester.ExpectUniqueSample(
+        "PasswordManager.SuccessfulLoginHappened", origin_is_secure, 1);
+  }
 }
 
 }  // namespace password_manager

@@ -15,7 +15,6 @@
 <translation id="1111673857033749125">他の端末に保存されているブックマークがここに表示されます。</translation>
 <translation id="1113597929977215864">簡易表示する</translation>
 <translation id="1121094540300013208">利用状況と障害レポート</translation>
-<translation id="11221688409173367">おすすめの記事を表示するにはホームボタンをタップします</translation>
 <translation id="1129510026454351943">詳細: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1141800923049248244">{FILE_COUNT,plural, =1{1 件のダウンロードが保留中です。}other{# 件のダウンロードが保留中です。}}</translation>
 <translation id="1145536944570833626">既存のデータを削除します。</translation>
@@ -167,7 +166,6 @@
 <translation id="2154484045852737596">カードを編集</translation>
 <translation id="2154710561487035718">URL をコピー</translation>
 <translation id="2156074688469523661">その他のサイト（<ph name="NUMBER_OF_SITES" /> 件）</translation>
-<translation id="2184766556418880456">タップすると現在のタブに新しいタブの画面が読み込まれます</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" /> はウェブアプリです（<ph name="APP_URL" />）。</translation>
 <translation id="2227444325776770048"><ph name="USER_FULL_NAME" /> として続行</translation>
 <translation id="2232379019872353004">一部のシステム情報とページのコンテンツを Google に送信します</translation>
@@ -234,11 +232,11 @@
 <translation id="2709516037105925701">自動入力</translation>
 <translation id="271033894570825754">新しいファイル</translation>
 <translation id="2728754400939377704">サイトで並べ替え</translation>
-<translation id="2736391366332017384">現在のタブに新しいタブの画面を読み込むには、ホームボタンをタップします</translation>
 <translation id="2744248271121720757">単語をタップすると、検索をすばやく実行したり、関連する操作メニューを確認したりできます</translation>
 <translation id="2762000892062317888">たった今</translation>
 <translation id="2777555524387840389">残り <ph name="SECONDS" /> 秒</translation>
 <translation id="2781151931089541271">残り 1 秒</translation>
+<translation id="2803478378562657435">保存したパスワードとパスワードのオプションを表示しています</translation>
 <translation id="2810645512293415242">簡易版ページを使用してデータの保存と読み込みを高速化します。</translation>
 <translation id="281504910091592009"><ph name="BEGIN_LINK" />Google アカウント<ph name="END_LINK" />での保存パスワードの表示と管理</translation>
 <translation id="2818669890320396765">お使いのどの端末でも同じブックマークを使用するには、ログインして同期を有効にします</translation>
@@ -603,7 +601,6 @@
 あらゆる場所に記録が一切残らないわけではありません。シークレット モードを使っても、雇用主、インターネット サービス プロバイダ、訪問先のウェブサイトに閲覧内容が知られる可能性はあります。</translation>
 <translation id="572328651809341494">最近使ったタブ</translation>
 <translation id="5726692708398506830">ページ上のすべての要素を拡大する</translation>
-<translation id="5731185123186077399">カスタマイズされた Google サービス（Google Pay など）を利用できます</translation>
 <translation id="5738816946784116349">Chrome のダウンロード</translation>
 <translation id="5748802427693696783">標準のタブに切り替えました</translation>
 <translation id="5749068826913805084">Chrome でファイルをダウンロードするにはストレージへのアクセス権が必要です。</translation>
@@ -639,6 +636,7 @@
 <translation id="5956665950594638604">Chrome ヘルプセンターを新しいタブで開く</translation>
 <translation id="5958275228015807058">[ダウンロード] で自分のファイルやページを探すことができます</translation>
 <translation id="5962718611393537961">タップして折りたたむ</translation>
+<translation id="5990142338020175451">おすすめのページなど、カスタマイズされた Google サービスを利用できます</translation>
 <translation id="6000066717592683814">Google のままにする</translation>
 <translation id="6005538289190791541">推奨パスワード</translation>
 <translation id="6039379616847168523">次のタブに移動する</translation>
@@ -829,6 +827,7 @@
 <translation id="748127970106343339">デバイス認証情報の削除を確認する</translation>
 <translation id="7481312909269577407">進む</translation>
 <translation id="7493994139787901920"><ph name="VERSION" />（<ph name="TIME_SINCE_UPDATE" />に更新）</translation>
+<translation id="7494879913343971937">パスワードを表示</translation>
 <translation id="7494974237137038751">データ削減量</translation>
 <translation id="7498271377022651285">お待ちください…</translation>
 <translation id="7514365320538308">ダウンロード</translation>
@@ -951,6 +950,7 @@
 <translation id="8503559462189395349">Chrome パスワード</translation>
 <translation id="8503813439785031346">ユーザー名</translation>
 <translation id="8504988642345501642">上にスクロールしたときに関連ページのクイックリンクを表示します。このとき、アクセスしたページの URL が Google に送信されます。</translation>
+<translation id="8507520749471379845">使用可能なパスワード</translation>
 <translation id="8514477925623180633">Chrome に保存されたパスワードをエクスポートします</translation>
 <translation id="8514577642972634246">シークレット モードを開始</translation>
 <translation id="851751545965956758">サイトからデバイスへの接続をブロックする</translation>
@@ -1000,7 +1000,6 @@
 <translation id="8912362522468806198">Google アカウントを使用</translation>
 <translation id="8920114477895755567">保護者の情報を待っています。</translation>
 <translation id="8922289737868596582">[その他のオプション] からページをダウンロードするとオフラインで使用できるようになります</translation>
-<translation id="8934029156920711950">タップするとおすすめの記事が表示されます</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">別のウィンドウで開く</translation>
 <translation id="8951232171465285730">Chrome で <ph name="MEGABYTES" /> MB の容量を節約しました</translation>

@@ -80,6 +80,7 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::Restart() {
     // WebRequest logic that cares, e.g. some permission checking to determine
     // when to filter certain kinds of requests.
     info_->type.reset();
+    info_->web_request_type = WebRequestResourceType::OTHER;
   }
 
   auto continuation =
@@ -167,7 +168,7 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::OnReceiveRedirect(
     const net::RedirectInfo& redirect_info,
     const network::ResourceResponseHead& head) {
   if (redirect_url_ != redirect_info.new_url &&
-      !IsRedirectSafe(redirect_info.new_url)) {
+      !IsRedirectSafe(request_.url, redirect_info.new_url)) {
     OnRequestError(
         network::URLLoaderCompletionStatus(net::ERR_UNSAFE_REDIRECT));
     return;
@@ -533,18 +534,19 @@ void WebRequestProxyingURLLoaderFactory::InProgressRequest::OnRequestError(
   factory_->RemoveRequest(network_service_request_id_, request_id_);
 }
 
-// Determines whether it is safe to redirect to |url|.
+// Determines whether it is safe to redirect from |from_url| to |to_url|.
 bool WebRequestProxyingURLLoaderFactory::InProgressRequest::IsRedirectSafe(
-    const GURL& url) {
-  if (url.SchemeIs(extensions::kExtensionScheme)) {
+    const GURL& from_url,
+    const GURL& to_url) {
+  if (to_url.SchemeIs(extensions::kExtensionScheme)) {
     const Extension* extension =
-        factory_->info_map_->extensions().GetByID(url.host());
+        factory_->info_map_->extensions().GetByID(to_url.host());
     if (!extension)
       return false;
     return WebAccessibleResourcesInfo::IsResourceWebAccessible(extension,
-                                                               url.path());
+                                                               to_url.path());
   }
-  return content::IsSafeRedirectTarget(url);
+  return content::IsSafeRedirectTarget(from_url, to_url);
 }
 
 WebRequestProxyingURLLoaderFactory::WebRequestProxyingURLLoaderFactory(
@@ -670,18 +672,17 @@ WebRequestProxyingURLLoaderFactory::~WebRequestProxyingURLLoaderFactory() =
 void WebRequestProxyingURLLoaderFactory::OnTargetFactoryError() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
   target_factory_.reset();
-  if (proxy_bindings_.empty()) {
-    // Deletes |this|.
-    proxies_->RemoveProxy(this);
-  }
+  proxy_bindings_.CloseAllBindings();
+
+  MaybeRemoveProxy();
 }
 
 void WebRequestProxyingURLLoaderFactory::OnProxyBindingError() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::IO);
-  if (proxy_bindings_.empty() && !target_factory_.is_bound()) {
-    // Deletes |this|.
-    proxies_->RemoveProxy(this);
-  }
+  if (proxy_bindings_.empty())
+    target_factory_.reset();
+
+  MaybeRemoveProxy();
 }
 
 void WebRequestProxyingURLLoaderFactory::RemoveRequest(
@@ -694,6 +695,18 @@ void WebRequestProxyingURLLoaderFactory::RemoveRequest(
         this, content::GlobalRequestID(render_process_id_,
                                        network_service_request_id));
   }
+
+  MaybeRemoveProxy();
+}
+
+void WebRequestProxyingURLLoaderFactory::MaybeRemoveProxy() {
+  // Even if all URLLoaderFactory pipes connected to this object have been
+  // closed it has to stay alive until all active requests have completed.
+  if (target_factory_.is_bound() || !requests_.empty())
+    return;
+
+  // Deletes |this|.
+  proxies_->RemoveProxy(this);
 }
 
 }  // namespace extensions

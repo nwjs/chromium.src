@@ -76,6 +76,7 @@
 <translation id="1114335938027186412">Ваш комп’ютер оснащено пристроєм Trusted Platform Module (TPM), який виконує багато важливих функцій безпеки в ОС Chrome. Щоб дізнатися більше, відвідайте Довідковий центр Chromebook: https://support.google.com/chromebook/?p=tpm</translation>
 <translation id="1114525161406758033">Переходити в режим сну, коли кришка закрита</translation>
 <translation id="1115324527092594775">Налаштувати Better Together</translation>
+<translation id="1116639326869298217">Не вдалося підтвердити вашу особу</translation>
 <translation id="1116694919640316211">Про Google Chrome</translation>
 <translation id="1116779635164066733">Цей параметр встановлюється розширенням "<ph name="NAME" />".</translation>
 <translation id="111844081046043029">Дійсно залишити цю сторінку?</translation>
@@ -371,7 +372,6 @@
 <translation id="1531004739673299060">додатка</translation>
 <translation id="15373452373711364">Великий курсор миші</translation>
 <translation id="1538729222189715449">Відкриваються файли Linux…</translation>
-<translation id="153933193410874873">Не вдалося підтвердити вашу особу на цьому пристрої</translation>
 <translation id="1540605929960647700">Увімкніть демонстраційний режим</translation>
 <translation id="1543284117603151572">Імпортовано з Edge</translation>
 <translation id="1545177026077493356">Автоматичний режим термінала</translation>
@@ -979,6 +979,7 @@
 <translation id="2464089476039395325">Проксі-сервер HTTP</translation>
 <translation id="2468205691404969808">Використовує файли cookie, щоб запам’ятовувати налаштування, навіть якщо ви не відвідуєте ці сторінки</translation>
 <translation id="2468902267404883140">Не вдається під’єднатися до телефона. Переконайтеся, що ваш телефон Android сумісний, увімкнений і розташований поблизу. &lt;a&gt;Докладніше&lt;/a&gt;</translation>
+<translation id="247051149076336810">URL-адреса файлообмінника</translation>
 <translation id="2470702053775288986">Непідтримувані розширення вимкнено</translation>
 <translation id="2473195200299095979">Перекласти цю сторінку</translation>
 <translation id="2475982808118771221">Сталася помилка</translation>
@@ -1775,6 +1776,7 @@
 <translation id="3650952250015018111">Надати додатку "<ph name="APP_NAME" />" доступ:</translation>
 <translation id="3651488188562686558">Відключитися від Wi-Fi</translation>
 <translation id="3652817283076144888">Ініціалізація</translation>
+<translation id="3653160965917900914">Мережеві файлообмінники</translation>
 <translation id="3653999333232393305">Продовжити надавати хосту <ph name="HOST" /> доступ до вашого мікрофона</translation>
 <translation id="3654045516529121250">Переглядати налаштування доступності</translation>
 <translation id="3655712721956801464">{NUM_FILES,plural, =1{Має постійний доступ до одного файлу.}one{Має постійний доступ до # файлу.}few{Має постійний доступ до # файлів.}many{Має постійний доступ до # файлів.}other{Має постійний доступ до # файлу.}}</translation>
@@ -2198,7 +2200,6 @@
 <translation id="4296575653627536209">Додати контрольованого користувача</translation>
 <translation id="4297219207642690536">Перезапустити й скинути</translation>
 <translation id="4297322094678649474">Змінити мови</translation>
-<translation id="4300305918532693141">Щоб змінити це налаштування, <ph name="BEGIN_LINK" />скиньте синхронізацію<ph name="END_LINK" />.</translation>
 <translation id="4305227814872083840">довга затримка (2 с)</translation>
 <translation id="4306119971288449206">Додатки мають наповнюватися вмістом типу "<ph name="CONTENT_TYPE" />"</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES" /> КБ (<ph name="NUM_KILOBYTES_LIVE" /> КБ у реальному часі)</translation>
@@ -2863,6 +2864,7 @@
 <translation id="5332624210073556029">Часовий пояс:</translation>
 <translation id="5334142896108694079">Кеш сценаріїв</translation>
 <translation id="5334844597069022743">Переглянути джерело</translation>
+<translation id="5334899159203764908">Докладніше про <ph name="BEGIN_LINK" />доступ до сайтів<ph name="END_LINK" /></translation>
 <translation id="5335458522276292100">Резервне копіювання на <ph name="BEGIN_LINK" />Google Диск<ph name="END_LINK" />: <ph name="FILE_COUNT" /></translation>
 <translation id="5336126339807372270">Заборонити всім сайтам отримувати доступ до пристроїв USB</translation>
 <translation id="5337771866151525739">Встановлено третьою стороною.</translation>
@@ -3136,7 +3138,6 @@
 <translation id="5723508132121499792">Не запущено жодну фонову програму</translation>
 <translation id="5727728807527375859">Розширення, служби та теми можуть зашкодити вашому комп'ютеру. Дійсно продовжити?</translation>
 <translation id="5729712731028706266">&amp;Перегляд</translation>
-<translation id="5731185123186077399">Персоналізовані сервіси Google, як-от Google Pay</translation>
 <translation id="5731247495086897348">Вста&amp;вити та перейти</translation>
 <translation id="5731409020711461763">1 нове фото</translation>
 <translation id="5734362860645681824">Зв’язок</translation>
@@ -3153,6 +3154,7 @@
 <translation id="5756163054456765343">Довідковий центр</translation>
 <translation id="5759728514498647443">Документи, які ви друкуєте через додаток <ph name="APP_NAME" />, може переглядати додаток <ph name="APP_NAME" />.</translation>
 <translation id="5762172915276660232">Налаштування кредитних карток</translation>
+<translation id="5763315388120433852">Налаштувати мережеві файлообмінники або керувати ними.</translation>
 <translation id="5763751966069581670">Пристроїв USB не знайдено</translation>
 <translation id="5764483294734785780">Збере&amp;гти аудіо як...</translation>
 <translation id="57646104491463491">Дата змінення</translation>
@@ -3308,9 +3310,12 @@
 <translation id="5979469435153841984">Щоб створити закладку сторінки, натисніть значок зірочки в адресному рядку</translation>
 <translation id="5982621672636444458">Параметри сортування</translation>
 <translation id="5984222099446776634">Нещодавно відвідані</translation>
+<translation id="5985458664595100876">Недійсний формат URL-адреси. Підтримувані формати: \\server\share і smb://server/share.</translation>
+<translation id="5990142338020175451">Більш персоналізовані сервіси Google, як-от кращі пропозиції сторінок</translation>
 <translation id="5990386583461751448">Перекладено</translation>
 <translation id="5991049340509704927">Збільшити</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Щоб мати можливість переглядати веб-сторінки, попросіть адміністратора видалити цей додаток.}one{Щоб мати можливість переглядати веб-сторінки, попросіть адміністратора видалити ці додатки.}few{Щоб мати можливість переглядати веб-сторінки, попросіть адміністратора видалити ці додатки.}many{Щоб мати можливість переглядати веб-сторінки, попросіть адміністратора видалити ці додатки.}other{Щоб мати можливість переглядати веб-сторінки, попросіть адміністратора видалити ці додатки.}}</translation>
+<translation id="5997337190805127100">Докладніше про доступ до сайтів</translation>
 <translation id="6002458620803359783">Рекомендовані голоси</translation>
 <translation id="6005695835120147974">Маршрутизатор медіавмісту</translation>
 <translation id="6006484371116297560">Класична</translation>
@@ -3446,7 +3451,6 @@
 <translation id="6185132558746749656">Місцезнаходження пристрою</translation>
 <translation id="6185617499004995178">Засіб перевірки CUPS IPP</translation>
 <translation id="6185696379715117369">Сторінка вгору</translation>
-<translation id="6189273858858366896">Налаштувати або керувати спільними мережевими файлами.</translation>
 <translation id="6189412234224385711">Відкрити за допомогою розширення "<ph name="EXTENSION_NAME" />"</translation>
 <translation id="6196640612572343990">Блокувати сторонні файли cookie</translation>
 <translation id="6196854373336333322">Розширення "<ph name="EXTENSION_NAME" />" керує налаштуваннями проксі-сервера, тобто може змінювати та переривати будь-які ваші дії онлайн, а також стежити за ними. Якщо ви не знаєте причини такої зміни, імовірно, вона небажана.</translation>
@@ -3496,7 +3500,6 @@
 <translation id="6263082573641595914">Версія ЦС Microsoft</translation>
 <translation id="6263284346895336537">Не вирішальні</translation>
 <translation id="6264365405983206840">Вибрати &amp;всі</translation>
-<translation id="6264422956566238156">Ви ввімкнули синхронізацію</translation>
 <translation id="6267166720438879315">Виберіть сертифікат, щоб ідентифікувати себе на <ph name="HOST_NAME" /></translation>
 <translation id="6268252012308737255">Відкрити за допомогою додатка <ph name="APP" /></translation>
 <translation id="6268747994388690914">Імпортувати закладки з файлу HTML...</translation>
@@ -4006,6 +4009,7 @@
 <translation id="7040230719604914234">Оператор</translation>
 <translation id="7042418530779813870">Вста&amp;вити та здійснити пошук</translation>
 <translation id="7043108582968290193">Готово. Несумісних додатків не знайдено.</translation>
+<translation id="7044124535091449260">Докладніше про доступ до сайтів</translation>
 <translation id="7049293980323620022">Завантажити файл?</translation>
 <translation id="7051943809462976355">Пошук миші…</translation>
 <translation id="7052237160939977163">Надсилати дані відстеження ефективності</translation>
@@ -4258,13 +4262,13 @@
 <translation id="7433692219247014412">{COUNT,plural, =0{Відкрити всі у &amp;новому вікні}=1{Відкрити в &amp;новому вікні}one{Відкрити всі (#) у &amp;новому вікні}few{Відкрити всі (#) у &amp;новому вікні}many{Відкрити всі (#) у &amp;новому вікні}other{Відкрити всі (#) у &amp;новому вікні}}</translation>
 <translation id="7434509671034404296">Для розробників</translation>
 <translation id="7436921188514130341">От халепа! Сталася помилка під час перейменування.</translation>
+<translation id="7441736921018636843">Щоб змінити це налаштування, видаліть парольну фразу для синхронізації, <ph name="BEGIN_LINK" />скинувши параметри синхронізації<ph name="END_LINK" /></translation>
 <translation id="7441830548568730290">Інші користувачі</translation>
 <translation id="7442465037756169001">Обладнання Hangouts Meet hardware можна налаштовувати.</translation>
 <translation id="744341768939279100">Створити новий профіль</translation>
 <translation id="7444726222535375658">Перейти в Hangouts Meet</translation>
 <translation id="7444983668544353857">Вимкнути <ph name="NETWORKDEVICE" /></translation>
 <translation id="7453008956351770337">Вибираючи цей принтер, ви надаєте доступ до свого принтера такому розширенню:</translation>
-<translation id="7453467225369441013">Ви вийдете з більшості сайтів, але не вийдете з облікового запису Google.</translation>
 <translation id="7456142309650173560">версія для розробників</translation>
 <translation id="7456847797759667638">Відкрити розташування...</translation>
 <translation id="7461924472993315131">Закріпити</translation>
@@ -4804,7 +4808,6 @@
 <translation id="8230134520748321204">Зберегти пароль для <ph name="ORIGIN" />?</translation>
 <translation id="8234795456569844941">Допоможіть нашим розробникам вирішити цю проблему. Опишіть, що сталося перед тим, як з’явилося повідомлення про помилку профілю.</translation>
 <translation id="8234989666557591529">Виберіть телефон, щоб розблокувати пристрій <ph name="DEVICE_TYPE" /></translation>
-<translation id="8239020549147958415">Синхронізувати як <ph name="FULL_NAME" /></translation>
 <translation id="8241040075392580210">Хмаринка</translation>
 <translation id="8241806945692107836">Визначення конфігурації пристрою…</translation>
 <translation id="8241868517363889229">Читати й змінювати закладки</translation>
@@ -5096,7 +5099,6 @@
 <translation id="869884720829132584">Меню програм</translation>
 <translation id="869891660844655955">Діє до</translation>
 <translation id="8699566574894671540">Щоб увімкнути цю функцію, спершу виберіть опцію "Перевіряти правопис під час введення" в меню "Редагування"</translation>
-<translation id="870073306461175568">Спільні мережеві файли</translation>
 <translation id="8701677791353449257">Назва пристрою має відповідати регулярному виразу <ph name="REGEX" />.</translation>
 <translation id="8704521619148782536">Це триває довше, ніж зазвичай. Можна зачекати або скасувати дію та спробувати пізніше.</translation>
 <translation id="8705331520020532516">Серійний номер</translation>
@@ -5281,7 +5283,6 @@
 <translation id="897939795688207351">На сайті <ph name="ORIGIN" /></translation>
 <translation id="8980951173413349704"><ph name="WINDOW_TITLE" /> – аварійне завершення роботи</translation>
 <translation id="8983677657449185470">Допоможіть покращити безпечний перегляд</translation>
-<translation id="8984654317541110628">URL-адреса спільного файлу</translation>
 <translation id="8986362086234534611">Видалити</translation>
 <translation id="8986494364107987395">Автоматично надсилати статистику використання та звіти про аварійне завершення роботи в Google</translation>
 <translation id="8987927404178983737">Місяць</translation>

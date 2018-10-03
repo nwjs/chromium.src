@@ -74,6 +74,7 @@ class KioskDelegate;
 class ProcessManagerDelegate;
 class ProcessMap;
 class RuntimeAPIDelegate;
+class UserScriptListener;
 
 // Interface to allow the extensions module to make browser-process-specific
 // queries of the embedder. Should be Set() once in the browser process.
@@ -227,6 +228,10 @@ class ExtensionsBrowserClient {
   // Return true if the device is enrolled in Demo Mode.
   virtual bool IsInDemoMode() = 0;
 
+  // Return true if |app_id| matches the screensaver and the device is enrolled
+  // in Demo Mode.
+  virtual bool IsScreensaverInDemoMode(const std::string& app_id) = 0;
+
   // Return true if the system is run in forced app mode.
   virtual bool IsRunningInForcedAppMode() = 0;
 
@@ -354,6 +359,8 @@ class ExtensionsBrowserClient {
   virtual bool IsWebUIAllowedToMakeNetworkRequests(const url::Origin& origin);
 
   virtual network::mojom::NetworkContext* GetSystemNetworkContext();
+
+  virtual UserScriptListener* GetUserScriptListener();
 
  private:
   std::vector<std::unique_ptr<ExtensionsBrowserAPIProvider>> providers_;

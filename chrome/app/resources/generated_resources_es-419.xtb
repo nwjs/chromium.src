@@ -76,6 +76,7 @@
 <translation id="1114335938027186412">La computadora contiene un dispositivo de seguridad del Módulo de plataforma segura (TPM) que se usa para implementar varias funciones clave de seguridad en el Sistema operativo Chrome. Para obtener más información, visita el Centro de ayuda de Chromebook: https://support.google.com/chromebook/?p=tpm.</translation>
 <translation id="1114525161406758033">Suspender cuando se cierre la tapa</translation>
 <translation id="1115324527092594775">Configura Better Together</translation>
+<translation id="1116639326869298217">No se pudo verificar tu identidad</translation>
 <translation id="1116694919640316211">Acerca de</translation>
 <translation id="1116779635164066733">La extensión "<ph name="NAME" />" administra esta configuración.</translation>
 <translation id="111844081046043029">¿Estás seguro de que deseas abandonar esta página?</translation>
@@ -368,7 +369,6 @@
 <translation id="1531004739673299060">Ventana de la app</translation>
 <translation id="15373452373711364">Cursor del mouse grande</translation>
 <translation id="1538729222189715449">Abriendo archivos de Linux…</translation>
-<translation id="153933193410874873">No pudimos verificar tu identidad en este dispositivo</translation>
 <translation id="1540605929960647700">Activar el modo de demostración</translation>
 <translation id="1543284117603151572">Importados desde Edge</translation>
 <translation id="1545177026077493356">Modo kiosco automático</translation>
@@ -976,6 +976,7 @@
 <translation id="2464089476039395325">Proxy HTTP</translation>
 <translation id="2468205691404969808">Usa cookies para recordar tus preferencias, incluso si no visitas esas páginas</translation>
 <translation id="2468902267404883140">Falló la conexión con tu teléfono. Asegúrate de que tienes un teléfono Android compatible, y que esté encendido y cerca. &lt;a&gt;Más información&lt;/a&gt;</translation>
+<translation id="247051149076336810">URL de archivos compartidos</translation>
 <translation id="2470702053775288986">Extensiones no admitidas inhabilitadas</translation>
 <translation id="2473195200299095979">Traducir esta página</translation>
 <translation id="2475982808118771221">Se ha producido un error</translation>
@@ -1772,6 +1773,7 @@
 <translation id="3650952250015018111">Permitir que "<ph name="APP_NAME" />" acceda a:</translation>
 <translation id="3651488188562686558">Se desconecta de Wi-Fi.</translation>
 <translation id="3652817283076144888">Inicializando</translation>
+<translation id="3653160965917900914">Network File Shares</translation>
 <translation id="3653999333232393305">Seguir permitiendo que <ph name="HOST" /> acceda al micrófono</translation>
 <translation id="3654045516529121250">Leer la configuración de accesibilidad</translation>
 <translation id="3655712721956801464">{NUM_FILES,plural, =1{Tiene acceso permanente a un archivo.}other{Tiene acceso permanente a # archivos.}}</translation>
@@ -2195,7 +2197,6 @@
 <translation id="4296575653627536209">Agregar usuario supervisado</translation>
 <translation id="4297219207642690536">Reiniciar y restablecer</translation>
 <translation id="4297322094678649474">Cambiar idiomas</translation>
-<translation id="4300305918532693141">Para cambiar esta configuración, <ph name="BEGIN_LINK" />restablece la sincronización<ph name="END_LINK" />.</translation>
 <translation id="4305227814872083840">largo (2 s)</translation>
 <translation id="4306119971288449206">Las apps deben incluir el encabezado content-type "<ph name="CONTENT_TYPE" />"</translation>
 <translation id="4309420042698375243"><ph name="NUM_KILOBYTES" />K (<ph name="NUM_KILOBYTES_LIVE" />K en vivo)</translation>
@@ -2860,6 +2861,7 @@
 <translation id="5332624210073556029">Zona horaria:</translation>
 <translation id="5334142896108694079">Caché de la secuencia de comandos</translation>
 <translation id="5334844597069022743">Ver código fuente</translation>
+<translation id="5334899159203764908">Más información sobre el <ph name="BEGIN_LINK" />acceso del sitio<ph name="END_LINK" /></translation>
 <translation id="5335458522276292100">Realizando una copia de seguridad de <ph name="FILE_COUNT" /> en <ph name="BEGIN_LINK" />Google Drive<ph name="END_LINK" /></translation>
 <translation id="5336126339807372270">No permitir que ningún sitio acceda a dispositivos USB</translation>
 <translation id="5337771866151525739">Instalada por un tercero</translation>
@@ -3133,7 +3135,6 @@
 <translation id="5723508132121499792">No se ejecutan aplicaciones de fondo</translation>
 <translation id="5727728807527375859">Las extensiones, las aplicaciones y los temas pueden dañar tu computadora. ¿Estás seguro de que deseas continuar?</translation>
 <translation id="5729712731028706266">&amp;Ver</translation>
-<translation id="5731185123186077399">Servicios personalizados de Google, como Google Pay</translation>
 <translation id="5731247495086897348">Pe&amp;gar y acceder</translation>
 <translation id="5731409020711461763">1 foto nueva</translation>
 <translation id="5734362860645681824">Comunicaciones</translation>
@@ -3150,6 +3151,7 @@
 <translation id="5756163054456765343">C&amp;entro de ayuda</translation>
 <translation id="5759728514498647443"><ph name="APP_NAME" /> podrá leer los documentos que envíes a imprimir a través de <ph name="APP_NAME" />.</translation>
 <translation id="5762172915276660232">Configuración de tarjetas de crédito</translation>
+<translation id="5763315388120433852">Configura o administra "Network File Shares".</translation>
 <translation id="5763751966069581670">No se encuentraron dispositivos USB</translation>
 <translation id="5764483294734785780">Guardar audio como...</translation>
 <translation id="57646104491463491">Fecha de modificación</translation>
@@ -3305,9 +3307,12 @@
 <translation id="5979469435153841984">Para agregar páginas a Favoritos, haz clic en la estrella que se encuentra en la barra de direcciones</translation>
 <translation id="5982621672636444458">Ordenar opciones</translation>
 <translation id="5984222099446776634">Visitados recientemente</translation>
+<translation id="5985458664595100876">El formato de la URL no es válido. Los formatos compatibles son \\server\share y smb://server/share.</translation>
+<translation id="5990142338020175451">Servicios de Google más personalizados, como mejores sugerencias de páginas</translation>
 <translation id="5990386583461751448">Traducida</translation>
 <translation id="5991049340509704927">Ampliar</translation>
 <translation id="599131315899248751">{NUM_APPLICATIONS,plural, =1{Para asegurarte de que puedas seguir navegando en la Web, pídele a tu administrador que quite esta aplicación.}other{Para asegurarte de que puedas seguir navegando en la Web, pídele a tu administrador que quite estas aplicaciones.}}</translation>
+<translation id="5997337190805127100">Más información sobre el acceso a sitios</translation>
 <translation id="6002458620803359783">Voces preferidas</translation>
 <translation id="6005695835120147974">Router multimedia</translation>
 <translation id="6006484371116297560">Clásico</translation>
@@ -3443,7 +3448,6 @@
 <translation id="6185132558746749656">Ubicación del dispositivo</translation>
 <translation id="6185617499004995178">Validador del IPP mediante CUPS</translation>
 <translation id="6185696379715117369">Retroceder página</translation>
-<translation id="6189273858858366896">Configura o administra Network File Shares.</translation>
 <translation id="6189412234224385711">Abrir con <ph name="EXTENSION_NAME" /></translation>
 <translation id="6196640612572343990">Bloquear cookies de terceros</translation>
 <translation id="6196854373336333322">La extensión "<ph name="EXTENSION_NAME" />" tomó el control de la configuración de proxy, lo que significa que puede modificar, dañar o espiar cualquier actividad que lleves a cabo en línea. Si no sabes con certeza por qué se produjo este cambio, probablemente no lo desees.</translation>
@@ -3493,7 +3497,6 @@
 <translation id="6263082573641595914">Versión de entidad de certificación de Microsoft</translation>
 <translation id="6263284346895336537">No crítico</translation>
 <translation id="6264365405983206840">Seleccion&amp;ar todo</translation>
-<translation id="6264422956566238156">Activaste la sincronización</translation>
 <translation id="6267166720438879315">Seleccionar un certificado para autenticarte como <ph name="HOST_NAME" /></translation>
 <translation id="6268252012308737255">Abrir con <ph name="APP" /></translation>
 <translation id="6268747994388690914">Importar favoritos desde un archivo HTML...</translation>
@@ -4003,6 +4006,7 @@
 <translation id="7040230719604914234">Operador</translation>
 <translation id="7042418530779813870">Pe&amp;gar y buscar</translation>
 <translation id="7043108582968290193">¡Listo! No se encontraron aplicaciones incompatibles.</translation>
+<translation id="7044124535091449260">Más información sobre el acceso a sitios</translation>
 <translation id="7049293980323620022">¿Deseas conservar el archivo?</translation>
 <translation id="7051943809462976355">Buscando mouse…</translation>
 <translation id="7052237160939977163">Enviar datos de seguimiento de rendimiento</translation>
@@ -4255,13 +4259,13 @@
 <translation id="7433692219247014412">{COUNT,plural, =0{Abrir todo en una ventana &amp;nueva}=1{Abrir en una ventana &amp;nueva}other{Abrir todo (#) en una ventana &amp;nueva}}</translation>
 <translation id="7434509671034404296">Opciones para desarrolladores</translation>
 <translation id="7436921188514130341">Se produjo un error al cambiar el nombre.</translation>
+<translation id="7441736921018636843">A fin de cambiar esta configuración, <ph name="BEGIN_LINK" />restablece la sincronización<ph name="END_LINK" /> para quitar la frase de contraseña de sincronización</translation>
 <translation id="7441830548568730290">Otros usuarios</translation>
 <translation id="7442465037756169001">El hardware de Hangouts Meet ya está listo para su configuración.</translation>
 <translation id="744341768939279100">Crear un perfil nuevo</translation>
 <translation id="7444726222535375658">Ir a Meet de Hangouts</translation>
 <translation id="7444983668544353857">Inhabilitar <ph name="NETWORKDEVICE" /></translation>
 <translation id="7453008956351770337">Al seleccionar esta impresora, concedes a la siguiente extensión permiso para acceder a tu impresora.</translation>
-<translation id="7453467225369441013">Esta acción te hace salir de la mayoría de los sitios. No saldrás de tu cuenta de Google.</translation>
 <translation id="7456142309650173560">para programadores</translation>
 <translation id="7456847797759667638">Abrir ubicación...</translation>
 <translation id="7461924472993315131">Fijar</translation>
@@ -4801,7 +4805,6 @@ Mantén el archivo de clave en un lugar seguro. Debes crear las nuevas versiones
 <translation id="8230134520748321204">¿Quieres guardar la contraseña para <ph name="ORIGIN" />?</translation>
 <translation id="8234795456569844941">Ayuda a nuestros ingenieros a corregir este problema. Cuéntanos lo que pasó justo antes de recibir el mensaje de error de perfil:</translation>
 <translation id="8234989666557591529">Elige un teléfono para desbloquear tu <ph name="DEVICE_TYPE" /></translation>
-<translation id="8239020549147958415">Sincronizar como <ph name="FULL_NAME" /></translation>
 <translation id="8241040075392580210">Nublado</translation>
 <translation id="8241806945692107836">Determinando configuración del dispositivo…</translation>
 <translation id="8241868517363889229">Leer y cambiar los favoritos</translation>
@@ -5094,7 +5097,6 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="869884720829132584">Menú Aplicaciones</translation>
 <translation id="869891660844655955">Fecha de vencimiento</translation>
 <translation id="8699566574894671540">Para activar esta opción, primero selecciona Comprobar ortografía mientras se escribe, en el menú Editar</translation>
-<translation id="870073306461175568">Network File Shares</translation>
 <translation id="8701677791353449257">El nombre del dispositivo debe coincidir con la expresión regular <ph name="REGEX" />.</translation>
 <translation id="8704521619148782536">Esta acción está tardando más de lo normal. Puedes seguir esperando o cancelar la acción y volver a intentarlo más tarde.</translation>
 <translation id="8705331520020532516">Número de serie</translation>
@@ -5279,7 +5281,6 @@ Es posible que los usuarios con conexiones lentas no puedan ver tu contenido.</t
 <translation id="897939795688207351">En <ph name="ORIGIN" /></translation>
 <translation id="8980951173413349704"><ph name="WINDOW_TITLE" />: Falló</translation>
 <translation id="8983677657449185470">Ayudar a mejorar la Navegación segura</translation>
-<translation id="8984654317541110628">URL de archivo compartido</translation>
 <translation id="8986362086234534611">Borrar</translation>
 <translation id="8986494364107987395">Enviar automáticamente estadísticas de uso e informes sobre fallos a Google</translation>
 <translation id="8987927404178983737">Mes</translation>

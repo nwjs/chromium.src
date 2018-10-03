@@ -106,6 +106,10 @@ bool SessionController::IsRunningInAppMode() const {
   return is_running_in_app_mode_;
 }
 
+bool SessionController::IsDemoSession() const {
+  return is_demo_session_;
+}
+
 bool SessionController::IsUserSessionBlocked() const {
   // User sessions are blocked when session state is not ACTIVE, with two
   // exceptions:
@@ -341,9 +345,10 @@ void SessionController::SetUserSessionOrder(
 
   // Check active user change and notifies observers.
   if (user_sessions_[0]->session_id != active_session_id_) {
+    const bool is_first_session = active_session_id_ == 0u;
     active_session_id_ = user_sessions_[0]->session_id;
 
-    if (!last_active_account_id.is_valid()) {
+    if (is_first_session) {
       for (auto& observer : observers_)
         observer.OnFirstSessionStarted();
     }

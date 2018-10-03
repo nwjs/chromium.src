@@ -640,7 +640,7 @@
     "os": ["win", "linux", "mac"],
     "test_policy": { "SigninAllowed": true },
     "pref_mappings": [
-      { "pref": "signin.allowed" }
+      { "pref": "signin.allowed_on_next_startup" }
     ]
   },
 
@@ -3192,6 +3192,15 @@
     ]
   },
 
+  "ReportCrostiniUsageEnabled": {
+    "os": ["chromeos"],
+    "can_be_recommended": false,
+    "test_policy": { "ReportCrostiniUsageEnabled": false },
+    "pref_mappings": [
+      { "pref": "crostini.usage_reporting_enabled" }
+    ]
+  },
+
   "SmsMessagesAllowed": {
     "os": ["chromeos"],
     "test_policy": { "SmsMessagesAllowed": false },
@@ -3944,19 +3953,6 @@
   },
 
   "WebAppInstallForceList": {
-    "os": ["win", "linux", "mac", "chromeos"],
-    "test_policy": {
-      "WebAppInstallForceList": [{
-        "url": "https://www.google.com",
-        "launch_container": "tab"
-      }, {
-        "url": "https://docs.google.com",
-        "launch_container": "window"
-      }]
-    },
-    "pref_mappings": [
-      { "pref": "profile.web_app.install.forcelist" }
-    ]
   },
 
   "----- Chrome Frame policies -------------------------------------------": {},

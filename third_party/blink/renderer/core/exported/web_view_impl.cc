@@ -1739,11 +1739,6 @@ WebInputEventResult WebViewImpl::HandleInputEvent(
     return WebInputEventResult::kHandledSystem;
   }
 
-  // TODO(nzolghadr): Add pointerrawmove in pointerlock path as well.
-  if (is_pointer_locked &&
-      input_event.GetType() == WebInputEvent::kPointerRawMove)
-    return WebInputEventResult::kHandledSystem;
-
   Document& main_frame_document = *MainFrameImpl()->GetFrame()->GetDocument();
 
   if (input_event.GetType() != WebInputEvent::kMouseMove) {
@@ -1760,9 +1755,13 @@ WebInputEventResult WebViewImpl::HandleInputEvent(
     }
   }
 
+  // Skip the pointerrawmove for mouse capture case.
   if (mouse_capture_node_ &&
-      (WebInputEvent::IsMouseEventType(input_event.GetType()) ||
-       input_event.GetType() == WebInputEvent::kPointerRawMove)) {
+      input_event.GetType() == WebInputEvent::kPointerRawMove)
+    return WebInputEventResult::kHandledSystem;
+
+  if (mouse_capture_node_ &&
+      WebInputEvent::IsMouseEventType(input_event.GetType())) {
     TRACE_EVENT1("input", "captured mouse event", "type",
                  input_event.GetType());
     // Save m_mouseCaptureNode since mouseCaptureLost() will clear it.
@@ -1781,10 +1780,6 @@ WebInputEventResult WebViewImpl::HandleInputEvent(
         break;
       case WebInputEvent::kMouseMove:
         event_type = EventTypeNames::mousemove;
-        break;
-      case WebInputEvent::kPointerRawMove:
-        // There will be no mouse event for raw move events.
-        event_type = EventTypeNames::pointerrawmove;
         break;
       case WebInputEvent::kMouseLeave:
         event_type = EventTypeNames::mouseout;
@@ -2434,7 +2429,7 @@ void WebViewImpl::DisableAutoResizeMode() {
 }
 
 void WebViewImpl::SetDefaultPageScaleLimits(float min_scale, float max_scale) {
-  return GetPage()->SetDefaultPageScaleLimits(min_scale, max_scale);
+  GetPage()->SetDefaultPageScaleLimits(min_scale, max_scale);
 }
 
 void WebViewImpl::SetInitialPageScaleOverride(
@@ -2481,29 +2476,17 @@ PageScaleConstraintsSet& WebViewImpl::GetPageScaleConstraintsSet() const {
   return GetPage()->GetPageScaleConstraintsSet();
 }
 
-void WebViewImpl::RefreshPageScaleFactorAfterLayout() {
+void WebViewImpl::RefreshPageScaleFactor() {
   if (!MainFrame() || !GetPage() || !GetPage()->MainFrame() ||
       !GetPage()->MainFrame()->IsLocalFrame() ||
       !GetPage()->DeprecatedLocalMainFrame()->View())
     return;
-  LocalFrameView* view = GetPage()->DeprecatedLocalMainFrame()->View();
-
   UpdatePageDefinedViewportConstraints(MainFrameImpl()
                                            ->GetFrame()
                                            ->GetDocument()
                                            ->GetViewportData()
                                            .GetViewportDescription());
   GetPageScaleConstraintsSet().ComputeFinalConstraints();
-
-  int vertical_scrollbar_width = 0;
-  if (view->LayoutViewport()->VerticalScrollbar() &&
-      !view->LayoutViewport()->VerticalScrollbar()->IsOverlayScrollbar()) {
-    vertical_scrollbar_width =
-        view->LayoutViewport()->VerticalScrollbar()->Width();
-  }
-  GetPageScaleConstraintsSet().AdjustFinalConstraintsToContentsSize(
-      ContentsSize(), vertical_scrollbar_width,
-      GetSettings()->ShrinksViewportContentToFit());
 
   float new_page_scale_factor = PageScaleFactor();
   if (GetPageScaleConstraintsSet().NeedsReset() &&
@@ -2988,7 +2971,7 @@ void WebViewImpl::ResizeAfterLayout() {
   }
 
   if (GetPageScaleConstraintsSet().ConstraintsDirty())
-    RefreshPageScaleFactorAfterLayout();
+    RefreshPageScaleFactor();
 
   resize_viewport_anchor_->ResizeFrameView(MainFrameSize());
 }
@@ -3003,8 +2986,20 @@ void WebViewImpl::MainFrameLayoutUpdated() {
 }
 
 void WebViewImpl::DidChangeContentsSize() {
-  GetPageScaleConstraintsSet().DidChangeContentsSize(ContentsSize(),
-                                                     PageScaleFactor());
+  if (!GetPage()->MainFrame()->IsLocalFrame())
+    return;
+
+  LocalFrameView* view = ToLocalFrame(GetPage()->MainFrame())->View();
+
+  int vertical_scrollbar_width = 0;
+  if (view && view->LayoutViewport()) {
+    Scrollbar* vertical_scrollbar = view->LayoutViewport()->VerticalScrollbar();
+    if (vertical_scrollbar && !vertical_scrollbar->IsOverlayScrollbar())
+      vertical_scrollbar_width = vertical_scrollbar->Width();
+  }
+
+  GetPageScaleConstraintsSet().DidChangeContentsSize(
+      ContentsSize(), vertical_scrollbar_width, PageScaleFactor());
 }
 
 void WebViewImpl::PageScaleFactorChanged() {

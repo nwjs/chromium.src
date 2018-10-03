@@ -30,6 +30,7 @@
 #include "gpu/ipc/gl_in_process_context.h"
 #include "gpu/skia_bindings/grcontext_for_gles2_interface.h"
 #include "testing/gtest/include/gtest/gtest.h"
+#include "third_party/skia/include/core/SkFontLCDConfig.h"
 #include "third_party/skia/include/core/SkGraphics.h"
 #include "third_party/skia/include/core/SkSurface.h"
 #include "third_party/skia/include/gpu/GrBackendSurface.h"
@@ -42,6 +43,17 @@
 
 namespace cc {
 namespace {
+class ScopedEnableLCDText {
+ public:
+  ScopedEnableLCDText() {
+    order_ = SkFontLCDConfig::GetSubpixelOrder();
+    SkFontLCDConfig::SetSubpixelOrder(SkFontLCDConfig::kRGB_LCDOrder);
+  }
+  ~ScopedEnableLCDText() { SkFontLCDConfig::SetSubpixelOrder(order_); }
+
+ private:
+  SkFontLCDConfig::LCDOrder order_;
+};
 
 scoped_refptr<DisplayItemList> MakeNoopDisplayItemList() {
   auto display_item_list = base::MakeRefCounted<DisplayItemList>();
@@ -787,6 +799,46 @@ TEST_P(OopImagePixelTest, DrawImageWithSourceAndTargetColorSpace) {
   ExpectEquals(actual, expected);
 }
 
+TEST_P(OopImagePixelTest, DrawImageWithSetMatrix) {
+  SCOPED_TRACE(base::StringPrintf("UseTooLargeImage: %d, FilterQuality: %d\n",
+                                  UseTooLargeImage(), FilterQuality()));
+
+  gfx::Rect rect(10, 10);
+  gfx::Size image_size = GetImageSize();
+
+  SkBitmap bitmap;
+  bitmap.allocPixelsFlags(
+      SkImageInfo::MakeN32Premul(image_size.width(), image_size.height()),
+      SkBitmap::kZeroPixels_AllocFlag);
+
+  SkCanvas canvas(bitmap);
+  canvas.drawColor(SK_ColorMAGENTA);
+  SkPaint green;
+  green.setColor(SK_ColorGREEN);
+  canvas.drawRect(SkRect::MakeXYWH(1, 2, 3, 4), green);
+
+  sk_sp<SkImage> image = SkImage::MakeFromBitmap(bitmap);
+  const PaintImage::Id kSomeId = 32;
+  auto builder =
+      PaintImageBuilder::WithDefault().set_image(image, 0).set_id(kSomeId);
+  auto paint_image = builder.TakePaintImage();
+
+  auto display_item_list = base::MakeRefCounted<DisplayItemList>();
+  display_item_list->StartPaint();
+  PaintFlags flags;
+  flags.setFilterQuality(FilterQuality());
+  display_item_list->push<SetMatrixOp>(SkMatrix::MakeScale(0.5f, 0.5f));
+  display_item_list->push<DrawImageOp>(paint_image, 0.f, 0.f, &flags);
+  display_item_list->EndPaintOfUnpaired(rect);
+  display_item_list->Finalize();
+
+  auto actual = Raster(display_item_list, rect.size());
+  auto expected = RasterExpectedBitmap(display_item_list, rect.size());
+  ExpectEquals(actual, expected);
+
+  EXPECT_EQ(actual.getColor(0, 0), SK_ColorMAGENTA);
+}
+
 TEST_F(OopPixelTest, Preclear) {
   gfx::Rect rect(10, 10);
   auto display_item_list = base::MakeRefCounted<DisplayItemList>();
@@ -1335,7 +1387,8 @@ TEST_F(OopPixelTest, DrawRectColorSpace) {
 }
 
 scoped_refptr<PaintTextBlob> BuildTextBlob(
-    PaintTypeface typeface = PaintTypeface()) {
+    PaintTypeface typeface = PaintTypeface(),
+    bool use_lcd_text = false) {
   SkFontStyle style;
   if (!typeface) {
     typeface = PaintTypeface::FromFamilyNameAndFontStyle("monospace", style);
@@ -1345,7 +1398,12 @@ scoped_refptr<PaintTextBlob> BuildTextBlob(
   font.SetTypeface(typeface);
   font.SetTextEncoding(SkPaint::kGlyphID_TextEncoding);
   font.SetHinting(SkPaint::kNormal_Hinting);
-  font.SetTextSize(10u);
+  font.SetTextSize(1u);
+  if (use_lcd_text) {
+    font.SetAntiAlias(true);
+    font.SetSubpixelText(true);
+    font.SetLcdRenderText(true);
+  }
 
   PaintTextBlobBuilder builder;
   SkRect bounds = SkRect::MakeWH(100, 100);
@@ -1380,65 +1438,91 @@ TEST_F(OopPixelTest, DrawTextBlob) {
   ExpectEquals(actual, expected);
 }
 
-TEST_F(OopPixelTest, DrawRecordShaderWithTextScaled) {
-  RasterOptions options;
-  options.resource_size = gfx::Size(100, 100);
-  options.content_size = options.resource_size;
-  options.full_raster_rect = gfx::Rect(options.content_size);
-  options.playback_rect = options.full_raster_rect;
-  options.color_space = gfx::ColorSpace::CreateSRGB();
+class OopRecordShaderPixelTest : public OopPixelTest,
+                                 public ::testing::WithParamInterface<bool> {
+  public:
+   bool UseLcdText() const { return GetParam(); }
+   void RunTest() {
+     ScopedEnableLCDText enable_lcd;
+     
+     RasterOptions options;
+     options.resource_size = gfx::Size(100, 100);
+     options.content_size = options.resource_size;
+     options.full_raster_rect = gfx::Rect(options.content_size);
+     options.playback_rect = options.full_raster_rect;
+     options.color_space = gfx::ColorSpace::CreateSRGB();
+     options.use_lcd_text = UseLcdText();
 
-  auto paint_record = sk_make_sp<PaintOpBuffer>();
-  PaintFlags flags;
-  flags.setStyle(PaintFlags::kFill_Style);
-  flags.setColor(SK_ColorGREEN);
-  paint_record->push<DrawTextBlobOp>(BuildTextBlob(), 0u, 0u, flags);
-  auto paint_record_shader = PaintShader::MakePaintRecord(
-      paint_record, SkRect::MakeWH(25, 25), SkShader::kRepeat_TileMode,
-      SkShader::kRepeat_TileMode, nullptr);
+     auto paint_record = sk_make_sp<PaintOpBuffer>();
+     PaintFlags flags;
+     flags.setStyle(PaintFlags::kFill_Style);
+     flags.setColor(SK_ColorGREEN);
+     paint_record->push<DrawTextBlobOp>(BuildTextBlob(PaintTypeface(), UseLcdText()), 0u, 0u,
+                                        flags);
+     auto paint_record_shader = PaintShader::MakePaintRecord(
+        paint_record, SkRect::MakeWH(25, 25), SkShader::kRepeat_TileMode,
+        SkShader::kRepeat_TileMode, nullptr);
 
-  auto display_item_list = base::MakeRefCounted<DisplayItemList>();
-  display_item_list->StartPaint();
-  display_item_list->push<ScaleOp>(2.f, 2.f);
-  PaintFlags shader_flags;
-  shader_flags.setShader(paint_record_shader);
-  display_item_list->push<DrawRectOp>(SkRect::MakeWH(50, 50), shader_flags);
-  display_item_list->EndPaintOfUnpaired(options.full_raster_rect);
-  display_item_list->Finalize();
+     auto display_item_list = base::MakeRefCounted<DisplayItemList>();
+     display_item_list->StartPaint();
+     display_item_list->push<ScaleOp>(2.f, 2.f);
+     PaintFlags shader_flags;
+     shader_flags.setShader(paint_record_shader);
+     display_item_list->push<DrawRectOp>(SkRect::MakeWH(50, 50), shader_flags);
+     display_item_list->EndPaintOfUnpaired(options.full_raster_rect);
+     display_item_list->Finalize();
 
-  auto actual = Raster(display_item_list, options);
-  auto expected = RasterExpectedBitmap(display_item_list, options);
-  ExpectEquals(actual, expected);
+     auto actual = Raster(display_item_list, options);
+     auto expected = RasterExpectedBitmap(display_item_list, options);
+     ExpectEquals(actual, expected);
+   }
+};
+  
+TEST_P(OopRecordShaderPixelTest, ShaderWithTextScaled) {
+  RunTest();
 }
+  
+class OopRecordFilterPixelTest : public OopPixelTest,
+                                 public ::testing::WithParamInterface<bool> {
+  public:
+   bool UseLcdText() const { return GetParam(); }
+   void RunTest() {
+     ScopedEnableLCDText enable_lcd;
 
-TEST_F(OopPixelTest, DrawRecordFilterWithTextScaled) {
-  RasterOptions options;
-  options.resource_size = gfx::Size(100, 100);
-  options.content_size = options.resource_size;
-  options.full_raster_rect = gfx::Rect(options.content_size);
-  options.playback_rect = options.full_raster_rect;
-  options.color_space = gfx::ColorSpace::CreateSRGB();
+     RasterOptions options;
+     options.resource_size = gfx::Size(100, 100);
+     options.content_size = options.resource_size;
+     options.full_raster_rect = gfx::Rect(options.content_size);
+     options.playback_rect = options.full_raster_rect;
+     options.color_space = gfx::ColorSpace::CreateSRGB();
+     options.use_lcd_text = UseLcdText();
 
-  auto paint_record = sk_make_sp<PaintOpBuffer>();
-  PaintFlags flags;
-  flags.setStyle(PaintFlags::kFill_Style);
-  flags.setColor(SK_ColorGREEN);
-  paint_record->push<DrawTextBlobOp>(BuildTextBlob(), 0u, 0u, flags);
-  auto paint_record_filter =
-      sk_make_sp<RecordPaintFilter>(paint_record, SkRect::MakeWH(100, 100));
+     auto paint_record = sk_make_sp<PaintOpBuffer>();
+     PaintFlags flags;
+     flags.setStyle(PaintFlags::kFill_Style);
+     flags.setColor(SK_ColorGREEN);
+     paint_record->push<DrawTextBlobOp>(BuildTextBlob(PaintTypeface(), UseLcdText()), 0u, 0u,
+                                        flags);
+     auto paint_record_filter =
+        sk_make_sp<RecordPaintFilter>(paint_record, SkRect::MakeWH(100, 100));
 
-  auto display_item_list = base::MakeRefCounted<DisplayItemList>();
-  display_item_list->StartPaint();
-  display_item_list->push<ScaleOp>(2.f, 2.f);
-  PaintFlags shader_flags;
-  shader_flags.setImageFilter(paint_record_filter);
-  display_item_list->push<DrawRectOp>(SkRect::MakeWH(50, 50), shader_flags);
-  display_item_list->EndPaintOfUnpaired(options.full_raster_rect);
-  display_item_list->Finalize();
+     auto display_item_list = base::MakeRefCounted<DisplayItemList>();
+     display_item_list->StartPaint();
+     display_item_list->push<ScaleOp>(2.f, 2.f);
+     PaintFlags shader_flags;
+     shader_flags.setImageFilter(paint_record_filter);
+     display_item_list->push<DrawRectOp>(SkRect::MakeWH(50, 50), shader_flags);
+     display_item_list->EndPaintOfUnpaired(options.full_raster_rect);
+     display_item_list->Finalize();
 
-  auto actual = Raster(display_item_list, options);
-  auto expected = RasterExpectedBitmap(display_item_list, options);
-  ExpectEquals(actual, expected);
+     auto actual = Raster(display_item_list, options);
+     auto expected = RasterExpectedBitmap(display_item_list, options);
+     ExpectEquals(actual, expected);
+   }
+};
+  
+TEST_P(OopRecordFilterPixelTest, FilterWithTextScaled) {
+  RunTest();
 }
 
 void ClearFontCache(CompletionEvent* event) {
@@ -1522,6 +1606,8 @@ TEST_F(OopPixelTest, DrawTextBlobPersistentShaderCache) {
 
 INSTANTIATE_TEST_CASE_P(P, OopImagePixelTest, ::testing::Bool());
 INSTANTIATE_TEST_CASE_P(P, OopClearPixelTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(P, OopRecordShaderPixelTest, ::testing::Bool());
+INSTANTIATE_TEST_CASE_P(P, OopRecordFilterPixelTest, ::testing::Bool());
 
 }  // namespace
 }  // namespace cc

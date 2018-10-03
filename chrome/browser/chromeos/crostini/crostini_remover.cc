@@ -33,13 +33,19 @@ CrostiniRemover::~CrostiniRemover() = default;
 
 void CrostiniRemover::RemoveCrostini() {
   DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
-  CrostiniManager::GetInstance()->InstallTerminaComponent(
-      base::BindOnce(&CrostiniRemover::OnComponentLoaded, this));
+  if (CrostiniManager::GetInstance()->IsCrosTerminaInstalled()) {
+    CrostiniManager::GetInstance()->InstallTerminaComponent(
+        base::BindOnce(&CrostiniRemover::OnComponentLoaded, this));
+  } else {
+    // Crostini installation didn't install the component. Concierge should not
+    // be running, nor should there be any VMs.
+    CrostiniRemover::StopConciergeFinished(true);
+  }
 }
 
-void CrostiniRemover::OnComponentLoaded(bool is_successful) {
-  if (!is_successful) {
-    std::move(callback_).Run(ConciergeClientResult::UNKNOWN_ERROR);
+void CrostiniRemover::OnComponentLoaded(ConciergeClientResult result) {
+  if (result != ConciergeClientResult::SUCCESS) {
+    std::move(callback_).Run(result);
     return;
   }
   CrostiniManager::GetInstance()->StartConcierge(
@@ -82,6 +88,7 @@ void CrostiniRemover::DestroyDiskImageFinished(ConciergeClientResult result) {
 }
 
 void CrostiniRemover::StopConciergeFinished(bool is_successful) {
+  DCHECK_CURRENTLY_ON(content::BrowserThread::UI);
   // The is_successful parameter is never set by debugd.
   auto* cros_component_manager =
       g_browser_process->platform_part()->cros_component_manager();

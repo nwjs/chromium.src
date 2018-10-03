@@ -19,8 +19,10 @@
 #include "ash/system/power/tray_power.h"
 #include "ash/system/status_area_widget.h"
 #include "ash/system/tray/system_tray.h"
+#include "ash/system/tray/tray_constants.h"
 #include "ash/system/tray/tray_container.h"
 #include "ash/system/unified/ime_mode_view.h"
+#include "ash/system/unified/managed_device_view.h"
 #include "ash/system/unified/notification_counter_view.h"
 #include "ash/system/unified/unified_slider_bubble_controller.h"
 #include "ash/system/unified/unified_system_tray_bubble.h"
@@ -42,7 +44,7 @@ class UnifiedSystemTray::UiDelegate : public MessageCenterUiDelegate {
   // MessageCenterUiDelegate:
   void OnMessageCenterContentsChanged() override;
   bool ShowPopups() override;
-  void HidePopups() override;
+  void HidePopups(bool animate) override;
   bool ShowMessageCenter(bool show_by_click) override;
   void HideMessageCenter() override;
 
@@ -91,8 +93,8 @@ bool UnifiedSystemTray::UiDelegate::ShowPopups() {
   return true;
 }
 
-void UnifiedSystemTray::UiDelegate::HidePopups() {
-  message_popup_collection_->MarkAllPopupsShown();
+void UnifiedSystemTray::UiDelegate::HidePopups(bool animate) {
+  message_popup_collection_->MarkAllPopupsShown(animate);
   popup_alignment_delegate_->SetTrayBubbleHeight(0);
 }
 
@@ -145,10 +147,13 @@ UnifiedSystemTray::UnifiedSystemTray(Shelf* shelf)
       slider_bubble_controller_(
           std::make_unique<UnifiedSliderBubbleController>(this)),
       ime_mode_view_(new ImeModeView()),
+      managed_device_view_(new ManagedDeviceView()),
       notification_counter_item_(new NotificationCounterView()),
       quiet_mode_view_(new QuietModeView()),
       time_view_(new tray::TimeTrayItemView(nullptr, shelf)) {
+  tray_container()->SetMargin(kUnifiedTrayContentPadding, 0);
   tray_container()->AddChildView(ime_mode_view_);
+  tray_container()->AddChildView(managed_device_view_);
   tray_container()->AddChildView(notification_counter_item_);
   tray_container()->AddChildView(quiet_mode_view_);
 
@@ -303,6 +308,10 @@ void UnifiedSystemTray::UpdateAfterShelfAlignmentChange() {
 }
 
 void UnifiedSystemTray::ShowBubbleInternal(bool show_by_click) {
+  // Never show System Tray bubble in kiosk app mode.
+  if (Shell::Get()->session_controller()->IsRunningInAppMode())
+    return;
+
   // Hide volume/brightness slider popup.
   slider_bubble_controller_->CloseBubble();
 

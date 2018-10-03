@@ -80,8 +80,6 @@ class ShelfWidget::DelegateView : public views::WidgetDelegate,
 
   FocusCycler* focus_cycler() { return focus_cycler_; }
 
-  ui::Layer* opaque_background() { return &opaque_background_; }
-
   void SetParentLayer(ui::Layer* layer);
 
   void set_default_last_focusable_child(bool default_last_focusable_child) {
@@ -95,6 +93,7 @@ class ShelfWidget::DelegateView : public views::WidgetDelegate,
 
   bool CanActivate() const override;
   void ReorderChildLayers(ui::Layer* parent_layer) override;
+  void UpdateBackgroundBlur();
   void UpdateOpaqueBackground();
   // This will be called when the parent local bounds change.
   void OnBoundsChanged(const gfx::Rect& old_bounds) override;
@@ -117,6 +116,10 @@ class ShelfWidget::DelegateView : public views::WidgetDelegate,
 
   // When true, the default focus of the shelf is the last focusable child.
   bool default_last_focusable_child_ = false;
+
+  // Cache the state of the background blur so that it can be updated only
+  // when necessary.
+  bool background_is_currently_blurred_ = false;
 
   DISALLOW_COPY_AND_ASSIGN(DelegateView);
 };
@@ -185,6 +188,18 @@ void ShelfWidget::DelegateView::ReorderChildLayers(ui::Layer* parent_layer) {
   parent_layer->StackAtBottom(&opaque_background_);
 }
 
+void ShelfWidget::DelegateView::UpdateBackgroundBlur() {
+  const bool should_blur_background =
+      shelf_widget_->shelf_layout_manager()->ShouldBlurShelfBackground();
+  if (should_blur_background == background_is_currently_blurred_)
+    return;
+
+  opaque_background_.SetBackgroundBlur(should_blur_background ? kShelfBlurRadius
+                                                              : 0);
+
+  background_is_currently_blurred_ = should_blur_background;
+}
+
 void ShelfWidget::DelegateView::UpdateOpaqueBackground() {
   const gfx::Rect local_bounds = GetLocalBounds();
   gfx::Rect opaque_background_bounds = local_bounds;
@@ -217,12 +232,12 @@ void ShelfWidget::DelegateView::UpdateOpaqueBackground() {
         mask_ = views::Painter::CreatePaintedLayer(
             views::Painter::CreateSolidRoundRectPainter(SK_ColorBLACK, radius));
         mask_->layer()->SetBounds(opaque_background_bounds);
-        opaque_background_.SetBackgroundBlur(kShelfBlurRadius);
         opaque_background_.SetMaskLayer(mask_->layer());
       }
     }
   }
   opaque_background_.SetBounds(opaque_background_bounds);
+  UpdateBackgroundBlur();
   SchedulePaint();
 }
 
@@ -249,6 +264,7 @@ ShelfWidget::ShelfWidget(aura::Window* shelf_container, Shelf* shelf)
       background_animator_(SHELF_BACKGROUND_DEFAULT,
                            shelf_,
                            Shell::Get()->wallpaper_controller()),
+      shelf_layout_manager_(new ShelfLayoutManager(this, shelf)),
       delegate_view_(new DelegateView(this)),
       shelf_view_(new ShelfView(Shell::Get()->shelf_model(), shelf_, this)),
       login_shelf_view_(
@@ -278,7 +294,6 @@ ShelfWidget::ShelfWidget(aura::Window* shelf_container, Shelf* shelf)
   GetContentsView()->AddChildView(shelf_view_);
   GetContentsView()->AddChildView(login_shelf_view_);
 
-  shelf_layout_manager_ = new ShelfLayoutManager(this, shelf_);
   shelf_layout_manager_->AddObserver(this);
   shelf_container->SetLayoutManager(shelf_layout_manager_);
   background_animator_.PaintBackground(

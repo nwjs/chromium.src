@@ -38,7 +38,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "all",
+  "buildspec_platforms": "win, linux64, mac64, win64",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -107,11 +107,11 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling Skia
   # and whatever else without interference from each other.
-  'skia_revision': '4a304ac44c1de0e45f92eb6fcc460a988400268c',
+  'skia_revision': '193565807f7fd2a2c14e21b44c545cc03ebe134f',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '452f2b47578ea94caf380e215b61603d9f96ec08',
+  'v8_revision': '7f35e23a6271854b36f40efce88dd1e2b6a64342',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -131,7 +131,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling PDFium
   # and whatever else without interference from each other.
-  'pdfium_revision': 'b6e7d49ad5f3a54b69f70b347bd41108493918b7',
+  'pdfium_revision': '13b08aa11de74120909b871b987d010f33cd0bc6',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling openmax_dl
   # and whatever else without interference from each other.
@@ -596,7 +596,7 @@ deps = {
 
   # For Linux and Chromium OS.
   'src/third_party/cros_system_api': {
-      'url': Var('chromium_git') + '/chromiumos/platform/system_api.git' + '@' + 'a71cda985de20c747a6525de0fac2dc95766bd6d',
+      'url': Var('chromium_git') + '/chromiumos/platform/system_api.git' + '@' + 'f2679da7b2bfcd32c05425a40ad2783d32f45c6a',
       'condition': 'checkout_linux',
   },
 
@@ -804,7 +804,7 @@ deps = {
     Var('chromium_git') + '/external/libaddressinput.git' + '@' + 'd7ed8e2f3f35ce9a3aafdfdc48745ceab66e7229',
 
   'src/third_party/libaom/source/libaom': {
-    'url': Var('aomedia_git') + '/aom.git' + '@' +  '67645b8f529cd4e56b31147db57882089345bedc',
+    'url': Var('aomedia_git') + '/aom.git' + '@' +  'f866f5ebb34b22afc2244789dc8551b0c8d99a13',
     'condition': 'checkout_libaom',
   },
 
@@ -1100,7 +1100,7 @@ deps = {
     Var('chromium_git') + '/external/khronosgroup/webgl.git' + '@' + '7ca87fb1d3da3b3d2060886e8c58e726d74c8219',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '2cd0c929239c5ab0f20a8b82c5f6cb35ccd071d8',
+    Var('webrtc_git') + '/src.git' + '@' + '7b027df46dc957dbc1a32b382c2903f9ebc8ad03',
 
   'src/third_party/xdg-utils': {
       'url': Var('chromium_git') + '/chromium/deps/xdg-utils.git' + '@' + 'd80274d5869b17b8c9067a1022e4416ee7ed5e0d',
@@ -1134,7 +1134,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@bcb355423c028da2a414a15d296c6e7e2c1b1ee9',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@8fbc28ca467fa550ee4caeeaa288ff7130b744bc',
     'condition': 'checkout_src_internal',
   },
 

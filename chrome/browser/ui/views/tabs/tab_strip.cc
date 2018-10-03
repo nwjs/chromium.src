@@ -347,7 +347,7 @@ bool TabStrip::IsRectInWindowCaption(const gfx::Rect& rect) {
       (height() - Tab::GetTabSeparatorHeight()) / 2 - 1;
 
   // Disable drag handle extension when tab shapes are visible.
-  bool extend_drag_handle = !SizeTabButtonToTopOfTabStrip() &&
+  bool extend_drag_handle = !controller_->IsFrameCondensed() &&
                             !controller_->EverHasVisibleBackgroundTabShapes();
 
   // A hit on the tab is not in the caption unless it is in the thin strip
@@ -425,13 +425,6 @@ void TabStrip::SetStackedLayout(bool stacked_layout) {
 
   for (int i = 0; i < tab_count(); ++i)
     tab_at(i)->Layout();
-}
-
-bool TabStrip::SizeTabButtonToTopOfTabStrip() {
-  // Extend the button to the screen edge in maximized and immersive fullscreen.
-  views::Widget* widget = GetWidget();
-  return browser_defaults::kSizeTabButtonToTopOfTabStrip ||
-         (widget && (widget->IsMaximized() || widget->IsFullscreen()));
 }
 
 void TabStrip::StartHighlight(int model_index) {
@@ -1232,11 +1225,16 @@ void TabStrip::PaintChildren(const views::PaintInfo& paint_info) {
   Tabs selected_and_hovered_tabs;
 
   {
-    // We pass false for |lcd_text_requires_opaque_layer| so that background
-    // tab titles will get LCD AA.  These are rendered opaquely on an opaque tab
-    // background before the layer is composited, so this is safe.
-    ui::CompositingRecorder opacity_recorder(paint_info.context(),
-                                             GetInactiveAlpha(false), false);
+    // Using transparency here normally disables LCD AA on title text in favor
+    // of greyscale AA.  In most cases, the tabs will be rendered opaquely on an
+    // opaque background before compositing, so it's safe to pass false for
+    // |lcd_text_requires_opaque_layer| to allow LCD AA.  The GTK theme avoids
+    // drawing backgrounds, however, and thus must fall back to greyscale AA.
+    // Checking whether the background alpha is zero distinguishes these cases.
+    bool has_background_color =
+        SkColorGetA(GetTabBackgroundColor(TAB_INACTIVE, false)) > 0;
+    ui::CompositingRecorder opacity_recorder(
+        paint_info.context(), GetInactiveAlpha(false), !has_background_color);
 
     // Under refresh, the different tab shape can lead to odd painting artifacts
     // of hovered background tabs due to the painting order. This manifests as
@@ -1360,23 +1358,6 @@ void TabStrip::PaintChildren(const views::PaintInfo& paint_info) {
   // If the active tab is being dragged, it goes last.
   if (active_tab && is_dragging)
     active_tab->Paint(paint_info);
-
-  if (controller_->ShouldDrawStrokes()) {
-    // Keep the recording scales consistent for the tab strip and its children.
-    // See https://crbug.com/753911
-    ui::PaintRecorder recorder(paint_info.context(),
-                               paint_info.paint_recording_size(),
-                               paint_info.paint_recording_scale_x(),
-                               paint_info.paint_recording_scale_y(), nullptr);
-    gfx::Canvas* canvas = recorder.canvas();
-    if (active_tab && active_tab->visible()) {
-      canvas->sk_canvas()->clipRect(
-          gfx::RectToSkRect(active_tab->GetMirroredBounds()),
-          SkClipOp::kDifference);
-    }
-    BrowserView::PaintToolbarTopSeparator(canvas, GetToolbarTopSeparatorColor(),
-                                          GetLocalBounds());
-  }
 }
 
 void TabStrip::OnPaint(gfx::Canvas* canvas) {

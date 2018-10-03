@@ -64,6 +64,12 @@ constexpr int kDistanceFromTopOfBigUserViewToUserIconDp = 54;
 // The color of the online sign-in message text.
 constexpr SkColor kOnlineSignInMessageColor = SkColorSetRGB(0xE6, 0x7C, 0x73);
 
+// The color of the disabled auth message bubble when the color extracted from
+// wallpaper is transparent or invalid (i.e. color calculation fails or is
+// disabled).
+constexpr SkColor kDisabledAuthMessageBubbleColor =
+    SkColorSetRGB(0x20, 0x21, 0x24);
+
 constexpr SkColor kFingerprintTextColor =
     SkColorSetARGB(0x8A, 0xFF, 0xFF, 0xFF);
 constexpr int kFingerprintIconSizeDp = 32;
@@ -263,6 +269,7 @@ class LoginAuthUserView::DisabledAuthMessageView : public views::View {
     layer()->SetFillsBoundsOpaquely(false);
     SetPreferredSize(
         gfx::Size(kDisabledAuthMessageWidthDp, kDisabledAuthMessageHeightDp));
+    SetFocusBehavior(FocusBehavior::ALWAYS);
     views::ImageView* alarm_clock_icon = new views::ImageView();
     alarm_clock_icon->SetPreferredSize(gfx::Size(
         kDisabledAuthMessageIconSizeDp, kDisabledAuthMessageIconSizeDp));
@@ -274,15 +281,16 @@ class LoginAuthUserView::DisabledAuthMessageView : public views::View {
       label->SetSubpixelRenderingEnabled(false);
       label->SetAutoColorReadabilityEnabled(false);
       label->SetEnabledColor(SK_ColorWHITE);
+      label->SetFocusBehavior(FocusBehavior::ALWAYS);
     };
-    views::Label* message_title = new views::Label(
+    message_title_ = new views::Label(
         l10n_util::GetStringUTF16(IDS_ASH_LOGIN_TAKE_BREAK_MESSAGE),
         views::style::CONTEXT_LABEL, views::style::STYLE_PRIMARY);
-    message_title->SetFontList(
+    message_title_->SetFontList(
         gfx::FontList().Derive(kDisabledAuthMessageTitleFontSizeDeltaDp,
                                gfx::Font::NORMAL, gfx::Font::Weight::MEDIUM));
-    decorate_label(message_title);
-    AddChildView(message_title);
+    decorate_label(message_title_);
+    AddChildView(message_title_);
 
     message_contents_ =
         new views::Label(base::string16(), views::style::CONTEXT_LABEL,
@@ -312,14 +320,19 @@ class LoginAuthUserView::DisabledAuthMessageView : public views::View {
 
     cc::PaintFlags flags;
     flags.setStyle(cc::PaintFlags::kFill_Style);
-    flags.setColor(Shell::Get()->wallpaper_controller()->GetProminentColor(
+    SkColor color = Shell::Get()->wallpaper_controller()->GetProminentColor(
         color_utils::ColorProfile(color_utils::LumaRange::DARK,
-                                  color_utils::SaturationRange::MUTED)));
+                                  color_utils::SaturationRange::MUTED));
+    if (color == kInvalidWallpaperColor || color == SK_ColorTRANSPARENT)
+      color = kDisabledAuthMessageBubbleColor;
+    flags.setColor(color);
     canvas->DrawRoundRect(GetContentsBounds(),
                           kDisabledAuthMessageRoundedCornerRadiusDp, flags);
   }
+  void RequestFocus() override { message_title_->RequestFocus(); }
 
  private:
+  views::Label* message_title_;
   views::Label* message_contents_;
 
   DISALLOW_COPY_AND_ASSIGN(DisabledAuthMessageView);
@@ -511,6 +524,8 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
 
   online_sign_in_message_->SetVisible(force_online_sign_in);
   disabled_auth_message_->SetVisible(auth_disabled);
+  if (auth_disabled)
+    disabled_auth_message_->RequestFocus();
 
   password_view_->SetEnabled(has_password);
   password_view_->SetEnabledOnEmptyPassword(has_tap);
@@ -548,7 +563,9 @@ void LoginAuthUserView::SetAuthMethods(uint32_t auth_methods,
   // on it will not do anything (such as swapping users).
   user_view_->SetForceOpaque(has_password || hide_auth);
   user_view_->SetTapEnabled(!has_password);
-  if (hide_auth)
+  // Tapping the user view will trigger the online sign-in flow when
+  // |force_online_sign_in| is true.
+  if (force_online_sign_in)
     user_view_->RequestFocus();
 
   PreferredSizeChanged();
@@ -726,7 +743,8 @@ void LoginAuthUserView::OnAuthSubmit(const base::string16& password) {
   // Pressing enter when the password field is empty and tap-to-unlock is
   // enabled should attempt unlock.
   if (HasAuthMethod(AUTH_TAP) && password.empty()) {
-    OnUserViewTap();
+    Shell::Get()->login_screen_controller()->AttemptUnlock(
+        current_user()->basic_user_info->account_id);
     return;
   }
 
@@ -754,42 +772,8 @@ void LoginAuthUserView::OnAuthComplete(base::Optional<bool> auth_success) {
   on_auth_.Run(auth_success.value());
 }
 
-void LoginAuthUserView::AnimateEllipses(const base::string16& placeholder,
-                                        int step) {
-  const int kEllipsesCount = 3;
-  const int kAnimationDelayMs = 750;
-  const base::char16 kPeriod = '.';
-
-  // There are four total steps, so increment just past kEllipsesCount.
-  if (step > kEllipsesCount) {
-    // Start the animation over.
-    step = 0;
-  }
-
-  base::string16 ellipses;
-  for (int i = 0; i < step; i++)
-    ellipses += kPeriod;
-
-  password_view_->SetPlaceholderText(placeholder + ellipses);
-
-  base::ThreadTaskRunnerHandle::Get()->PostDelayedTask(
-      FROM_HERE,
-      base::BindOnce(&LoginAuthUserView::AnimateEllipses,
-                     weak_factory_.GetWeakPtr(), placeholder, ++step),
-      base::TimeDelta::FromMilliseconds(kAnimationDelayMs));
-}
-
 void LoginAuthUserView::OnUserViewTap() {
   if (HasAuthMethod(AUTH_TAP)) {
-    password_view_->SetReadOnly(true);
-
-    base::string16 placeholder = l10n_util::GetStringUTF16(
-        IDS_ASH_LOGIN_POD_PASSWORD_SIGNING_IN_PLACEHOLDER);
-    password_view_->SetPlaceholderText(placeholder);
-
-    const int kInitialStep = 0;
-    AnimateEllipses(placeholder, kInitialStep);
-
     Shell::Get()->login_screen_controller()->AttemptUnlock(
         current_user()->basic_user_info->account_id);
   } else if (HasAuthMethod(AUTH_ONLINE_SIGN_IN)) {

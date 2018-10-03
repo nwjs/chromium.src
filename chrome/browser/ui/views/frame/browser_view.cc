@@ -565,25 +565,6 @@ void BrowserView::Paint1pxHorizontalLine(gfx::Canvas* canvas,
 }
 
 // static
-void BrowserView::PaintToolbarTopSeparator(gfx::Canvas* canvas,
-                                           SkColor color,
-                                           const gfx::Rect& bounds) {
-  const float thickness = ui::MaterialDesignController::IsRefreshUi()
-                              ? 1.f
-                              : 1 / canvas->image_scale();
-  cc::PaintFlags flags;
-  flags.setColor(color);
-  flags.setStyle(cc::PaintFlags::kFill_Style);
-  canvas->sk_canvas()->drawRect(
-      RectFToSkRect(gfx::RectF(bounds.x(),
-                               bounds.bottom() -
-                                   GetLayoutConstant(TABSTRIP_TOOLBAR_OVERLAP) -
-                                   thickness,
-                               bounds.width(), thickness)),
-      flags);
-}
-
-// static
 void BrowserView::SetDisableRevealerDelayForTesting(bool disable) {
   g_disable_revealer_delay_for_testing = disable;
 }
@@ -785,8 +766,7 @@ bool BrowserView::IsAlwaysOnTop() const {
 }
 
 void BrowserView::SetAlwaysOnTop(bool always_on_top) {
-  // Not implemented for browser windows.
-  NOTIMPLEMENTED();
+  frame_->SetAlwaysOnTop(always_on_top);
 }
 
 gfx::NativeWindow BrowserView::GetNativeWindow() const {

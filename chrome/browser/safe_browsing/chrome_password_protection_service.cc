@@ -115,6 +115,8 @@ PasswordReuseLookup::ReputationVerdict GetVerdictToLogFromResponse(
 // Given a |web_contents|, returns the navigation id of its last committed
 // navigation.
 int64_t GetLastCommittedNavigationID(const content::WebContents* web_contents) {
+  if (!web_contents)
+    return 0;
   content::NavigationEntry* navigation =
       web_contents->GetController().GetLastCommittedEntry();
   return navigation
@@ -1068,9 +1070,6 @@ void ChromePasswordProtectionService::HandleUserActionOnPageInfo(
   const Origin origin = Origin::Create(url);
 
   if (action == WarningAction::CHANGE_PASSWORD) {
-    MaybeLogPasswordReuseDialogInteraction(
-        GetNavigationIDFromPrefsByOrigin(profile_->GetPrefs(), origin),
-        PasswordReuseDialogInteraction::WARNING_ACTION_TAKEN);
     // Directly open enterprise change password page in a new tab for enterprise
     // reuses.
     if (password_type == PasswordReuseEvent::ENTERPRISE_PASSWORD) {
@@ -1121,7 +1120,7 @@ void ChromePasswordProtectionService::HandleUserActionOnSettings(
   // event the user is responding to, so just pick the first one.
   MaybeLogPasswordReuseDialogInteraction(
       GetFirstNavIdOrZero(profile_->GetPrefs()),
-      PasswordReuseDialogInteraction::WARNING_ACTION_TAKEN);
+      PasswordReuseDialogInteraction::WARNING_ACTION_TAKEN_ON_SETTINGS);
   // Opens change password page in a new tab for user to change password.
   OpenUrl(web_contents, GetDefaultChangePasswordURL(),
           content::Referrer(web_contents->GetLastCommittedURL(),

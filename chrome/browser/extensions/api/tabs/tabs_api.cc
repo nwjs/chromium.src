@@ -544,6 +544,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool hidden = false;
   bool new_instance = false;
   bool frameless = false;
+  bool always_on_top = false;
   std::string extension_id;
 
   std::string inject_js_start, inject_js_end;
@@ -603,12 +604,15 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       new_instance = *create_data->new_instance;
     if (create_data->frameless)
       frameless = *create_data->frameless;
+    if (create_data->always_on_top)
+      always_on_top = *create_data->always_on_top;
   }
 
   // Create a new BrowserWindow.
   Browser::CreateParams create_params(window_type, window_profile,
                                       user_gesture());
   create_params.frameless = frameless;
+  create_params.always_on_top = always_on_top;
   if (extension_id.empty()) {
     create_params.initial_bounds = window_bounds;
   } else {
@@ -839,6 +843,8 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     }
   }
 
+  if (params->update_info.always_on_top)
+    browser->window()->SetAlwaysOnTop(*params->update_info.always_on_top);
   if (params->update_info.draw_attention)
     browser->window()->FlashFrame(*params->update_info.draw_attention);
 

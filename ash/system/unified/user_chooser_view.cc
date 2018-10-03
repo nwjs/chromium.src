@@ -198,6 +198,12 @@ UserItemButton::UserItemButton(int user_index,
 
   capture_icon_->SetImage(
       gfx::CreateVectorIcon(kSystemTrayRecordingIcon, kUnifiedMenuIconColor));
+  if (!has_close_button) {
+    // Add a padding with the same size as the close button,
+    // so as to align all media indicators in a column.
+    capture_icon_->SetBorder(views::CreateEmptyBorder(
+        gfx::Insets(0, 0, 0, kTrayItemSize + kUnifiedTopShortcutSpacing)));
+  }
   capture_icon_->SetVisible(false);
   AddChildView(capture_icon_);
 
@@ -263,12 +269,18 @@ UserChooserView::~UserChooserView() {
 }
 
 void UserChooserView::OnMediaCaptureChanged(
-    const std::vector<mojom::MediaCaptureState>& capture_states) {
+    const base::flat_map<AccountId, mojom::MediaCaptureState>& capture_states) {
   if (user_item_buttons_.size() != capture_states.size())
     return;
 
-  for (size_t i = 0; i < user_item_buttons_.size(); ++i)
-    user_item_buttons_[i]->SetCaptureState(capture_states[i]);
+  for (size_t i = 0; i < user_item_buttons_.size(); ++i) {
+    const mojom::UserSession* const user_session =
+        Shell::Get()->session_controller()->GetUserSession(i);
+    auto matched = capture_states.find(user_session->user_info->account_id);
+    if (matched != capture_states.end()) {
+      user_item_buttons_[i]->SetCaptureState(matched->second);
+    }
+  }
 }
 
 }  // namespace ash

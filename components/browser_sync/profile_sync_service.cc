@@ -2023,8 +2023,19 @@ void ProfileSyncService::GetAllNodes(
   for (syncer::ModelType type : all_types) {
     const auto dtc_iter = data_type_controllers_.find(type);
     if (dtc_iter != data_type_controllers_.end()) {
-      dtc_iter->second->GetAllNodes(base::BindRepeating(
-          &GetAllNodesRequestHelper::OnReceivedNodesForType, helper));
+      if (dtc_iter->second->state() ==
+          syncer::DataTypeController::NOT_RUNNING) {
+        // In the NOT_RUNNING state it's not allowed to call GetAllNodes on the
+        // DataTypeController, so just return an empty result.
+        // This can happen e.g. if we're waiting for a custom passphrase to be
+        // entered - the data types are already considered active in this case,
+        // but their DataTypeControllers are still NOT_RUNNING.
+        helper->OnReceivedNodesForType(type,
+                                       std::make_unique<base::ListValue>());
+      } else {
+        dtc_iter->second->GetAllNodes(base::BindRepeating(
+            &GetAllNodesRequestHelper::OnReceivedNodesForType, helper));
+      }
     } else {
       // Control Types.
       helper->OnReceivedNodesForType(
@@ -2288,8 +2299,13 @@ void ProfileSyncService::RecordMemoryUsageHistograms() {
   syncer::ModelTypeSet active_types = GetActiveDataTypes();
   for (syncer::ModelType type : active_types) {
     auto dtc_it = data_type_controllers_.find(type);
-    if (dtc_it != data_type_controllers_.end())
+    if (dtc_it != data_type_controllers_.end() &&
+        dtc_it->second->state() != syncer::DataTypeController::NOT_RUNNING) {
+      // It's possible that a data type is considered active, but its
+      // DataTypeController is still NOT_RUNNING, in the case where we're
+      // waiting for a custom passphrase.
       dtc_it->second->RecordMemoryUsageAndCountsHistograms();
+    }
   }
 }
 

@@ -271,6 +271,10 @@ void TouchActionFilter::ReportTouchAction() {
   // Since |cc::kTouchActionAuto| is equivalent to |cc::kTouchActionMax|, we
   // must add one to the upper bound to be able to visualize the number of
   // times |cc::kTouchActionAuto| is hit.
+  // https://crbug.com/879511, remove this temporary fix.
+  if (!scrolling_touch_action_.has_value())
+    return;
+
   UMA_HISTOGRAM_ENUMERATION("TouchAction.EffectiveTouchAction",
                             scrolling_touch_action_.value(),
                             cc::kTouchActionMax + 1);

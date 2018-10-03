@@ -2213,6 +2213,10 @@ crbug.com/813697 vr/getFrameData_oneframeupdate.html [ Pass Failure ]
 crbug.com/806357 [ Win Debug ] virtual/threaded/fast/events/pointerevents/pinch/pointerevent_touch-action-pinch_zoom_touch.html [ Pass Failure ]
 crbug.com/839038 [ Mac ] external/wpt/pointerevents/pointerevent_lostpointercapture_for_disconnected_node-manual.html [ Skip ]
 
+crbug.com/346473  fast/events/drag-on-mouse-move-cancelled.html [ Failure ]
+crbug.com/346473  virtual/mouseevent_fractional/fast/events/drag-on-mouse-move-cancelled.html [ Failure ]
+crbug.com/346473  virtual/user-activation-v2/fast/events/drag-on-mouse-move-cancelled.html [ Failure ]
+
 # These tests are skipped as there is no touch support on Mac.
 crbug.com/613672 [ Mac ] external/wpt/feature-policy/experimental-features/vertical-scroll-touch-block-manual.tentative.html [ Skip ]
 crbug.com/613672 [ Mac ] virtual/video-surface-layer/external/wpt/feature-policy/experimental-features/vertical-scroll-touch-block-manual.tentative.html [ Skip ]
@@ -2326,6 +2330,7 @@ crbug.com/802067 [ Mac ] external/wpt/pointerevents/pointerlock/pointerevent_mov
 # Since there is no compositor thread when running tests then there is no main thread event queue. Hence the
 # logic for this test will be skipped when running Layout tests.
 crbug.com/770028 external/wpt/pointerevents/extension/pointerevent_pointerrawmove-manual.html [ Skip ]
+crbug.com/770028 external/wpt/pointerevents/extension/pointerevent_pointerrawmove_in_pointerlock-manual.html [ Skip ]
 
 # Chrome touch-action computation ignores div transforms.
 crbug.com/715148 external/wpt/pointerevents/pointerevent_touch-action-rotated-divs_touch-manual.html  [ Skip ]

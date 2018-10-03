@@ -1,10 +1,10 @@
-COMPANY_FULLNAME=The NWJS Community
+COMPANY_FULLNAME=The NW.js Community
 COMPANY_SHORTNAME=nwjs.io
 PRODUCT_FULLNAME=nwjs
 PRODUCT_SHORTNAME=nwjs
 PRODUCT_INSTALLER_FULLNAME=NWJS Installer
 PRODUCT_INSTALLER_SHORTNAME=NWJS Installer
-COPYRIGHT=Copyright 2017 The Chromium Authors. All rights reserved.
+COPYRIGHT=Copyright 2018, The NW.js community and The Chromium Authors. All rights reserved.
 MAC_BUNDLE_ID=io.nwjs.nwjs
 MAC_CREATOR_CODE=NWJS
 MAC_TEAM_ID=

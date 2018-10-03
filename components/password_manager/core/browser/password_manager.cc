@@ -713,7 +713,8 @@ void PasswordManager::CreatePendingLoginManagers(
         (driver ? driver->AsWeakPtr() : base::WeakPtr<PasswordManagerDriver>()),
         form, std::make_unique<FormSaverImpl>(client_->GetPasswordStore()),
         nullptr);
-    manager->Init(nullptr);
+    manager->Init(
+        GetMetricRecorderFromNewPasswordFormManager(form.form_data, driver));
     pending_login_managers_.push_back(std::move(manager));
   }
 
@@ -968,13 +969,23 @@ void PasswordManager::OnLoginSuccessful() {
   provisional_save_manager_->LogSubmitPassed();
 
   RecordWhetherTargetDomainDiffers(main_frame_url_, client_->GetMainFrameURL());
+  UMA_HISTOGRAM_BOOLEAN("PasswordManager.SuccessfulLoginHappened",
+                        provisional_save_manager_->submitted_form()
+                            ->origin.SchemeIsCryptographic());
 
   // If the form is eligible only for saving fallback, it shouldn't go here.
   DCHECK(!provisional_save_manager_->GetPendingCredentials()
               .only_for_fallback_saving);
 
   PasswordFormManagerInterface* submitted_manager = GetSubmittedManager();
-  DCHECK(submitted_manager);
+  if (!submitted_manager) {
+    // This is a simple crash fix for merging in M-70.
+    // TODO(https://crbug.com/831123): fit it properly by making
+    // |submitted_manager| is not null here and put DCHECK(submitted_manager)
+    // instead.
+    return;
+  }
+
   if (ShouldPromptUserToSavePassword(*submitted_manager)) {
     bool empty_password =
         submitted_manager->GetPendingCredentials().username_value.empty();
@@ -1201,6 +1212,18 @@ void PasswordManager::RecordProvisionalSaveFailure(
     client_->GetMetricsRecorder()->RecordProvisionalSaveFailure(
         failure, main_frame_url_, form_origin, logger);
   }
+}
+
+scoped_refptr<PasswordFormMetricsRecorder>
+PasswordManager::GetMetricRecorderFromNewPasswordFormManager(
+    const autofill::FormData& form,
+    const PasswordManagerDriver* driver) {
+  for (auto& form_manager : form_managers_) {
+    if (form_manager->DoesManage(form, driver))
+      return form_manager->metrics_recorder();
+  }
+
+  return nullptr;
 }
 
 }  // namespace password_manager

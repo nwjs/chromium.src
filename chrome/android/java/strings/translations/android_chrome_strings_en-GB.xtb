@@ -15,7 +15,6 @@
 <translation id="1111673857033749125">Bookmarks saved on your other devices will appear here.</translation>
 <translation id="1113597929977215864">Show simplified view</translation>
 <translation id="1121094540300013208">Usage and crash reports</translation>
-<translation id="11221688409173367">Tap the home button to view articles selected specifically for you</translation>
 <translation id="1129510026454351943">Details: <ph name="ERROR_DESCRIPTION" /></translation>
 <translation id="1141800923049248244">{FILE_COUNT,plural, =1{1 download pending.}other{# downloads pending.}}</translation>
 <translation id="1145536944570833626">Delete existing data.</translation>
@@ -167,7 +166,6 @@ However, you aren’t invisible. Going private doesn’t hide your browsing from
 <translation id="2154484045852737596">Edit card</translation>
 <translation id="2154710561487035718">Copy URL</translation>
 <translation id="2156074688469523661">Remaining sites (<ph name="NUMBER_OF_SITES" />)</translation>
-<translation id="2184766556418880456">Tap to get to the new tab page in your current tab</translation>
 <translation id="2206488550163399966"><ph name="APP_NAME" />, web app. <ph name="APP_URL" /></translation>
 <translation id="2227444325776770048">Continue as <ph name="USER_FULL_NAME" /></translation>
 <translation id="2232379019872353004">Sends some system information and page content to Google</translation>
@@ -234,7 +232,6 @@ However, you aren’t invisible. Going private doesn’t hide your browsing from
 <translation id="2709516037105925701">Auto-fill</translation>
 <translation id="271033894570825754">New</translation>
 <translation id="2728754400939377704">Sort by site</translation>
-<translation id="2736391366332017384">Tap the home button to get to the new tab page in your current tab</translation>
 <translation id="2744248271121720757">Tap a word to search instantly or see related actions</translation>
 <translation id="2762000892062317888">just now</translation>
 <translation id="2777555524387840389"><ph name="SECONDS" /> secs left</translation>
@@ -604,7 +601,6 @@ Your Google Account may have other forms of browsing history such as searches an
 However, you aren’t invisible. Going incognito doesn’t hide your browsing from your employer, your Internet service provider or the websites you visit.</translation>
 <translation id="572328651809341494">Recent tabs</translation>
 <translation id="5726692708398506830">Make everything on the page bigger</translation>
-<translation id="5731185123186077399">Personalised Google services such as Google Pay</translation>
 <translation id="5738816946784116349">Chrome Downloads</translation>
 <translation id="5748802427693696783">Switched to standard tabs</translation>
 <translation id="5749068826913805084">Chrome needs storage access to download files.</translation>
@@ -640,6 +636,7 @@ However, you aren’t invisible. Going incognito doesn’t hide your browsing fr
 <translation id="5956665950594638604">Open the Chrome Help Centre in a new tab</translation>
 <translation id="5958275228015807058">Find your files and pages in Downloads</translation>
 <translation id="5962718611393537961">Tap to collapse</translation>
+<translation id="5990142338020175451">More personal Google services, such as better page suggestions</translation>
 <translation id="6000066717592683814">Keep Google</translation>
 <translation id="6005538289190791541">Suggested password</translation>
 <translation id="6039379616847168523">Jump to the next tab</translation>
@@ -1001,7 +998,6 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="8912362522468806198">Google Account</translation>
 <translation id="8920114477895755567">Waiting for details of parents.</translation>
 <translation id="8922289737868596582">Download pages from the More Options button to use them offline</translation>
-<translation id="8934029156920711950">Tap to view articles selected specifically for you</translation>
 <translation id="8941729603749328384">www.example.com</translation>
 <translation id="8942627711005830162">Open in other window</translation>
 <translation id="8951232171465285730">Chrome has saved you <ph name="MEGABYTES" /> MB</translation>

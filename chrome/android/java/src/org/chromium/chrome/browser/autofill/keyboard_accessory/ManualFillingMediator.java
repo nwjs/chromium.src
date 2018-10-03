@@ -18,6 +18,7 @@ import org.chromium.chrome.browser.compositor.CompositorViewHolder;
 import org.chromium.chrome.browser.compositor.layouts.Layout;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.SceneChangeObserver;
+import org.chromium.chrome.browser.contextualsearch.ContextualSearchManager;
 import org.chromium.chrome.browser.fullscreen.FullscreenOptions;
 import org.chromium.chrome.browser.tab.EmptyTabObserver;
 import org.chromium.chrome.browser.tab.Tab;
@@ -25,6 +26,7 @@ import org.chromium.chrome.browser.tab.TabObserver;
 import org.chromium.chrome.browser.tabmodel.TabModel;
 import org.chromium.chrome.browser.tabmodel.TabModelObserver;
 import org.chromium.chrome.browser.tabmodel.TabModelSelectorTabModelObserver;
+import org.chromium.chrome.browser.webapps.WebappActivity;
 import org.chromium.ui.DropdownPopupWindow;
 import org.chromium.ui.UiUtils;
 import org.chromium.ui.base.WindowAndroid;
@@ -139,6 +141,8 @@ class ManualFillingMediator
     void initialize(KeyboardAccessoryCoordinator keyboardAccessory,
             AccessorySheetCoordinator accessorySheet, WindowAndroid windowAndroid) {
         assert windowAndroid.getActivity().get() != null;
+        // Abort initialization for PWAs: https://crbug.com/881536.
+        if (windowAndroid.getActivity().get() instanceof WebappActivity) return;
         mWindowAndroid = windowAndroid;
         mKeyboardAccessory = keyboardAccessory;
         mAccessorySheet = accessorySheet;
@@ -182,6 +186,12 @@ class ManualFillingMediator
     void onKeyboardVisibilityChanged(boolean isShowing) {
         if (!mKeyboardAccessory.hasContents()) return; // Exit early to not affect the layout.
         if (isShowing) {
+            // Don't open the accessory inside the contextual search panel.
+            ContextualSearchManager contextualSearchManager =
+                    mActivity.getContextualSearchManager();
+            if (contextualSearchManager != null && contextualSearchManager.isSearchPanelOpened()) {
+                return;
+            }
             mKeyboardAccessory.requestShowing();
             mActivity.getFullscreenManager().setBottomControlsHeight(calculateAccessoryBarHeight());
             mKeyboardAccessory.closeActiveTab();
@@ -206,6 +216,7 @@ class ManualFillingMediator
 
     void registerActionProvider(KeyboardAccessoryData.PropertyProvider<Action> actionProvider) {
         if (!isInitialized()) return;
+        if (mActiveBrowserTab == null) return;
         ActionProviderCacheAdapter adapter =
                 new ActionProviderCacheAdapter(mActiveBrowserTab, actionProvider, new Action[0]);
         mModel.get(mActiveBrowserTab).mActionsProvider = adapter;

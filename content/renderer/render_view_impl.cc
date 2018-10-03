@@ -790,7 +790,12 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
 
   settings->SetTextTrackMarginPercentage(prefs.text_track_margin_percentage);
 
-  // Needs to happen before setIgnoreVIewportTagScaleLimits below.
+  // Needs to happen before SetDefaultPageScaleLimits below since that'll
+  // recalculate the final page scale limits and that depends on this setting.
+  settings->SetShrinksViewportContentToFit(
+      prefs.shrinks_viewport_contents_to_fit);
+
+  // Needs to happen before SetIgnoreViewportTagScaleLimits below.
   web_view->SetDefaultPageScaleLimits(prefs.default_minimum_page_scale_factor,
                                       prefs.default_maximum_page_scale_factor);
 
@@ -884,8 +889,6 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
 
   settings->SetViewportEnabled(prefs.viewport_enabled);
   settings->SetViewportMetaEnabled(prefs.viewport_meta_enabled);
-  settings->SetShrinksViewportContentToFit(
-      prefs.shrinks_viewport_contents_to_fit);
   settings->SetViewportStyle(
       static_cast<blink::WebViewportStyle>(prefs.viewport_style));
 
@@ -916,7 +919,8 @@ void RenderView::ApplyWebPreferences(const WebPreferences& prefs,
 
   settings->SetPictureInPictureEnabled(
       prefs.picture_in_picture_enabled &&
-      MediaFactory::VideoSurfaceLayerEnabled());
+      MediaFactory::GetVideoSurfaceLayerMode() !=
+          media::WebMediaPlayerParams::SurfaceLayerMode::kNever);
 
   settings->SetDataSaverHoldbackWebApi(
       prefs.data_saver_holdback_web_api_enabled);

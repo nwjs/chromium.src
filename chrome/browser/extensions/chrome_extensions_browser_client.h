@@ -101,6 +101,7 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   bool DidVersionUpdate(content::BrowserContext* context) override;
   void PermitExternalProtocolHandler() override;
   bool IsInDemoMode() override;
+  bool IsScreensaverInDemoMode(const std::string& app_id) override;
   bool IsRunningInForcedAppMode() override;
   bool IsAppModeForcedForApp(const ExtensionId& extension_id) override;
   bool IsLoggedInAsPublicAccount() override;
@@ -151,6 +152,7 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
                           content::BrowserContext* context) const override;
   bool IsWebUIAllowedToMakeNetworkRequests(const url::Origin& origin) override;
   network::mojom::NetworkContext* GetSystemNetworkContext() override;
+  UserScriptListener* GetUserScriptListener() override;
 
   static void set_did_chrome_update_for_testing(bool did_update);
 
@@ -168,6 +170,8 @@ class ChromeExtensionsBrowserClient : public ExtensionsBrowserClient {
   std::unique_ptr<ExtensionCache> extension_cache_;
 
   std::unique_ptr<KioskDelegate> kiosk_delegate_;
+
+  std::unique_ptr<UserScriptListener> user_script_listener_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeExtensionsBrowserClient);
 };

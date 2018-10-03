@@ -267,7 +267,14 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kManagedDefaultGeolocationSetting,
     base::Value::Type::INTEGER },
   { key::kSigninAllowed,
+#if defined(OS_ANDROID)
+    // The new kSigninAllowedOnNextStartup pref is only used on Desktop.
+    // Keep the old kSigninAllowed pref for Android until the policy is
+    // fully depricated in M71 and can be removed.
     prefs::kSigninAllowed,
+#else
+    prefs::kSigninAllowedOnNextStartup,
+#endif
     base::Value::Type::BOOLEAN },
   { key::kEnableOnlineRevocationChecks,
     prefs::kCertRevocationCheckingEnabled,
@@ -680,6 +687,9 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
   { key::kCrostiniAllowed,
     crostini::prefs::kUserCrostiniAllowedByPolicy,
     base::Value::Type::BOOLEAN },
+  { key::kReportCrostiniUsageEnabled,
+    crostini::prefs::kReportCrostiniUsageEnabled,
+    base::Value::Type::BOOLEAN },
 #endif  // defined(OS_CHROMEOS)
 
 // Metrics reporting is controlled by a platform specific policy for ChromeOS
@@ -1047,11 +1057,6 @@ std::unique_ptr<ConfigurationPolicyHandlerList> BuildHandlerList(
   handlers->AddHandler(
       std::make_unique<extensions::ExtensionSettingsPolicyHandler>(
           chrome_schema));
-  handlers->AddHandler(std::make_unique<SimpleSchemaValidatingPolicyHandler>(
-      key::kWebAppInstallForceList, prefs::kWebAppInstallForceList,
-      chrome_schema, SCHEMA_STRICT,
-      SimpleSchemaValidatingPolicyHandler::RECOMMENDED_PROHIBITED,
-      SimpleSchemaValidatingPolicyHandler::MANDATORY_ALLOWED));
 #endif
 
 #if !defined(OS_CHROMEOS) && !defined(OS_ANDROID)

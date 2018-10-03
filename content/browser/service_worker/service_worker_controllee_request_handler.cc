@@ -71,8 +71,10 @@ bool ShouldFallbackToLoadOfflinePage(
     return false;
   }
   offline_pages::OfflinePageHeader offline_header(offline_header_value);
-  return offline_header.reason ==
-         offline_pages::OfflinePageHeader::Reason::DOWNLOAD;
+  return offline_header.reason !=
+             offline_pages::OfflinePageHeader::Reason::NONE &&
+         offline_header.reason !=
+             offline_pages::OfflinePageHeader::Reason::RELOAD;
 }
 #endif  // BUILDFLAG(ENABLE_OFFLINE_PAGES)
 
@@ -765,6 +767,12 @@ void ServiceWorkerControlleeRequestHandler::
 }
 
 void ServiceWorkerControlleeRequestHandler::ClearJob() {
+  // Invalidate weak pointers to cancel RegisterStatusChangeCallback().
+  // Otherwise we may end up calling ForwardToServiceWorer()
+  // or FallbackToNetwork() twice on the same |url_job_|.
+  // TODO(bashi): Consider not to reuse this handler when restarting the
+  // request after S13nServiceWorker is shipped.
+  weak_factory_.InvalidateWeakPtrs();
   url_job_.reset();
 }
 

@@ -269,6 +269,12 @@ bool PasswordFormManager::IsNewLogin() const {
   return is_new_login_;
 }
 
+bool PasswordFormManager::IsPendingCredentialsOriginExtension() const {
+  if (pending_credentials_.origin.SchemeIs("chrome-extension"))
+    return true;
+  return false;
+}
+
 bool PasswordFormManager::IsPendingCredentialsPublicSuffixMatch() const {
   return pending_credentials_.is_public_suffix_match;
 }

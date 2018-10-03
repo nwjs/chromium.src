@@ -5046,12 +5046,6 @@ void WebContentsImpl::ShowContextMenu(RenderFrameHost* render_frame_host,
   if (showing_context_menu_)
     return;
 
-  // If the WebContents is not visible, don't show the context menu. This can
-  // happen if the renderer takes a while to return the right-click event back
-  // to the browser process and in the meantime the user switches tabs.
-  if (GetVisibility() != Visibility::VISIBLE)
-    return;
-
   ContextMenuParams context_menu_params(params);
   // Allow WebContentsDelegates to handle the context menu operation first.
   if (delegate_ && delegate_->HandleContextMenu(context_menu_params))
@@ -5942,14 +5936,21 @@ void WebContentsImpl::OnIgnoredUIEvent() {
 void WebContentsImpl::RendererUnresponsive(
     RenderWidgetHostImpl* render_widget_host,
     base::RepeatingClosure hang_monitor_restarter) {
-  for (auto& observer : observers_)
-    observer.OnRendererUnresponsive(render_widget_host->GetProcess());
-
   if (ShouldIgnoreUnresponsiveRenderer())
+    return;
+
+  // Do not report hangs (to task manager, to hang renderer dialog, etc.) for
+  // invisible tabs (like extension background page, background tabs).  See
+  // https://crbug.com/881812 for rationale and for choosing the visibility
+  // (rather than process priority) as the signal here.
+  if (GetVisibility() != Visibility::VISIBLE)
     return;
 
   if (!render_widget_host->renderer_initialized())
     return;
+
+  for (auto& observer : observers_)
+    observer.OnRendererUnresponsive(render_widget_host->GetProcess());
 
   if (delegate_)
     delegate_->RendererUnresponsive(this, render_widget_host,

@@ -173,6 +173,7 @@ class Browser : public TabStripModelObserver,
     static CreateParams CreateForDevTools(Profile* profile);
 
     bool frameless = false;
+    bool always_on_top = false;
     // The browser type.
     Type type;
 
@@ -234,6 +235,8 @@ class Browser : public TabStripModelObserver,
   void set_initial_show_state(ui::WindowShowState initial_show_state) {
     initial_show_state_ = initial_show_state;
   }
+
+  bool initial_ontop() const { return initial_ontop_; }
   // Return true if the initial window bounds have been overridden.
   bool bounds_overridden() const {
     return !override_bounds_.IsEmpty();
@@ -969,6 +972,8 @@ class Browser : public TabStripModelObserver,
   gfx::Rect override_bounds_;
   ui::WindowShowState initial_show_state_;
   const std::string initial_workspace_;
+
+  bool initial_ontop_;
 
   // Tracks when this browser is being created by session restore.
   bool is_session_restore_;

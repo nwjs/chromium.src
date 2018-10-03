@@ -25,6 +25,15 @@
 #include "ui/views/controls/focus_ring.h"
 #include "ui/views/style/platform_style.h"
 
+namespace {
+
+bool ActivateButtonOnSpaceDown() {
+  return views::PlatformStyle::kKeyClickActionOnSpace ==
+         views::Button::KeyClickAction::CLICK_ON_KEY_PRESS;
+}
+
+}  // namespace
+
 void PageActionIconView::Init() {
   AddChildView(image());
   image()->set_can_process_events_within_subtree(false);
@@ -141,15 +150,18 @@ bool PageActionIconView::OnKeyPressed(const ui::KeyEvent& event) {
     return false;
 
   AnimateInkDrop(views::InkDropState::ACTIVATED, nullptr /* &event */);
-  // As with Button, return activates on key down and space activates on
-  // key up.
-  if (event.key_code() == ui::VKEY_RETURN)
+  // This behavior is duplicated from Button: on some platforms buttons activate
+  // on VKEY_SPACE keydown, and on some platforms they activate on VKEY_SPACE
+  // keyup. All platforms activate buttons on VKEY_RETURN keydown though.
+  if (ActivateButtonOnSpaceDown() || event.key_code() == ui::VKEY_RETURN)
     ExecuteCommand(EXECUTE_SOURCE_KEYBOARD);
   return true;
 }
 
 bool PageActionIconView::OnKeyReleased(const ui::KeyEvent& event) {
-  if (event.key_code() != ui::VKEY_SPACE)
+  // If buttons activate on VKEY_SPACE keydown, don't re-execute the command on
+  // keyup.
+  if (event.key_code() != ui::VKEY_SPACE || ActivateButtonOnSpaceDown())
     return false;
 
   ExecuteCommand(EXECUTE_SOURCE_KEYBOARD);
@@ -174,11 +186,11 @@ void PageActionIconView::OnThemeChanged() {
 void PageActionIconView::AddInkDropLayer(ui::Layer* ink_drop_layer) {
   image()->SetPaintToLayer();
   image()->layer()->SetFillsBoundsOpaquely(false);
-  views::InkDropHostView::AddInkDropLayer(ink_drop_layer);
+  IconLabelBubbleView::AddInkDropLayer(ink_drop_layer);
 }
 
 void PageActionIconView::RemoveInkDropLayer(ui::Layer* ink_drop_layer) {
-  views::InkDropHostView::RemoveInkDropLayer(ink_drop_layer);
+  IconLabelBubbleView::RemoveInkDropLayer(ink_drop_layer);
   image()->DestroyLayer();
 }
 

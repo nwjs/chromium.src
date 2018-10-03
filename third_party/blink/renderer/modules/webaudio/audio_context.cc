@@ -105,8 +105,8 @@ AudioContext* AudioContext::Create(Document& document,
   if (RuntimeEnabledFeatures::AutoplayIgnoresWebAudioEnabled()) {
     document.AddConsoleMessage(ConsoleMessage::Create(
         kOtherMessageSource, kWarningMessageLevel,
-        "The Web Audio autoplay policy will be re-enabled in Chrome 70 (October"
-        " 2018). Please check that your website is compatible with it. "
+        "The Web Audio autoplay policy will be re-enabled in Chrome 71 ("
+        "December 2018). Please check that your website is compatible with it. "
         "https://goo.gl/7K7WLu"));
   }
 
@@ -473,10 +473,20 @@ void AudioContext::NotifyAudibleAudioStarted() {
   DCHECK(IsMainThread());
 
   if (!audio_context_manager_) {
-    GetDocument()->GetFrame()->GetInterfaceProvider().GetInterface(
+    Document* document = GetDocument();
+
+    // If there's no document don't bother to try to create the mojom interface.
+    // This can happen if the document has been reloaded while the audio thread
+    // is still running.
+    if (!document) {
+      return;
+    }
+
+    document->GetFrame()->GetInterfaceProvider().GetInterface(
         mojo::MakeRequest(&audio_context_manager_));
   }
 
+  DCHECK(audio_context_manager_);
   audio_context_manager_->AudioContextAudiblePlaybackStarted(context_id_);
 }
 

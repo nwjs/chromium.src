@@ -4879,6 +4879,11 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="1" label="Success"/>
 </enum>
 
+<enum name="BooleanSuccessfulLoginHappenedOnHttps">
+  <int value="0" label="Login happened on an insecure origin"/>
+  <int value="1" label="Login happened on a secure origin"/>
+</enum>
+
 <enum name="BooleanSupported">
   <int value="0" label="Not Supported"/>
   <int value="1" label="Supported"/>
@@ -14317,6 +14322,7 @@ Called by update_net_error_codes.py.-->
   <int value="480" label="PrintHeaderFooter"/>
   <int value="481" label="CrostiniAllowed"/>
   <int value="482" label="DeviceUnaffiliatedCrostiniAllowed"/>
+  <int value="484" label="ReportCrostiniUsageEnabled"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
@@ -14774,6 +14780,21 @@ Called by update_net_error_codes.py.-->
   <int value="1" label="Execute"/>
   <int value="2" label="Dismiss by user action"/>
   <int value="3" label="Dismiss by deactivation"/>
+</enum>
+
+<enum name="ExtensionContextMenuAction">
+  <int value="0" label="kNoAction"/>
+  <int value="1" label="kCustomCommand"/>
+  <int value="2" label="kHomePage"/>
+  <int value="3" label="kOptions"/>
+  <int value="4" label="kToggleVisibility"/>
+  <int value="5" label="kUninstall"/>
+  <int value="6" label="kManageExtensions"/>
+  <int value="7" label="kInspectPopup"/>
+  <int value="8" label="kPageAccessRunOnClick"/>
+  <int value="9" label="kPageAccessRunOnSite"/>
+  <int value="10" label="kPageAccessRunOnAllSites"/>
+  <int value="11" label="kPageAccessLearnMore"/>
 </enum>
 
 <enum name="ExtensionCreationFlags">
@@ -39968,6 +39989,20 @@ Called by update_net_trust_anchors.py.-->
   <int value="7" label="PRIVET_DISABLE_NOTIFICATIONS_CLICKED"/>
 </enum>
 
+<enum name="ProbeResult">
+  <int value="0" label="No internet"/>
+  <int value="1" label="Server error"/>
+  <int value="2" label="Not validated"/>
+  <int value="3" label="Validated with no content"/>
+  <int value="4" label="Validated with ok but zero content length"/>
+  <int value="5" label="Validated with ok but no content length"/>
+</enum>
+
+<enum name="ProbeUrlType">
+  <int value="0" label="Probe with default url"/>
+  <int value="1" label="Probe with fallback url"/>
+</enum>
+
 <enum name="ProcessDetailedExitStatus">
   <int value="0" label="Empty minidump in running app"/>
   <int value="1" label="Empty minidump in paused app"/>
@@ -48391,6 +48426,7 @@ Full version information for the fingerprint enum values:
   <int value="0" label="User signed out of Chrome"/>
   <int value="1" label="Service was disabled"/>
   <int value="2" label="Custom passphrase was detected"/>
+  <int value="3" label="User disabled Unity settings toggle"/>
 </enum>
 
 <enum name="UnifiedConsentSyncAndGoogleServicesSettings">

@@ -13,8 +13,11 @@
 #include "base/strings/stringprintf.h"
 #include "base/sys_info.h"
 #include "base/task/post_task.h"
+#include "base/time/clock.h"
+#include "base/time/default_clock.h"
 #include "chrome/browser/browser_process.h"
 #include "chrome/browser/chromeos/crostini/crostini_remover.h"
+#include "chrome/browser/chromeos/crostini/crostini_reporting_util.h"
 #include "chrome/browser/chromeos/crostini/crostini_util.h"
 #include "chrome/browser/chromeos/file_manager/path_util.h"
 #include "chrome/browser/chromeos/file_manager/volume_manager.h"
@@ -29,8 +32,10 @@
 #include "chromeos/dbus/debug_daemon_client.h"
 #include "chromeos/dbus/image_loader_client.h"
 #include "chromeos/disks/disk_mount_manager.h"
+#include "components/component_updater/component_updater_service.h"
 #include "components/keyed_service/content/browser_context_dependency_manager.h"
 #include "components/keyed_service/content/browser_context_keyed_service_factory.h"
+#include "components/prefs/pref_service.h"
 #include "content/public/browser/browser_thread.h"
 #include "dbus/message.h"
 #include "extensions/browser/extension_registry.h"
@@ -75,6 +80,10 @@ class CrostiniRestarterService : public KeyedService {
   // Aborts restart_id. A "next" restarter with the same  <vm_name,
   // container_name> will run, if there is one.
   void Abort(CrostiniManager::RestartId restart_id);
+
+  bool IsRestartPending(CrostiniManager::RestartId restart_id) {
+    return restarter_map_.find(restart_id) != restarter_map_.end();
+  }
 
  private:
   void ErasePending(CrostiniRestarter* restarter);
@@ -186,18 +195,15 @@ class CrostiniRestarter : public base::RefCountedThreadSafe<CrostiniRestarter>,
     restarter_service_->RunPendingCallbacks(this, result);
   }
 
-  void LoadComponentFinished(bool is_successful) {
-    ConciergeClientResult client_result =
-        is_successful ? ConciergeClientResult::SUCCESS
-                      : ConciergeClientResult::CONTAINER_START_FAILED;
+  void LoadComponentFinished(ConciergeClientResult result) {
     // Tell observers.
     for (auto& observer : observer_list_) {
-      observer.OnComponentLoaded(client_result);
+      observer.OnComponentLoaded(result);
     }
     if (is_aborted_)
       return;
-    if (client_result != ConciergeClientResult::SUCCESS) {
-      FinishRestart(client_result);
+    if (result != ConciergeClientResult::SUCCESS) {
+      FinishRestart(result);
       return;
     }
     CrostiniManager::GetInstance()->StartConcierge(
@@ -497,6 +503,16 @@ bool CrostiniManager::IsContainerRunning(Profile* profile,
   return false;
 }
 
+void CrostiniManager::UpdateLaunchMetricsForEnterpriseReporting(
+    Profile* profile) {
+  PrefService* const profile_prefs = profile->GetPrefs();
+  const component_updater::ComponentUpdateService* const update_service =
+      g_browser_process->component_updater();
+  const base::Clock* const clock = base::DefaultClock::GetInstance();
+  WriteMetricsForReportingToPrefsIfEnabled(profile_prefs, update_service,
+                                           clock);
+}
+
 CrostiniManager::CrostiniManager() : weak_ptr_factory_(this) {
   // Cicerone/ConciergeClient and its observer_list_ will be destroyed together.
   // We add, but don't need to remove the observer. (Doing so would force a
@@ -547,20 +563,20 @@ void CrostiniManager::MaybeUpgradeCrostiniAfterTerminaCheck(
   InstallTerminaComponent(base::DoNothing());
 }
 
-void CrostiniManager::InstallTerminaComponent(BoolCallback callback) {
-  if (chromeos::DBusThreadManager::Get()->IsUsingFakes()) {
-    // Running in test. We still PostTask to prevent races.
+void CrostiniManager::InstallTerminaComponent(CrostiniResultCallback callback) {
+  auto* cros_component_manager =
+      g_browser_process->platform_part()->cros_component_manager();
+  if (!cros_component_manager) {
+    // Running in a unit test. We still PostTask to prevent races.
     content::BrowserThread::PostTask(
         content::BrowserThread::UI, FROM_HERE,
         base::BindOnce(&CrostiniManager::OnInstallTerminaComponent,
                        weak_ptr_factory_.GetWeakPtr(), std::move(callback),
-                       true,
-                       component_updater::CrOSComponentManager::Error::NONE,
+                       true, component_manager_load_error_for_testing_,
                        base::FilePath()));
     return;
   }
-  auto* cros_component_manager =
-      g_browser_process->platform_part()->cros_component_manager();
+
   DCHECK(cros_component_manager);
 
   bool major_update_required =
@@ -576,7 +592,8 @@ void CrostiniManager::InstallTerminaComponent(BoolCallback callback) {
       LOG(ERROR) << "Need to load a major component update, but we're offline.";
       // TODO(nverne): Show a dialog/notification here for online upgrade
       // required.
-      std::move(callback).Run(false);
+      std::move(callback).Run(
+          ConciergeClientResult::OFFLINE_WHEN_UPGRADE_REQUIRED);
       return;
     }
   }
@@ -602,7 +619,7 @@ void CrostiniManager::InstallTerminaComponent(BoolCallback callback) {
 }
 
 void CrostiniManager::OnInstallTerminaComponent(
-    CrostiniManager::BoolCallback callback,
+    CrostiniResultCallback callback,
     bool is_update_checked,
     component_updater::CrOSComponentManager::Error error,
     const base::FilePath& result) {
@@ -622,7 +639,9 @@ void CrostiniManager::OnInstallTerminaComponent(
     termina_update_check_needed_ = false;
   }
 
-  std::move(callback).Run(is_successful);
+  std::move(callback).Run(is_successful
+                              ? ConciergeClientResult::SUCCESS
+                              : ConciergeClientResult::LOAD_COMPONENT_FAILED);
 }
 
 void CrostiniManager::StartConcierge(StartConciergeCallback callback) {
@@ -1078,6 +1097,11 @@ void CrostiniManager::AbortRestartCrostini(
     Profile* profile,
     CrostiniManager::RestartId restart_id) {
   CrostiniRestarterServiceFactory::GetForProfile(profile)->Abort(restart_id);
+}
+
+bool CrostiniManager::IsRestartPending(Profile* profile, RestartId restart_id) {
+  return CrostiniRestarterServiceFactory::GetForProfile(profile)
+      ->IsRestartPending(restart_id);
 }
 
 void CrostiniManager::AddShutdownContainerCallback(

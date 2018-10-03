@@ -1757,12 +1757,14 @@ int ChromeBrowserMainParts::PreMainMessageLoopRunImpl() {
 #if 0
   TranslateService::Initialize();
   if (base::FeatureList::IsEnabled(features::kGeoLanguage) ||
+      base::FeatureList::IsEnabled(language::kExplicitLanguageAsk) ||
       language::GetOverrideLanguageModel() ==
           language::OverrideLanguageModel::GEO) {
     language::GeoLanguageProvider::GetInstance()->StartUp(
         content::ServiceManagerConnection::GetForProcess()
             ->GetConnector()
-            ->Clone());
+            ->Clone(),
+        browser_process_->local_state());
   }
 #endif
   // Needs to be done before PostProfileInit, since login manager on CrOS is

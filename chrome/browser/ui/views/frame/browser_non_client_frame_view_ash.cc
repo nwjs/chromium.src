@@ -528,12 +528,6 @@ void BrowserNonClientFrameViewAsh::OnPaint(gfx::Canvas* canvas) {
                           GetThemeBackgroundXInset(),
                           GetFrameHeaderImageYInset(), SK_AlphaOPAQUE);
   }
-
-  if (browser_view()->IsToolbarVisible() &&
-      !browser_view()->toolbar()->GetPreferredSize().IsEmpty() &&
-      browser_view()->IsTabStripVisible()) {
-    PaintToolbarTopStroke(canvas);
-  }
 }
 
 void BrowserNonClientFrameViewAsh::Layout() {
@@ -1024,7 +1018,7 @@ void BrowserNonClientFrameViewAsh::UpdateFrameColors() {
     active_color =
         browser_view()->browser()->hosted_app_controller()->GetThemeColor();
     window->SetProperty(ash::kFrameIsThemedByHostedAppKey, !!active_color);
-  } else {
+  } else if (!browser_view()->browser()->is_app()) {
     active_color = kMdWebUiFrameColor;
   }
 

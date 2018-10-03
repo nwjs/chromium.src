@@ -210,7 +210,7 @@ bool ShelfLayoutManager::IsVisible() const {
            state_.auto_hide_state == SHELF_AUTO_HIDE_SHOWN));
 }
 
-gfx::Rect ShelfLayoutManager::GetIdealBounds() {
+gfx::Rect ShelfLayoutManager::GetIdealBounds() const {
   const int shelf_size = ShelfConstants::shelf_size();
   aura::Window* shelf_window = shelf_widget_->GetNativeWindow();
   gfx::Rect rect(screen_util::GetDisplayBoundsInParent(shelf_window));
@@ -272,9 +272,6 @@ void ShelfLayoutManager::UpdateVisibilityState() {
     SetState(SHELF_VISIBLE);
   } else if (Shell::Get()->screen_pinning_controller()->IsPinned()) {
     SetState(SHELF_HIDDEN);
-  } else if (Shell::Get()->window_selector_controller() &&
-             Shell::Get()->window_selector_controller()->IsSelecting()) {
-    SetState(SHELF_VISIBLE);
   } else {
     // TODO(zelidrag): Verify shelf drag animation still shows on the device
     // when we are in SHELF_AUTO_HIDE_ALWAYS_HIDDEN.
@@ -283,10 +280,8 @@ void ShelfLayoutManager::UpdateVisibilityState() {
             ->GetWorkspaceWindowState());
 
     switch (window_state) {
-      case wm::WORKSPACE_WINDOW_STATE_FULL_SCREEN: {
-        if (IsDraggingWindowFromTopOrCaptionArea()) {
-          SetState(SHELF_VISIBLE);
-        } else if (IsShelfAutoHideForFullscreenMaximized()) {
+      case wm::WORKSPACE_WINDOW_STATE_FULL_SCREEN:
+        if (IsShelfAutoHideForFullscreenMaximized()) {
           SetState(SHELF_AUTO_HIDE);
         } else if (IsShelfHiddenForFullscreen()) {
           SetState(SHELF_HIDDEN);
@@ -296,17 +291,11 @@ void ShelfLayoutManager::UpdateVisibilityState() {
           SetState(SHELF_AUTO_HIDE);
         }
         break;
-      }
       case wm::WORKSPACE_WINDOW_STATE_MAXIMIZED:
-        if (IsDraggingWindowFromTopOrCaptionArea()) {
-          SetState(SHELF_VISIBLE);
-        } else if (IsShelfAutoHideForFullscreenMaximized()) {
-          SetState(SHELF_AUTO_HIDE);
-        } else {
-          SetState(CalculateShelfVisibility());
-        }
+        SetState(IsShelfAutoHideForFullscreenMaximized()
+                     ? SHELF_AUTO_HIDE
+                     : CalculateShelfVisibility());
         break;
-
       case wm::WORKSPACE_WINDOW_STATE_WINDOW_OVERLAPS_SHELF:
       case wm::WORKSPACE_WINDOW_STATE_DEFAULT:
         SetState(CalculateShelfVisibility());
@@ -552,8 +541,10 @@ ShelfBackgroundType ShelfLayoutManager::GetShelfBackgroundType() const {
   if (state_.session_state == session_manager::SessionState::OOBE)
     return SHELF_BACKGROUND_OOBE;
   if (state_.session_state != session_manager::SessionState::ACTIVE) {
-    if (!Shell::Get()->wallpaper_controller()->IsWallpaperBlurred())
+    if (Shell::Get()->wallpaper_controller()->HasShownAnyWallpaper() &&
+        !Shell::Get()->wallpaper_controller()->IsWallpaperBlurred()) {
       return SHELF_BACKGROUND_LOGIN_NONBLURRED_WALLPAPER;
+    }
     return SHELF_BACKGROUND_LOGIN;
   }
 
@@ -1034,6 +1025,15 @@ ShelfAutoHideState ShelfLayoutManager::CalculateAutoHideState(
   if (!HasVisibleWindow())
     return SHELF_AUTO_HIDE_SHOWN;
 
+  if (IsDraggingWindowFromTopOrCaptionArea())
+    return SHELF_AUTO_HIDE_SHOWN;
+
+  // Do not hide the shelf if overview mode is active.
+  if (Shell::Get()->window_selector_controller() &&
+      Shell::Get()->window_selector_controller()->IsSelecting()) {
+    return SHELF_AUTO_HIDE_SHOWN;
+  }
+
   if (gesture_drag_status_ == GESTURE_DRAG_COMPLETE_IN_PROGRESS ||
       gesture_drag_status_ == GESTURE_DRAG_CANCEL_IN_PROGRESS) {
     return gesture_drag_auto_hide_state_;
@@ -1145,6 +1145,10 @@ void ShelfLayoutManager::OnWallpaperBlurChanged() {
   MaybeUpdateShelfBackground(AnimationChangeType::ANIMATE);
 }
 
+void ShelfLayoutManager::OnFirstWallpaperShown() {
+  MaybeUpdateShelfBackground(AnimationChangeType::ANIMATE);
+}
+
 void ShelfLayoutManager::OnLoginStatusChanged(LoginStatus loing_status) {
   UpdateVisibilityState();
 }
@@ -1179,6 +1183,14 @@ bool ShelfLayoutManager::IsShelfAutoHideForFullscreenMaximized() const {
   wm::WindowState* active_window = wm::GetActiveWindowState();
   return active_window &&
          active_window->autohide_shelf_when_maximized_or_fullscreen();
+}
+
+bool ShelfLayoutManager::ShouldBlurShelfBackground() {
+  if (!IsBackgroundBlurEnabled())
+    return false;
+  if (!chromeos::switches::ShouldUseShelfNewUi())
+    return false;
+  return state_.session_state == session_manager::SessionState::ACTIVE;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

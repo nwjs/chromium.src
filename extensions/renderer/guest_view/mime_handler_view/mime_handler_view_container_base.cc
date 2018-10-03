@@ -121,7 +121,8 @@ base::LazyInstance<
 class MimeHandlerViewContainerBase::PluginResourceThrottle
     : public content::URLLoaderThrottle {
  public:
-  explicit PluginResourceThrottle(MimeHandlerViewContainerBase* container)
+  explicit PluginResourceThrottle(
+      base::WeakPtr<MimeHandlerViewContainerBase> container)
       : container_(container) {}
   ~PluginResourceThrottle() override {}
 
@@ -130,6 +131,14 @@ class MimeHandlerViewContainerBase::PluginResourceThrottle
   void WillProcessResponse(const GURL& response_url,
                            network::ResourceResponseHead* response_head,
                            bool* defer) override {
+    if (!container_) {
+      // In the embedder case if the plugin element is removed right after an
+      // ongoing request is made, MimeHandlerViewContainerBase is destroyed
+      // synchronously but the WebURLLoaderImpl corresponding to this throttle
+      // goes away asynchronously when ResourceLoader::CancelTimerFired() is
+      // called (see https://crbug.com/878359).
+      return;
+    }
     network::mojom::URLLoaderPtr dummy_new_loader;
     mojo::MakeRequest(&dummy_new_loader);
     network::mojom::URLLoaderClientPtr new_client;
@@ -154,7 +163,7 @@ class MimeHandlerViewContainerBase::PluginResourceThrottle
     container_->SetEmbeddedLoader(std::move(transferrable_loader));
   }
 
-  MimeHandlerViewContainerBase* container_;
+  base::WeakPtr<MimeHandlerViewContainerBase> container_;
 
   DISALLOW_COPY_AND_ASSIGN(PluginResourceThrottle);
 };
@@ -167,6 +176,7 @@ MimeHandlerViewContainerBase::MimeHandlerViewContainerBase(
     : plugin_path_(info.path.MaybeAsASCII()),
       mime_type_(mime_type),
       original_url_(original_url),
+      embedder_render_frame_routing_id_(embedder_render_frame->GetRoutingID()),
       before_unload_control_binding_(this),
       weak_factory_(this) {
   DCHECK(!mime_type_.empty());
@@ -205,7 +215,7 @@ MimeHandlerViewContainerBase::MaybeCreatePluginThrottle(const GURL& url) {
     return nullptr;
 
   waiting_to_create_throttle_ = false;
-  return std::make_unique<PluginResourceThrottle>(this);
+  return std::make_unique<PluginResourceThrottle>(weak_factory_.GetWeakPtr());
 }
 
 void MimeHandlerViewContainerBase::PostJavaScriptMessage(
@@ -253,7 +263,8 @@ void MimeHandlerViewContainerBase::PostMessageFromValue(
 
 content::RenderFrame* MimeHandlerViewContainerBase::GetEmbedderRenderFrame()
     const {
-  return nullptr;
+  DCHECK_NE(embedder_render_frame_routing_id_, MSG_ROUTING_NONE);
+  return content::RenderFrame::FromRoutingID(embedder_render_frame_routing_id_);
 }
 
 void MimeHandlerViewContainerBase::CreateMimeHandlerViewGuestIfNecessary() {

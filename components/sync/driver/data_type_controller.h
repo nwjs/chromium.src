@@ -164,16 +164,17 @@ class DataTypeController : public base::SupportsWeakPtr<DataTypeController> {
   virtual bool ReadyForStart() const;
 
   // Returns a ListValue representing all nodes for this data type through
-  // |callback| on this thread.
+  // |callback| on this thread. Can only be called if state() != NOT_RUNNING.
   // Used for populating nodes in Sync Node Browser of chrome://sync-internals.
   virtual void GetAllNodes(const AllNodesCallback& callback) = 0;
 
   // Collects StatusCounters for this datatype and passes them to |callback|.
-  // Used to display entity counts in chrome://sync-internals.
+  // Used to display entity counts in chrome://sync-internals. Can be called
+  // only if state() != NOT_RUNNING.
   virtual void GetStatusCounters(const StatusCountersCallback& callback) = 0;
 
   // Records entities count and estimated memory usage of the type into
-  // histograms.
+  // histograms. Can be called only if state() != NOT_RUNNING.
   virtual void RecordMemoryUsageAndCountsHistograms() = 0;
 
  protected:

@@ -80,7 +80,7 @@ class ASH_EXPORT ShelfLayoutManager
   bool IsVisible() const;
 
   // Returns the ideal bounds of the shelf assuming it is visible.
-  gfx::Rect GetIdealBounds();
+  gfx::Rect GetIdealBounds() const;
 
   // Returns the preferred size of the shelf for the target visibility state.
   gfx::Size GetPreferredSize();
@@ -145,6 +145,14 @@ class ASH_EXPORT ShelfLayoutManager
   // it's only allowed in tablet mode, not in laptop mode.
   bool IsDraggingWindowFromTopOrCaptionArea() const;
 
+  // Returns whether background blur is enabled.
+  bool IsBackgroundBlurEnabled() { return is_background_blur_enabled_; }
+
+  // Returns whether the shelf should show a blurred background. This may
+  // return false even if background blur is enabled depending on the session
+  // state.
+  bool ShouldBlurShelfBackground();
+
   // Overridden from wm::WmSnapToPixelLayoutManager:
   void OnWindowResized() override;
   void SetChildBounds(aura::Window* child,
@@ -179,6 +187,7 @@ class ASH_EXPORT ShelfLayoutManager
 
   // Overridden from WallpaperControllerObserver:
   void OnWallpaperBlurChanged() override;
+  void OnFirstWallpaperShown() override;
 
   // TODO(harrym|oshima): These templates will be moved to a new Shelf class.
   // A helper function for choosing values specific to a shelf alignment.

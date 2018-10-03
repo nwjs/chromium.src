@@ -108,7 +108,7 @@ class WebRequestProxyingURLLoaderFactory
     void HandleResponseOrRedirectHeaders(
         const net::CompletionCallback& continuation);
     void OnRequestError(const network::URLLoaderCompletionStatus& status);
-    bool IsRedirectSafe(const GURL& url);
+    bool IsRedirectSafe(const GURL& from_url, const GURL& to_url);
 
     WebRequestProxyingURLLoaderFactory* const factory_;
     network::ResourceRequest request_;
@@ -193,6 +193,7 @@ class WebRequestProxyingURLLoaderFactory
   void OnTargetFactoryError();
   void OnProxyBindingError();
   void RemoveRequest(int32_t network_service_request_id, uint64_t request_id);
+  void MaybeRemoveProxy();
 
   void* const browser_context_;
   content::ResourceContext* const resource_context_;

@@ -1005,6 +1005,8 @@ void ExtensionPrefs::AddRuntimeGrantedPermissions(
     const PermissionSet& permissions) {
   AddToPrefPermissionSet(extension_id, permissions,
                          kPrefRuntimeGrantedPermissions);
+  for (auto& observer : observer_list_)
+    observer.OnExtensionRuntimePermissionsChanged(extension_id);
 }
 
 void ExtensionPrefs::RemoveRuntimeGrantedPermissions(
@@ -1012,6 +1014,8 @@ void ExtensionPrefs::RemoveRuntimeGrantedPermissions(
     const PermissionSet& permissions) {
   RemoveFromPrefPermissionSet(extension_id, permissions,
                               kPrefRuntimeGrantedPermissions);
+  for (auto& observer : observer_list_)
+    observer.OnExtensionRuntimePermissionsChanged(extension_id);
 }
 
 void ExtensionPrefs::SetExtensionRunning(const std::string& extension_id,
