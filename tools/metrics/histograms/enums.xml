@@ -4479,6 +4479,11 @@ uploading your change for review.  These are checked by presubmit scripts.
   <int value="1" label="Has slow paths with non-AA paint"/>
 </enum>
 
+<enum name="BooleanHasWithheldHosts">
+  <int value="0" label="Does not have withheld hosts"/>
+  <int value="1" label="Has withheld hosts"/>
+</enum>
+
 <enum name="BooleanHiddenPresentationalAutofilled">
   <int value="0" label="Skipped"/>
   <int value="1" label="Autofilled"/>
@@ -14323,6 +14328,7 @@ Called by update_net_error_codes.py.-->
   <int value="481" label="CrostiniAllowed"/>
   <int value="482" label="DeviceUnaffiliatedCrostiniAllowed"/>
   <int value="484" label="ReportCrostiniUsageEnabled"/>
+  <int value="487" label="BrowserSignin"/>
 </enum>
 
 <enum name="EnterprisePolicyInvalidations">
@@ -28096,6 +28102,7 @@ from previous Chrome versions.
   <int value="-2004231189" label="AppNotificationStatusMessaging:disabled"/>
   <int value="-2003354337"
       label="enable-search-button-in-omnibox-for-str-or-iip"/>
+  <int value="-2001869199" label="ShillSandboxing:enabled"/>
   <int value="-2000567059" label="SimplifyHttpsIndicator:enabled"/>
   <int value="-1999892428" label="force-ui-direction"/>
   <int value="-1998927516" label="enable-md-settings"/>
@@ -28529,6 +28536,7 @@ from previous Chrome versions.
   <int value="-1255427595" label="HomePageButtonForceEnabled:enabled"/>
   <int value="-1254070521" label="enable-slimming-paint-invalidation"/>
   <int value="-1253608371" label="IncognitoStrings:disabled"/>
+  <int value="-1252976780" label="ShillSandboxing:disabled"/>
   <int value="-1251411236" label="disable-new-md-input-view"/>
   <int value="-1250611337" label="ChromeVoxArcSupport:disabled"/>
   <int value="-1248478422" label="enable-zip-archiver-packer"/>
@@ -45187,6 +45195,15 @@ Called by update_net_trust_anchors.py.-->
   <int value="1" label="Fallback icon"/>
   <int value="2" label="Custom icon"/>
   <int value="3" label="Small custom icon"/>
+</enum>
+
+<enum name="SplitApkWorkaroundResult">
+  <int value="0" label="Not run"/>
+  <int value="1" label="No entries"/>
+  <int value="2" label="One entry"/>
+  <int value="3" label="Multiple entries"/>
+  <int value="4" label="Toplevel exception"/>
+  <int value="5" label="Loop exception"/>
 </enum>
 
 <enum name="SqliteErrorCode">

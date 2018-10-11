@@ -37,6 +37,12 @@
 #include "ui/views/widget/widget_observer.h"
 #endif
 
+#if defined(OS_CHROMEOS)
+#include "ash/accelerators/accelerator_controller.h"
+#include "ash/shell.h"
+#include "ui/base/accelerators/accelerator.h"
+#endif
+
 using ::testing::_;
 
 namespace {
@@ -48,7 +54,7 @@ class MockPictureInPictureWindowController
 
   // PictureInPictureWindowController:
   MOCK_METHOD0(Show, gfx::Size());
-  MOCK_METHOD1(Close, void(bool));
+  MOCK_METHOD2(Close, void(bool, bool));
   MOCK_METHOD0(OnWindowDestroyed, void());
   MOCK_METHOD1(ClickCustomControl, void(const std::string&));
   MOCK_METHOD1(SetPictureInPictureCustomControls,
@@ -345,8 +351,12 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
   EXPECT_TRUE(active_web_contents->HasPictureInPictureVideo());
 
   // Stop video being played Picture-in-Picture and check if that's tracked.
-  window_controller()->Close(true /* should_pause_video */);
+  window_controller()->Close(true /* should_pause_video */,
+                             true /* should_reset_pip_player */);
   EXPECT_FALSE(active_web_contents->HasPictureInPictureVideo());
+
+  // Reload page should not crash.
+  ui_test_utils::NavigateToURL(browser(), test_page_url);
 }
 
 #if !defined(OS_ANDROID)
@@ -576,7 +586,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
       active_web_contents, "isInPictureInPicture();", &in_picture_in_picture));
   EXPECT_TRUE(in_picture_in_picture);
 
-  window_controller()->Close(true /* should_pause_video */);
+  window_controller()->Close(true /* should_pause_video */,
+                             true /* should_reset_pip_player */);
 
   base::string16 expected_title = base::ASCIIToUTF16("left");
   EXPECT_EQ(expected_title,
@@ -615,7 +626,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
   EXPECT_TRUE(in_picture_in_picture);
 
   ASSERT_TRUE(window_controller());
-  window_controller()->Close(true /* should_pause_video */);
+  window_controller()->Close(true /* should_pause_video */,
+                             true /* should_reset_pip_player */);
 
   base::string16 expected_title = base::ASCIIToUTF16("left");
   EXPECT_EQ(expected_title,
@@ -767,6 +779,14 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
   EXPECT_TRUE(ExecuteScriptAndExtractBool(active_web_contents, "isPaused();",
                                           &is_paused));
   EXPECT_FALSE(is_paused);
+
+#if !defined(OS_ANDROID)
+  OverlayWindowViews* overlay_window = static_cast<OverlayWindowViews*>(
+      window_controller()->GetWindowForTesting());
+
+  EXPECT_EQ(overlay_window->playback_state_for_testing(),
+            OverlayWindowViews::PlaybackState::kPaused);
+#endif
 }
 
 // Tests that resetting video src when video is in Picture-in-Picture session
@@ -873,7 +893,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
       active_web_contents, "enterPictureInPicture();", &result));
   EXPECT_TRUE(result);
 
-  window_controller()->Close(true /* should_pause_video */);
+  window_controller()->Close(true /* should_pause_video */,
+                             true /* should_reset_pip_player */);
 
   // Wait for the window to close.
   base::string16 expected_title = base::ASCIIToUTF16("left");
@@ -895,7 +916,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
   EXPECT_FALSE(video_paused);
 
   // This should be a no-op because the window is not visible.
-  window_controller()->Close(true /* should_pause_video */);
+  window_controller()->Close(true /* should_pause_video */,
+                             true /* should_reset_pip_player */);
 
   ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
       active_web_contents, "isPaused();", &video_paused));
@@ -1334,12 +1356,6 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
   EXPECT_TRUE(ExecuteScriptAndExtractBool(
       active_web_contents, "isInPictureInPicture();", &in_picture_in_picture));
   EXPECT_FALSE(in_picture_in_picture);
-
-  // TODO(edcourtney): When the renderer process is destroyed, it calls into
-  // MediaWebContentsObserver::ExitPictureInPictureInternal which Closes the
-  // current PIP. However, this may not be a WebContents sourced PIP, so this
-  // close can be spurious.
-  EXPECT_CALL(mock_controller(), Close(_));
 }
 
 IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
@@ -1353,7 +1369,7 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
 
   // Now show the WebContents based Picture-in-Picture window controller.
   // This should close the existing window and show the new one.
-  EXPECT_CALL(mock_controller(), Close(_));
+  EXPECT_CALL(mock_controller(), Close(_, _));
   LoadTabAndEnterPictureInPicture(browser());
 
   OverlayWindowViews* overlay_window = static_cast<OverlayWindowViews*>(
@@ -1397,7 +1413,8 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
       active_web_contents, "changeSrcAndLoad();", &result));
   ASSERT_TRUE(result);
 
-  window_controller()->Close(true /* should_pause_video */);
+  window_controller()->Close(true /* should_pause_video */,
+                             true /* should_reset_pip_player */);
 
   result = false;
   ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
@@ -1462,3 +1479,53 @@ IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
   browser()->tab_strip_model()->CloseWebContentsAt(0, 0);
   destroyed_watcher.Wait();
 }
+
+#if defined(OS_CHROMEOS)
+// Tests that video in Picture-in-Picture is paused when user presses
+// VKEY_MEDIA_PLAY_PAUSE key even if there's another media playing in a
+// foreground tab.
+IN_PROC_BROWSER_TEST_F(PictureInPictureWindowControllerBrowserTest,
+                       HandleMediaKeyPlayPause) {
+  GURL test_page_url = ui_test_utils::GetTestUrl(
+      base::FilePath(base::FilePath::kCurrentDirectory),
+      base::FilePath(
+          FILE_PATH_LITERAL("media/picture-in-picture/window-size.html")));
+  ui_test_utils::NavigateToURL(browser(), test_page_url);
+
+  content::WebContents* first_active_web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(first_active_web_contents);
+  EXPECT_TRUE(
+      content::ExecuteScript(first_active_web_contents, "video.play();"));
+
+  bool result = false;
+  ASSERT_TRUE(content::ExecuteScriptAndExtractBool(
+      first_active_web_contents, "enterPictureInPicture();", &result));
+  EXPECT_TRUE(result);
+
+  Browser* second_browser = CreateBrowser(browser()->profile());
+  ui_test_utils::NavigateToURL(second_browser, test_page_url);
+
+  content::WebContents* second_active_web_contents =
+      second_browser->tab_strip_model()->GetActiveWebContents();
+  ASSERT_TRUE(second_active_web_contents);
+  EXPECT_TRUE(
+      content::ExecuteScript(second_active_web_contents, "video.play();"));
+
+  ash::AcceleratorController* controller =
+      ash::Shell::Get()->accelerator_controller();
+  controller->Process(ui::Accelerator(ui::VKEY_MEDIA_PLAY_PAUSE, ui::EF_NONE));
+  base::RunLoop().RunUntilIdle();
+
+  bool is_paused = false;
+  // Picture-in-Picture video in first browser window is paused.
+  EXPECT_TRUE(ExecuteScriptAndExtractBool(first_active_web_contents,
+                                          "isPaused();", &is_paused));
+  EXPECT_TRUE(is_paused);
+
+  // Video in second browser window is not paused.
+  EXPECT_TRUE(ExecuteScriptAndExtractBool(second_active_web_contents,
+                                          "isPaused();", &is_paused));
+  EXPECT_FALSE(is_paused);
+}
+#endif  // defined(OS_CHROMEOS)

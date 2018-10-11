@@ -216,6 +216,7 @@
 #import "ios/chrome/browser/ui/toolbar/toolbar_snapshot_providing.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_ui.h"
 #import "ios/chrome/browser/ui/toolbar/toolbar_ui_broadcasting_util.h"
+#import "ios/chrome/browser/ui/toolbar_container/toolbar_container_features.h"
 #import "ios/chrome/browser/ui/tools_menu/public/tools_menu_configuration_provider.h"
 #import "ios/chrome/browser/ui/tools_menu/public/tools_menu_presentation_provider.h"
 #import "ios/chrome/browser/ui/tools_menu/tools_menu_configuration.h"
@@ -371,6 +372,29 @@ NSString* const kBrowserViewControllerSnackbarCategory =
     @"BrowserViewControllerSnackbarCategory";
 
 }  // namespace
+
+#pragma mark - ToolbarContainerView
+
+// TODO(crbug.com/880672): This is a temporary solution.  This logic should be
+// handled by ToolbarContainerViewController.
+@interface ToolbarContainerView : UIView
+@end
+
+@implementation ToolbarContainerView
+
+- (UIView*)hitTest:(CGPoint)point withEvent:(UIEvent*)event {
+  // Don't receive events that don't occur within a subview.  This is necessary
+  // because the container view overlaps with web content and the default
+  // behavior will intercept touches meant for the web page when the toolbars
+  // are collapsed.
+  for (UIView* subview in self.subviews) {
+    if (CGRectContainsPoint(subview.frame, point))
+      return [super hitTest:point withEvent:event];
+  }
+  return nil;
+}
+
+@end
 
 #pragma mark - HeaderDefinition helper
 
@@ -2552,7 +2576,10 @@ applicationCommandEndpoint:(id<ApplicationCommands>)applicationCommandEndpoint {
     if (self.secondaryToolbarCoordinator) {
       // Create the container view for the secondary toolbar and add it to the
       // hierarchy
-      UIView* container = [[UIView alloc] init];
+      bool useCustomView = base::FeatureList::IsEnabled(
+          toolbar_container::kToolbarContainerCustomViewEnabled);
+      UIView* container = useCustomView ? [[ToolbarContainerView alloc] init]
+                                        : [[UIView alloc] init];
       container.translatesAutoresizingMaskIntoConstraints = NO;
       [container
           addSubview:self.secondaryToolbarCoordinator.viewController.view];

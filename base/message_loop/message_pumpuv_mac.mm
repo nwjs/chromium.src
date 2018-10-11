@@ -353,7 +353,11 @@ void MessagePumpUVNSRunLoop::EmbedThreadRunner(void *arg) {
 
     EVENTLOOP_DEBUG_C((printf("Calling select: %d\n", check_kqueue)));
     int res = select(nfds, &fds, NULL, NULL, NULL);
-    if (res <= 0) abort();  // TODO(deanm): Handle signals, etc.
+    if (res <= 0) {
+      if (res == -1 && errno == 4) //NWJS#6799
+        continue;
+      abort();  // TODO(deanm): Handle signals, etc.
+    }
 
     if (FD_ISSET(g_kqueue_fd, &fds)) {
       EVENTLOOP_DEBUG_C((printf("postEvent\n")));

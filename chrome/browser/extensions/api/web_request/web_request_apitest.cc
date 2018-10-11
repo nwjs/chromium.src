@@ -23,6 +23,7 @@
 #include "chrome/browser/chrome_notification_types.h"
 #include "chrome/browser/devtools/url_constants.h"
 #include "chrome/browser/extensions/active_tab_permission_granter.h"
+#include "chrome/browser/extensions/api/extension_action/test_extension_action_api_observer.h"
 #include "chrome/browser/extensions/extension_action_runner.h"
 #include "chrome/browser/extensions/extension_apitest.h"
 #include "chrome/browser/extensions/extension_service.h"
@@ -974,14 +975,22 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
   // frames, this shouldn't show up as a blocked action.
   EXPECT_EQ(BLOCKED_ACTION_NONE, runner->GetBlockedActions(extension));
 
-  // If we revoke the extension's tab permissions, it should no longer receive
-  // webRequest events.
+  // Revoke the extension's tab permissions.
   ActiveTabPermissionGranter* granter =
       TabHelper::FromWebContents(web_contents)->active_tab_permission_granter();
   ASSERT_TRUE(granter);
   granter->RevokeForTesting();
   base::RunLoop().RunUntilIdle();
+
+  // The extension should no longer receive webRequest events since they are
+  // withheld. The extension icon should get updated to show the wants-to-run
+  // badge UI.
+  TestExtensionActionAPIObserver action_updated_waiter(profile(),
+                                                       extension->id());
   PerformXhrInFrame(main_frame, kHost, port, kXhrPath);
+  action_updated_waiter.Wait();
+  EXPECT_EQ(web_contents, action_updated_waiter.last_web_contents());
+
   EXPECT_EQ(xhr_count,
             GetWebRequestCountFromBackgroundPage(extension, profile()));
   EXPECT_EQ(BLOCKED_ACTION_WEB_REQUEST, runner->GetBlockedActions(extension));
@@ -1038,6 +1047,75 @@ IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
 
   EXPECT_TRUE(
       HasSeenWebRequestInBackgroundPage(extension, profile(), kCrossSiteHost));
+}
+
+// Tests behavior when an extension has withheld access to a request's URL, but
+// not the initiator's (tab's) URL. Regression test for
+// https://crbug.com/891586.
+IN_PROC_BROWSER_TEST_F(ExtensionWebRequestApiTest,
+                       WithheldHostPermissionsForCrossOriginWithoutInitiator) {
+  base::test::ScopedFeatureList scoped_feature_list;
+  scoped_feature_list.InitAndEnableFeature(
+      extensions::features::kRuntimeHostPermissions);
+
+  content::SetupCrossSiteRedirector(embedded_test_server());
+  ASSERT_TRUE(embedded_test_server()->Start());
+
+  // TODO(devlin): This is essentially copied from the webrequest_activetab
+  // API test extension, but has different permissions. Maybe it's worth having
+  // all tests use a common pattern?
+  TestExtensionDir test_dir;
+  test_dir.WriteManifest(
+      R"({
+           "name": "Web Request Withheld Hosts",
+           "manifest_version": 2,
+           "version": "0.1",
+           "background": { "scripts": ["background.js"] },
+           "permissions": ["*://b.com:*/*", "webRequest"]
+         })");
+  test_dir.WriteFile(FILE_PATH_LITERAL("background.js"),
+                     R"(window.webRequestCount = 0;
+         window.requestedHostnames = [];
+
+         chrome.webRequest.onBeforeRequest.addListener(function(details) {
+           ++window.webRequestCount;
+           window.requestedHostnames.push((new URL(details.url)).hostname);
+         }, {urls:['<all_urls>']});
+         chrome.test.sendMessage('ready');)");
+
+  // Load an extension that registers a listener for webRequest events, and
+  // wait until it's initialized.
+  ExtensionTestMessageListener listener("ready", false);
+  const Extension* extension = LoadExtension(test_dir.UnpackedPath());
+  ASSERT_TRUE(extension) << message_;
+  ScriptingPermissionsModifier(profile(), base::WrapRefCounted(extension))
+      .SetWithholdHostPermissions(true);
+  EXPECT_TRUE(listener.WaitUntilSatisfied());
+
+  // Navigate to example.com, which has a cross-site script to b.com.
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL(
+                     "example.com", "/extensions/cross_site_script.html"));
+
+  content::WebContents* web_contents =
+      browser()->tab_strip_model()->GetActiveWebContents();
+
+  ExtensionActionRunner* runner =
+      ExtensionActionRunner::GetForWebContents(web_contents);
+  ASSERT_TRUE(runner);
+
+  // Even though the extension has access to b.com, it shouldn't show that it
+  // wants to run, because example.com is not a requested host.
+  EXPECT_EQ(BLOCKED_ACTION_NONE, runner->GetBlockedActions(extension));
+  EXPECT_FALSE(
+      HasSeenWebRequestInBackgroundPage(extension, profile(), "b.com"));
+
+  // Navigating to b.com (so that the script is hosted on the same origin as
+  // the WebContents) should show the extension wants to run.
+  ui_test_utils::NavigateToURL(
+      browser(), embedded_test_server()->GetURL(
+                     "b.com", "/extensions/cross_site_script.html"));
+  EXPECT_EQ(BLOCKED_ACTION_WEB_REQUEST, runner->GetBlockedActions(extension));
 }
 
 // Verify that requests to clientsX.google.com are protected properly.

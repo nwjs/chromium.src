@@ -76,6 +76,7 @@ class OverlayWindowViews : public content::OverlayWindow,
 
   views::ToggleImageButton* play_pause_controls_view_for_testing() const;
   views::View* controls_parent_view_for_testing() const;
+  OverlayWindowViews::PlaybackState playback_state_for_testing() const;
 
  private:
   // Possible positions for the custom controls added to the window.
@@ -143,6 +144,10 @@ class OverlayWindowViews : public content::OverlayWindow,
   // sizing and placement. This is different from checking whether the window
   // components has been initialized.
   bool has_been_shown_ = false;
+
+  // Current playback state on the video in Picture-in-Picture window. It is
+  // used to show/hide controls.
+  PlaybackState playback_state_ = kNoVideo;
 
   // The upper and lower bounds of |current_size_|. These are determined by the
   // size of the primary display work area when Picture-in-Picture is initiated.
