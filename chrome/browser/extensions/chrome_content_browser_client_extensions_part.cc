@@ -5,6 +5,7 @@
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 
 #include "content/browser/renderer_host/render_process_host_impl.h"
+#include "extensions/common/manifest_url_handlers.h"
 
 #include <stddef.h>
 
@@ -539,6 +540,8 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
     bool found_owner = WebViewRendererState::GetInstance()->GetOwnerInfo(
         process_host->GetID(), &owner_process_id, &owner_extension_id);
     DCHECK(found_owner);
+    if (!extensions::ManifestURL::Get(extension, "devtools_page").is_empty())
+      return true;
     return extension->is_platform_app() &&
            extension->permissions_data()->HasAPIPermission(
                extensions::APIPermission::kWebView) &&
