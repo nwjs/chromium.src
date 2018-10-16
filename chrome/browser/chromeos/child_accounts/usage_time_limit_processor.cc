@@ -226,8 +226,12 @@ UsageTimeLimitProcessor::UsageTimeLimitProcessor(
       previous_state_(previous_state),
       enabled_time_usage_limit_(GetEnabledTimeUsageLimit()) {
   // This will also set overridden_window_limit_ to true if applicable.
+  // TODO: refactor GetActiveTimeWindowLimit to stop updating the state on a
+  // getter method.
   active_time_window_limit_ = GetActiveTimeWindowLimit();
   // This will also sets overridden_usage_limit_ to true if applicable.
+  // TODO: refactor GetActiveTimeUsageLimit to stop updating the state on a
+  // getter method.
   active_time_usage_limit_ = GetActiveTimeUsageLimit();
 }
 
@@ -255,13 +259,23 @@ State UsageTimeLimitProcessor::GetState() {
   }
 
   const base::TimeDelta delta_zero = base::TimeDelta::FromMinutes(0);
-  // Time usage limit started when the usage quota ends.
-  if ((previous_state_ && previous_state_->remaining_usage > delta_zero &&
-       state.remaining_usage <= delta_zero) ||
-      (!previous_state_ && state.remaining_usage <= delta_zero)) {
+  bool current_state_above_usage_limit =
+      state.is_time_usage_limit_enabled && state.remaining_usage <= delta_zero;
+  bool previous_state_below_usage_limit =
+      previous_state_ && previous_state_->is_time_usage_limit_enabled &&
+      previous_state_->remaining_usage > delta_zero;
+  bool previous_state_no_usage_limit =
+      previous_state_ && !previous_state_->is_time_usage_limit_enabled;
+  bool previous_state_above_usage_limit =
+      previous_state_ && previous_state_->is_time_usage_limit_enabled &&
+      previous_state_->remaining_usage <= delta_zero;
+  if ((previous_state_below_usage_limit || previous_state_no_usage_limit ||
+       !previous_state_) &&
+      current_state_above_usage_limit) {
+    // Time usage limit just started being enforced.
     state.time_usage_limit_started = usage_timestamp_;
-  } else if (previous_state_ &&
-             previous_state_->remaining_usage <= delta_zero) {
+  } else if (previous_state_above_usage_limit) {
+    // Time usage limit was already enforced.
     state.time_usage_limit_started = previous_state_->time_usage_limit_started;
   }
 
@@ -376,8 +390,9 @@ bool UsageTimeLimitProcessor::IsUsageLimitOverridden(
       previous_state_->is_time_usage_limit_enabled &&
       previous_state_->remaining_usage <= base::TimeDelta::FromMinutes(0);
   bool override_created_after_usage_limit_start =
+      !previous_state_->time_usage_limit_started.is_null() &&
       time_limit_override_->created_at >
-      previous_state_->time_usage_limit_started;
+          previous_state_->time_usage_limit_started;
   return usage_limit_enforced_previously &&
          override_created_after_usage_limit_start;
 }
@@ -469,8 +484,10 @@ UsageTimeLimitProcessor::GetActiveTimeUsageLimit() {
   base::Optional<internal::TimeUsageLimitEntry> current_usage_limit =
       GetEnabledTimeUsageLimit();
 
-  if (IsUsageLimitOverridden(current_usage_limit_day))
+  if (IsUsageLimitOverridden(current_usage_limit_day)) {
+    overridden_usage_limit_ = true;
     return base::nullopt;
+  }
 
   if (current_usage_limit && used_time_ >= current_usage_limit->usage_quota)
     return current_usage_limit;

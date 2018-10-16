@@ -420,6 +420,7 @@
 <translation id="1611584202130317952">配置流程中断了。请重试，或与您的设备所有者/管理员联系。</translation>
 <translation id="1611649489706141841">前进</translation>
 <translation id="1611704746353331382">将书签导出到 HTML 文件...</translation>
+<translation id="1614511179807650956">您的移动数据流量配额可能已经用完。若想购买更多流量，请前往“<ph name="NAME" />”激活门户网站</translation>
 <translation id="161460670679785907">检测不到您的手机</translation>
 <translation id="1616206807336925449">此扩展程序无需任何特殊权限。</translation>
 <translation id="1616298854599875024">无法导入扩展程序“<ph name="IMPORT_NAME" />”，因为它不是共享模块</translation>
@@ -688,6 +689,7 @@
 <translation id="1999115740519098545">启动时</translation>
 <translation id="2000419248597011803">将一些 Cookie 以及地址栏和搜索框中的搜索字词发送给您的默认搜索引擎</translation>
 <translation id="2001796770603320721">在云端硬盘中管理</translation>
+<translation id="2003130567827682533">若想激活“<ph name="NAME" />”的数据流量服务，请先连接到 Wi-Fi 网络</translation>
 <translation id="2004663115385769400">无法使用$1打开</translation>
 <translation id="200544492091181894">以后，您随时可在“设置”中更改此设置</translation>
 <translation id="2006638907958895361">在<ph name="APP" />中打开链接</translation>
@@ -1046,7 +1048,6 @@
 <translation id="2558896001721082624">始终在系统菜单中显示无障碍选项</translation>
 <translation id="2562685439590298522">文档</translation>
 <translation id="2562743677925229011">尚未登录 <ph name="SHORT_PRODUCT_NAME" /></translation>
-<translation id="2563856802393254086">恭喜！“<ph name="NAME" />”数据服务已激活，您可以开始使用了。</translation>
 <translation id="2564520396658920462">通过 AppleScript 执行 JavaScript 的功能已关闭。要开启此功能，请在菜单栏中依次转到“查看”&gt;“开发者”&gt;“允许 Apple 事件中的 JavaScript”。如需更多信息，请访问 https://support.google.com/chrome/?p=applescript</translation>
 <translation id="2564653188463346023">增强的“拼写检查”功能</translation>
 <translation id="2566124945717127842">Powerwash会将您的<ph name="IDS_SHORT_PRODUCT_NAME" />设备重置为初始状态。</translation>
@@ -1126,7 +1127,6 @@
 <translation id="2667463864537187133">管理拼写检查</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> 正在共享 Chrome 标签页。</translation>
 <translation id="2670429602441959756">此网页包含尚不受虚拟现实模式支持的功能。即将退出…</translation>
-<translation id="2670531586141364277">激活“<ph name="NAME" />”需要连接网络。</translation>
 <translation id="2671451824761031126">您的书签和设置已就绪</translation>
 <translation id="2672142220933875349">crx 文件已损坏，未能成功解压。</translation>
 <translation id="2672394958563893062">出现错误。点击可从头开始重新播放。</translation>
@@ -1165,7 +1165,6 @@
 <translation id="2724841811573117416">WebRTC日志</translation>
 <translation id="2725200716980197196">网络连接已恢复</translation>
 <translation id="2726934403674109201">（共 <ph name="COUNT" /> 个）</translation>
-<translation id="2727176303594781056">网络启用错误</translation>
 <translation id="2727633948226935816">不再提醒</translation>
 <translation id="2727712005121231835">实际大小</translation>
 <translation id="273093730430620027">此网页正在使用您的摄像头。</translation>
@@ -1322,7 +1321,6 @@
 <translation id="2961090598421146107"><ph name="CERTIFICATE_NAME" />（已提供扩展功能）</translation>
 <translation id="2961695502793809356">点击可前进，按住可查看历史记录</translation>
 <translation id="2963151496262057773">以下插件没有响应：<ph name="PLUGIN_NAME" />。是否要停止使用该插件？</translation>
-<translation id="2966449113954629791">您的移动数据量可能已用完。请访问“<ph name="NAME" />”激活门户网站，购买更多数据。</translation>
 <translation id="2966937470348689686">管理 Android 偏好设置</translation>
 <translation id="2971213274238188218">调低亮度</translation>
 <translation id="2972557485845626008">固件</translation>
@@ -2114,7 +2112,7 @@
 <translation id="4144218403971135344">获取更优质的视频并减少耗电量。视频仅会在支持 Cast 的屏幕上播放。</translation>
 <translation id="4146026355784316281">始终使用系统查看器打开</translation>
 <translation id="4146785383423576110">重置并清理</translation>
-<translation id="4147897805161313378">Google 照片</translation>
+<translation id="4147897805161313378">Google 相册</translation>
 <translation id="4150201353443180367">显示</translation>
 <translation id="4152670763139331043">{NUM_TABS,plural, =1{1 个标签页}other{# 个标签页}}</translation>
 <translation id="4154664944169082762">指纹</translation>
@@ -2504,6 +2502,7 @@
 <translation id="4823484602432206655">读取和更改用户设置与设备设置</translation>
 <translation id="4823651846660089135">设备目前处于只读模式</translation>
 <translation id="4823955295535347797">当屏幕处于开启状态时，您可以随时访问自己的 Google 助理，只需说“Ok Google”即可。</translation>
+<translation id="4827675678516992122">无法连接</translation>
 <translation id="4828937774870308359">澳大利亚</translation>
 <translation id="4829768588131278040">设置 PIN 码</translation>
 <translation id="4830502475412647084">正在安装操作系统更新</translation>
@@ -2763,6 +2762,7 @@
 <translation id="5209320130288484488">未找到任何设备</translation>
 <translation id="5209518306177824490">SHA-1 指纹</translation>
 <translation id="5210365745912300556">关闭标签页</translation>
+<translation id="5213481667492808996">您可以使用“<ph name="NAME" />”的数据流量服务了</translation>
 <translation id="5213891612754844763">显示代理设置</translation>
 <translation id="521582610500777512">照片已被舍弃</translation>
 <translation id="5222676887888702881">退出</translation>
@@ -4097,7 +4097,7 @@
 <translation id="7175353351958621980">加载来源：</translation>
 <translation id="7180611975245234373">刷新</translation>
 <translation id="7180865173735832675">自定义</translation>
-<translation id="7182359331070524176">选择一个 Google 照片相册</translation>
+<translation id="7182359331070524176">选择一个 Google 相册影集</translation>
 <translation id="7186088072322679094">固定在工具栏中</translation>
 <translation id="7187428571767585875">要移除或要更改的注册表项：</translation>
 <translation id="7189234443051076392">确保您的设备上有足够的空间</translation>

@@ -423,6 +423,7 @@
 <translation id="1611584202130317952">O fluxo de aprovisionamento foi interrompido. Tente novamente ou entre em contato com o proprietário ou administrador do dispositivo.</translation>
 <translation id="1611649489706141841">avançar</translation>
 <translation id="1611704746353331382">Exportar favoritos para arquivo HTML...</translation>
+<translation id="1614511179807650956">Você pode ter esgotado sua cota de dados móveis. Visite o portal de ativação do <ph name="NAME" /> para comprar mais dados</translation>
 <translation id="161460670679785907">Não foi possível detectar seu smartphone</translation>
 <translation id="1616206807336925449">Esta extensão não requer permissões especiais.</translation>
 <translation id="1616298854599875024">Não foi possível importar a extensão "<ph name="IMPORT_NAME" />", porque ela não é um módulo compartilhado</translation>
@@ -691,6 +692,7 @@
 <translation id="1999115740519098545">Inicialização</translation>
 <translation id="2000419248597011803">Envia alguns cookies e pesquisas da barra de endereço e da caixa de pesquisa para seu mecanismo de pesquisa padrão.</translation>
 <translation id="2001796770603320721">Gerenciar no Drive</translation>
+<translation id="2003130567827682533">Para ativar os dados de "<ph name="NAME" />", primeiro conecte-se a uma rede Wi-Fi</translation>
 <translation id="2004663115385769400">Não é possível abrir com $1</translation>
 <translation id="200544492091181894">Você pode alterar isso a qualquer momento nas configurações</translation>
 <translation id="2006638907958895361">Abrir link no <ph name="APP" /></translation>
@@ -1049,7 +1051,6 @@
 <translation id="2558896001721082624">Sempre mostrar as opções de acessibilidade no menu do sistema</translation>
 <translation id="2562685439590298522">Docs</translation>
 <translation id="2562743677925229011">Não conectado a <ph name="SHORT_PRODUCT_NAME" /></translation>
-<translation id="2563856802393254086">Parabéns! Seu serviço de dados "<ph name="NAME" />" foi ativado e está pronto para ser usado.</translation>
 <translation id="2564520396658920462">A execução do JavaScript por AppleScript está desativada. Para ativá-la, na barra de menu, acesse Ver &gt; Desenvolvedor &gt; Permitir o JavaScript do Eventos da Apple. Para ver mais informações: https://support.google.com/chrome/?p=applescript</translation>
 <translation id="2564653188463346023">Verificação ortográfica aprimorada</translation>
 <translation id="2566124945717127842">Use a função "Powerwash" para redefinir seu dispositivo <ph name="IDS_SHORT_PRODUCT_NAME" /> para as condições de fábrica.</translation>
@@ -1130,7 +1131,6 @@
 <translation id="2667463864537187133">Gerenciar a verificação ortográfica</translation>
 <translation id="2670102641511624474">O app <ph name="APP_NAME" /> está compartilhando uma guia do Chrome.</translation>
 <translation id="2670429602441959756">Esta página contém recursos que ainda não são compatíveis com a realidade virtual. Saindo…</translation>
-<translation id="2670531586141364277">A ativação de "<ph name="NAME" />" requer uma conexão com a rede.</translation>
 <translation id="2671451824761031126">Seus favoritos e configurações estão prontos</translation>
 <translation id="2672142220933875349">Arquivo crx defeituoso, a descompactação falhou.</translation>
 <translation id="2672394958563893062">Ocorreu um erro. Clique para voltar ao início.</translation>
@@ -1169,7 +1169,6 @@
 <translation id="2724841811573117416">Registros WebRTC</translation>
 <translation id="2725200716980197196">Conectividade de rede restaurada</translation>
 <translation id="2726934403674109201">(<ph name="COUNT" /> no total)</translation>
-<translation id="2727176303594781056">Erro de ativação de rede</translation>
 <translation id="2727633948226935816">Não me lembrar novamente</translation>
 <translation id="2727712005121231835">Tamanho real</translation>
 <translation id="273093730430620027">Esta página está acessando sua câmera.</translation>
@@ -1326,7 +1325,6 @@
 <translation id="2961090598421146107"><ph name="CERTIFICATE_NAME" /> (extensão fornecida)</translation>
 <translation id="2961695502793809356">Clique para avançar, mantenha pressionado para ver o histórico</translation>
 <translation id="2963151496262057773">Este plug-in não responde: <ph name="PLUGIN_NAME" />. Quer interrompê-lo?</translation>
-<translation id="2966449113954629791">Você pode ter usado a cota de dados do seu dispositivo móvel. Visite o portal de ativação do <ph name="NAME" /> para comprar mais dados.</translation>
 <translation id="2966937470348689686">Gerenciar preferências do Android</translation>
 <translation id="2971213274238188218">diminuir brilho</translation>
 <translation id="2972557485845626008">Firmware</translation>
@@ -2511,6 +2509,7 @@
 <translation id="4823484602432206655">Ler e alterar as configurações do dispositivo e usuário</translation>
 <translation id="4823651846660089135">O dispositivo é somente leitura</translation>
 <translation id="4823955295535347797">Acesse seu Assistente a qualquer momento, dizendo "Ok Google" quando a tela estiver ativada.</translation>
+<translation id="4827675678516992122">Não foi possível conectar</translation>
 <translation id="4828937774870308359">Australiano</translation>
 <translation id="4829768588131278040">Configurar PIN</translation>
 <translation id="4830502475412647084">Instalando atualização do SO</translation>
@@ -2771,6 +2770,7 @@
 <translation id="5209320130288484488">Nenhum dispositivo foi encontrado</translation>
 <translation id="5209518306177824490">Assinatura digital SHA-1</translation>
 <translation id="5210365745912300556">Fechar guia</translation>
+<translation id="5213481667492808996">Seu serviço de dados "<ph name="NAME" />" está pronto para ser usado</translation>
 <translation id="5213891612754844763">Mostrar configurações de proxy</translation>
 <translation id="521582610500777512">A foto foi descartada.</translation>
 <translation id="5222676887888702881">Sair</translation>

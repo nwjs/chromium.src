@@ -423,6 +423,7 @@
 <translation id="1611584202130317952">Перевірку перервано. Повторіть спробу або зв’яжіться з власником пристрою чи адміністратором.</translation>
 <translation id="1611649489706141841">уперед</translation>
 <translation id="1611704746353331382">Експортувати закладки у файл HTML...</translation>
+<translation id="1614511179807650956">Можливо, ви використали ліміт мобільного передавання даних. Перейдіть на портал активації служби "<ph name="NAME" />", щоб придбати більший обсяг даних</translation>
 <translation id="161460670679785907">Не вдалося виявити телефон</translation>
 <translation id="1616206807336925449">Для цього розширення не потрібні спеціальні дозволи.</translation>
 <translation id="1616298854599875024">Не вдається імпортувати розширення <ph name="IMPORT_NAME" />, оскільки воно не є спільним модулем</translation>
@@ -691,6 +692,7 @@
 <translation id="1999115740519098545">Після запуску</translation>
 <translation id="2000419248597011803">Надсилає деякі файли cookie й пошукові запити з адресного рядка та вікна пошуку в пошукову систему за умовчанням</translation>
 <translation id="2001796770603320721">Керувати на Диску</translation>
+<translation id="2003130567827682533">Щоб активувати дані служби "<ph name="NAME" />", спершу під’єднайтеся до мережі Wi-Fi</translation>
 <translation id="2004663115385769400">Не вдається відкрити за допомогою додатка $1</translation>
 <translation id="200544492091181894">Це можна змінити пізніше в налаштуваннях</translation>
 <translation id="2006638907958895361">Відкрити посилання в додатку <ph name="APP" /></translation>
@@ -1049,7 +1051,6 @@
 <translation id="2558896001721082624">Завжди показувати параметри спеціальних можливостей у системному меню</translation>
 <translation id="2562685439590298522">Документи</translation>
 <translation id="2562743677925229011">Ви не ввійшли в <ph name="SHORT_PRODUCT_NAME" /></translation>
-<translation id="2563856802393254086">Вітаємо! Вашу службу передавання даних "<ph name="NAME" />" активовано. Нею можна користуватися.</translation>
 <translation id="2564520396658920462">Виконання JavaScript через AppleScript вимкнено. Щоб увімкнути його, на панелі меню виберіть "Перегляд" &gt; "Для розробників" &gt; "Дозволити JavaScript від подій Apple". Щоб дізнатися більше, відвідайте сторінку https://support.google.com/chrome/?p=applescript</translation>
 <translation id="2564653188463346023">Покращена перевірка орфографії</translation>
 <translation id="2566124945717127842">Виконайте Powerwash, щоб відновити заводські налаштування пристрою <ph name="IDS_SHORT_PRODUCT_NAME" />.</translation>
@@ -1130,7 +1131,6 @@
 <translation id="2667463864537187133">Керувати перевіркою орфографії</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" /> транслює вкладку Chrome.</translation>
 <translation id="2670429602441959756">Ця сторінка містить функції, які не підтримуються в режимі віртуальної реальності. Вихід…</translation>
-<translation id="2670531586141364277">Для активації "<ph name="NAME" />" потрібне з’єднання з мережею.</translation>
 <translation id="2671451824761031126">Ваші закладки та налаштування імпортовано</translation>
 <translation id="2672142220933875349">Неправильний файл .crx. Помилка розпакування.</translation>
 <translation id="2672394958563893062">Сталася помилка. Натисніть, щоб знову запустити з початку.</translation>
@@ -1169,7 +1169,6 @@
 <translation id="2724841811573117416">Журнали WebRTC</translation>
 <translation id="2725200716980197196">З’єднання з мережею відновлено</translation>
 <translation id="2726934403674109201">(усього: <ph name="COUNT" />)</translation>
-<translation id="2727176303594781056">Помилка активації мережі</translation>
 <translation id="2727633948226935816">Більше не нагадувати</translation>
 <translation id="2727712005121231835">Дійсний розмір</translation>
 <translation id="273093730430620027">Ця сторінка має доступ до вашої камери.</translation>
@@ -1326,7 +1325,6 @@
 <translation id="2961090598421146107"><ph name="CERTIFICATE_NAME" /> (розширення встановлено)</translation>
 <translation id="2961695502793809356">Натисніть, щоб перейти далі; утримуйте, щоб переглянути історію</translation>
 <translation id="2963151496262057773">Плагін <ph name="PLUGIN_NAME" /> не відповідає. Зупинити?</translation>
-<translation id="2966449113954629791">Можливо, ви використали свій ліміт мобільного передавання даних. Перейдіть на портал активації <ph name="NAME" />, щоб придбати більший обсяг даних.</translation>
 <translation id="2966937470348689686">Керуйте налаштуваннями Android</translation>
 <translation id="2971213274238188218">зменшити яскравість</translation>
 <translation id="2972557485845626008">Мікропрограма</translation>
@@ -2511,6 +2509,7 @@
 <translation id="4823484602432206655">Переглядати та змінювати налаштування користувача й пристрою</translation>
 <translation id="4823651846660089135">Пристрій лише для перегляду</translation>
 <translation id="4823955295535347797">Зв’яжіться з Асистентом, сказавши "Ok Google", коли екран увімкнено.</translation>
+<translation id="4827675678516992122">Не вдалося під’єднатись</translation>
 <translation id="4828937774870308359">Австралійське</translation>
 <translation id="4829768588131278040">Налаштувати PIN-код</translation>
 <translation id="4830502475412647084">Установлюється оновлення ОС</translation>
@@ -2771,6 +2770,7 @@
 <translation id="5209320130288484488">Пристрої не знайдено.</translation>
 <translation id="5209518306177824490">Відбиток SHA-1</translation>
 <translation id="5210365745912300556">Закрити вкладку</translation>
+<translation id="5213481667492808996">Службу передавання даних "<ph name="NAME" />" активовано</translation>
 <translation id="5213891612754844763">Показати налаштування проксі</translation>
 <translation id="521582610500777512">Фотографію відхилено</translation>
 <translation id="5222676887888702881">Вийти</translation>

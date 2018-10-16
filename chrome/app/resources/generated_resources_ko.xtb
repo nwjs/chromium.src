@@ -423,6 +423,7 @@
 <translation id="1611584202130317952">프로비저닝 플로가 중단되었습니다. 다시 시도하거나 기기 소유자 또는 관리자에게 문의하시기 바랍니다.</translation>
 <translation id="1611649489706141841">앞으로</translation>
 <translation id="1611704746353331382">HTML 파일로 북마크 내보내기...</translation>
+<translation id="1614511179807650956">할당된 모바일 데이터를 모두 사용한 것 같습니다. 추가 데이터를 구입하려면 <ph name="NAME" /> 활성화 포털을 방문하세요.</translation>
 <translation id="161460670679785907">휴대전화를 인식할 수 없습니다</translation>
 <translation id="1616206807336925449">이 확장 프로그램은 특별한 권한이 필요하지 않습니다.</translation>
 <translation id="1616298854599875024">확장 프로그램 '<ph name="IMPORT_NAME" />'은(는) 공유 모듈이 아니므로 가져올 수 없습니다</translation>
@@ -691,6 +692,7 @@
 <translation id="1999115740519098545">시작 그룹</translation>
 <translation id="2000419248597011803">검색주소창 및 검색창의 검색어 및 일부 쿠키를 기본 검색엔진에 전송</translation>
 <translation id="2001796770603320721">드라이브에서 관리</translation>
+<translation id="2003130567827682533">'<ph name="NAME" />' 데이터를 활성화하려면 먼저 Wi-Fi 네트워크에 연결하세요.</translation>
 <translation id="2004663115385769400">$1(으)로 열 수 없음</translation>
 <translation id="200544492091181894">나중에 언제든지 설정에서 변경 가능</translation>
 <translation id="2006638907958895361"><ph name="APP" />에서 링크 열기</translation>
@@ -1049,7 +1051,6 @@
 <translation id="2558896001721082624">시스템 메뉴에 접근성 옵션 항상 표시</translation>
 <translation id="2562685439590298522">문서도구</translation>
 <translation id="2562743677925229011"><ph name="SHORT_PRODUCT_NAME" />에 로그인되어 있지 않습니다.</translation>
-<translation id="2563856802393254086">축하합니다. '<ph name="NAME" />' 데이터 서비스가 활성화되어 사용할 수 있습니다.</translation>
 <translation id="2564520396658920462">AppleScript를 통한 자바스크립트 실행 기능이 꺼져 있습니다. 이 기능을 사용하도록 설정하려면 메뉴 바에서 보기 &gt; 개발자 &gt; Apple Events의 자바스크립트 허용으로 이동하세요. 자세한 내용은 다음 페이지에서 확인하세요. https://support.google.com/chrome/?p=applescript</translation>
 <translation id="2564653188463346023">향상된 맞춤법 검사</translation>
 <translation id="2566124945717127842">Powerwash는 <ph name="IDS_SHORT_PRODUCT_NAME" /> 기기를 재설정하여 새것처럼 만듭니다.</translation>
@@ -1130,7 +1131,6 @@
 <translation id="2667463864537187133">맞춤법 검사 관리</translation>
 <translation id="2670102641511624474"><ph name="APP_NAME" />이(가) Chrome 탭을 공유합니다.</translation>
 <translation id="2670429602441959756">이 페이지에는 아직 VR에서 지원되지 않는 기능이 있습니다. 종료합니다...</translation>
-<translation id="2670531586141364277">네트워크를 연결하려면 '<ph name="NAME" />' 활성화가 필수입니다.</translation>
 <translation id="2671451824761031126">북마크와 설정을 가져왔습니다.</translation>
 <translation id="2672142220933875349">잘못된 crx 파일입니다. 압축을 해제하지 못했습니다.</translation>
 <translation id="2672394958563893062">오류가 발생했습니다. 클릭하여 처음부터 다시 시작하세요.</translation>
@@ -1169,7 +1169,6 @@
 <translation id="2724841811573117416">WebRTC 로그</translation>
 <translation id="2725200716980197196">네트워크 연결 복원</translation>
 <translation id="2726934403674109201">(총 <ph name="COUNT" />개)</translation>
-<translation id="2727176303594781056">네트워크 활성화 오류</translation>
 <translation id="2727633948226935816">다시 표시하지 않음</translation>
 <translation id="2727712005121231835">실제 크기</translation>
 <translation id="273093730430620027">카메라에 액세스하는 페이지입니다.</translation>
@@ -1326,7 +1325,6 @@
 <translation id="2961090598421146107"><ph name="CERTIFICATE_NAME" />(확장 프로그램에서 제공)</translation>
 <translation id="2961695502793809356">클릭하면 다음 페이지로 가고 누르고 있으면 방문 기록이 나타납니다.</translation>
 <translation id="2963151496262057773">다음 플러그인에서 응답이 없습니다. <ph name="PLUGIN_NAME" />을(를) 중단하시겠습니까?</translation>
-<translation id="2966449113954629791">할당되 모바일 데이터를 모두 사용한 것 같습니다. 추가 데이터를 구입하려면 <ph name="NAME" /> 활성화 포털을 방문하세요.</translation>
 <translation id="2966937470348689686">Android 환경설정 관리</translation>
 <translation id="2971213274238188218">어둡게</translation>
 <translation id="2972557485845626008">펌웨어</translation>
@@ -2509,6 +2507,7 @@
 <translation id="4823484602432206655">사용자와 기기 설정 확인 및 변경</translation>
 <translation id="4823651846660089135">읽기 전용 기기</translation>
 <translation id="4823955295535347797">화면이 켜져 있을 때 "Ok Google"이라고 말하면 어시스턴트를 이용할 수 있습니다.</translation>
+<translation id="4827675678516992122">연결할 수 없음</translation>
 <translation id="4828937774870308359">오스트레일리아</translation>
 <translation id="4829768588131278040">PIN 설정</translation>
 <translation id="4830502475412647084">OS 업데이트 설치 중</translation>
@@ -2769,6 +2768,7 @@
 <translation id="5209320130288484488">기기를 찾을 수 없음</translation>
 <translation id="5209518306177824490">SHA-1 지문</translation>
 <translation id="5210365745912300556">탭 닫기</translation>
+<translation id="5213481667492808996">'<ph name="NAME" />' 데이터 서비스를 사용할 수 있습니다.</translation>
 <translation id="5213891612754844763">프록시 설정 표시</translation>
 <translation id="521582610500777512">사진이 삭제되었습니다.</translation>
 <translation id="5222676887888702881">로그아웃</translation>
