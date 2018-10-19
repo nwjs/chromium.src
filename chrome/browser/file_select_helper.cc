@@ -448,10 +448,12 @@ void FileSelectHelper::RunFileChooser(
     std::unique_ptr<FileChooserParams> params) {
   DCHECK(!render_frame_host_);
   DCHECK(!web_contents_);
+#if 0
   DCHECK(params->default_file_name.empty() ||
          params->mode == FileChooserParams::Save)
       << "The default_file_name parameter should only be specified for Save "
          "file choosers";
+#endif
   DCHECK(params->default_file_name == params->default_file_name.BaseName())
       << "The default_file_name parameter should not contain path separators";
 

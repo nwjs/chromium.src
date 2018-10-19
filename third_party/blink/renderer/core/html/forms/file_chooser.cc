@@ -125,6 +125,8 @@ void FileChooser::ChooseFiles(const Vector<FileChooserFileInfo>& files) {
 
   if (client_)
     client_->FilesChosen(files, canceled);
+  if (canceled)
+    return;
   DidCloseChooser();
 }
 
