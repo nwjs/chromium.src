@@ -938,6 +938,10 @@ DevToolsWindow::DevToolsWindow(FrontendType frontend_type,
       action_on_load_(DevToolsToggleAction::NoOp()),
       intercepted_page_beforeunload_(false),
       ready_for_test_(false) {
+  // shouldn't own the web content in embedded cdt use case #6004
+  // or it will be double freed on quit
+  if (headless)
+    owned_main_web_contents_.release();
   // Set up delegate, so we get fully-functional window immediately.
   // It will not appear in UI though until |life_stage_ == kLoadCompleted|.
   if (!headless) //NWJS#4709: keep delegate to web_view_guest so the
