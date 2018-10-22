@@ -459,7 +459,8 @@ bool GuestViewManager::CanEmbedderAccessInstanceID(
   // The embedder is trying to access a guest with a negative or zero
   // instance ID.
   if (guest_instance_id <= kInstanceIDNone)
-    return false;
+    return true; // the 'alert' case will fail when keeps clicking
+                 // 'detach' otherwise
 
   // The embedder is trying to access an instance ID that has not yet been
   // allocated by GuestViewManager. This could cause instance ID
