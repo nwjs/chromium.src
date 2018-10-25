@@ -318,16 +318,17 @@ base::TimeDelta UsageTimeLimitProcessor::GetConsecutiveTimeWindowLimitDuration(
       break;
 
     if (window_limit_entry->IsOvernight()) {
-      duration += base::TimeDelta(base::TimeDelta::FromHours(24) -
-                                  window_limit_entry->starts_at) +
-                  base::TimeDelta(window_limit_entry->ends_at);
+      duration +=
+          base::TimeDelta(base::TimeDelta::FromHours(24) - last_entry_end) +
+          base::TimeDelta(window_limit_entry->ends_at);
     } else {
-      duration += base::TimeDelta(window_limit_entry->ends_at -
-                                  window_limit_entry->starts_at);
+      duration += std::max(window_limit_entry->ends_at - last_entry_end,
+                           base::TimeDelta::FromMinutes(0));
       // This entry is not overnight, so the next one cannot be a consecutive
       // window.
       break;
     }
+    last_entry_end = window_limit_entry->ends_at;
   }
 
   return duration;
@@ -496,18 +497,20 @@ UsageTimeLimitProcessor::GetActiveTimeUsageLimit() {
 }
 
 bool UsageTimeLimitProcessor::HasActiveOverride() {
-  if (!time_limit_override_)
+  base::Time last_reset_time = ConvertPolicyTime(LockOverrideResetTime(), 0);
+  if (current_time_ < last_reset_time)
+    last_reset_time -= base::TimeDelta::FromDays(1);
+
+  bool has_lock_override =
+      time_limit_override_ && time_limit_override_->action ==
+                                  internal::TimeLimitOverride::Action::kLock;
+  bool has_valid_lock_override =
+      has_lock_override && time_limit_override_->created_at > last_reset_time;
+  if (!time_limit_override_ || (has_lock_override && !has_valid_lock_override))
     return false;
 
-  if (overridden_window_limit_ || overridden_usage_limit_)
-    return true;
-
-  if (!overridden_usage_limit_ && !overridden_window_limit_ &&
-      time_limit_override_->action ==
-          internal::TimeLimitOverride::Action::kLock)
-    return true;
-
-  return false;
+  return overridden_window_limit_ || overridden_usage_limit_ ||
+         has_valid_lock_override;
 }
 
 bool UsageTimeLimitProcessor::IsLocked() {
