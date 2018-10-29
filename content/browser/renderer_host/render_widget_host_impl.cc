@@ -1028,8 +1028,13 @@ void RenderWidgetHostImpl::SetPageFocus(bool focused) {
     if (IsKeyboardLocked())
       UnlockKeyboard();
 
-    if (auto* touch_emulator = GetExistingTouchEmulator())
-      touch_emulator->CancelTouch();
+    if (auto* touch_emulator = GetExistingTouchEmulator()) {
+      if (touch_emulator->rfh_limit()) {
+        if (touch_emulator->rfh_limit()->GetView() == GetView())
+          touch_emulator->CancelTouch();
+      } else
+        touch_emulator->CancelTouch();
+    }
   } else if (keyboard_lock_allowed_) {
     LockKeyboard();
   }
