@@ -193,6 +193,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   ~RenderFrameHostImpl() override;
 
+  base::WeakPtr<RenderFrameHostImpl> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
   // RenderFrameHost
   int GetRoutingID() override;
   ui::AXTreeIDRegistry::AXTreeID GetAXTreeID() override;
