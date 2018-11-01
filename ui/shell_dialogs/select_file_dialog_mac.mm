@@ -225,7 +225,7 @@ void SelectFileDialogImpl::SelectFileImpl(
       [open_dialog setCanChooseFiles:NO];
       [open_dialog setCanChooseDirectories:YES];
 
-      if (type == SELECT_FOLDER)
+      if (type == SELECT_FOLDER || type == SELECT_UPLOAD_FOLDER)
         [open_dialog setCanCreateDirectories:YES];
       else
         [open_dialog setCanCreateDirectories:NO];
