@@ -4835,24 +4835,6 @@
             ]
         }
     ],
-    "VizDisplayCompositor": [
-        {
-            "platforms": [
-                "windows",
-                "linux",
-                "mac",
-                "android"
-            ],
-            "experiments": [
-                {
-                    "name": "VizDisplayCompositor",
-                    "enable_features": [
-                        "VizDisplayCompositor"
-                    ]
-                }
-            ]
-        }
-    ],
     "VizHitTestDrawQuad": [
         {
             "platforms": [
