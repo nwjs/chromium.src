@@ -4,6 +4,8 @@
 
 #import "chrome/browser/chrome_browser_application_mac.h"
 
+#include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
+
 #include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/logging.h"
@@ -222,6 +224,11 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 // the NSApplicationWillTerminateNotification to be posted, which ends the
 // NSApplication event loop, so final post- MessageLoop::Run() work is done
 // before exiting.
+
+- (void)closeAllWindowsQuit:(id)sender {
+  AppWindowRegistryUtil::CloseAllAppWindows(true);
+}
+
 - (void)terminate:(id)sender {
   AppController* appController = static_cast<AppController*>([NSApp delegate]);
   [appController tryToTerminateApplication:self];

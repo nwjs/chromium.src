@@ -24,6 +24,7 @@
 // application, i.e., begins a process which may lead to termination. This
 // method cancels that process.
 - (void)cancelTerminate:(id)sender;
+- (void)closeAllWindowsQuit:(id)sender;
 
 // Keep track of whether windows are being cycled for use in determining whether
 // a Panel window can become the key window.
