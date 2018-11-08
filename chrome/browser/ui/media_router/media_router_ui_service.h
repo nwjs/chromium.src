@@ -48,7 +48,9 @@ class MediaRouterUIService : public KeyedService {
   void DisableService();
 
   Profile* profile_;
+#if defined(NWJS_SDK)
   std::unique_ptr<MediaRouterActionController> action_controller_;
+#endif
   std::unique_ptr<PrefChangeRegistrar> profile_pref_registrar_;
 
   base::ObserverList<Observer>::Unchecked observers_;

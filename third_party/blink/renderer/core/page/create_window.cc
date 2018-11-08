@@ -51,6 +51,8 @@
 #include "third_party/blink/renderer/platform/weborigin/security_origin.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
+#include "third_party/blink/renderer/core/frame/local_frame_client.h"
+
 namespace blink {
 
 // Though isspace() considers \t and \v to be whitespace, Win IE doesn't when
@@ -243,7 +245,7 @@ static Frame* CreateNewWindow(LocalFrame& opener_frame,
                               const FrameLoadRequest& request,
                               const WebWindowFeatures& features,
                               bool force_new_foreground_tab,
-                              bool& created) {
+                              bool& created, WebString* manifest) {
   Page* old_page = opener_frame.GetPage();
   if (!old_page)
     return nullptr;
@@ -258,8 +260,9 @@ static Frame* CreateNewWindow(LocalFrame& opener_frame,
           ? opener_frame.GetSecurityContext()->GetSandboxFlags()
           : kSandboxNone;
 
+  WebString manifest_str(*manifest);
   Page* page = old_page->GetChromeClient().CreateWindow(
-      &opener_frame, request, features, policy, sandbox_flags);
+                                                        &opener_frame, request, features, policy, sandbox_flags, &manifest_str);
   if (!page)
     return nullptr;
 
@@ -311,7 +314,7 @@ static Frame* CreateWindowHelper(LocalFrame& opener_frame,
                                  const FrameLoadRequest& request,
                                  const WebWindowFeatures& features,
                                  bool force_new_foreground_tab,
-                                 bool& created) {
+                                 bool& created, WebString* manifest) {
   DCHECK(request.GetResourceRequest().RequestorOrigin() ||
          opener_frame.GetDocument()->Url().IsEmpty());
   DCHECK_EQ(request.GetResourceRequest().GetFrameType(),
@@ -353,8 +356,7 @@ static Frame* CreateWindowHelper(LocalFrame& opener_frame,
     return window;
   }
 
-  return CreateNewWindow(opener_frame, request, features,
-                         force_new_foreground_tab, created);
+  return CreateNewWindow(opener_frame, request, features, force_new_foreground_tab, created, manifest);
 }
 
 DOMWindow* CreateWindow(const String& url_string,
@@ -421,20 +423,36 @@ DOMWindow* CreateWindow(const String& url_string,
   // createWindow(LocalFrame& openerFrame, ...).
   // This value will be set in ResourceRequest loaded in a new LocalFrame.
   bool has_user_gesture = LocalFrame::HasTransientUserActivation(&opener_frame);
+  NavigationPolicy navigationPolicy = kNavigationPolicyNewForegroundTab;
+  WebString manifest;
+  opener_frame.Client()->willHandleNavigationPolicy(frame_request.GetResourceRequest(), &navigationPolicy, &manifest);
 
   // We pass the opener frame for the lookupFrame in case the active frame is
   // different from the opener frame, and the name references a frame relative
   // to the opener frame.
-  bool created;
-  Frame* new_frame = CreateWindowHelper(
+  bool created = false;
+  Frame* new_frame = nullptr;
+  if (navigationPolicy != kNavigationPolicyIgnore &&
+      navigationPolicy != kNavigationPolicyCurrentTab) {
+    new_frame = CreateWindowHelper(
       opener_frame, *active_frame, opener_frame, frame_request, window_features,
-      false /* force_new_foreground_tab */, created);
-  if (!new_frame)
+      false /* force_new_foreground_tab */, created, &manifest);
+    if (!new_frame)
+      return nullptr;
+    if (!window_features.noopener)
+      new_frame->Client()->SetOpener(&opener_frame);
+  } else if (navigationPolicy == kNavigationPolicyIgnore)
     return nullptr;
+  else
+    new_frame = &opener_frame;
   if (new_frame->DomWindow()->IsInsecureScriptAccess(calling_window,
                                                      completed_url))
     return window_features.noopener ? nullptr : new_frame->DomWindow();
 
+  String agent = opener_frame.Loader().userAgentOverride();
+  if (!agent.IsEmpty() && new_frame->IsLocalFrame())
+    ToLocalFrame(new_frame)->Loader().setUserAgentOverride(agent);
+  
   // TODO(dcheng): Special case for window.open("about:blank") to ensure it
   // loads synchronously into a new window. This is our historical behavior, and
   // it's consistent with the creation of a new iframe with src="about:blank".
@@ -462,7 +480,8 @@ DOMWindow* CreateWindow(const String& url_string,
 }
 
 void CreateWindowForRequest(const FrameLoadRequest& request,
-                            LocalFrame& opener_frame) {
+                            LocalFrame& opener_frame,
+                            WebString& manifest) {
   DCHECK(request.GetResourceRequest().RequestorOrigin() ||
          (opener_frame.GetDocument() &&
           opener_frame.GetDocument()->Url().IsEmpty()));
@@ -480,7 +499,7 @@ void CreateWindowForRequest(const FrameLoadRequest& request,
   bool created;
   Frame* new_frame = CreateWindowHelper(
       opener_frame, opener_frame, opener_frame, request, features,
-      true /* force_new_foreground_tab */, created);
+      true /* force_new_foreground_tab */, created, &manifest);
   if (!new_frame)
     return;
   if (request.GetShouldSendReferrer() == kMaybeSendReferrer) {

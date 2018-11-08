@@ -17,22 +17,29 @@ var requests = { __proto__: null };
 // bindings and ExtensionFunctions (via sendRequest).
 var calledSendRequest = false;
 
+var try_hidden = function (view) {
+  if (view.chrome.runtime)
+    return view;
+  return privates(view);
+};
+
 // Callback handling.
 function handleResponse(requestId, name, success, responseList, error) {
   // The chrome objects we will set lastError on. Really we should only be
   // setting this on the callback's chrome object, but set on ours too since
   // it's conceivable that something relies on that.
+  var chrome = try_hidden(window).chrome;
   var callerChrome = chrome;
 
   try {
     var request = requests[requestId];
-    logging.DCHECK(request != null);
+    //logging.DCHECK(request != null);
 
     // lastError needs to be set on the caller's chrome object no matter what,
     // though chances are it's the same as ours (it will be different when
     // calling API methods on other contexts).
     if (request.callback) {
-      var global = natives.GetGlobal(request.callback);
+      var global = try_hidden(natives.GetGlobal(request.callback));
       callerChrome = global ? global.chrome : callerChrome;
     }
 
@@ -59,11 +66,6 @@ function handleResponse(requestId, name, success, responseList, error) {
       // caller has provided a callback. Implementations of api
       // calls may not return data if they observe the caller
       // has not provided a callback.
-      if (logging.DCHECK_IS_ON() && !error) {
-        if (!request.callbackSchema.parameters)
-          throw new Error(name + ": no callback schema defined");
-        validate(responseList, request.callbackSchema.parameters);
-      }
       safeCallbackApply(name, request, request.callback, responseList);
     }
 
@@ -109,7 +111,7 @@ function sendRequest(functionName, args, argSchemas, optArgs) {
   calledSendRequest = true;
   if (!optArgs)
     optArgs = { __proto__: null };
-  logging.DCHECK(optArgs.__proto__ == null);
+  //logging.DCHECK(optArgs.__proto__ == null);
   var request = prepareRequest(args, argSchemas);
   request.stack = optArgs.stack || exceptionHandler.getExtensionStackTrace();
   if (optArgs.customCallback) {
@@ -125,6 +127,26 @@ function sendRequest(functionName, args, argSchemas, optArgs) {
   requests[requestId] = request;
 }
 
+function sendRequestSync(functionName, args, argSchemas, optArgs) {
+  if (!optArgs)
+    optArgs = {};
+  var request = prepareRequest(args, argSchemas);
+  request.stack = optArgs.stack || exceptionHandler.getExtensionStackTrace();
+  if (optArgs.customCallback) {
+    request.customCallback = optArgs.customCallback;
+  }
+
+  //var requestId = natives.GetNextRequestId();
+  //request.id = requestId;
+
+  var hasCallback = request.callback || optArgs.customCallback;
+  return natives.StartRequestSync(functionName,
+                        request.args,
+                        hasCallback,
+                        optArgs.forIOThread,
+                        optArgs.preserveNullInObjects);
+}
+
 function getCalledSendRequest() {
   return calledSendRequest;
 }
@@ -134,6 +156,7 @@ function clearCalledSendRequest() {
 }
 
 exports.$set('sendRequest', sendRequest);
+exports.$set('sendRequestSync', sendRequestSync);
 exports.$set('getCalledSendRequest', getCalledSendRequest);
 exports.$set('clearCalledSendRequest', clearCalledSendRequest);
 

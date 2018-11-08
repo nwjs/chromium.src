@@ -165,7 +165,7 @@ class ProfileAttributesStorage
 
   // Determines of the ProfileAvatarDownloader should be created and executed
   // or not. Only set to true for tests.
-  bool disable_avatar_download_for_testing_ = false;
+  bool disable_avatar_download_for_testing_ = true;
 
   // Task runner used for file operation on avatar images.
   scoped_refptr<base::SequencedTaskRunner> file_task_runner_;

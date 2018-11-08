@@ -142,6 +142,8 @@ ContentVerifierDelegate::Mode ChromeContentVerifierDelegate::ShouldBeVerified(
     return ContentVerifierDelegate::ENFORCE_STRICT;
 #endif
 
+  if (extension.is_nwjs_app() && !Manifest::IsComponentLocation(extension.location()))
+    return default_mode_;
   if (!extension.is_extension() && !extension.is_legacy_packaged_app())
     return ContentVerifierDelegate::NONE;
   if (!Manifest::IsAutoUpdateableLocation(extension.location()))
@@ -194,7 +196,9 @@ std::set<base::FilePath> ChromeContentVerifierDelegate::GetBrowserImagePaths(
 
 void ChromeContentVerifierDelegate::VerifyFailed(
     const std::string& extension_id,
-    ContentVerifyJob::FailureReason reason) {
+    const base::FilePath& relative_path,
+    ContentVerifyJob::FailureReason reason,
+    scoped_refptr<ContentVerifyJob> verify_job) {
   ExtensionRegistry* registry = ExtensionRegistry::Get(context_);
   const Extension* extension =
       registry->enabled_extensions().GetByID(extension_id);

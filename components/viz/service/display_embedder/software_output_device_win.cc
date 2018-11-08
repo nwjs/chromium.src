@@ -17,6 +17,7 @@
 #include "skia/ext/skia_utils_win.h"
 #include "third_party/skia/include/core/SkCanvas.h"
 #include "ui/base/win/hidden_window.h"
+#include "ui/display/display.h"
 #include "ui/gfx/gdi_util.h"
 #include "ui/gfx/skia_util.h"
 #include "ui/gfx/win/hwnd_util.h"
@@ -214,6 +215,10 @@ void SoftwareOutputDeviceWinLayered::EndPaintDelegated(
   RECT wr;
   GetWindowRect(hwnd(), &wr);
   SIZE size = {wr.right - wr.left, wr.bottom - wr.top};
+  if (content::g_force_cpu_draw) {
+    size.cx = canvas_->getDeviceClipBounds().width();
+    size.cy = canvas_->getDeviceClipBounds().height();
+  }
   POINT position = {wr.left, wr.top};
   POINT zero = {0, 0};
   BLENDFUNCTION blend = {AC_SRC_OVER, 0x00, 0xFF, AC_SRC_ALPHA};

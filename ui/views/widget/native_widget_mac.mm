@@ -36,6 +36,10 @@
 
 using views_bridge_mac::mojom::WindowVisibilityState;
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace views {
 namespace {
 
@@ -598,7 +602,7 @@ void NativeWidgetMac::SetVisibilityAnimationTransition(
 }
 
 bool NativeWidgetMac::IsTranslucentWindowOpacitySupported() const {
-  return false;
+  return content::g_support_transparency;
 }
 
 ui::GestureRecognizer* NativeWidgetMac::GetGestureRecognizer() {

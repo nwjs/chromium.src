@@ -4,6 +4,8 @@
 
 #include "chrome/browser/permissions/permission_manager.h"
 
+#include "extensions/browser/extension_registry.h"
+
 #include <memory>
 #include <utility>
 

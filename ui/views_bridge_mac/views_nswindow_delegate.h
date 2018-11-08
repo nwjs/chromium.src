@@ -36,7 +36,6 @@ VIEWS_EXPORT
 // a backing store). |notification| is optional and can be set when redirecting
 // a notification such as NSApplicationDidHideNotification.
 - (void)onWindowOrderChanged:(NSNotification*)notification;
-
 // Notify that the system control tint changed.
 - (void)onSystemControlTintChanged:(NSNotification*)notification;
 

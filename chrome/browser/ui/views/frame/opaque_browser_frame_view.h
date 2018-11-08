@@ -179,7 +179,7 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
   void PaintRestoredFrameBorder(gfx::Canvas* canvas) const;
   void PaintMaximizedFrameBorder(gfx::Canvas* canvas) const;
   void PaintClientEdge(gfx::Canvas* canvas) const;
-
+  bool frameless_;
   // Our layout manager also calculates various bounds.
   OpaqueBrowserFrameViewLayout* layout_;
 

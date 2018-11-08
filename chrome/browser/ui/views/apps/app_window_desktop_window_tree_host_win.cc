@@ -27,6 +27,9 @@ AppWindowDesktopWindowTreeHostWin::~AppWindowDesktopWindowTreeHostWin() {
 bool AppWindowDesktopWindowTreeHostWin::GetClientAreaInsets(
     gfx::Insets* insets,
     HMONITOR monitor) const {
+#if 1
+  return false;
+#else
   // The inset added below is only necessary for the native glass frame, i.e.
   // not for colored frames drawn by Chrome, or when DWM is disabled.
   // In fullscreen the frame is not visible.
@@ -37,6 +40,7 @@ bool AppWindowDesktopWindowTreeHostWin::GetClientAreaInsets(
   *insets = app_window_->glass_frame_view()->GetClientAreaInsets(monitor);
 
   return true;
+#endif
 }
 
 void AppWindowDesktopWindowTreeHostWin::HandleFrameChanged() {
@@ -59,6 +63,9 @@ void AppWindowDesktopWindowTreeHostWin::PostHandleMSG(UINT message,
 }
 
 void AppWindowDesktopWindowTreeHostWin::UpdateDWMFrame() {
+#if 1
+  return;
+#else
   if (!GetWidget()->client_view() || !app_window_->glass_frame_view())
     return;
 
@@ -78,4 +85,5 @@ void AppWindowDesktopWindowTreeHostWin::UpdateDWMFrame() {
   }
 
   DwmExtendFrameIntoClientArea(GetHWND(), &margins);
+#endif
 }

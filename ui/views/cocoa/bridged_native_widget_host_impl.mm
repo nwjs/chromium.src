@@ -827,8 +827,13 @@ bool BridgedNativeWidgetHostImpl::GetCanWindowClose(bool* can_window_close) {
   *can_window_close = true;
   views::NonClientView* non_client_view =
       root_view_ ? root_view_->GetWidget()->non_client_view() : nullptr;
-  if (non_client_view)
+  if (non_client_view) {
+    if (!root_view_->GetWidget()->NWCanClose()) {
+      *can_window_close = false;
+      return true;
+    }
     *can_window_close = non_client_view->CanClose();
+  }
   return true;
 }
 

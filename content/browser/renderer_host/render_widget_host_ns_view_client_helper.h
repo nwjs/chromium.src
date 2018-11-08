@@ -29,6 +29,7 @@ class RenderWidgetHostNSViewClient;
 class BrowserAccessibilityManager;
 struct EditCommand;
 struct NativeWebKeyboardEvent;
+class RenderWidgetHostViewMac;
 
 // An interface through which the NSView for a RenderWidgetHostViewMac is to
 // communicate with the RenderWidgetHostViewMac (potentially in another
@@ -46,6 +47,8 @@ class RenderWidgetHostNSViewClientHelper {
 
   RenderWidgetHostNSViewClientHelper() {}
   virtual ~RenderWidgetHostNSViewClientHelper() {}
+
+  virtual RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() = 0;
 
   // Return the RenderWidget's BrowserAccessibilityManager.
   // TODO(ccameron): This returns nullptr for non-local NSViews. A scheme for

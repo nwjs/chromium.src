@@ -44,6 +44,7 @@
 
 namespace base {
 class SingleThreadTaskRunner;
+class FilePath;
 }
 
 namespace network {
@@ -67,6 +68,7 @@ class BLINK_EXPORT WebSharedWorker {
   static std::unique_ptr<WebSharedWorker> Create(WebSharedWorkerClient*);
 
   virtual void StartWorkerContext(
+                                  bool nodejs, const base::FilePath& root_path,
       const WebURL& script_url,
       const WebString& name,
       const WebString& content_security_policy,

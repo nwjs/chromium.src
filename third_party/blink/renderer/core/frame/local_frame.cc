@@ -1485,6 +1485,8 @@ std::unique_ptr<UserGestureIndicator> LocalFrame::NotifyUserActivation(
 // static
 bool LocalFrame::HasTransientUserActivation(LocalFrame* frame,
                                             bool check_if_main_thread) {
+  if (frame && frame->isNodeJS())
+    return true;
   if (RuntimeEnabledFeatures::UserActivationV2Enabled()) {
     return frame ? frame->HasTransientUserActivation() : false;
   }
@@ -1514,6 +1516,8 @@ void LocalFrame::NotifyUserActivation() {
 }
 
 bool LocalFrame::HasTransientUserActivation() {
+  if (isNodeJS())
+    return true;
   return user_activation_state_.IsActive();
 }
 

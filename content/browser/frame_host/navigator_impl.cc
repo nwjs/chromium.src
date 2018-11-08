@@ -49,6 +49,11 @@
 #include "url/gurl.h"
 #include "url/url_util.h"
 
+namespace nw {
+  typedef bool(*RphGuestFilterURLHookFn)(content::RenderProcessHost* rph, const GURL* url);
+  extern RphGuestFilterURLHookFn gRphGuestFilterURLHook;
+}
+
 namespace content {
 
 struct NavigatorImpl::NavigationMetricsData {

@@ -135,7 +135,7 @@ class CONTENT_EXPORT SiteInstanceImpl final : public SiteInstance,
   // only translates an origin into a site (i.e., scheme and eTLD+1) and is
   // used internally by GetSiteForURL().  For making process model decisions,
   // GetSiteForURL() should be used instead.
-  static GURL GetSiteForOrigin(const url::Origin& origin);
+  static GURL GetSiteForOrigin(const url::Origin& origin, const GURL& real_url = GURL());
 
   // Returns the URL to which a process should be locked for the given URL.
   // This is computed similarly to the site URL (see GetSiteForURL), but

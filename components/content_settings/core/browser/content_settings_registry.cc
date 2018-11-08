@@ -150,7 +150,7 @@ void ContentSettingsRegistry::Init() {
            ContentSettingsInfo::PERSISTENT);
 
   Register(CONTENT_SETTINGS_TYPE_PLUGINS, "plugins",
-           CONTENT_SETTING_DETECT_IMPORTANT_CONTENT,
+           CONTENT_SETTING_ALLOW,
            WebsiteSettingsInfo::SYNCABLE,
            WhitelistedSchemes(kChromeUIScheme, kChromeDevToolsScheme),
            ValidSettings(CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK,
@@ -183,7 +183,7 @@ void ContentSettingsRegistry::Init() {
            ContentSettingsInfo::PERSISTENT);
 
   Register(CONTENT_SETTINGS_TYPE_NOTIFICATIONS, "notifications",
-           CONTENT_SETTING_ASK, WebsiteSettingsInfo::UNSYNCABLE,
+           CONTENT_SETTING_ALLOW, WebsiteSettingsInfo::UNSYNCABLE,
            WhitelistedSchemes(),
            ValidSettings(CONTENT_SETTING_ALLOW, CONTENT_SETTING_BLOCK,
                          CONTENT_SETTING_ASK),

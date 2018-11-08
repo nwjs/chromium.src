@@ -10,6 +10,7 @@
 namespace blink {
 
 GlobalScopeCreationParams::GlobalScopeCreationParams(
+    bool isNodeJS, const std::string& main_script,
     const KURL& script_url,
     // TODO(asamidoi): Replace ScriptType to mojom::ScriptType
     ScriptType script_type,
@@ -33,6 +34,7 @@ GlobalScopeCreationParams::GlobalScopeCreationParams(
     base::UnguessableToken agent_cluster_id)
     : script_url(script_url.Copy()),
       script_type(script_type),
+      nodejs_(isNodeJS), main_script_(main_script),
       user_agent(user_agent.IsolatedCopy()),
       referrer_policy(referrer_policy),
       starter_origin(starter_origin ? starter_origin->IsolatedCopy() : nullptr),

@@ -42,6 +42,8 @@ class ModulatorImplBase : public Modulator {
 
   bool IsScriptingDisabled() const override;
 
+  void AddToMap(const KURL& url, ModuleScript* script) override;
+
   ScriptModuleResolver* GetScriptModuleResolver() override {
     return script_module_resolver_.Get();
   }

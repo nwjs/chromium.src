@@ -38,6 +38,11 @@
 using views_bridge_mac::mojom::VisibilityTransition;
 using views_bridge_mac::mojom::WindowVisibilityState;
 
+namespace content {
+  extern bool g_force_cpu_draw;
+  //static const char kForceCPUDrawLayer = '\0';
+}
+
 namespace {
 constexpr auto kUIPaintTimeout = base::TimeDelta::FromSeconds(5);
 }  // namespace
@@ -406,8 +411,8 @@ void BridgedNativeWidgetImpl::SetBounds(const gfx::Rect& new_bounds,
 
   // A contentRect with zero width or height is a banned practice in ChromeMac,
   // due to unpredictable OSX treatment.
-  DCHECK(!clamped_content_size.IsEmpty())
-      << "Zero-sized windows not supported on Mac";
+  //DCHECK(!clamped_content_size.IsEmpty())
+  //    << "Zero-sized windows not supported on Mac";
 
   if (!window_visible_ && IsWindowModalSheet()) {
     // Window-Modal dialogs (i.e. sheets) are positioned by Cocoa when shown for
@@ -435,7 +440,7 @@ void BridgedNativeWidgetImpl::SetSizeAndCenter(
     const gfx::Size& content_size,
     const gfx::Size& minimum_content_size) {
   gfx::Rect new_window_bounds = gfx::ScreenRectFromNSRect([window_ frame]);
-  new_window_bounds.set_size(GetWindowSizeForClientSize(window_, content_size));
+  new_window_bounds.set_size(content_size); //GetWindowSizeForClientSize(window_, content_size));
   SetBounds(new_window_bounds, minimum_content_size);
 
   // Note that this is not the precise center of screen, but it is the standard
@@ -472,7 +477,7 @@ void BridgedNativeWidgetImpl::CreateContentView(uint64_t ns_view_id,
   display_ca_layer_tree_ =
       std::make_unique<ui::DisplayCALayerTree>(background_layer.get());
   [bridged_view_ setLayer:background_layer];
-  [bridged_view_ setWantsLayer:YES];
+  [bridged_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   [window_ setContentView:bridged_view_];
 }
@@ -1068,6 +1073,11 @@ void BridgedNativeWidgetImpl::SetCALayerParams(
   // Update the DisplayCALayerTree with the most recent CALayerParams, to make
   // the content display on-screen.
   display_ca_layer_tree_->UpdateCALayerTree(ca_layer_params);
+
+  if (content::g_force_cpu_draw) {
+    // this is to tell the NSView that the CALayer content has been updated
+    //[compositor_superview_ setNeedsDisplay:YES];
+  }
 
   if (ca_transaction_sync_suppressed_)
     ca_transaction_sync_suppressed_ = false;

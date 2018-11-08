@@ -124,6 +124,20 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   // Get the current mode mask from |enabled_modes_|.
   int GetModeMask() const;
 
+#if 0
+  // Invokes function(run_loop_, arg, mode) for all the modes in |mode_mask_|.
+  template <typename Argument>
+  void InvokeForEnabledModes(void method(CFRunLoopRef, Argument, CFStringRef),
+                             Argument argument) {
+    for (size_t i = 0; i < nAllModes; ++i) {
+      if (mode_mask_ & (0x1 << i))
+        method(run_loop_, argument, kAllModes[i]);
+    }
+  }
+
+  static const CFStringRef kAllModes[];
+  static const size_t nAllModes;
+#endif
  private:
   class ScopedModeEnabler;
 
@@ -155,7 +169,8 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   // the instance method; the instance method returns true if it resignalled
   // work_source_ to be called again from the loop.
   static void RunWorkSource(void* info);
-  bool RunWork();
+ protected:
+  virtual bool RunWork();
 
   // Perform idle-priority work.  This is normally called by PreWaitObserver,
   // but is also associated with idle_work_source_.  When this function
@@ -163,7 +178,8 @@ class BASE_EXPORT MessagePumpCFRunLoopBase : public MessagePump {
   // static method calls the instance method; the instance method returns
   // true if idle work was done.
   static void RunIdleWorkSource(void* info);
-  bool RunIdleWork();
+  virtual bool RunIdleWork();
+  virtual void PreWaitObserverHook();
 
   // Perform work that may have been deferred because it was not runnable
   // within a nested run loop.  This is associated with

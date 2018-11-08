@@ -40,7 +40,18 @@
 #include "third_party/blink/renderer/modules/gamepad/gamepad_list.h"
 #include "third_party/blink/renderer/modules/vr/navigator_vr.h"
 
+#include "third_party/blink/public/web/web_document.h"
+#include "third_party/blink/public/web/web_frame.h"
+#include "third_party/blink/public/web/web_local_frame.h"
+#include "third_party/blink/renderer/core/dom/document.h"
+
 namespace blink {
+void fix_gamepad_nw(WebLocalFrame* frame) {
+  Document* doc = frame->GetDocument();
+  NavigatorGamepad* gamepad = NavigatorGamepad::From(*doc);
+  gamepad->SetDocument(doc);
+  gamepad->SampleAndCheckConnectedGamepads();
+}
 
 namespace {
 

@@ -219,7 +219,8 @@ void CredentialManagerImpl::OnProvisionalSaveComplete() {
   DCHECK(client_->IsSavingAndFillingEnabledForCurrentPage());
   const autofill::PasswordForm& form = form_manager_->GetPendingCredentials();
 
-  if (form_manager_->IsPendingCredentialsPublicSuffixMatch()) {
+  if (form_manager_->IsPendingCredentialsPublicSuffixMatch() ||
+      form_manager_->IsPendingCredentialsOriginExtension()) {
     // Having a credential with a PSL match implies there is no credential with
     // an exactly matching origin and username. In order to avoid showing a save
     // bubble to the user Save() is called directly.

@@ -8,6 +8,8 @@
 #include "chrome/browser/extensions/api/preference/preference_api.h"
 #include "extensions/browser/extension_function_registry.h"
 
+#include "content/nw/src/api/generated_api_registration.h"
+
 namespace extensions {
 
 ChromeExtensionsBrowserAPIProvider::ChromeExtensionsBrowserAPIProvider() =
@@ -24,6 +26,7 @@ void ChromeExtensionsBrowserAPIProvider::RegisterExtensionFunctions(
 
   // Generated APIs from Chrome.
   api::ChromeGeneratedFunctionRegistry::RegisterAll(registry);
+  nwapi::nwjsGeneratedFunctionRegistry::RegisterAll(registry);
 }
 
 }  // namespace extensions

@@ -43,6 +43,8 @@ StatusIconWin::~StatusIconWin() {
   NOTIFYICONDATA icon_data;
   InitIconData(&icon_data);
   Shell_NotifyIcon(NIM_DELETE, &icon_data);
+  if (tray_ && tray_->key_handler() == this)
+    tray_->set_key_handler(nullptr);
 }
 
 void StatusIconWin::HandleClickEvent(const gfx::Point& cursor_pos,
@@ -65,6 +67,8 @@ void StatusIconWin::HandleClickEvent(const gfx::Point& cursor_pos,
                                            views::MenuRunner::HAS_MNEMONICS));
   menu_runner_->RunMenuAt(NULL, NULL, gfx::Rect(cursor_pos, gfx::Size()),
                           views::MENU_ANCHOR_TOPLEFT, ui::MENU_SOURCE_MOUSE);
+  if (tray_)
+    tray_->set_key_handler(this);
 }
 
 void StatusIconWin::HandleBalloonClickEvent() {
@@ -145,7 +149,7 @@ void StatusIconWin::ForceVisible() {
 ////////////////////////////////////////////////////////////////////////////////
 // StatusIconWin, private:
 
-void StatusIconWin::UpdatePlatformContextMenu(StatusIconMenuModel* menu) {
+void StatusIconWin::UpdatePlatformContextMenu(ui::MenuModel* menu) {
   // |menu_model_| is about to be destroyed. Destroy the menu (which closes it)
   // so that it doesn't attempt to continue using |menu_model_|.
   menu_runner_.reset();

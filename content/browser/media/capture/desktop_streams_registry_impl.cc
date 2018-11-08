@@ -81,7 +81,7 @@ DesktopMediaID DesktopStreamsRegistryImpl::RequestMediaForStreamId(
     int render_frame_id,
     const GURL& origin,
     std::string* extension_name,
-    const DesktopStreamRegistryType type) {
+    const DesktopStreamRegistryType type, bool nodejs) {
   DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
   auto it = approved_streams_.find(id);
@@ -91,7 +91,7 @@ DesktopMediaID DesktopStreamsRegistryImpl::RequestMediaForStreamId(
   if (it == approved_streams_.end() ||
       render_process_id != it->second.render_process_id ||
       render_frame_id != it->second.render_frame_id ||
-      origin != it->second.origin || type != it->second.type) {
+      (!nodejs && origin != it->second.origin) || type != it->second.type) {
     return DesktopMediaID();
   }
 

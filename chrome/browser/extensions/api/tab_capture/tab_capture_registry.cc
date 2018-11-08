@@ -22,6 +22,10 @@
 #include "extensions/browser/extension_registry.h"
 #include "extensions/common/extension.h"
 
+#include "chrome/browser/profiles/profile_manager.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+#include "extensions/browser/app_window/app_window.h"
+
 using content::BrowserThread;
 using extensions::tab_capture::TabCaptureState;
 

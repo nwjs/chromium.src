@@ -417,7 +417,7 @@ jumbo_component("headless") {
     deps += [ "//components/printing/browser" ]
   }
 
-  if (is_component_build) {
+  if (is_win || ((is_linux || is_mac) && is_component_build)) {
     sources += [
       "lib/browser/headless_content_browser_client.cc",
       "lib/browser/headless_content_browser_client.h",
@@ -452,7 +452,7 @@ jumbo_component("headless") {
     if (!is_fuchsia) {
       deps += [ "//components/crash/content/browser" ]
     }
-    if (is_win) {
+    if (is_win && is_component_build) {
       deps += [ "//components/crash/content/app:crash_export_thunks" ]
     }
 
@@ -879,6 +879,13 @@ jumbo_static_library("headless_shell_lib") {
 
   if (!is_fuchsia) {
     deps += [ "//components/crash/content/browser" ]
+  }
+
+  if ((is_linux || is_mac) && is_component_build) {
+    sources += [
+      "app/headless_shell_switches.cc",
+      "app/headless_shell_switches.h",
+    ]
   }
 
   if (enable_basic_printing) {

@@ -30,7 +30,7 @@ namespace {
 #if !defined(OS_ANDROID)
 // Keep in sync with kDefaultMessageWidth, but allow some space for the rest of
 // the text.
-const int kUrlElideWidth = 350;
+//const int kUrlElideWidth = 350;
 #endif
 
 class DefaultExtensionsClient : public JavaScriptDialogExtensionsClient {
@@ -83,6 +83,8 @@ JavaScriptDialogManager::~JavaScriptDialogManager() {
 base::string16 JavaScriptDialogManager::GetTitle(
     content::WebContents* web_contents,
     const GURL& alerting_frame_url) {
+  return base::string16();
+#if 0
   // For extensions, show the extension name, but only if the origin of
   // the alert matches the top-level WebContents.
   std::string name;
@@ -147,6 +149,7 @@ base::string16 JavaScriptDialogManager::GetTitleImpl(
       is_same_origin_as_main_frame
           ? IDS_JAVASCRIPT_MESSAGEBOX_TITLE_NONSTANDARD_URL
           : IDS_JAVASCRIPT_MESSAGEBOX_TITLE_NONSTANDARD_URL_IFRAME);
+#endif
 }
 
 void JavaScriptDialogManager::RunJavaScriptDialog(
@@ -209,7 +212,7 @@ void JavaScriptDialogManager::RunJavaScriptDialog(
   AppModalDialogQueue::GetInstance()->AddDialog(new JavaScriptAppModalDialog(
       web_contents, &javascript_dialog_extra_data_, dialog_title, dialog_type,
       message_text, default_prompt_text,
-      ShouldDisplaySuppressCheckbox(extra_data),
+      false, //ShouldDisplaySuppressCheckbox(extra_data),
       false,  // is_before_unload_dialog
       false,  // is_reload
       base::BindOnce(&JavaScriptDialogManager::OnDialogClosed,

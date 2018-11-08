@@ -545,6 +545,7 @@ void RenderViewImpl::Initialize(
         GetWidget()->GetWebScreenInfo(), GetWidget()->compositor_deps(),
         opener_frame, params->devtools_main_frame_token,
         params->replicated_frame_state, params->has_committed_real_load);
+    main_render_frame_->SetSkipBlockingParser(params->skip_blocking_parser);
 
     main_render_frame_->Initialize();
   } else {
@@ -1343,7 +1344,8 @@ WebView* RenderViewImpl::CreateView(WebLocalFrame* creator,
                                     const WebString& frame_name,
                                     WebNavigationPolicy policy,
                                     bool suppress_opener,
-                                    WebSandboxFlags sandbox_flags) {
+                                    WebSandboxFlags sandbox_flags,
+                                    WebString* manifest) {
   RenderFrameImpl* creator_frame = RenderFrameImpl::FromWebFrame(creator);
   mojom::CreateNewWindowParamsPtr params = mojom::CreateNewWindowParams::New();
 
@@ -1378,6 +1380,7 @@ WebView* RenderViewImpl::CreateView(WebLocalFrame* creator,
     params->referrer = GetReferrerFromRequest(creator, request);
   }
   params->features = ConvertWebWindowFeaturesToMojoWindowFeatures(features);
+  params->nw_window_manifest = manifest->Utf16();
 
   // We preserve this information before sending the message since |params| is
   // moved on send.
@@ -1697,6 +1700,21 @@ void RenderViewImpl::DidUpdateMainFrameLayout() {
   needs_preferred_size_update_ = true;
 }
 
+void RenderViewImpl::NavigateBackForwardSoon2(int offset, bool has_user_gesture, WebLocalFrame* initiator) {
+  RenderFrameImpl* frame = RenderFrameImpl::FromWebFrame(initiator);
+  int id = -1;
+  if (frame)
+    id = frame->GetRoutingID();
+  history_navigation_virtual_time_pauser_ =
+      RenderThreadImpl::current()
+    ->GetWebMainThreadScheduler()
+          ->CreateWebScopedVirtualTimePauser(
+              "NavigateBackForwardSoon",
+              blink::WebScopedVirtualTimePauser::VirtualTaskDuration::kInstant);
+  history_navigation_virtual_time_pauser_.PauseVirtualTime();
+  Send(new ViewHostMsg_GoToEntryAtOffset(GetRoutingID(), offset, has_user_gesture, id));
+}
+
 void RenderViewImpl::NavigateBackForwardSoon(int offset,
                                              bool has_user_gesture) {
   history_navigation_virtual_time_pauser_ =
@@ -1707,7 +1725,7 @@ void RenderViewImpl::NavigateBackForwardSoon(int offset,
               blink::WebScopedVirtualTimePauser::VirtualTaskDuration::kInstant);
   history_navigation_virtual_time_pauser_.PauseVirtualTime();
   Send(new ViewHostMsg_GoToEntryAtOffset(GetRoutingID(), offset,
-                                         has_user_gesture));
+                                         has_user_gesture, -1));
 }
 
 void RenderViewImpl::DidCommitProvisionalHistoryLoad() {

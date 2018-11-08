@@ -290,6 +290,8 @@ class ScriptContext : public RequestSender::Source {
   int64_t service_worker_version_id_;
 
   base::ThreadChecker thread_checker_;
+ public:
+  base::WeakPtrFactory<ScriptContext> weak_factory_;
 
   DISALLOW_COPY_AND_ASSIGN(ScriptContext);
 };

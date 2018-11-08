@@ -6,6 +6,8 @@
 
 #include "base/environment.h"
 #include "base/nix/xdg_util.h"
+#include "content/nw/src/nw_content.h"
+
 #include "chrome/browser/ui/views/native_widget_factory.h"
 #include "chrome/common/channel_info.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
@@ -50,6 +52,9 @@ views::NativeWidget* ChromeViewsDelegate::CreateNativeWidget(
 }
 
 gfx::ImageSkia* ChromeViewsDelegate::GetDefaultWindowIcon() const {
+  gfx::ImageSkia* ret = nw::GetAppIcon();
+  if (ret)
+    return ret;
   ui::ResourceBundle& rb = ui::ResourceBundle::GetSharedInstance();
   return rb.GetImageSkiaNamed(GetWindowIconResourceId());
 }

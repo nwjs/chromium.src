@@ -347,6 +347,37 @@ class WebViewInternalLoadDataWithBaseUrlFunction
   DISALLOW_COPY_AND_ASSIGN(WebViewInternalLoadDataWithBaseUrlFunction);
 };
 
+class WebViewInternalShowDevToolsFunction
+    : public WebViewInternalExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.showDevTools", UNKNOWN);
+
+  WebViewInternalShowDevToolsFunction();
+
+ protected:
+  ~WebViewInternalShowDevToolsFunction() override;
+
+  ResponseAction Run() override;
+ private:
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalShowDevToolsFunction);
+};
+
+class WebViewInternalInspectElementAtFunction
+    : public WebViewInternalExtensionFunction {
+ public:
+  DECLARE_EXTENSION_FUNCTION("webViewInternal.inspectElementAt", UNKNOWN);
+
+  WebViewInternalInspectElementAtFunction();
+
+ protected:
+  ~WebViewInternalInspectElementAtFunction() override;
+  ResponseAction Run() override;
+ private:
+
+  DISALLOW_COPY_AND_ASSIGN(WebViewInternalInspectElementAtFunction);
+};
+
 class WebViewInternalGoFunction : public WebViewInternalExtensionFunction {
  public:
   DECLARE_EXTENSION_FUNCTION("webViewInternal.go", WEBVIEWINTERNAL_GO);

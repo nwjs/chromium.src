@@ -44,6 +44,10 @@ bool ModulatorImplBase::IsScriptingDisabled() const {
   return !GetExecutionContext()->CanExecuteScripts(kAboutToExecuteScript);
 }
 
+void ModulatorImplBase::AddToMap(const KURL& url, ModuleScript* script) {
+  map_->AddToMap(url, script);
+}
+
 // [fetch-a-module-script-tree]
 // https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-module-script-tree
 // [fetch-a-module-worker-script-tree]

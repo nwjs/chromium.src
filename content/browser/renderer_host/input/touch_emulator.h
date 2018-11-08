@@ -7,6 +7,8 @@
 
 #include <memory>
 
+#include "base/memory/weak_ptr.h"
+
 #include "base/callback.h"
 #include "base/containers/queue.h"
 #include "base/macros.h"
@@ -27,6 +29,8 @@ class WebMouseWheelEvent;
 namespace content {
 
 class RenderWidgetHostViewBase;
+class RenderFrameHost;
+class RenderFrameHostImpl;
 
 // Emulates touch input. See TouchEmulator::Mode for more details.
 class CONTENT_EXPORT TouchEmulator : public ui::GestureProviderClient {
@@ -46,6 +50,8 @@ class CONTENT_EXPORT TouchEmulator : public ui::GestureProviderClient {
   void Enable(Mode mode, ui::GestureProviderConfigType config_type);
   void Disable();
 
+  void set_rfh_limit(base::WeakPtr<RenderFrameHostImpl> rfh) { rfh_limit_ = rfh; }
+  RenderFrameHost* rfh_limit() const { return (RenderFrameHost*)rfh_limit_.get(); }
   // Call when device scale factor changes.
   void SetDeviceScaleFactor(float device_scale_factor);
 
@@ -124,6 +130,7 @@ class CONTENT_EXPORT TouchEmulator : public ui::GestureProviderClient {
 
   TouchEmulatorClient* const client_;
 
+  base::WeakPtr<RenderFrameHostImpl> rfh_limit_;
   // Emulator is enabled iff gesture provider is created.
   // Disabled emulator does only process touch acks left from previous
   // emulation. It does not intercept any events.

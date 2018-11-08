@@ -6,6 +6,8 @@
 
 #include <utility>
 
+#include "extensions/browser/app_window/app_window_registry.h"
+#include "extensions/browser/app_window/app_window.h"
 #include "chrome/browser/ui/browser_finder.h"
 #include "chrome/browser/ui/chrome_bubble_manager.h"
 #include "chrome/browser/ui/permission_bubble/chooser_bubble_delegate.h"
@@ -35,6 +37,13 @@ void WebUsbChooserDesktop::ShowChooser(
   Browser* browser = chrome::FindBrowserWithWebContents(web_contents);
   if (browser)
     bubble_ = browser->GetBubbleManager()->ShowBubble(std::move(delegate));
+  else {
+    extensions::AppWindow* app_window = extensions::AppWindowRegistry::Get(web_contents->GetBrowserContext())
+      ->GetAppWindowForWebContents(web_contents);
+    if (!app_window)
+      return;
+    app_window->GetBubbleManager()->ShowBubble(std::move(delegate));
+  }
 }
 
 base::WeakPtr<WebUsbChooser> WebUsbChooserDesktop::GetWeakPtr() {
