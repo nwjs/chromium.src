@@ -40,7 +40,6 @@ using views_bridge_mac::mojom::WindowVisibilityState;
 
 namespace content {
   extern bool g_force_cpu_draw;
-  //static const char kForceCPUDrawLayer = '\0';
 }
 
 namespace {
@@ -477,8 +476,15 @@ void BridgedNativeWidgetImpl::CreateContentView(uint64_t ns_view_id,
   display_ca_layer_tree_ =
       std::make_unique<ui::DisplayCALayerTree>(background_layer.get());
   [bridged_view_ setLayer:background_layer];
-  [bridged_view_ setWantsLayer:!content::g_force_cpu_draw];
-
+  [bridged_view_ setWantsLayer:YES];
+  if (content::g_force_cpu_draw) {
+    [bridged_view_ setLayer:nil];
+    [bridged_view_ setWantsLayer:NO];
+    //DisplayCALayerTree flipped_layer_
+    CALayer* flipped_layer = background_layer.get().sublayers[0];
+    [bridged_view_ setForceCPUDrawLayer:flipped_layer];
+    [flipped_layer setGeometryFlipped:NO];
+  }
   [window_ setContentView:bridged_view_];
 }
 
@@ -1076,7 +1082,7 @@ void BridgedNativeWidgetImpl::SetCALayerParams(
 
   if (content::g_force_cpu_draw) {
     // this is to tell the NSView that the CALayer content has been updated
-    //[compositor_superview_ setNeedsDisplay:YES];
+    [bridged_view_ setNeedsDisplay:YES];
   }
 
   if (ca_transaction_sync_suppressed_)
