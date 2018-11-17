@@ -16,11 +16,15 @@
 #include "ui/base/resource/data_pack.h"
 
 #if !defined(CHROME_MULTIPLE_DLL_CHILD)
-#include "chrome/browser/chrome_feature_list_creator.h"
+#include "chrome/browser/metrics/chrome_feature_list_creator.h"
 #endif
 
 namespace base {
 class CommandLine;
+}
+
+namespace tracing {
+class TracingSamplerProfiler;
 }
 
 class ChromeContentBrowserClient;
@@ -63,6 +67,7 @@ class ChromeMainDelegate : public content::ContentMainDelegate {
   void PreCreateMainMessageLoop() override;
 #if !defined(CHROME_MULTIPLE_DLL_CHILD)
   void PostEarlyInitialization() override;
+  bool ShouldCreateFeatureList() override;
 #endif
 
   content::ContentBrowserClient* CreateContentBrowserClient() override;
@@ -88,6 +93,8 @@ class ChromeMainDelegate : public content::ContentMainDelegate {
 #if !defined(CHROME_MULTIPLE_DLL_CHILD)
   std::unique_ptr<ChromeFeatureListCreator> chrome_feature_list_creator_;
 #endif
+
+  std::unique_ptr<tracing::TracingSamplerProfiler> tracing_sampler_profiler_;
 
   DISALLOW_COPY_AND_ASSIGN(ChromeMainDelegate);
 };

@@ -17,6 +17,7 @@
 #include "base/callback_forward.h"
 #include "base/files/file_path.h"
 #include "base/memory/ref_counted.h"
+#include "base/optional.h"
 #include "base/strings/string16.h"
 #include "base/task/task_scheduler/task_scheduler.h"
 #include "build/build_config.h"
@@ -100,7 +101,7 @@ class CONTENT_EXPORT ContentRendererClient {
 
   // Returns true if the embedder renders the contents of the |plugin_element|
   // in a cross-process frame using MimeHandlerView.
-  virtual bool IsPluginHandledByMimeHandlerView(
+  virtual bool MaybeCreateMimeHandlerView(
       RenderFrame* embedder_frame,
       const blink::WebElement& plugin_element,
       const GURL& original_url,
@@ -231,10 +232,6 @@ class CONTENT_EXPORT ContentRendererClient {
                                 blink::WebNavigationType type,
                                 blink::WebNavigationPolicy default_policy,
                                 bool is_redirect);
-
-  // Indicates if the Android MediaPlayer should be used instead of Chrome's
-  // built in media player for the given |url|. Defaults to false.
-  virtual bool ShouldUseMediaPlayerForURL(const GURL& url);
 #endif
 
   // Returns true if we should fork a new process for the given navigation.
@@ -281,9 +278,6 @@ class CONTENT_EXPORT ContentRendererClient {
   // worthwhile precaution when the plugin provides an active scripting
   // language.
   virtual bool IsOriginIsolatedPepperPlugin(const base::FilePath& plugin_path);
-
-  // Returns true if the page at |url| can use Pepper MediaStream APIs.
-  virtual bool AllowPepperMediaStreamAPI(const GURL& url);
 
   // Allows an embedder to provide a MediaStreamRendererFactory.
   virtual std::unique_ptr<MediaStreamRendererFactory>
@@ -369,6 +363,13 @@ class CONTENT_EXPORT ContentRendererClient {
       const GURL& service_worker_scope,
       const GURL& script_url) {}
 
+  // Notifies that a service worker context has finished executing its top-level
+  // JavaScript. This function is called from the worker thread.
+  virtual void DidStartServiceWorkerContextOnWorkerThread(
+      int64_t service_worker_version_id,
+      const GURL& service_worker_scope,
+      const GURL& script_url) {}
+
   // Notifies that a service worker context will be destroyed. This function
   // is called from the worker thread.
   virtual void WillDestroyServiceWorkerContextOnWorkerThread(
@@ -387,6 +388,14 @@ class CONTENT_EXPORT ContentRendererClient {
   // Whether this renderer should enforce preferences related to the WebRTC
   // routing logic, i.e. allowing multiple routes and non-proxied UDP.
   virtual bool ShouldEnforceWebRTCRoutingPreferences();
+
+  // Provides a default configuration of WebRTC audio processing, in JSON format
+  // with fields corresponding to webrtc::AudioProcessing::Config. Allows for a
+  // more functional tuning on platforms with known implementation and hardware
+  // limitations.
+  // This is currently not supported when running the Chrome audio service.
+  virtual base::Optional<std::string>
+  WebRTCPlatformSpecificAudioProcessingConfiguration();
 
   // Notifies that a worker context has been created. This function is called
   // from the worker thread.

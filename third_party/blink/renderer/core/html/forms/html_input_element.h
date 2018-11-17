@@ -59,6 +59,9 @@ class CORE_EXPORT HTMLInputElement
   ~HTMLInputElement() override;
   void Trace(blink::Visitor*) override;
 
+  // Returns attributes that should be checked against Trusted Types
+  const HashSet<AtomicString>& GetCheckedAttributeNames() const override;
+
   bool HasPendingActivity() const final;
 
   DEFINE_ATTRIBUTE_EVENT_LISTENER(webkitspeechchange);
@@ -269,7 +272,7 @@ class CORE_EXPORT HTMLInputElement
   void setNwworkingdir(const AtomicString& value);
   String nwsaveas() const;
   void setNwsaveas(const String& value);
-  static Vector<FileChooserFileInfo> FilesFromFileInputFormControlState(
+  static FileChooserFileInfoList FilesFromFileInputFormControlState(
       const FormControlState&);
 
   bool MatchesReadOnlyPseudoClass() const final;

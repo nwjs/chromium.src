@@ -29,6 +29,7 @@
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/dom/events/event.h"
 #include "third_party/blink/renderer/core/dom/shadow_root.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
 #include "third_party/blink/renderer/core/html/forms/html_input_element.h"
 #include "third_party/blink/renderer/core/html/html_div_element.h"
 #include "third_party/blink/renderer/core/page/chrome_client.h"
@@ -62,7 +63,7 @@ void ChooserOnlyTemporalInputTypeView::Trace(blink::Visitor* visitor) {
 void ChooserOnlyTemporalInputTypeView::HandleDOMActivateEvent(Event& event) {
   Document& document = GetElement().GetDocument();
   if (GetElement().IsDisabledOrReadOnly() || !GetElement().GetLayoutObject() ||
-      (!Frame::HasTransientUserActivation(document.GetFrame()) && !document.GetFrame()->isNodeJS()) ||
+      (!LocalFrame::HasTransientUserActivation(document.GetFrame()) && !document.GetFrame()->isNodeJS()) ||
       GetElement().OpenShadowRoot())
     return;
 

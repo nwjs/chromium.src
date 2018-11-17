@@ -52,6 +52,7 @@
 #include "components/nacl/common/buildflags.h"
 #include "components/services/heap_profiling/public/cpp/allocator_shim.h"
 #include "components/services/heap_profiling/public/cpp/stream.h"
+#include "components/tracing/common/tracing_sampler_profiler.h"
 #include "components/version_info/version_info.h"
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_paths.h"
@@ -75,7 +76,7 @@
 #include "base/debug/close_handle_hook_win.h"
 #include "base/win/atl.h"
 #include "chrome/browser/downgrade/user_data_downgrade.h"
-#include "chrome/child/v8_breakpad_support_win.h"
+#include "chrome/child/v8_crashpad_support_win.h"
 #include "chrome/common/child_process_logging.h"
 #include "chrome_elf/chrome_elf_main.h"
 #include "sandbox/win/src/sandbox.h"
@@ -534,6 +535,12 @@ ChromeMainDelegate::~ChromeMainDelegate() {
 void ChromeMainDelegate::PostEarlyInitialization() {
   DCHECK(chrome_feature_list_creator_);
   chrome_feature_list_creator_->CreateFeatureList();
+  tracing_sampler_profiler_->OnMessageLoopStarted();
+}
+
+bool ChromeMainDelegate::ShouldCreateFeatureList() {
+  // Chrome creates the FeatureList, so content should not.
+  return false;
 }
 #endif
 
@@ -560,7 +567,6 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   const bool is_browser = !command_line.HasSwitch(switches::kProcessType);
   ObjcEvilDoers::ZombieEnable(true, is_browser ? 10000 : 1000);
 
-  SetUpBundleOverrides();
   chrome::common::mac::EnableCFBundleBlocker();
 #endif
 
@@ -599,8 +605,12 @@ bool ChromeMainDelegate::BasicStartupComplete(int* exit_code) {
   base::trace_event::TraceLog::GetInstance()->SetArgumentFilterPredicate(
       base::Bind(&IsTraceEventArgsWhitelisted));
 
+  // Setup tracing sampler profiler as early as possible at startup if needed.
+  tracing_sampler_profiler_ = std::make_unique<tracing::TracingSamplerProfiler>(
+      base::PlatformThread::CurrentId());
+
 #if defined(OS_WIN) && !defined(CHROME_MULTIPLE_DLL_BROWSER)
-  v8_breakpad_support::SetUp();
+  v8_crashpad_support::SetUp();
 #endif
 #if defined(OS_LINUX)
   breakpad::SetFirstChanceExceptionHandler(v8::V8::TryHandleSignal);
@@ -805,7 +815,7 @@ void ChromeMainDelegate::InitMacCrashReporter(
     CHECK(command_line.HasSwitch(switches::kProcessType) &&
           !process_type.empty())
         << "Helper application requires --type.";
-  } else {
+  } else if (base::mac::AmIBundled()) {
     CHECK(!command_line.HasSwitch(switches::kProcessType) &&
           process_type.empty())
         << "Main application forbids --type, saw " << process_type;
@@ -1209,10 +1219,6 @@ ui::DataPack* ChromeMainDelegate::LoadServiceManifestDataPack() {
       command_line.GetSwitchValueASCII(switches::kProcessType);
   DCHECK(process_type.empty());
 
-#if defined(OS_MACOSX)
-  SetUpBundleOverrides();
-#endif
-
   base::FilePath resources_pack_path;
   base::PathService::Get(chrome::FILE_RESOURCES_PACK, &resources_pack_path);
 
@@ -1264,5 +1270,15 @@ void ChromeMainDelegate::PreCreateMainMessageLoop() {
 
   // Initialize NSApplication using the custom subclass.
   chrome_browser_application_mac::RegisterBrowserCrApp();
+
+  if (l10n_util::GetLocaleOverride().empty()) {
+    // The browser process only wants to support the language Cocoa will use,
+    // so force the app locale to be overridden with that value. This must
+    // happen before the ResourceBundle is loaded, which happens in
+    // ChromeBrowserMainParts::PreEarlyInitialization().
+    // Don't do this if the locale is already set, which is done by integration
+    // tests to ensure tests always run with the same locale.
+    l10n_util::OverrideLocaleWithCocoaLocale();
+  }
 #endif
 }

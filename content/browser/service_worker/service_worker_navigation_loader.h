@@ -89,7 +89,6 @@ class CONTENT_EXPORT ServiceWorkerNavigationLoader
   void ForwardToServiceWorker();
   bool ShouldFallbackToNetwork();
   bool ShouldForwardToServiceWorker();
-  bool WasCanceled() const;
 
   // The navigation request that was holding this job is
   // going away. Calling this internally calls |DeleteIfNeeded()|
@@ -102,6 +101,18 @@ class CONTENT_EXPORT ServiceWorkerNavigationLoader
 
  private:
   class StreamWaiter;
+  enum class Status {
+    kNotStarted,
+    // |binding_| is bound and the fetch event is being dispatched to the
+    // service worker.
+    kStarted,
+    // The response head has been sent to |url_loader_client_|. The response
+    // body is being streamed.
+    kSentHeader,
+    // OnComplete() was called on |url_loader_client_|, or fallback to network
+    // occurred so the request was not handled.
+    kCompleted,
+  };
 
   // For FORWARD_TO_SERVICE_WORKER case.
   void StartRequest(const network::ResourceRequest& resource_request,
@@ -114,6 +125,7 @@ class CONTENT_EXPORT ServiceWorkerNavigationLoader
       ServiceWorkerFetchDispatcher::FetchEventResult fetch_result,
       blink::mojom::FetchAPIResponsePtr response,
       blink::mojom::ServiceWorkerStreamHandlePtr body_as_stream,
+      blink::mojom::ServiceWorkerFetchEventTimingPtr timing,
       scoped_refptr<ServiceWorkerVersion> version);
 
   void StartResponse(blink::mojom::FetchAPIResponsePtr response,
@@ -144,6 +156,13 @@ class CONTENT_EXPORT ServiceWorkerNavigationLoader
   void ReportDestination(
       ServiceWorkerMetrics::MainResourceRequestDestination destination);
 
+  // Records loading milestones. Called only after ForwardToServiceWorker() is
+  // called and there was no error. |handled| is true when a fetch handler
+  // handled the request (i.e. non network fallback case).
+  void RecordTimingMetrics(bool handled);
+
+  void TransitionToStatus(Status new_status);
+
   ResponseType response_type_ = ResponseType::NOT_DETERMINED;
   NavigationLoaderInterceptor::LoaderCallback loader_callback_;
   NavigationLoaderInterceptor::FallbackCallback fallback_callback_;
@@ -167,17 +186,14 @@ class CONTENT_EXPORT ServiceWorkerNavigationLoader
   bool did_navigation_preload_ = false;
   network::ResourceResponseHead response_head_;
 
+  bool devtools_attached_ = false;
+  blink::mojom::ServiceWorkerFetchEventTimingPtr fetch_event_timing_;
+  base::TimeTicks completion_time_;
+
   // Pointer to the URLLoaderClient (i.e. NavigationURLLoader).
   network::mojom::URLLoaderClientPtr url_loader_client_;
   mojo::Binding<network::mojom::URLLoader> binding_;
 
-  enum class Status {
-    kNotStarted,
-    kStarted,
-    kSentHeader,
-    kCompleted,
-    kCancelled
-  };
   Status status_ = Status::kNotStarted;
 
   base::WeakPtrFactory<ServiceWorkerNavigationLoader> weak_factory_;

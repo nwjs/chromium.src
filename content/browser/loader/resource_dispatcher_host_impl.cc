@@ -373,8 +373,7 @@ void ResourceDispatcherHostImpl::CancelRequestsForContext(
   typedef std::vector<std::unique_ptr<ResourceLoader>> LoaderList;
   LoaderList loaders_to_cancel;
 
-  for (LoaderMap::iterator i = pending_loaders_.begin();
-       i != pending_loaders_.end();) {
+  for (auto i = pending_loaders_.begin(); i != pending_loaders_.end();) {
     ResourceLoader* loader = i->second.get();
     if (loader->GetRequestInfo()->GetContext() == context) {
       loaders_to_cancel.push_back(std::move(i->second));
@@ -389,7 +388,7 @@ void ResourceDispatcherHostImpl::CancelRequestsForContext(
     }
   }
 
-  for (BlockedLoadersMap::iterator i = blocked_loaders_map_.begin();
+  for (auto i = blocked_loaders_map_.begin();
        i != blocked_loaders_map_.end();) {
     BlockedLoadersList* loaders = i->second.get();
     if (loaders->empty()) {
@@ -771,8 +770,7 @@ void ResourceDispatcherHostImpl::BeginRequest(
   // the request needs to be aborted or continued.
   for (net::HttpRequestHeaders::Iterator it(request_data.headers);
        it.GetNext();) {
-    HeaderInterceptorMap::iterator index =
-        http_header_interceptor_map_.find(it.name());
+    auto index = http_header_interceptor_map_.find(it.name());
     if (index != http_header_interceptor_map_.end()) {
       HeaderInterceptorInfo& interceptor_info = index->second;
 
@@ -896,6 +894,11 @@ void ResourceDispatcherHostImpl::ContinuePendingBeginRequest(
   new_request->set_referrer_policy(request_data.referrer_policy);
 
   new_request->SetExtraRequestHeaders(headers);
+  if (!request_data.requested_with.empty()) {
+    // X-Requested-With header must be set here to avoid breaking CORS checks.
+    new_request->SetExtraRequestHeaderByName("X-Requested-With",
+                                             request_data.requested_with, true);
+  }
 
   std::unique_ptr<network::ScopedThrottlingToken> throttling_token =
       network::ScopedThrottlingToken::MaybeCreate(
@@ -1019,7 +1022,8 @@ void ResourceDispatcherHostImpl::ContinuePendingBeginRequest(
       request_data.fetch_credentials_mode, request_data.fetch_redirect_mode,
       request_data.fetch_integrity, request_data.keepalive,
       static_cast<ResourceType>(request_data.resource_type),
-      static_cast<RequestContextType>(request_data.fetch_request_context_type),
+      static_cast<blink::mojom::RequestContextType>(
+          request_data.fetch_request_context_type),
       request_data.fetch_frame_type, request_data.request_body);
 
   // Have the appcache associate its extra info with the request.
@@ -1038,7 +1042,8 @@ void ResourceDispatcherHostImpl::ContinuePendingBeginRequest(
     RecordFetchRequestMode(request_data.url, request_data.method,
                            request_data.fetch_request_mode);
     const bool is_initiated_by_fetch_api =
-        request_data.fetch_request_context_type == REQUEST_CONTEXT_TYPE_FETCH;
+        request_data.fetch_request_context_type ==
+        static_cast<int>(blink::mojom::RequestContextType::FETCH);
     BeginRequestInternal(std::move(new_request), std::move(handler),
                          is_initiated_by_fetch_api,
                          std::move(throttling_token));
@@ -1078,7 +1083,8 @@ ResourceDispatcherHostImpl::CreateResourceHandler(
   return AddStandardHandlers(
       request, static_cast<ResourceType>(request_data.resource_type),
       resource_context, request_data.fetch_request_mode,
-      static_cast<RequestContextType>(request_data.fetch_request_context_type),
+      static_cast<blink::mojom::RequestContextType>(
+          request_data.fetch_request_context_type),
       url_loader_options, requester_info->appcache_service(), child_id,
       route_id, std::move(handler));
 }
@@ -1089,7 +1095,7 @@ ResourceDispatcherHostImpl::AddStandardHandlers(
     ResourceType resource_type,
     ResourceContext* resource_context,
     network::mojom::FetchRequestMode fetch_request_mode,
-    RequestContextType fetch_request_context_type,
+    blink::mojom::RequestContextType fetch_request_context_type,
     uint32_t url_loader_options,
     AppCacheService* appcache_service,
     int child_id,
@@ -1273,7 +1279,7 @@ void ResourceDispatcherHostImpl::CancelRequestsForRoute(
 
   // Remove matches.
   for (size_t i = 0; i < matching_requests.size(); ++i) {
-    LoaderMap::iterator iter = pending_loaders_.find(matching_requests[i]);
+    auto iter = pending_loaders_.find(matching_requests[i]);
     // Although every matching request was in pending_requests_ when we built
     // matching_requests, it is normal for a matching request to be not found
     // in pending_requests_ after we have removed some matching requests from
@@ -1312,8 +1318,7 @@ void ResourceDispatcherHostImpl::CancelRequestsForRoute(
 // Cancels the request and removes it from the list.
 void ResourceDispatcherHostImpl::RemovePendingRequest(int child_id,
                                                       int request_id) {
-  LoaderMap::iterator i = pending_loaders_.find(
-      GlobalRequestID(child_id, request_id));
+  auto i = pending_loaders_.find(GlobalRequestID(child_id, request_id));
   if (i == pending_loaders_.end()) {
     NOTREACHED() << "Trying to remove a request that's not here";
     return;
@@ -1352,8 +1357,7 @@ void ResourceDispatcherHostImpl::CancelRequest(int child_id,
 ResourceDispatcherHostImpl::OustandingRequestsStats
 ResourceDispatcherHostImpl::GetOutstandingRequestsStats(
     const ResourceRequestInfoImpl& info) {
-  OutstandingRequestsStatsMap::iterator entry =
-      outstanding_requests_stats_map_.find(info.GetChildID());
+  auto entry = outstanding_requests_stats_map_.find(info.GetChildID());
   OustandingRequestsStats stats = { 0, 0 };
   if (entry != outstanding_requests_stats_map_.end())
     stats = entry->second;
@@ -1502,10 +1506,8 @@ void ResourceDispatcherHostImpl::BeginNavigationRequest(
   headers.AddHeadersFromString(info.begin_params->headers);
 
   std::string accept_value = network::kFrameAcceptHeader;
-  // TODO(https://crbug.com/840704): Decide whether the Accept header should
-  // advertise the state of kSignedHTTPExchangeOriginTrial before starting the
-  // Origin-Trial.
-  if (signed_exchange_utils::IsSignedExchangeHandlingEnabled()) {
+  if (signed_exchange_utils::ShouldAdvertiseAcceptHeader(
+          url::Origin::Create(info.common_params.url))) {
     DCHECK(!accept_value.empty());
     accept_value.append(kAcceptHeaderSignedExchangeSuffix);
   }
@@ -2047,8 +2049,7 @@ void ResourceDispatcherHostImpl::CancelBlockedRequestsForRoute(
 void ResourceDispatcherHostImpl::ProcessBlockedRequestsForRoute(
     const GlobalFrameRoutingId& global_routing_id,
     bool cancel_requests) {
-  BlockedLoadersMap::iterator iter =
-      blocked_loaders_map_.find(global_routing_id);
+  auto iter = blocked_loaders_map_.find(global_routing_id);
   if (iter == blocked_loaders_map_.end()) {
     // It's possible to reach here if the renderer crashed while an interstitial
     // page was showing.
@@ -2104,7 +2105,7 @@ ResourceLoader* ResourceDispatcherHostImpl::GetLoader(
     const GlobalRequestID& id) const {
   DCHECK(io_thread_task_runner_->BelongsToCurrentThread());
 
-  LoaderMap::const_iterator i = pending_loaders_.find(id);
+  auto i = pending_loaders_.find(id);
   if (i == pending_loaders_.end())
     return nullptr;
 

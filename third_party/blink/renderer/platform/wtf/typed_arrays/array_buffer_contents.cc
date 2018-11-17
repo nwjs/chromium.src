@@ -108,11 +108,12 @@ void ArrayBufferContents::CopyTo(ArrayBufferContents& other) {
 void* ArrayBufferContents::AllocateMemoryWithFlags(size_t size,
                                                    InitializationPolicy policy,
                                                    int flags) {
+  if (policy == kZeroInitialize) {
+    flags |= base::PartitionAllocZeroFill;
+  }
   void* data = PartitionAllocGenericFlags(
       Partitions::ArrayBufferPartition(), flags, size,
       WTF_HEAP_PROFILER_TYPE_NAME(ArrayBufferContents));
-  if (policy == kZeroInitialize && data)
-    memset(data, '\0', size);
   return data;
 }
 
@@ -129,12 +130,12 @@ ArrayBufferContents::DataHandle ArrayBufferContents::CreateDataHandle(
     size_t size,
     InitializationPolicy policy) {
   return DataHandle(
-      ArrayBufferContents::AllocateMemoryOrNull(size, policy), size,
+                    ArrayBufferContents::AllocateMemoryOrNull(size, policy), size, false,
       [](void* buffer, size_t, void*) { FreeMemory(buffer); }, nullptr);
 }
 
 ArrayBufferContents::DataHolder::DataHolder()
-    : data_(nullptr, 0, [](void*, size_t, void*) {}, nullptr),
+  : data_(nullptr, 0, false, [](void*, size_t, void*) {}, nullptr),
       is_shared_(kNotShared),
       has_registered_external_allocation_(false) {}
 

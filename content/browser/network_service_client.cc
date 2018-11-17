@@ -15,10 +15,12 @@
 #include "content/browser/ssl_private_key_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/browser_thread.h"
 #include "content/public/browser/child_process_security_policy.h"
 #include "content/public/browser/global_request_id.h"
 #include "content/public/browser/login_delegate.h"
+#include "content/public/browser/network_service_instance.h"
 #include "content/public/browser/resource_request_info.h"
 #include "content/public/common/resource_type.h"
 #include "mojo/public/cpp/bindings/strong_binding.h"
@@ -75,8 +77,8 @@ class SSLClientAuthDelegate : public SSLClientAuthHandler::Delegate {
         web_contents->GetBrowserContext();
     content::ResourceContext* resource_context =
         browser_context->GetResourceContext();
-    BrowserThread::PostTask(
-        BrowserThread::IO, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::IO},
         base::BindOnce(&SSLClientAuthDelegate::CreateSSLClientAuthHandler,
                        base::Unretained(this), resource_context,
                        web_contents_getter));
@@ -102,8 +104,8 @@ class SSLClientAuthDelegate : public SSLClientAuthHandler::Delegate {
           std::move(ssl_private_key_request));
     }
 
-    BrowserThread::PostTask(
-        BrowserThread::UI, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::UI},
         base::BindOnce(&SSLClientAuthDelegate::RunCallback,
                        base::Unretained(this), cert, algorithm_preferences,
                        std::move(ssl_private_key),
@@ -116,8 +118,8 @@ class SSLClientAuthDelegate : public SSLClientAuthHandler::Delegate {
 
     network::mojom::SSLPrivateKeyPtr ssl_private_key;
     mojo::MakeRequest(&ssl_private_key);
-    BrowserThread::PostTask(
-        BrowserThread::UI, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::UI},
         base::BindOnce(&SSLClientAuthDelegate::RunCallback,
                        base::Unretained(this), nullptr, std::vector<uint16_t>(),
                        std::move(ssl_private_key),
@@ -185,8 +187,8 @@ class LoginHandlerDelegate {
     auth_challenge_responder_.set_connection_error_handler(base::BindOnce(
         &LoginHandlerDelegate::OnRequestCancelled, base::Unretained(this)));
 
-    BrowserThread::PostTask(
-        BrowserThread::IO, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::IO},
         base::BindOnce(&LoginHandlerDelegate::DispatchInterceptorHookAndStart,
                        base::Unretained(this), process_id, routing_id,
                        request_id));
@@ -198,8 +200,8 @@ class LoginHandlerDelegate {
       return;
 
     // LoginDelegate::OnRequestCancelled can only be called from the IO thread.
-    BrowserThread::PostTask(
-        BrowserThread::IO, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::IO},
         base::BindOnce(&LoginHandlerDelegate::OnRequestCancelledOnIOThread,
                        base::Unretained(this)));
   }
@@ -249,8 +251,8 @@ class LoginHandlerDelegate {
   void RunAuthCredentials(
       const base::Optional<net::AuthCredentials>& auth_credentials) {
     DCHECK_CURRENTLY_ON(BrowserThread::IO);
-    BrowserThread::PostTask(
-        BrowserThread::UI, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {BrowserThread::UI},
         base::BindOnce(&LoginHandlerDelegate::RunAuthCredentialsOnUI,
                        base::Unretained(this), auth_credentials));
   }
@@ -309,7 +311,15 @@ void HandleFileUploadRequest(
 
 NetworkServiceClient::NetworkServiceClient(
     network::mojom::NetworkServiceClientRequest network_service_client_request)
-    : binding_(this, std::move(network_service_client_request)) {}
+    : binding_(this, std::move(network_service_client_request))
+#if defined(OS_ANDROID)
+      ,
+      app_status_listener_(base::android::ApplicationStatusListener::New(
+          base::BindRepeating(&NetworkServiceClient::OnApplicationStateChange,
+                              base::Unretained(this))))
+#endif
+{
+}
 
 NetworkServiceClient::~NetworkServiceClient() = default;
 
@@ -330,8 +340,7 @@ void NetworkServiceClient::OnAuthRequired(
                  : base::Bind(WebContents::FromFrameTreeNodeId, routing_id);
 
   if (!web_contents_getter.Run()) {
-    std::move(auth_challenge_responder)
-        ->OnAuthCredentials(net::AuthCredentials());
+    std::move(auth_challenge_responder)->OnAuthCredentials(base::nullopt);
     return;
   }
 
@@ -472,5 +481,12 @@ void NetworkServiceClient::OnClearSiteData(int process_id,
                                      header_value, load_flags,
                                      std::move(callback));
 }
+
+#if defined(OS_ANDROID)
+void NetworkServiceClient::OnApplicationStateChange(
+    base::android::ApplicationState state) {
+  GetNetworkService()->OnApplicationStateChange(state);
+}
+#endif
 
 }  // namespace content

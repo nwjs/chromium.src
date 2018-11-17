@@ -8,19 +8,21 @@ import android.content.res.ColorStateList;
 import android.support.v7.content.res.AppCompatResources;
 import android.view.View;
 import android.view.View.OnClickListener;
-import android.view.View.OnTouchListener;
 import android.view.ViewGroup;
 import android.view.ViewStub;
 
 import org.chromium.base.ApiCompatibilityUtils;
 import org.chromium.chrome.R;
+import org.chromium.chrome.browser.ActivityTabProvider;
+import org.chromium.chrome.browser.ActivityTabProvider.HintlessActivityTabObserver;
 import org.chromium.chrome.browser.appmenu.AppMenuButtonHelper;
 import org.chromium.chrome.browser.compositor.layouts.LayoutManager;
 import org.chromium.chrome.browser.compositor.layouts.OverviewModeBehavior;
 import org.chromium.chrome.browser.compositor.layouts.ToolbarSwipeLayout;
+import org.chromium.chrome.browser.feature_engagement.TrackerFactory;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
-import org.chromium.chrome.browser.modelutil.PropertyKey;
 import org.chromium.chrome.browser.modelutil.PropertyModelChangeProcessor;
+import org.chromium.chrome.browser.tab.Tab;
 import org.chromium.chrome.browser.tabmodel.TabModelSelector;
 import org.chromium.chrome.browser.toolbar.BottomToolbarViewBinder.ViewHolder;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonSlotData.ToolbarButtonData;
@@ -64,7 +66,8 @@ public class BottomToolbarCoordinator {
      * @param secondSlotData The data required to fill in the second bottom toolbar button slot.
      */
     public BottomToolbarCoordinator(ChromeFullscreenManager fullscreenManager, ViewGroup root,
-            ToolbarButtonSlotData firstSlotData, ToolbarButtonSlotData secondSlotData) {
+            ToolbarButtonSlotData firstSlotData, ToolbarButtonSlotData secondSlotData,
+            final ActivityTabProvider tabProvider) {
         BottomToolbarModel model = new BottomToolbarModel();
 
         int shadowHeight =
@@ -76,10 +79,8 @@ public class BottomToolbarCoordinator {
                 (ScrollingBottomViewResourceFrameLayout) inflatedView;
         toolbarRoot.setTopShadowHeight(shadowHeight);
 
-        PropertyModelChangeProcessor<BottomToolbarModel, ViewHolder, PropertyKey> processor =
-                new PropertyModelChangeProcessor<>(
-                        model, new ViewHolder(toolbarRoot), new BottomToolbarViewBinder());
-        model.addObserver(processor);
+        PropertyModelChangeProcessor.create(
+                model, new ViewHolder(toolbarRoot), new BottomToolbarViewBinder());
 
         mTabSwitcherButtonCoordinator = new TabSwitcherButtonCoordinator(toolbarRoot);
         mMenuButton = toolbarRoot.findViewById(R.id.menu_button_wrapper);
@@ -96,6 +97,16 @@ public class BottomToolbarCoordinator {
 
         mMediator = new BottomToolbarMediator(model, fullscreenManager, root.getResources(),
                 firstSlotData, secondSlotData, mNormalPrimaryColor);
+
+        final View iphAnchor = toolbarRoot.findViewById(R.id.bottom_toolbar_container);
+        tabProvider.addObserverAndTrigger(new HintlessActivityTabObserver() {
+            @Override
+            public void onActivityTabChanged(Tab tab) {
+                if (tab == null) return;
+                mMediator.showIPH(iphAnchor, TrackerFactory.getTrackerForProfile(tab.getProfile()));
+                tabProvider.removeObserver(this);
+            }
+        });
     }
 
     /**
@@ -107,7 +118,7 @@ public class BottomToolbarCoordinator {
      * @param layoutManager A {@link LayoutManager} to attach overlays to.
      * @param tabSwitcherListener An {@link OnClickListener} that is triggered when the
      *                                  tab switcher button is clicked.
-     * @param menuButtonListener An {@link OnTouchListener} that is triggered when the
+     * @param menuButtonHelper An {@link AppMenuButtonHelper} that is triggered when the
      *                           menu button is clicked.
      * @param tabModelSelector A {@link TabModelSelector} that the tab switcher button uses to
      *                         keep its tab count updated.
@@ -142,14 +153,14 @@ public class BottomToolbarCoordinator {
      * Show the update badge over the bottom toolbar's app menu.
      */
     public void showAppMenuUpdateBadge() {
-        mMenuButton.setUpdateBadgeVisibility(true);
+        mMenuButton.setUpdateBadgeVisibilityIfValidState(true);
     }
 
     /**
      * Remove the update badge.
      */
     public void removeAppMenuUpdateBadge() {
-        mMenuButton.setUpdateBadgeVisibility(false);
+        mMenuButton.setUpdateBadgeVisibilityIfValidState(false);
     }
 
     /**
@@ -168,8 +179,11 @@ public class BottomToolbarCoordinator {
         mMediator.setToolbarSwipeLayout(layout);
     }
 
-    public View getMenuButton() {
-        return mMenuButton.getMenuButton();
+    /**
+     * @return The wrapper for the app menu button.
+     */
+    public MenuButton getMenuButtonWrapper() {
+        return mMenuButton;
     }
 
     public void setIncognito(boolean isIncognito) {
@@ -178,6 +192,7 @@ public class BottomToolbarCoordinator {
         final ColorStateList tint = isIncognito ? mLightModeTint : mDarkModeTint;
         mTabSwitcherButtonCoordinator.setTint(tint);
         mMenuButton.setTint(tint);
+        mMenuButton.setUseLightDrawables(isIncognito);
     }
 
     /**

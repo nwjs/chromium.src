@@ -838,7 +838,6 @@ void ChromeClientImpl::SetBrowserControlsState(float top_height,
 
 void ChromeClientImpl::SetBrowserControlsShownRatio(float ratio) {
   web_view_->GetBrowserControls().SetShownRatio(ratio);
-  web_view_->DidUpdateBrowserControls();
 }
 
 bool ChromeClientImpl::ShouldOpenModalDialogDuringPageDismissal(
@@ -928,8 +927,9 @@ void ChromeClientImpl::SetEventListenerProperties(
 }
 
 void ChromeClientImpl::BeginLifecycleUpdates() {
+  web_view_->StopDeferringCommits();
+
   if (WebLayerTreeView* tree_view = web_view_->LayerTreeView()) {
-    tree_view->SetDeferCommits(false);
     tree_view->SetNeedsBeginFrame();
   }
 }

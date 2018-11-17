@@ -33,7 +33,7 @@ function handleResponse(requestId, name, success, responseList, error) {
 
   try {
     var request = requests[requestId];
-    logging.DCHECK(request != null);
+    //logging.DCHECK(request != null);
 
     // lastError needs to be set on the caller's chrome object no matter what,
     // though chances are it's the same as ours (it will be different when
@@ -66,11 +66,6 @@ function handleResponse(requestId, name, success, responseList, error) {
       // caller has provided a callback. Implementations of api
       // calls may not return data if they observe the caller
       // has not provided a callback.
-      if (logging.DCHECK_IS_ON() && !error) {
-        if (!request.callbackSchema.parameters)
-          throw new Error(name + ": no callback schema defined");
-        validate(responseList, request.callbackSchema.parameters);
-      }
       safeCallbackApply(name, request, request.callback, responseList);
     }
 
@@ -116,7 +111,7 @@ function sendRequest(functionName, args, argSchemas, optArgs) {
   calledSendRequest = true;
   if (!optArgs)
     optArgs = { __proto__: null };
-  logging.DCHECK(optArgs.__proto__ == null);
+  //logging.DCHECK(optArgs.__proto__ == null);
   var request = prepareRequest(args, argSchemas);
   request.stack = optArgs.stack || exceptionHandler.getExtensionStackTrace();
   if (optArgs.customCallback) {

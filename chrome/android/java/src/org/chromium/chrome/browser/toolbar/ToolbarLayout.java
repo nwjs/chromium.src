@@ -18,6 +18,7 @@ import android.support.annotation.Nullable;
 import android.support.annotation.StringRes;
 import android.support.v4.view.ViewCompat;
 import android.support.v7.content.res.AppCompatResources;
+import android.support.v7.widget.AppCompatImageButton;
 import android.util.AttributeSet;
 import android.view.InputDevice;
 import android.view.MotionEvent;
@@ -44,7 +45,6 @@ import org.chromium.chrome.browser.util.FeatureUtilities;
 import org.chromium.chrome.browser.util.ViewUtils;
 import org.chromium.chrome.browser.widget.PulseDrawable;
 import org.chromium.chrome.browser.widget.ScrimView;
-import org.chromium.chrome.browser.widget.TintedImageButton;
 import org.chromium.chrome.browser.widget.ToolbarProgressBar;
 import org.chromium.chrome.browser.widget.bottomsheet.BottomSheet;
 import org.chromium.components.security_state.ConnectionSecurityLevel;
@@ -61,11 +61,11 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
     private final int[] mTempPosition = new int[2];
 
     /**
-     * The ImageButton view that represents the menu button.
+     * The app menu button.
      */
-    private TintedImageButton mMenuButton;
+    protected AppCompatImageButton mMenuButton;
     private ImageView mMenuBadge;
-    private View mMenuButtonWrapper;
+    private MenuButton mMenuButtonWrapper;
     private AppMenuButtonHelper mAppMenuButtonHelper;
 
     protected final ColorStateList mDarkModeTint;
@@ -156,7 +156,7 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
     protected void onFinishInflate() {
         super.onFinishInflate();
 
-        mMenuButton = (TintedImageButton) findViewById(R.id.menu_button);
+        mMenuButton = (AppCompatImageButton) findViewById(R.id.menu_button);
         mMenuBadge = (ImageView) findViewById(R.id.menu_badge);
         mMenuButtonWrapper = findViewById(R.id.menu_button_wrapper);
 
@@ -306,9 +306,9 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
     }
 
     /**
-     * @return The {@link TintedImageButton} containing the menu button.
+     * @return The {@link AppCompatImageButton} containing the menu button.
      */
-    protected TintedImageButton getMenuButton() {
+    protected AppCompatImageButton getMenuButton() {
         return mMenuButton;
     }
 
@@ -814,6 +814,7 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
     @Override
     public void showAppMenuUpdateBadge() {
         mShowMenuBadge = true;
+        mMenuButtonWrapper.updateImageResources();
     }
 
     @Override
@@ -829,7 +830,7 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
         setMenuButtonContentDescription(false);
 
         if (!animate || !wasShowingMenuBadge) {
-            mMenuBadge.setVisibility(View.GONE);
+            mMenuButtonWrapper.setUpdateBadgeVisibilityIfValidState(false);
             return;
         }
 
@@ -873,6 +874,13 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
             @DrawableRes int drawableResId, @StringRes int contentDescriptionResId) {}
 
     /**
+     * @return The experimental toolbar button if it exists.
+     */
+    public @Nullable View getExperimentalButtonView() {
+        return null;
+    }
+
+    /**
      * Disable the experimental toolbar button.
      */
     public void disableExperimentalButton() {}
@@ -882,10 +890,10 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
      * bitmap.
      */
     protected void setAppMenuUpdateBadgeToVisible(boolean animate) {
-        if (mMenuBadge == null || mMenuButton == null) return;
+        if (mMenuBadge == null || mMenuButton == null || mMenuButtonWrapper == null) return;
         setMenuButtonContentDescription(true);
         if (!animate || mIsMenuBadgeAnimationRunning) {
-            mMenuBadge.setVisibility(View.VISIBLE);
+            mMenuButtonWrapper.setUpdateBadgeVisibilityIfValidState(true);
             return;
         }
 
@@ -927,9 +935,8 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
      * @param useLightDrawable Whether the light drawable should be used.
      */
     protected void setAppMenuUpdateBadgeDrawable(boolean useLightDrawable) {
-        if (mMenuBadge == null) return;
-        mMenuBadge.setImageResource(useLightDrawable ? R.drawable.badge_update_light
-                : R.drawable.badge_update_dark);
+        if (mMenuButtonWrapper == null) return;
+        mMenuButtonWrapper.setUseLightDrawables(useLightDrawable);
     }
 
     /**
@@ -958,17 +965,11 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
 
     /**
      * Sets the content description for the menu button.
-     * @param isUpdateBadgeVisible Whether the update menu badge is visible.
+     * @param isUpdateBadgeVisible Whether the update menu badge is visible
      */
     protected void setMenuButtonContentDescription(boolean isUpdateBadgeVisible) {
-        if (mMenuButton == null) return;
-        if (isUpdateBadgeVisible) {
-            mMenuButton.setContentDescription(getResources().getString(
-                    R.string.accessibility_toolbar_btn_menu_update));
-        } else {
-            mMenuButton.setContentDescription(getResources().getString(
-                    R.string.accessibility_toolbar_btn_menu));
-        }
+        if (mMenuButtonWrapper == null) return;
+        mMenuButtonWrapper.updateContentDescription(isUpdateBadgeVisible);
     }
 
     @Override
@@ -986,7 +987,7 @@ public abstract class ToolbarLayout extends FrameLayout implements Toolbar {
      * #onNativeLibraryReady() & once in #onFinishInflate() (see https://crbug.com/862887).
      * @param ntpButton The button that needs to be changed.
      */
-    protected void changeIconToNTPIcon(TintedImageButton ntpButton) {
+    protected void changeIconToNTPIcon(AppCompatImageButton ntpButton) {
         if (FeatureUtilities.isNewTabPageButtonEnabled())
             ntpButton.setImageResource(R.drawable.ic_home);
     }

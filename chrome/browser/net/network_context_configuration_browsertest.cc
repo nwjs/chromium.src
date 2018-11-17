@@ -32,6 +32,7 @@
 #include "chrome/common/chrome_paths.h"
 #include "chrome/common/chrome_switches.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/common/webui_url_constants.h"
 #include "chrome/test/base/in_process_browser_test.h"
 #include "components/content_settings/core/browser/cookie_settings.h"
 #include "components/content_settings/core/common/pref_names.h"
@@ -58,6 +59,7 @@
 #include "net/ssl/ssl_config.h"
 #include "net/ssl/ssl_server_config.h"
 #include "net/test/embedded_test_server/controllable_http_response.h"
+#include "net/test/embedded_test_server/default_handlers.h"
 #include "net/test/embedded_test_server/embedded_test_server.h"
 #include "net/test/embedded_test_server/embedded_test_server_connection_listener.h"
 #include "net/test/embedded_test_server/http_request.h"
@@ -76,6 +78,10 @@
 #include "services/network/test/test_url_loader_client.h"
 #include "testing/gtest/include/gtest/gtest.h"
 #include "url/gurl.h"
+
+#if defined(OS_MACOSX)
+#include "base/mac/mac_util.h"
+#endif
 
 namespace {
 
@@ -473,6 +479,8 @@ class NetworkContextConfigurationBrowserTest
     request->url = embedded_test_server()->GetURL("/set-cookie?" + cookie_line);
     if (cookie_type == CookieType::kThirdParty)
       request->site_for_cookies = GURL("http://example.com");
+    else
+      request->site_for_cookies = embedded_test_server()->base_url();
     content::SimpleURLLoaderTestHelper simple_loader_helper;
     std::unique_ptr<network::SimpleURLLoader> simple_loader =
         network::SimpleURLLoader::Create(std::move(request),
@@ -601,6 +609,35 @@ class NetworkContextConfigurationBrowserTest
 
   DISALLOW_COPY_AND_ASSIGN(NetworkContextConfigurationBrowserTest);
 };
+
+IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
+                       SecureCookiesAllowedForChromeScheme) {
+  // Cookies are only allowed for chrome:// schemes requesting a secure origin,
+  // so create an HTTPS server.
+  net::EmbeddedTestServer https_server(net::EmbeddedTestServer::TYPE_HTTPS);
+  net::test_server::RegisterDefaultHandlers(&https_server);
+  ASSERT_TRUE(https_server.Start());
+  if (GetPrefService()->FindPreference(prefs::kBlockThirdPartyCookies))
+    GetPrefService()->SetBoolean(prefs::kBlockThirdPartyCookies, true);
+  SetCookie(CookieType::kFirstParty, CookiePersistenceType::kPersistent);
+
+  std::unique_ptr<network::ResourceRequest> request =
+      std::make_unique<network::ResourceRequest>();
+  request->url = https_server.GetURL("/echoheader?Cookie");
+  request->site_for_cookies = GURL(chrome::kChromeUIPrintURL);
+  content::SimpleURLLoaderTestHelper simple_loader_helper;
+  std::unique_ptr<network::SimpleURLLoader> simple_loader =
+      network::SimpleURLLoader::Create(std::move(request),
+                                       TRAFFIC_ANNOTATION_FOR_TESTS);
+
+  simple_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
+      loader_factory(), simple_loader_helper.GetCallback());
+  simple_loader_helper.WaitForCallback();
+
+  EXPECT_EQ(200, simple_loader->ResponseInfo()->headers->response_code());
+  ASSERT_TRUE(simple_loader_helper.response_body());
+  EXPECT_EQ("cookie", *simple_loader_helper.response_body());
+}
 
 IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, BasicRequest) {
   std::unique_ptr<network::ResourceRequest> request =
@@ -863,12 +900,6 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, DiskCache) {
   }
 }
 
-// Test certs cannot currently be installed on OSX with the network service
-// enabled.
-// TODO(mmenke): Once that is fixed, enable this test on OSX.
-// See https://crbug.com/757088
-#if !defined(OS_MACOSX)
-
 // Visits a URL with an HSTS header, and makes sure it is respected.
 IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, PRE_Hsts) {
   net::test_server::EmbeddedTestServer ssl_server(
@@ -986,8 +1017,6 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, Hsts) {
   }
 }
 
-#endif  // !defined(OS_MACOSX)
-
 // Check that the SSLConfig is hooked up. PRE_SSLConfig checks that changing
 // local_state() after start modifies the SSLConfig, SSLConfig makes sure the
 // (now modified) initial value of local_state() is respected.
@@ -1012,19 +1041,8 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, PRE_SSLConfig) {
   simple_loader->DownloadToStringOfUnboundedSizeUntilCrashAndDie(
       loader_factory(), simple_loader_helper.GetCallback());
   simple_loader_helper.WaitForCallback();
-#if defined(OS_MACOSX)
-  // TODO(https://crbug.com/757088):  Test certs don't work on OSX, with the
-  // network service.
-  if (GetParam().network_service_state != NetworkServiceState::kDisabled) {
-    EXPECT_FALSE(simple_loader_helper.response_body());
-  } else {
-    ASSERT_TRUE(simple_loader_helper.response_body());
-    EXPECT_EQ(*simple_loader_helper.response_body(), "Echo");
-  }
-#else
   ASSERT_TRUE(simple_loader_helper.response_body());
   EXPECT_EQ(*simple_loader_helper.response_body(), "Echo");
-#endif
 
   // Disallow TLS 1.0 via prefs.
   g_browser_process->local_state()->SetString(prefs::kSSLVersionMin,
@@ -1170,6 +1188,12 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
                        EnableReferrers) {
   const GURL kReferrer("http://referrer/");
 
+  // The preference is expected to be reset in incognito mode.
+  if (is_incognito()) {
+    EXPECT_TRUE(GetPrefService()->GetBoolean(prefs::kEnableReferrers));
+    return;
+  }
+
   // Referrers should still be disabled.
   EXPECT_FALSE(GetPrefService()->GetBoolean(prefs::kEnableReferrers));
 
@@ -1223,6 +1247,11 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationBrowserTest, CookiesEnabled) {
+#if defined(OS_MACOSX)
+  // TODO(https://crbug.com/880496): Fix and reenable test.
+  if (base::mac::IsOS10_11())
+    return;
+#endif
   // Check that the cookie from the first stage of the test was / was not
   // preserved between browser restarts, as expected.
   bool has_cookies = !GetCookies(embedded_test_server()->base_url()).empty();
@@ -1492,15 +1521,6 @@ class NetworkContextConfigurationFilePacBrowserTest
 IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationFilePacBrowserTest, FilePac) {
   bool network_service_disabled =
       !base::FeatureList::IsEnabled(network::features::kNetworkService);
-#if defined(OS_MACOSX)
-  // https://crbug.com/843324: the NetworkServiceTestHelper does not work on Mac
-  // so the TestHostResolver is not used to resolve the host name when the
-  // network service is enabled. The system host resolver is used instead
-  // and goed to the network, which we don't want in tests. (and it does not
-  // return the expected net::ERR_NOT_IMPLEMENTED).
-  if (!network_service_disabled)
-    return;
-#endif
   // PAC file URLs are not supported with the network service
   TestProxyConfigured(/*expect_success=*/network_service_disabled);
 }
@@ -1681,56 +1701,6 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationHttpsStrippingPacBrowserTest,
   EXPECT_EQ(net::ERR_PROXY_CONNECTION_FAILED, simple_loader->NetError());
 }
 
-// |NetworkServiceTestHelper| doesn't work on browser_tests on OSX.
-// See https://crbug.com/843324
-#if defined(OS_MACOSX)
-
-#if BUILDFLAG(ENABLE_EXTENSIONS)
-#define INSTANTIATE_EXTENSION_TESTS(TestFixture)                          \
-  INSTANTIATE_TEST_CASE_P(                                                \
-      OnDiskApp, TestFixture,                                             \
-      ::testing::Values(TestCase({NetworkServiceState::kDisabled,         \
-                                  NetworkContextType::kOnDiskApp})));     \
-                                                                          \
-  INSTANTIATE_TEST_CASE_P(                                                \
-      InMemoryApp, TestFixture,                                           \
-      ::testing::Values(TestCase({NetworkServiceState::kDisabled,         \
-                                  NetworkContextType::kInMemoryApp})));   \
-                                                                          \
-  INSTANTIATE_TEST_CASE_P(                                                \
-      OnDiskAppWithIncognitoProfile, TestFixture,                         \
-      ::testing::Values(                                                  \
-          TestCase({NetworkServiceState::kDisabled,                       \
-                    NetworkContextType::kOnDiskAppWithIncognitoProfile})));
-#else  // !BUILDFLAG(ENABLE_EXTENSIONS)
-#define INSTANTIATE_EXTENSION_TESTS(TestFixture)
-#endif  // !BUILDFLAG(ENABLE_EXTENSIONS)
-
-// Instantiates tests with a prefix indicating which NetworkContext is being
-// tested, and a suffix of "/0" if the network service is disabled and "/1" if
-// it's enabled.
-#define INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(TestFixture)               \
-  INSTANTIATE_EXTENSION_TESTS(TestFixture)                                 \
-  INSTANTIATE_TEST_CASE_P(                                                 \
-      SystemNetworkContext, TestFixture,                                   \
-      ::testing::Values(TestCase({NetworkServiceState::kDisabled,          \
-                                  NetworkContextType::kSystem})));         \
-                                                                           \
-  INSTANTIATE_TEST_CASE_P(                                                 \
-      SafeBrowsingNetworkContext, TestFixture,                             \
-      ::testing::Values(TestCase({NetworkServiceState::kDisabled,          \
-                                  NetworkContextType::kSystem})));         \
-                                                                           \
-  INSTANTIATE_TEST_CASE_P(                                                 \
-      ProfileMainNetworkContext, TestFixture,                              \
-      ::testing::Values(TestCase({NetworkServiceState::kDisabled,          \
-                                  NetworkContextType::kProfile})));        \
-                                                                           \
-  INSTANTIATE_TEST_CASE_P(                                                 \
-      IncognitoProfileMainNetworkContext, TestFixture,                     \
-      ::testing::Values(TestCase({NetworkServiceState::kDisabled,          \
-                                  NetworkContextType::kIncognitoProfile})))
-#else  // !defined(OS_MACOSX)
 // Instiates tests with a prefix indicating which NetworkContext is being
 // tested, and a suffix of "/0" if the network service is disabled, "/1" if it's
 // enabled, and "/2" if it's enabled and restarted.
@@ -1805,8 +1775,6 @@ IN_PROC_BROWSER_TEST_P(NetworkContextConfigurationHttpsStrippingPacBrowserTest,
                                   NetworkContextType::kIncognitoProfile}), \
                         TestCase({NetworkServiceState::kRestarted,         \
                                   NetworkContextType::kIncognitoProfile})));
-
-#endif  // !defined(OS_MACOSX)
 
 INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(NetworkContextConfigurationBrowserTest);
 INSTANTIATE_TEST_CASES_FOR_TEST_FIXTURE(

@@ -390,16 +390,6 @@ util.runningInBrowser = function() {
 };
 
 /**
- * Attach page load handler.
- * @param {function()} handler Application-specific load handler.
- */
-util.addPageLoadHandler = function(handler) {
-  document.addEventListener('DOMContentLoaded', function() {
-    handler();
-  });
-};
-
-/**
  * Save app launch data to the local storage.
  */
 util.saveAppState = function() {
@@ -649,7 +639,7 @@ Object.freeze(util.EntryChangedKind);
 
 /**
  * Obtains whether an entry is fake or not.
- * @param {(!Entry|!FakeEntry|!FilesAppEntry)} entry Entry or a fake entry.
+ * @param {(!Entry|!FilesAppEntry)} entry Entry or a fake entry.
  * @return {boolean} True if the given entry is fake.
  * @suppress {missingProperties} Closure compiler doesn't allow to call isNative
  * on Entry which is native and thus doesn't define this property, however we
@@ -665,7 +655,7 @@ util.isFakeEntry = function(entry) {
 
 /**
  * Obtains whether an entry is the root directory of a Team Drive.
- * @param {(!Entry|!FakeEntry|!FilesAppEntry)|null} entry Entry or a fake entry.
+ * @param {Entry|FilesAppEntry} entry Entry or a fake entry.
  * @return {boolean} True if the given entry is root of a Team Drive.
  */
 util.isTeamDriveRoot = function(entry) {
@@ -691,7 +681,7 @@ util.isTeamDrivesGrandRoot = function(entry) {
 
 /**
  * Obtains whether an entry is descendant of the Team Drives directory.
- * @param {(!Entry|!FakeEntry|!FilesAppEntry)} entry Entry or a fake entry.
+ * @param {!Entry|!FilesAppEntry} entry Entry or a fake entry.
  * @return {boolean} True if the given entry is under Team Drives.
  */
 util.isTeamDriveEntry = function(entry) {
@@ -719,12 +709,39 @@ util.getTeamDriveName = function(entry) {
 
 /**
  * Returns true if the given entry is the root folder of recent files.
- * @param {(!Entry|!FilesAppEntry)} entry Entry or a fake entry.
+ * @param {!Entry|!FilesAppEntry} entry Entry or a fake entry.
  * @returns {boolean}
  */
 util.isRecentRoot = function(entry) {
   return util.isFakeEntry(entry) &&
       entry.rootType == VolumeManagerCommon.RootType.RECENT;
+};
+
+/**
+ * Obtains whether an entry is the root directory of a Computer.
+ * @param {Entry|FilesAppEntry} entry Entry or a fake entry.
+ * @return {boolean} True if the given entry is root of a Computer.
+ */
+util.isComputersRoot = function(entry) {
+  if (entry === null)
+    return false;
+  if (!entry.fullPath)
+    return false;
+  var tree = entry.fullPath.split('/');
+  return tree.length == 3 && util.isComputersEntry(entry);
+};
+
+/**
+ * Obtains whether an entry is descendant of the My Computers directory.
+ * @param {!Entry|!FilesAppEntry} entry Entry or a fake entry.
+ * @return {boolean} True if the given entry is under My Computers.
+ */
+util.isComputersEntry = function(entry) {
+  if (!entry.fullPath)
+    return false;
+  var tree = entry.fullPath.split('/');
+  return tree[0] == '' &&
+      tree[1] == VolumeManagerCommon.COMPUTERS_DIRECTORY_NAME;
 };
 
 /**
@@ -779,10 +796,10 @@ util.UserDOMError.prototype = {
 
 /**
  * Compares two entries.
- * @param {Entry|FakeEntry|FilesAppEntry} entry1 The entry to be compared. Can
- *     be a fake.
- * @param {Entry|FakeEntry|FilesAppEntry} entry2 The entry to be compared. Can
- *     be a fake.
+ * @param {Entry|FilesAppEntry} entry1 The entry to be compared. Can
+ * be a fake.
+ * @param {Entry|FilesAppEntry} entry2 The entry to be compared. Can
+ * be a fake.
  * @return {boolean} True if the both entry represents a same file or
  *     directory. Returns true if both entries are null.
  */
@@ -880,7 +897,7 @@ util.comparePath = function(entry1, entry2) {
  * Checks if {@code entry} is an immediate child of {@code directory}.
  *
  * @param {Entry} entry The presumptive child.
- * @param {DirectoryEntry|FakeEntry|FilesAppEntry} directory The presumptive
+ * @param {DirectoryEntry|FilesAppEntry} directory The presumptive
  *     parent.
  * @return {!Promise<boolean>} Resolves with true if {@code directory} is
  *     parent of {@code entry}.
@@ -904,9 +921,9 @@ util.isChildEntry = function(entry, directory) {
  * Checks if the child entry is a descendant of another entry. If the entries
  * point to the same file or directory, then returns false.
  *
- * @param {!DirectoryEntry|!FakeEntry} ancestorEntry The ancestor directory
- *     entry. Can be a fake.
- * @param {!Entry|!FakeEntry} childEntry The child entry. Can be a fake.
+ * @param {!DirectoryEntry|!FilesAppEntry} ancestorEntry The ancestor
+ *     directory entry. Can be a fake.
+ * @param {!Entry|!FilesAppEntry} childEntry The child entry. Can be a fake.
  * @return {boolean} True if the child entry is contained in the ancestor path.
  */
 util.isDescendantEntry = function(ancestorEntry, childEntry) {
@@ -1469,7 +1486,7 @@ util.doIfPrimaryContext = function(callback) {
  * property without Closure compiler complaining.
  * TODO(lucmult): Wrap Entry in a FilesAppEntry derived class and remove
  * this function. https://crbug.com/835203.
- * @param {Entry|FilesAppEntry|FakeEntry} entry
+ * @param {Entry|FilesAppEntry} entry
  * @return {FilesAppEntry}
  */
 util.toFilesAppEntry = function(entry) {
@@ -1481,7 +1498,7 @@ util.toFilesAppEntry = function(entry) {
  * returns false if it's FakeEntry or any one of the FilesAppEntry types.
  * TODO(lucmult): Wrap Entry in a FilesAppEntry derived class and remove
  * this function. https://crbug.com/835203.
- * @param {Entry|FilesAppEntry|FakeEntry} entry
+ * @param {Entry|FilesAppEntry} entry
  * @return {boolean}
  */
 util.isNativeEntry = function(entry) {

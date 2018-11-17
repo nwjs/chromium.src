@@ -157,24 +157,29 @@ viz::VizMainImpl::ExternalDependencies CreateVizMainDependencies(
 
 }  // namespace
 
-GpuChildThread::GpuChildThread(std::unique_ptr<gpu::GpuInit> gpu_init,
+GpuChildThread::GpuChildThread(base::RepeatingClosure quit_closure,
+                               std::unique_ptr<gpu::GpuInit> gpu_init,
                                viz::VizMainImpl::LogMessages log_messages)
-    : GpuChildThread(GetOptions(), std::move(gpu_init)) {
+    : GpuChildThread(std::move(quit_closure),
+                     GetOptions(),
+                     std::move(gpu_init)) {
   viz_main_.SetLogMessagesForHost(std::move(log_messages));
 }
 
 GpuChildThread::GpuChildThread(const InProcessChildThreadParams& params,
                                std::unique_ptr<gpu::GpuInit> gpu_init)
-    : GpuChildThread(ChildThreadImpl::Options::Builder()
+    : GpuChildThread(base::DoNothing(),
+                     ChildThreadImpl::Options::Builder()
                          .InBrowserProcess(params)
                          .AutoStartServiceManagerConnection(false)
                          .ConnectToBrowser(true)
                          .Build(),
                      std::move(gpu_init)) {}
 
-GpuChildThread::GpuChildThread(const ChildThreadImpl::Options& options,
+GpuChildThread::GpuChildThread(base::RepeatingClosure quit_closure,
+                               const ChildThreadImpl::Options& options,
                                std::unique_ptr<gpu::GpuInit> gpu_init)
-    : ChildThreadImpl(options),
+    : ChildThreadImpl(std::move(quit_closure), options),
       viz_main_(this,
                 CreateVizMainDependencies(GetConnector()),
                 std::move(gpu_init)),
@@ -272,6 +277,7 @@ void GpuChildThread::OnGpuServiceConnection(viz::GpuServiceImpl* gpu_service) {
   service_factory_.reset(new GpuServiceFactory(
       gpu_service->gpu_preferences(),
       gpu_service->gpu_channel_manager()->gpu_driver_bug_workarounds(),
+      gpu_service->gpu_feature_info(),
       gpu_service->media_gpu_channel_manager()->AsWeakPtr(),
       std::move(overlay_factory_cb)));
 
@@ -288,6 +294,10 @@ void GpuChildThread::PostCompositorThreadCreated(
   auto* gpu_client = GetContentClient()->gpu();
   if (gpu_client)
     gpu_client->PostCompositorThreadCreated(task_runner);
+}
+
+void GpuChildThread::QuitMainMessageLoop() {
+  ProcessShutdown();
 }
 
 void GpuChildThread::BindServiceFactoryRequest(

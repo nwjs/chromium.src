@@ -161,7 +161,8 @@ ArcImeService::~ArcImeService() {
   // from KeyboardController observers.
   if (keyboard::KeyboardController::HasInstance()) {
     auto* keyboard_controller = keyboard::KeyboardController::Get();
-    keyboard_controller->RemoveObserver(this);
+    if (keyboard_controller->HasObserver(this))
+      keyboard_controller->RemoveObserver(this);
   }
 }
 
@@ -203,7 +204,7 @@ void ArcImeService::OnWindowInitialized(aura::Window* new_window) {
   if (!features::IsUsingWindowService() &&
       keyboard::KeyboardController::HasInstance()) {
     auto* keyboard_controller = keyboard::KeyboardController::Get();
-    if (keyboard_controller->enabled() &&
+    if (keyboard_controller->IsEnabled() &&
         !keyboard_controller->HasObserver(this)) {
       keyboard_controller->AddObserver(this);
     }
@@ -314,12 +315,17 @@ void ArcImeService::OnCursorRectChangedWithSurroundingText(
 }
 
 void ArcImeService::RequestHideIme() {
+  // Ignore the request when the ARC app is not focused.
+  ui::InputMethod* const input_method = GetInputMethod();
+  if (!input_method || input_method->GetTextInputClient() != nullptr)
+    return;
+
   // TODO(mash): Support virtual keyboard under MASH. There is no
   // KeyboardController in the browser process under MASH.
   if (!features::IsUsingWindowService() &&
       keyboard::KeyboardController::HasInstance()) {
     auto* keyboard_controller = keyboard::KeyboardController::Get();
-    if (keyboard_controller->enabled())
+    if (keyboard_controller->IsEnabled())
       keyboard_controller->HideKeyboardImplicitlyBySystem();
   }
 }

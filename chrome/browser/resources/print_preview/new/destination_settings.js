@@ -89,7 +89,7 @@ Polymer({
     const dialog = this.$.destinationDialog.get();
     // This async() call is a workaround to prevent a DCHECK - see
     // https://crbug.com/804047.
-    // TODO (rbpotter): Remove after Polymer2 migration is complete.
+    // TODO(rbpotter): Remove after Polymer2 migration is complete.
     this.async(() => {
       dialog.show();
     }, 1);
@@ -118,6 +118,6 @@ Polymer({
 
   /** @private */
   onDialogClose_: function() {
-    this.$$('button').focus();
+    this.$$('paper-button').focus();
   },
 });

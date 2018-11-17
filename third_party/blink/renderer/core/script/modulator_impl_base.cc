@@ -11,12 +11,12 @@
 #include "third_party/blink/renderer/core/loader/modulescript/module_tree_linker.h"
 #include "third_party/blink/renderer/core/loader/modulescript/module_tree_linker_registry.h"
 #include "third_party/blink/renderer/core/script/dynamic_module_resolver.h"
-#include "third_party/blink/renderer/core/script/fetch_client_settings_object_snapshot.h"
 #include "third_party/blink/renderer/core/script/layered_api.h"
 #include "third_party/blink/renderer/core/script/module_map.h"
 #include "third_party/blink/renderer/core/script/module_script.h"
 #include "third_party/blink/renderer/core/script/script_module_resolver_impl.h"
 #include "third_party/blink/renderer/platform/bindings/v8_throw_exception.h"
+#include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
 
 namespace blink {
 
@@ -55,7 +55,7 @@ void ModulatorImplBase::AddToMap(const KURL& url, ModuleScript* script) {
 void ModulatorImplBase::FetchTree(
     const KURL& url,
     FetchClientSettingsObjectSnapshot* fetch_client_settings_object,
-    WebURLRequest::RequestContext destination,
+    mojom::RequestContextType destination,
     const ScriptFetchOptions& options,
     ModuleScriptCustomFetchType custom_fetch_type,
     ModuleTreeClient* client) {
@@ -90,7 +90,7 @@ void ModulatorImplBase::FetchTree(
 void ModulatorImplBase::FetchDescendantsForInlineScript(
     ModuleScript* module_script,
     FetchClientSettingsObjectSnapshot* fetch_client_settings_object,
-    WebURLRequest::RequestContext destination,
+    mojom::RequestContextType destination,
     ModuleTreeClient* client) {
   ModuleTreeLinker::FetchDescendantsForInlineScript(
       module_script, fetch_client_settings_object, destination, this,
@@ -206,7 +206,7 @@ ModulatorImplBase::ModuleRequestsFromScriptModule(ScriptModule script_module) {
   DCHECK_EQ(specifiers.size(), positions.size());
   Vector<ModuleRequest> requests;
   requests.ReserveInitialCapacity(specifiers.size());
-  for (size_t i = 0; i < specifiers.size(); ++i) {
+  for (wtf_size_t i = 0; i < specifiers.size(); ++i) {
     requests.emplace_back(specifiers[i], positions[i]);
   }
   return requests;

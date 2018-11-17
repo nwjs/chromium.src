@@ -203,7 +203,7 @@ bool WebviewHandler::Parse(Extension* extension, base::string16* error) {
         return false;
       }
       URLPattern try_pattern(URLPattern::SCHEME_ALL);
-      if (try_pattern.Parse(relative_path) == URLPattern::PARSE_SUCCESS) {
+      if (try_pattern.Parse(relative_path) == URLPattern::ParseResult::kSuccess) {
         partition_item->AddPattern(try_pattern);
       } else {
       URLPattern pattern(URLPattern::SCHEME_EXTENSION,

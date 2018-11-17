@@ -77,6 +77,7 @@ class ChooserBubbleUiViewDelegate : public views::BubbleDialogDelegateView,
  private:
   DeviceChooserContentView* device_chooser_content_view_;
   BubbleReference bubble_reference_;
+  //extensions::AppWindow* app_window_;
 
   DISALLOW_COPY_AND_ASSIGN(ChooserBubbleUiViewDelegate);
 };
@@ -84,7 +85,7 @@ class ChooserBubbleUiViewDelegate : public views::BubbleDialogDelegateView,
 ChooserBubbleUiViewDelegate::ChooserBubbleUiViewDelegate(
     Browser* browser, extensions::AppWindow* app_window,
     std::unique_ptr<ChooserController> chooser_controller)
-    : device_chooser_content_view_(nullptr) {
+  : device_chooser_content_view_(nullptr) {
   // ------------------------------------
   // | Chooser bubble title             |
   // | -------------------------------- |
@@ -170,9 +171,10 @@ void ChooserBubbleUiViewDelegate::OnSelectionChanged() {
 void ChooserBubbleUiViewDelegate::UpdateAnchor(Browser* browser) {
   AnchorConfiguration configuration = GetChooserAnchorConfiguration(browser);
   SetAnchorView(configuration.anchor_view);
+  SetHighlightedButton(configuration.highlighted_button);
   if (!configuration.anchor_view)
     SetAnchorRect(GetChooserAnchorRect(browser));
-  set_arrow(configuration.bubble_arrow);
+  SetArrow(configuration.bubble_arrow);
 }
 
 void ChooserBubbleUiViewDelegate::set_bubble_reference(
@@ -206,6 +208,7 @@ ChooserBubbleUi::~ChooserBubbleUi() {
 
 void ChooserBubbleUi::Show(BubbleReference bubble_reference) {
   chooser_bubble_ui_view_delegate_->set_bubble_reference(bubble_reference);
+  chooser_bubble_ui_view_delegate_->UpdateAnchor(browser_);
   CreateAndShow(chooser_bubble_ui_view_delegate_);
   chooser_bubble_ui_view_delegate_->GetWidget()->AddObserver(this);
   chooser_bubble_ui_view_delegate_->UpdateTableView();

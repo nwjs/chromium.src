@@ -86,9 +86,7 @@ gfx::NativeWindow FindParentWindowForWebContents(
   const extensions::AppWindowRegistry::AppWindowList& window_list =
       extensions::AppWindowRegistry::Get(web_contents->GetBrowserContext())
           ->app_windows();
-  for (extensions::AppWindowRegistry::AppWindowList::const_iterator iter =
-           window_list.begin();
-       iter != window_list.end(); ++iter) {
+  for (auto iter = window_list.begin(); iter != window_list.end(); ++iter) {
     if ((*iter)->web_contents() == web_contents)
       return (*iter)->GetNativeWindow();
   }

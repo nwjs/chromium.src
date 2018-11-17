@@ -21,6 +21,7 @@
 #include "extensions/browser/mojo/interface_registration.h"
 #include "extensions/browser/process_manager.h"
 #include "extensions/browser/renderer_startup_helper.h"
+#include "extensions/browser/url_loader_factory_manager.h"
 #include "extensions/browser/view_type_utils.h"
 #include "extensions/common/constants.h"
 #include "extensions/common/extension.h"
@@ -181,6 +182,8 @@ void ExtensionWebContentsObserver::RenderFrameHostChanged(
 
 void ExtensionWebContentsObserver::ReadyToCommitNavigation(
     content::NavigationHandle* navigation_handle) {
+  URLLoaderFactoryManager::ReadyToCommitNavigation(navigation_handle);
+
   if (navigation_handle->IsInMainFrame() &&
       !navigation_handle->IsSameDocument()) {
     ExtensionApiFrameIdMap::Get()->OnMainFrameReadyToCommitNavigation(
@@ -322,11 +325,10 @@ const Extension* ExtensionWebContentsObserver::GetExtensionFromFrame(
     const url::Origin& origin(render_frame_host->GetLastCommittedOrigin());
     // Without site isolation, this check is needed to eliminate non-extension
     // schemes. With site isolation, this is still needed to exclude sandboxed
-    // extension frames with a unique origin.
+    // extension frames with an opaque origin.
     const GURL site_url(render_frame_host->GetSiteInstance()->GetSiteURL());
-    if (origin.unique() ||
-        site_url != content::SiteInstance::GetSiteForURL(browser_context,
-                                                         origin.GetURL()))
+    if (origin.opaque() || site_url != content::SiteInstance::GetSiteForURL(
+                                           browser_context, origin.GetURL()))
       return nullptr;
   }
 

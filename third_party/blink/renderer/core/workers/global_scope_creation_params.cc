@@ -12,6 +12,7 @@ namespace blink {
 GlobalScopeCreationParams::GlobalScopeCreationParams(
     bool isNodeJS, const std::string& main_script,
     const KURL& script_url,
+    // TODO(asamidoi): Replace ScriptType to mojom::ScriptType
     ScriptType script_type,
     const String& user_agent,
     const Vector<CSPHeaderAndType>& content_security_policy_parsed_headers,

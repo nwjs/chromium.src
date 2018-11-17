@@ -123,9 +123,9 @@ class ExtensionFrameHelper
   // RenderFrameObserver implementation.
   void DidCreateDocumentElement() override;
   void DidCreateNewDocument() override;
+  void DidStartProvisionalLoad(blink::WebDocumentLoader* document_loader,
+                               bool is_content_initiated) override;
   void DidFinishDocumentLoad() override;
-  void DidStartProvisionalLoad(
-      blink::WebDocumentLoader* document_loader) override;
   void DidCreateScriptContext(v8::Local<v8::Context>,
                               int world_id) override;
   void WillReleaseScriptContext(v8::Local<v8::Context>, int world_id) override;
@@ -158,6 +158,7 @@ class ExtensionFrameHelper
                                 const base::ListValue& args);
   void OnSetFrameName(const std::string& name);
   void OnAppWindowClosed(bool send_onclosed);
+  void OnSetSpatialNavigationEnabled(bool enabled);
 
   // Type of view associated with the RenderFrame.
   ViewType view_type_;

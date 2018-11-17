@@ -299,7 +299,7 @@ void SimpleMenuModel::Clear() {
 }
 
 int SimpleMenuModel::GetIndexOfCommandId(int command_id) const {
-  for (ItemVector::const_iterator i = items_.begin(); i != items_.end(); ++i) {
+  for (auto i = items_.begin(); i != items_.end(); ++i) {
     if (i->command_id == command_id)
       return static_cast<int>(std::distance(items_.begin(), i));
   }
@@ -310,7 +310,7 @@ int SimpleMenuModel::GetIndexOfCommandId(int command_id) const {
 // SimpleMenuModel, MenuModel implementation:
 
 bool SimpleMenuModel::HasIcons() const {
-  for (ItemVector::const_iterator i = items_.begin(); i != items_.end(); ++i) {
+  for (auto i = items_.begin(); i != items_.end(); ++i) {
     if (delegate_->HasIcon(i->command_id))
       return true;
   }

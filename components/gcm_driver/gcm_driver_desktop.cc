@@ -78,6 +78,7 @@ class GCMDriverDesktop::IOWorker : public GCMClient::Delegate {
           void(network::mojom::ProxyResolvingSocketFactoryRequest)>
           get_socket_factory_callback,
       std::unique_ptr<network::SharedURLLoaderFactoryInfo> loader_factory_info,
+      network::NetworkConnectionTracker* network_connection_tracker,
       const scoped_refptr<base::SequencedTaskRunner> blocking_task_runner);
   void Start(GCMClient::StartMode start_mode,
              const base::WeakPtr<GCMDriverDesktop>& service);
@@ -152,6 +153,7 @@ void GCMDriverDesktop::IOWorker::Initialize(
         void(network::mojom::ProxyResolvingSocketFactoryRequest)>
         get_socket_factory_callback,
     std::unique_ptr<network::SharedURLLoaderFactoryInfo> loader_factory_info,
+    network::NetworkConnectionTracker* network_connection_tracker,
     const scoped_refptr<base::SequencedTaskRunner> blocking_task_runner) {
   DCHECK(io_thread_->RunsTasksInCurrentSequence());
 
@@ -162,7 +164,7 @@ void GCMDriverDesktop::IOWorker::Initialize(
 
   gcm_client_->Initialize(chrome_build_info, store_path, blocking_task_runner,
                           std::move(get_socket_factory_callback),
-                          url_loader_factory_for_io,
+                          url_loader_factory_for_io, network_connection_tracker,
                           std::make_unique<SystemEncryptor>(), this);
 }
 
@@ -515,6 +517,7 @@ GCMDriverDesktop::GCMDriverDesktop(
         void(network::mojom::ProxyResolvingSocketFactoryRequest)>
         get_socket_factory_callback,
     scoped_refptr<network::SharedURLLoaderFactory> url_loader_factory_for_ui,
+    network::NetworkConnectionTracker* network_connection_tracker,
     const scoped_refptr<base::SequencedTaskRunner>& ui_thread,
     const scoped_refptr<base::SequencedTaskRunner>& io_thread,
     const scoped_refptr<base::SequencedTaskRunner>& blocking_task_runner)
@@ -545,13 +548,14 @@ GCMDriverDesktop::GCMDriverDesktop(
   io_worker_.reset(new IOWorker(ui_thread, io_thread));
   io_thread_->PostTask(
       FROM_HERE,
-      base::BindOnce(&GCMDriverDesktop::IOWorker::Initialize,
-                     base::Unretained(io_worker_.get()),
-                     std::move(gcm_client_factory), chrome_build_info,
-                     store_path, std::move(get_socket_factory_callback),
-                     // ->Clone() permits creation of an equivalent
-                     // SharedURLLoaderFactory on IO thread.
-                     url_loader_factory_for_ui->Clone(), blocking_task_runner));
+      base::BindOnce(
+          &GCMDriverDesktop::IOWorker::Initialize,
+          base::Unretained(io_worker_.get()), std::move(gcm_client_factory),
+          chrome_build_info, store_path, std::move(get_socket_factory_callback),
+          // ->Clone() permits creation of an equivalent
+          // SharedURLLoaderFactory on IO thread.
+          url_loader_factory_for_ui->Clone(),
+          base::Unretained(network_connection_tracker), blocking_task_runner));
 }
 
 GCMDriverDesktop::~GCMDriverDesktop() {

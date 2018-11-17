@@ -14,7 +14,6 @@
 #include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/process_singleton.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
-#include "chrome/common/thread_profiler.h"
 #include "content/public/browser/browser_main_parts.h"
 #include "content/public/common/main_function_params.h"
 #include "ui/base/resource/data_pack.h"
@@ -22,12 +21,13 @@
 class BrowserProcessImpl;
 class ChromeBrowserMainExtraParts;
 class ChromeFeatureListCreator;
-class FieldTrialSynchronizer;
+class HeapProfilerController;
 class PrefService;
 class Profile;
 class StartupBrowserCreator;
 class StartupTimeBomb;
 class ShutdownWatcherHelper;
+class ThreadProfiler;
 class WebUsbDetector;
 
 namespace chrome_browser {
@@ -61,7 +61,6 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
                          ChromeFeatureListCreator* chrome_feature_list_creator);
 
   // content::BrowserMainParts overrides.
-  bool ShouldContentCreateFeatureList() override;
   // These are called in-order by content::BrowserMainLoop.
   // Each stage calls the same stages in any ChromeBrowserMainExtraParts added
   // with AddParts() from ChromeContentBrowserClient::CreateBrowserMainParts.
@@ -104,10 +103,6 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
 
  private:
   friend class ChromeBrowserMainPartsTestApi;
-
-  // Sets up the field trials and related initialization. Call only after
-  // about:flags have been converted to switches.
-  void SetupFieldTrials();
 
   // Constructs the metrics service and initializes metrics recording.
   void SetupMetrics();
@@ -169,6 +164,10 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
   // A profiler that periodically samples stack traces on the UI thread.
   std::unique_ptr<ThreadProfiler> ui_thread_profiler_;
 
+  // The controller schedules UMA heap profiles collections and forwarding down
+  // the reporting pipeline.
+  std::unique_ptr<HeapProfilerController> heap_profiler_controller_;
+
   // Whether PerformPreMainMessageLoopStartup() is called on VariationsService.
   // Initialized to true if |MainFunctionParams::ui_task| is null (meaning not
   // running browser_tests), but may be forced to true for tests.
@@ -198,9 +197,6 @@ class ChromeBrowserMainParts : public content::BrowserMainParts {
 
   Profile* profile_;
   bool run_message_loop_;
-
-  // Initialized in |SetupFieldTrials()|.
-  scoped_refptr<FieldTrialSynchronizer> field_trial_synchronizer_;
 
   base::FilePath user_data_dir_;
 

@@ -5,6 +5,7 @@
 package org.chromium.chrome.browser.toolbar;
 
 import android.content.res.Resources;
+import android.view.View;
 
 import org.chromium.chrome.R;
 import org.chromium.chrome.browser.compositor.bottombar.OverlayPanelManager.OverlayPanelManagerObserver;
@@ -18,9 +19,13 @@ import org.chromium.chrome.browser.compositor.layouts.eventfilter.EdgeSwipeHandl
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager;
 import org.chromium.chrome.browser.fullscreen.ChromeFullscreenManager.FullscreenListener;
 import org.chromium.chrome.browser.toolbar.ToolbarButtonSlotData.ToolbarButtonData;
+import org.chromium.chrome.browser.widget.textbubble.TextBubble;
+import org.chromium.components.feature_engagement.FeatureConstants;
+import org.chromium.components.feature_engagement.Tracker;
 import org.chromium.ui.base.WindowAndroid;
 import org.chromium.ui.base.WindowAndroid.KeyboardVisibilityListener;
 import org.chromium.ui.resources.ResourceManager;
+import org.chromium.ui.widget.ViewRectProvider;
 
 /**
  * This class is responsible for reacting to events from the outside world, interacting with other
@@ -30,6 +35,9 @@ import org.chromium.ui.resources.ResourceManager;
 class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityListener,
                                        OverlayPanelManagerObserver, OverviewModeObserver,
                                        SceneChangeObserver {
+    /** The amount of time to show the Duet help bubble for. */
+    private static final int DUET_IPH_BUBBLE_SHOW_DURATION_MS = 6000;
+
     /** The model for the bottom toolbar that holds all of its state. */
     private BottomToolbarModel mModel;
 
@@ -79,19 +87,17 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
         mFirstSlotData = firstSlotData;
         mSecondSlotData = secondSlotData;
 
-        mModel.setValue(BottomToolbarModel.PRIMARY_COLOR, primaryColor);
+        mModel.set(BottomToolbarModel.PRIMARY_COLOR, primaryColor);
 
-        mModel.setValue(
-                BottomToolbarModel.FIRST_BUTTON_DATA, mFirstSlotData.browsingModeButtonData);
-        mModel.setValue(
-                BottomToolbarModel.SECOND_BUTTON_DATA, mSecondSlotData.browsingModeButtonData);
+        mModel.set(BottomToolbarModel.FIRST_BUTTON_DATA, mFirstSlotData.browsingModeButtonData);
+        mModel.set(BottomToolbarModel.SECOND_BUTTON_DATA, mSecondSlotData.browsingModeButtonData);
     }
 
     /**
      * @param swipeHandler The handler that controls the toolbar swipe behavior.
      */
     void setToolbarSwipeHandler(EdgeSwipeHandler swipeHandler) {
-        mModel.setValue(BottomToolbarModel.TOOLBAR_SWIPE_HANDLER, swipeHandler);
+        mModel.set(BottomToolbarModel.TOOLBAR_SWIPE_HANDLER, swipeHandler);
     }
 
     /**
@@ -101,8 +107,8 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
         mFullscreenManager.removeListener(this);
         if (mOverviewModeBehavior != null) mOverviewModeBehavior.removeOverviewModeObserver(this);
         if (mWindowAndroid != null) mWindowAndroid.removeKeyboardVisibilityListener(this);
-        if (mModel.getValue(BottomToolbarModel.LAYOUT_MANAGER) != null) {
-            LayoutManager manager = mModel.getValue(BottomToolbarModel.LAYOUT_MANAGER);
+        if (mModel.get(BottomToolbarModel.LAYOUT_MANAGER) != null) {
+            LayoutManager manager = mModel.get(BottomToolbarModel.LAYOUT_MANAGER);
             manager.getOverlayPanelManager().removeObserver(this);
             manager.removeSceneChangeObserver(this);
         }
@@ -113,9 +119,9 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
 
     @Override
     public void onControlsOffsetChanged(float topOffset, float bottomOffset, boolean needsAnimate) {
-        mModel.setValue(BottomToolbarModel.Y_OFFSET, (int) bottomOffset);
+        mModel.set(BottomToolbarModel.Y_OFFSET, (int) bottomOffset);
         if (bottomOffset > 0 || mFullscreenManager.getBottomControlsHeight() == 0) {
-            mModel.setValue(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
+            mModel.set(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
         } else {
             tryShowingAndroidView();
         }
@@ -129,9 +135,8 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
 
     @Override
     public void onOverviewModeStartedShowing(boolean showToolbar) {
-        mModel.setValue(
-                BottomToolbarModel.FIRST_BUTTON_DATA, mFirstSlotData.tabSwitcherModeButtonData);
-        mModel.setValue(
+        mModel.set(BottomToolbarModel.FIRST_BUTTON_DATA, mFirstSlotData.tabSwitcherModeButtonData);
+        mModel.set(
                 BottomToolbarModel.SECOND_BUTTON_DATA, mSecondSlotData.tabSwitcherModeButtonData);
     }
 
@@ -140,10 +145,8 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
 
     @Override
     public void onOverviewModeStartedHiding(boolean showToolbar, boolean delayAnimation) {
-        mModel.setValue(
-                BottomToolbarModel.FIRST_BUTTON_DATA, mFirstSlotData.browsingModeButtonData);
-        mModel.setValue(
-                BottomToolbarModel.SECOND_BUTTON_DATA, mSecondSlotData.browsingModeButtonData);
+        mModel.set(BottomToolbarModel.FIRST_BUTTON_DATA, mFirstSlotData.browsingModeButtonData);
+        mModel.set(BottomToolbarModel.SECOND_BUTTON_DATA, mSecondSlotData.browsingModeButtonData);
     }
 
     @Override
@@ -151,7 +154,7 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
 
     @Override
     public void onOverlayPanelShown() {
-        mModel.setValue(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
+        mModel.set(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
     }
 
     @Override
@@ -165,15 +168,15 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
         // the bottom toolbar view to visible or invisible regardless of the previous state.
         if (isShowing) {
             mBottomToolbarHeightBeforeHide = mFullscreenManager.getBottomControlsHeight();
-            mModel.setValue(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
-            mModel.setValue(BottomToolbarModel.COMPOSITED_VIEW_VISIBLE, false);
+            mModel.set(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
+            mModel.set(BottomToolbarModel.COMPOSITED_VIEW_VISIBLE, false);
             mFullscreenManager.setBottomControlsHeight(0);
         } else {
             mFullscreenManager.setBottomControlsHeight(mBottomToolbarHeightBeforeHide);
             tryShowingAndroidView();
-            mModel.setValue(
+            mModel.set(
                     BottomToolbarModel.Y_OFFSET, (int) mFullscreenManager.getBottomControlOffset());
-            mModel.setValue(BottomToolbarModel.COMPOSITED_VIEW_VISIBLE, true);
+            mModel.set(BottomToolbarModel.COMPOSITED_VIEW_VISIBLE, true);
         }
     }
 
@@ -184,12 +187,12 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
      */
     private void tryShowingAndroidView() {
         if (mFullscreenManager.getBottomControlOffset() > 0) return;
-        if (mModel.getValue(BottomToolbarModel.Y_OFFSET) != 0) return;
-        mModel.setValue(BottomToolbarModel.ANDROID_VIEW_VISIBLE, true);
+        if (mModel.get(BottomToolbarModel.Y_OFFSET) != 0) return;
+        mModel.set(BottomToolbarModel.ANDROID_VIEW_VISIBLE, true);
     }
 
     void setLayoutManager(LayoutManager layoutManager) {
-        mModel.setValue(BottomToolbarModel.LAYOUT_MANAGER, layoutManager);
+        mModel.set(BottomToolbarModel.LAYOUT_MANAGER, layoutManager);
         layoutManager.addSceneChangeObserver(this);
         layoutManager.getOverlayPanelManager().addObserver(this);
     }
@@ -201,16 +204,16 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
     public void onSceneChange(Layout layout) {
         if (layout instanceof ToolbarSwipeLayout) {
             mIsInSwipeLayout = true;
-            mModel.setValue(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
+            mModel.set(BottomToolbarModel.ANDROID_VIEW_VISIBLE, false);
         } else if (mIsInSwipeLayout) {
             // Only change to visible if leaving the swipe layout.
             mIsInSwipeLayout = false;
-            mModel.setValue(BottomToolbarModel.ANDROID_VIEW_VISIBLE, true);
+            mModel.set(BottomToolbarModel.ANDROID_VIEW_VISIBLE, true);
         }
     }
 
     void setResourceManager(ResourceManager resourceManager) {
-        mModel.setValue(BottomToolbarModel.RESOURCE_MANAGER, resourceManager);
+        mModel.set(BottomToolbarModel.RESOURCE_MANAGER, resourceManager);
     }
 
     void setOverviewModeBehavior(OverviewModeBehavior overviewModeBehavior) {
@@ -219,7 +222,7 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
     }
 
     void setToolbarSwipeLayout(ToolbarSwipeLayout layout) {
-        mModel.setValue(BottomToolbarModel.TOOLBAR_SWIPE_LAYOUT, layout);
+        mModel.set(BottomToolbarModel.TOOLBAR_SWIPE_LAYOUT, layout);
     }
 
     void setWindowAndroid(WindowAndroid windowAndroid) {
@@ -235,14 +238,31 @@ class BottomToolbarMediator implements FullscreenListener, KeyboardVisibilityLis
         mSecondSlotData.tabSwitcherModeButtonData = secondSlotButtonData;
 
         if (mOverviewModeBehavior.overviewVisible()) {
-            mModel.setValue(
+            mModel.set(
                     BottomToolbarModel.FIRST_BUTTON_DATA, mFirstSlotData.tabSwitcherModeButtonData);
-            mModel.setValue(BottomToolbarModel.SECOND_BUTTON_DATA,
+            mModel.set(BottomToolbarModel.SECOND_BUTTON_DATA,
                     mSecondSlotData.tabSwitcherModeButtonData);
         }
     }
 
     void setPrimaryColor(int color) {
-        mModel.setValue(BottomToolbarModel.PRIMARY_COLOR, color);
+        mModel.set(BottomToolbarModel.PRIMARY_COLOR, color);
+    }
+
+    /**
+     * Maybe show the IPH bubble for Chrome Duet.
+     * @param anchor The view to anchor the IPH to.
+     * @param tracker A tracker for IPH.
+     */
+    void showIPH(View anchor, Tracker tracker) {
+        if (tracker.shouldTriggerHelpUI(FeatureConstants.CHROME_DUET_FEATURE)) {
+            TextBubble bubble =
+                    new TextBubble(anchor.getContext(), anchor, R.string.iph_duet_icons_moved,
+                            R.string.iph_duet_icons_moved, true, new ViewRectProvider(anchor));
+            bubble.setAutoDismissTimeout(DUET_IPH_BUBBLE_SHOW_DURATION_MS);
+            bubble.addOnDismissListener(
+                    () -> tracker.dismissed(FeatureConstants.CHROME_DUET_FEATURE));
+            bubble.show();
+        }
     }
 }

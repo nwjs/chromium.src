@@ -10,6 +10,8 @@
 #include "ui/aura/client/focus_client.h"
 #include "ui/aura/client/screen_position_client.h"
 #include "ui/aura/env.h"
+#include "ui/aura/mus/window_port_mus.h"
+#include "ui/aura/mus/window_tree_client.h"
 #include "ui/aura/window.h"
 #include "ui/aura/window_delegate.h"
 #include "ui/aura/window_event_dispatcher.h"
@@ -20,6 +22,14 @@
 #include "ui/events/event_target_iterator.h"
 
 namespace aura {
+namespace {
+
+bool AreInsetsEmptyOrPositive(const gfx::Insets& insets) {
+  return insets.left() >= 0 && insets.right() >= 0 && insets.top() >= 0 &&
+         insets.bottom() >= 0;
+}
+
+}  // namespace
 
 WindowTargeter::WindowTargeter() {}
 WindowTargeter::~WindowTargeter() {}
@@ -60,11 +70,9 @@ void WindowTargeter::SetInsets(const gfx::Insets& mouse_extend,
   if (mouse_extend_ == mouse_extend && touch_extend_ == touch_extend)
     return;
 
-  const gfx::Insets last_mouse_extend_ = mouse_extend_;
-  const gfx::Insets last_touch_extend_ = touch_extend_;
   mouse_extend_ = mouse_extend;
   touch_extend_ = touch_extend;
-  OnSetInsets(last_mouse_extend_, last_touch_extend_);
+  UpdateMusIfNecessary();
 }
 
 Window* WindowTargeter::GetPriorityTargetInRootWindow(
@@ -129,6 +137,7 @@ Window* WindowTargeter::FindTargetInRootWindow(Window* root_window,
     // This is used for bezel gesture events (eg. swiping in from screen edge).
     display::Display display =
         display::Screen::GetScreen()->GetDisplayNearestWindow(root_window);
+    // The window target may be null, so use the root's ScreenPositionClient.
     gfx::Point screen_location = event.root_location();
     if (client::GetScreenPositionClient(root_window)) {
       client::GetScreenPositionClient(root_window)
@@ -187,6 +196,11 @@ ui::EventTarget* WindowTargeter::FindNextBestTarget(
     ui::EventTarget* previous_target,
     ui::Event* event) {
   return nullptr;
+}
+
+void WindowTargeter::OnInstalled(Window* window) {
+  window_ = window;
+  UpdateMusIfNecessary();
 }
 
 Window* WindowTargeter::FindTargetForLocatedEvent(Window* window,
@@ -278,12 +292,34 @@ bool WindowTargeter::EventLocationInsideBounds(
   return false;
 }
 
-bool WindowTargeter::ShouldUseExtendedBounds(const aura::Window* window) const {
-  return true;
+bool WindowTargeter::ShouldUseExtendedBounds(const aura::Window* w) const {
+  // window() is null when this is used as the default targeter (by
+  // WindowEventDispatcher). Insets should never be set in this case, so the
+  // return should not matter.
+  if (!window()) {
+    DCHECK(mouse_extend_.IsEmpty());
+    DCHECK(touch_extend_.IsEmpty());
+    return false;
+  }
+
+  // Insets should only apply to the window. Subclasses may enforce other
+  // policies.
+  return window() == w;
 }
 
-void WindowTargeter::OnSetInsets(const gfx::Insets& last_mouse_extend,
-                                 const gfx::Insets& last_touch_extend) {}
+// TODO: this function should go away once https://crbug.com/879308 is fixed.
+void WindowTargeter::UpdateMusIfNecessary() {
+  if (!window_ || window_->env()->mode() != Env::Mode::MUS)
+    return;
+
+  // Negative insets are used solely to extend the hit-test region of child
+  // windows, which is not needed by code using MUS (negative insets are only
+  // used in the server).
+  if (AreInsetsEmptyOrPositive(mouse_extend_) &&
+      AreInsetsEmptyOrPositive(touch_extend_)) {
+    WindowPortMus::Get(window_)->SetHitTestInsets(mouse_extend_, touch_extend_);
+  }
+}
 
 Window* WindowTargeter::FindTargetForKeyEvent(Window* window,
                                               const ui::KeyEvent& key) {

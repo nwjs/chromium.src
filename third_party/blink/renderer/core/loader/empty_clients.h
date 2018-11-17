@@ -252,8 +252,10 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
 
   void DispatchDidHandleOnloadEvents() override {}
   void DispatchWillCommitProvisionalLoad() override {}
-  void DispatchDidStartProvisionalLoad(DocumentLoader*,
-                                       ResourceRequest&) override {}
+  void DispatchDidStartProvisionalLoad(
+      DocumentLoader*,
+      ResourceRequest&,
+      mojo::ScopedMessagePipeHandle navigation_initiator_handle) override {}
   void DispatchDidReceiveTitle(const String&) override {}
   void DispatchDidChangeIcons(IconType) override {}
   void DispatchDidCommitLoad(HistoryItem*,
@@ -274,6 +276,7 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
                                              NavigationPolicy,
                                              bool,
                                              bool,
+                                             bool,
                                              WebTriggeringEventInfo,
                                              HTMLFormElement*,
                                              ContentSecurityPolicyDisposition,
@@ -281,9 +284,8 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
                                              base::TimeTicks) override;
 
   void DispatchWillSendSubmitEvent(HTMLFormElement*) override;
-  void DispatchWillSubmitForm(HTMLFormElement*) override;
 
-  void DidStartLoading(LoadStartType) override {}
+  void DidStartLoading() override {}
   void ProgressEstimateChanged(double) override {}
   void DidStopLoading() override {}
 
@@ -301,6 +303,9 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
       const base::UnguessableToken& devtools_navigation_token,
       std::unique_ptr<WebNavigationParams> navigation_params,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override;
+  void UpdateDocumentLoader(
+      DocumentLoader* document_loader,
+      std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) override {}
 
   String UserAgent() override { return ""; }
 
@@ -312,7 +317,6 @@ class CORE_EXPORT EmptyLocalFrameClient : public LocalFrameClient {
   void DidDisplayInsecureContent() override {}
   void DidContainInsecureFormAction() override {}
   void DidRunInsecureContent(const SecurityOrigin*, const KURL&) override {}
-  void DidDetectXSS(const KURL&, bool) override {}
   void DidDispatchPingLoader(const KURL&) override {}
   void DidDisplayContentWithCertificateErrors() override {}
   void DidRunContentWithCertificateErrors() override {}

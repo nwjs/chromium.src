@@ -29,6 +29,7 @@
 #include "gpu/ipc/common/command_buffer_id.h"
 #include "gpu/ipc/common/gpu_messages.h"
 #include "gpu/ipc/common/gpu_param_traits.h"
+#include "mojo/public/cpp/base/shared_memory_utils.h"
 #include "mojo/public/cpp/system/buffer.h"
 #include "mojo/public/cpp/system/platform_handle.h"
 #include "ui/gfx/geometry/size.h"
@@ -97,9 +98,12 @@ ContextResult CommandBufferProxyImpl::Initialize(
   base::UnsafeSharedMemoryRegion region =
       channel->ShareToGpuProcess(shared_state_shm_);
   if (!region.IsValid()) {
-    LOG(ERROR) << "ContextResult::kFatalFailure: "
+    // TODO(piman): ShareToGpuProcess should alert if it is failing due to
+    // being out of file descriptors, in which case this is a fatal error
+    // that won't be recovered from.
+    LOG(ERROR) << "ContextResult::kTransientFailure: "
                   "Shared memory region is not valid";
-    return ContextResult::kFatalFailure;
+    return ContextResult::kTransientFailure;
   }
 
   // Route must be added before sending the message, otherwise messages sent
@@ -698,20 +702,10 @@ bool CommandBufferProxyImpl::Send(IPC::Message* msg) {
 
 std::pair<base::UnsafeSharedMemoryRegion, base::WritableSharedMemoryMapping>
 CommandBufferProxyImpl::AllocateAndMapSharedMemory(size_t size) {
-  mojo::ScopedSharedBufferHandle handle =
-      mojo::SharedBufferHandle::Create(size);
-  if (!handle.is_valid()) {
-    DLOG(ERROR) << "AllocateAndMapSharedMemory: Create failed";
-    return {};
-  }
-
-  // Mojo creates a handle with Writable mode, it needs to be converted to
-  // Unsafe.
   base::UnsafeSharedMemoryRegion region =
-      base::WritableSharedMemoryRegion::ConvertToUnsafe(
-          mojo::UnwrapWritableSharedMemoryRegion(std::move(handle)));
+      mojo::CreateUnsafeSharedMemoryRegion(size);
   if (!region.IsValid()) {
-    DLOG(ERROR) << "AllocateAndMapSharedMemory: Unwrap failed";
+    DLOG(ERROR) << "AllocateAndMapSharedMemory: Allocation failed";
     return {};
   }
 

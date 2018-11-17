@@ -17,6 +17,7 @@
 #include "base/threading/thread_restrictions.h"
 #include "base/timer/elapsed_timer.h"
 #include "content/public/browser/browser_context.h"
+#include "content/public/browser/browser_task_traits.h"
 #include "content/public/browser/storage_partition.h"
 #include "extensions/browser/content_hash_fetcher.h"
 #include "extensions/browser/content_hash_reader.h"
@@ -255,8 +256,8 @@ class ContentVerifier::HashHelper {
     if (was_cancelled)
       return;
 
-    content::BrowserThread::PostTask(
-        content::BrowserThread::IO, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {content::BrowserThread::IO},
         base::BindOnce(std::move(callback), content_hash, was_cancelled));
   }
 
@@ -390,8 +391,8 @@ void ContentVerifier::Start() {
 void ContentVerifier::Shutdown() {
   shutdown_on_ui_ = true;
   delegate_->Shutdown();
-  content::BrowserThread::PostTask(
-      content::BrowserThread::IO, FROM_HERE,
+  base::PostTaskWithTraits(
+      FROM_HERE, {content::BrowserThread::IO},
       base::BindOnce(&ContentVerifier::ShutdownOnIO, this));
   observer_.RemoveAll();
 }
@@ -452,8 +453,8 @@ void ContentVerifier::GetContentHash(
     // TODO(lazyboy): Make CreateJobFor return a scoped_refptr instead of raw
     // pointer to fix this. Also add unit test to exercise this code path
     // explicitly.
-    content::BrowserThread::PostTask(
-        content::BrowserThread::IO, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {content::BrowserThread::IO},
         base::BindOnce(base::DoNothing::Once<ContentHashCallback>(),
                        std::move(callback)));
     return;
@@ -525,10 +526,9 @@ void ContentVerifier::VerifyFailed(const ExtensionId& extension_id,
                                    ContentVerifyJob::FailureReason reason,
                                    scoped_refptr<ContentVerifyJob> verify_job) {
   if (!content::BrowserThread::CurrentlyOn(content::BrowserThread::UI)) {
-    content::BrowserThread::PostTask(
-        content::BrowserThread::UI, FROM_HERE,
-        base::BindOnce(&ContentVerifier::VerifyFailed, this, extension_id, relative_path,
-                       reason, verify_job));
+    base::PostTaskWithTraits(FROM_HERE, {content::BrowserThread::UI},
+                             base::BindOnce(&ContentVerifier::VerifyFailed,
+                                            this, extension_id, relative_path, reason, verify_job));
     return;
   }
   if (shutdown_on_ui_)
@@ -569,8 +569,8 @@ void ContentVerifier::OnExtensionLoaded(
 
   ContentVerifierDelegate::Mode mode = delegate_->ShouldBeVerified(*extension);
   if (mode != ContentVerifierDelegate::NONE) {
-    content::BrowserThread::PostTask(
-        content::BrowserThread::IO, FROM_HERE,
+    base::PostTaskWithTraits(
+        FROM_HERE, {content::BrowserThread::IO},
         base::BindOnce(&ContentVerifier::OnExtensionLoadedOnIO, this,
                        extension->id(), extension->path(), extension->version(),
                        CreateIOData(extension, delegate_.get())));
@@ -598,8 +598,8 @@ void ContentVerifier::OnExtensionUnloaded(
     UnloadedExtensionReason reason) {
   if (shutdown_on_ui_)
     return;
-  content::BrowserThread::PostTask(
-      content::BrowserThread::IO, FROM_HERE,
+  base::PostTaskWithTraits(
+      FROM_HERE, {content::BrowserThread::IO},
       base::BindOnce(&ContentVerifier::OnExtensionUnloadedOnIO, this,
                      extension->id(), extension->version()));
 }
@@ -650,8 +650,8 @@ ContentHash::FetchParams ContentVerifier::GetFetchParams(
   // Create a new mojo pipe. It's safe to pass this around and use immediately,
   // even though it needs to finish initialization on the UI thread.
   network::mojom::URLLoaderFactoryPtr url_loader_factory_ptr;
-  content::BrowserThread::PostTask(
-      content::BrowserThread::UI, FROM_HERE,
+  base::PostTaskWithTraits(
+      FROM_HERE, {content::BrowserThread::UI},
       base::BindOnce(&ContentVerifier::BindURLLoaderFactoryRequestOnUIThread,
                      this, mojo::MakeRequest(&url_loader_factory_ptr)));
   network::mojom::URLLoaderFactoryPtrInfo url_loader_factory_info =

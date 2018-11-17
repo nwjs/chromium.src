@@ -23,8 +23,9 @@ nw_child.dll: %(ChromeDir)s\
 nw_elf.dll: %(ChromeDir)s\
 nw_watcher.dll: %(ChromeDir)s\
 d3dcompiler_47.dll: %(ChromeDir)s\
+elevation_service.exe: %(ChromeDir)s\
 eventlog_provider.dll: %(ChromeDir)s\
-ffmpeg.dll: %(VersionDir)s\
+ffmpeg.dll: %(ChromeDir)s\
 icudt.dll: %(ChromeDir)s\
 icudtl.dat: %(ChromeDir)s\
 libEGL.dll: %(ChromeDir)s\

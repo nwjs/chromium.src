@@ -57,7 +57,6 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
                                    const String& name,
                                    ExceptionState& exception_state) {
   DCHECK(IsMainThread());
-  SECURITY_DCHECK(context->IsDocument());
 
   UseCounter::Count(context, WebFeature::kSharedWorkerStart);
 
@@ -69,7 +68,7 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
 
   // We don't currently support nested workers, so workers can only be created
   // from documents.
-  Document* document = ToDocument(context);
+  Document* document = To<Document>(context);
   if (!document->GetSecurityOrigin()->CanAccessSharedWorkers()) {
     exception_state.ThrowSecurityError(
         "Access to shared workers is denied to origin '" +
@@ -80,7 +79,7 @@ SharedWorker* SharedWorker::Create(ExecutionContext* context,
   }
 
   KURL script_url = ResolveURL(context, url, exception_state,
-                               WebURLRequest::kRequestContextSharedWorker);
+                               mojom::RequestContextType::SHARED_WORKER);
   if (script_url.IsEmpty())
     return nullptr;
 

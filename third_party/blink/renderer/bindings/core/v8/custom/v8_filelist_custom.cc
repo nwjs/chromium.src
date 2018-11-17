@@ -10,7 +10,7 @@ void V8FileList::constructorCustom(const v8::FunctionCallbackInfo<v8::Value>& ar
 {
   ExecutionContext* context = CurrentExecutionContext(args.GetIsolate());
   if (context && context->IsDocument()) {
-    Document* document = ToDocument(context);
+    Document* document = static_cast<Document*>(context);
     if (document->GetFrame()->isNwDisabledChildFrame()) {
       V8ThrowException::ThrowTypeError(args.GetIsolate(), "FileList constructor cannot be called in nwdisabled frame.");
       return;

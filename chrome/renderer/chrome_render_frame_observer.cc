@@ -298,9 +298,7 @@ void ChromeRenderFrameObserver::GetWebApplicationInfo(
   // any icon with a data URL to have originated from a favicon.  We don't want
   // to decode arbitrary data URLs in the browser process.  See
   // http://b/issue?id=1162972
-  for (std::vector<WebApplicationInfo::IconInfo>::iterator it =
-           web_app_info.icons.begin();
-       it != web_app_info.icons.end();) {
+  for (auto it = web_app_info.icons.begin(); it != web_app_info.icons.end();) {
     if (it->url.SchemeIs(url::kDataScheme))
       it = web_app_info.icons.erase(it);
     else
@@ -377,7 +375,8 @@ void ChromeRenderFrameObserver::DidCreateNewDocument() {
 }
 
 void ChromeRenderFrameObserver::DidStartProvisionalLoad(
-    WebDocumentLoader* document_loader) {
+    WebDocumentLoader* document_loader,
+    bool is_content_initiated) {
 #if 0
   // Let translate_helper do any preparatory work for loading a URL.
   if (!translate_helper_)
@@ -389,8 +388,8 @@ void ChromeRenderFrameObserver::DidStartProvisionalLoad(
 }
 
 void ChromeRenderFrameObserver::DidCommitProvisionalLoad(
-    bool is_new_navigation,
-    bool is_same_document_navigation) {
+    bool is_same_document_navigation,
+    ui::PageTransition transition) {
   WebLocalFrame* frame = render_frame()->GetWebFrame();
 
   // Don't do anything for subframes.
@@ -507,12 +506,12 @@ void ChromeRenderFrameObserver::SetWindowFeatures(
       content::ConvertMojoWindowFeaturesToWebWindowFeatures(*window_features));
 }
 
-#if defined(OS_ANDROID)
 void ChromeRenderFrameObserver::UpdateBrowserControlsState(
     content::BrowserControlsState constraints,
     content::BrowserControlsState current,
     bool animate) {
+#if defined(OS_ANDROID) || defined(OS_CHROMEOS)
   render_frame()->GetRenderView()->UpdateBrowserControlsState(constraints,
                                                               current, animate);
-}
 #endif
+}

@@ -2928,16 +2928,11 @@
     },
     {
       "id":273,
-      "cr_bugs": [866613],
+      "cr_bugs": [866613, 860021],
       "description": "Frequent crashes on Adreno (TM) on L and below",
       "os": {
-        "type": "android",
-        "version": {
-          "op": "<",
-          "value": "6.0"
-        }
+        "type": "android"
       },
-      "gl_renderer": "Adreno.*",
       "features": [
         "use_es2_for_oopr"
       ]
@@ -3010,6 +3005,19 @@
       "device_id": ["0x6900"],
       "features": [
         "disable_direct_composition"
+      ]
+    },
+    {
+      "id": 279,
+      "description": "WindowServer crashes on VMWare bots using CA renderer",
+      "cr_bugs": [828031],
+      "os": {
+        "type": "macosx"
+      },
+      "vendor_id": "0x15ad",
+      "multi_gpu_category": "any",
+      "features": [
+        "disable_overlay_ca_layers"
       ]
     }
   ]

@@ -43,12 +43,7 @@ class ChooserBubbleUi : public BubbleUi, public views::WidgetObserver {
   void OnWidgetClosing(views::Widget* widget) override;
 
  private:
-  // Has separate implementations for Views-based and Cocoa-based browsers, to
-  // allow this bubble to be used in either.
   void CreateAndShow(views::BubbleDialogDelegateView* delegate);
-
-  // Create a ChooserBubbleUi attached specifically to a Cocoa browser window.
-  void CreateAndShowCocoa(views::BubbleDialogDelegateView* delegate);
 
   Browser* const browser_;  // Weak.
   extensions::AppWindow* app_window_;

@@ -132,8 +132,10 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
                                                WebHistoryCommitType,
                                                bool content_initiated) {}
   virtual void DispatchWillCommitProvisionalLoad() = 0;
-  virtual void DispatchDidStartProvisionalLoad(DocumentLoader*,
-                                               ResourceRequest&) = 0;
+  virtual void DispatchDidStartProvisionalLoad(
+      DocumentLoader*,
+      ResourceRequest&,
+      mojo::ScopedMessagePipeHandle navigation_initiator_handle) = 0;
   virtual void DispatchDidReceiveTitle(const String&) = 0;
   virtual void DispatchDidChangeIcons(IconType) = 0;
   virtual void DispatchDidCommitLoad(HistoryItem*,
@@ -153,6 +155,7 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
       DocumentLoader*,
       WebNavigationType,
       NavigationPolicy,
+      bool has_transient_activation,
       bool should_replace_current_entry,
       bool is_client_redirect,
       WebTriggeringEventInfo,
@@ -163,9 +166,8 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
       base::TimeTicks input_start_time) = 0;
 
   virtual void DispatchWillSendSubmitEvent(HTMLFormElement*) = 0;
-  virtual void DispatchWillSubmitForm(HTMLFormElement*) = 0;
 
-  virtual void DidStartLoading(LoadStartType) = 0;
+  virtual void DidStartLoading() = 0;
   virtual void ProgressEstimateChanged(double progress_estimate) = 0;
   virtual void DidStopLoading() = 0;
 
@@ -193,7 +195,6 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
   // from an insecure source.  Note that the insecure content can spread to
   // other frames in the same origin.
   virtual void DidRunInsecureContent(const SecurityOrigin*, const KURL&) = 0;
-  virtual void DidDetectXSS(const KURL&, bool did_block_entire_page) = 0;
   virtual void DidDispatchPingLoader(const KURL&) = 0;
 
   // The frame displayed content with certificate errors with given URL.
@@ -240,6 +241,10 @@ class CORE_EXPORT LocalFrameClient : public FrameClient {
       ClientRedirectPolicy,
       const base::UnguessableToken& devtools_navigation_token,
       std::unique_ptr<WebNavigationParams> navigation_params,
+      std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) = 0;
+
+  virtual void UpdateDocumentLoader(
+      DocumentLoader* document_loader,
       std::unique_ptr<WebDocumentLoader::ExtraData> extra_data) = 0;
 
   virtual String UserAgent() = 0;

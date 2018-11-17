@@ -191,6 +191,8 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
       *cl, autofill::features::kAutofillRestrictUnownedFieldsToFormlessCheckout
                .name);
 
+  CommandLineHelper::AddDisabledFeature(*cl, features::kBackgroundFetch.name);
+
   android_webview::RegisterPathProvider();
 
   safe_browsing_api_handler_.reset(
@@ -300,6 +302,13 @@ void AwMainDelegate::ProcessExiting(const std::string& process_type) {
   // TODO(torne): Clean up resources when we handle them.
 
   logging::CloseLogFile();
+}
+
+bool AwMainDelegate::ShouldCreateFeatureList() {
+  // TODO(https://crbug.com/887468): Move the creation of FeatureList from
+  // AwBrowserMainParts::PreCreateThreads() to
+  // AwMainDelegate::PostEarlyInitialization().
+  return false;
 }
 
 content::ContentBrowserClient* AwMainDelegate::CreateContentBrowserClient() {

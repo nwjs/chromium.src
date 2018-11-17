@@ -23,20 +23,19 @@
 #include "third_party/blink/public/platform/dedicated_worker_factory.mojom-blink.h"
 #include "third_party/blink/public/platform/web_content_settings_client.h"
 #include "third_party/blink/public/platform/web_layer_tree_view.h"
-#include "third_party/blink/public/web/web_local_frame_client.h"
 #include "third_party/blink/renderer/bindings/core/v8/serialization/post_message_helper.h"
 #include "third_party/blink/renderer/core/core_initializer.h"
 #include "third_party/blink/renderer/core/dom/document.h"
 #include "third_party/blink/renderer/core/events/message_event.h"
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
+#include "third_party/blink/renderer/core/frame/local_frame.h"
+#include "third_party/blink/renderer/core/frame/local_frame_client.h"
 #include "third_party/blink/renderer/core/frame/use_counter.h"
-#include "third_party/blink/renderer/core/frame/web_local_frame_impl.h"
 #include "third_party/blink/renderer/core/inspector/main_thread_debugger.h"
 #include "third_party/blink/renderer/core/messaging/post_message_options.h"
 #include "third_party/blink/renderer/core/origin_trials/origin_trial_context.h"
 #include "third_party/blink/renderer/core/page/page.h"
 #include "third_party/blink/renderer/core/probe/core_probes.h"
-#include "third_party/blink/renderer/core/script/fetch_client_settings_object_snapshot.h"
 #include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/core/workers/dedicated_worker_messaging_proxy.h"
 #include "third_party/blink/renderer/core/workers/worker_classic_script_loader.h"
@@ -45,6 +44,7 @@
 #include "third_party/blink/renderer/core/workers/worker_global_scope.h"
 #include "third_party/blink/renderer/platform/bindings/exception_state.h"
 #include "third_party/blink/renderer/platform/bindings/script_state.h"
+#include "third_party/blink/renderer/platform/loader/fetch/fetch_client_settings_object_snapshot.h"
 #include "third_party/blink/renderer/platform/weborigin/security_policy.h"
 
 namespace blink {
@@ -79,7 +79,7 @@ DedicatedWorker* DedicatedWorker::Create(ExecutionContext* context,
   }
 
   KURL script_request_url = ResolveURL(context, url, exception_state,
-                                       WebURLRequest::kRequestContextScript);
+                                       mojom::RequestContextType::SCRIPT);
   if (!script_request_url.IsValid()) {
     // Don't throw an exception here because it's already thrown in
     // ResolveURL().
@@ -184,14 +184,10 @@ void DedicatedWorker::Start() {
         network::mojom::FetchRequestMode::kSameOrigin;
     network::mojom::FetchCredentialsMode fetch_credentials_mode =
         network::mojom::FetchCredentialsMode::kSameOrigin;
-    if (script_request_url_.ProtocolIsData()) {
-      fetch_request_mode = network::mojom::FetchRequestMode::kNoCORS;
-      fetch_credentials_mode = network::mojom::FetchCredentialsMode::kInclude;
-    }
     classic_script_loader_ = WorkerClassicScriptLoader::Create();
     classic_script_loader_->LoadTopLevelScriptAsynchronously(
         *GetExecutionContext(), script_request_url_,
-        WebURLRequest::kRequestContextWorker, fetch_request_mode,
+        mojom::RequestContextType::WORKER, fetch_request_mode,
         fetch_credentials_mode,
         GetExecutionContext()->GetSecurityContext().AddressSpace(),
         WTF::Bind(&DedicatedWorker::OnResponse, WrapPersistent(this)),
@@ -208,7 +204,7 @@ void DedicatedWorker::Start() {
     // the worker thread as opposed to classic scripts that are fetched on the
     // main thread.
     auto* outside_settings_object =
-        new FetchClientSettingsObjectSnapshot(*GetExecutionContext());
+        GetExecutionContext()->CreateFetchClientSettingsObjectSnapshot();
     context_proxy_->StartWorkerGlobalScope(
         CreateGlobalScopeCreationParams(script_request_url_), options_,
         script_request_url_, outside_settings_object, stack_id,
@@ -219,7 +215,7 @@ void DedicatedWorker::Start() {
 }
 
 void DedicatedWorker::terminate() {
-  DCHECK(GetExecutionContext()->IsContextThread());
+  DCHECK(!GetExecutionContext() || GetExecutionContext()->IsContextThread());
   context_proxy_->TerminateGlobalScope();
 }
 
@@ -229,8 +225,8 @@ BeginFrameProviderParams DedicatedWorker::CreateBeginFrameProviderParams() {
   // won't be initialized. If that's the case, the Worker will initialize it by
   // itself later.
   BeginFrameProviderParams begin_frame_provider_params;
-  if (GetExecutionContext() && GetExecutionContext()->IsDocument()) {
-    LocalFrame* frame = ToDocument(GetExecutionContext())->GetFrame();
+  if (auto* document = DynamicTo<Document>(GetExecutionContext())) {
+    LocalFrame* frame = document->GetFrame();
     WebLayerTreeView* layer_tree_view = nullptr;
     if (frame && frame->GetPage()) {
       layer_tree_view =
@@ -272,10 +268,9 @@ WorkerClients* DedicatedWorker::CreateWorkerClients() {
       *worker_clients);
 
   std::unique_ptr<WebContentSettingsClient> client;
-  if (GetExecutionContext()->IsDocument()) {
-    WebLocalFrameImpl* web_frame = WebLocalFrameImpl::FromFrame(
-        ToDocument(GetExecutionContext())->GetFrame());
-    client = web_frame->Client()->CreateWorkerContentSettingsClient();
+  if (auto* document = DynamicTo<Document>(GetExecutionContext())) {
+    LocalFrame* frame = document->GetFrame();
+    client = frame->Client()->CreateWorkerContentSettingsClient();
   } else if (GetExecutionContext()->IsWorkerGlobalScope()) {
     WebContentSettingsClient* web_worker_content_settings_client =
         WorkerContentSettingsClient::From(*GetExecutionContext())
@@ -315,7 +310,7 @@ void DedicatedWorker::OnFinished(const v8_inspector::V8StackTraceId& stack_id) {
         CreateGlobalScopeCreationParams(script_response_url);
     creation_params->referrer_policy = referrer_policy;
     auto* outside_settings_object =
-        new FetchClientSettingsObjectSnapshot(*GetExecutionContext());
+        GetExecutionContext()->CreateFetchClientSettingsObjectSnapshot();
     context_proxy_->StartWorkerGlobalScope(
         std::move(creation_params), options_, script_response_url,
         outside_settings_object, stack_id,
@@ -333,8 +328,7 @@ DedicatedWorker::CreateGlobalScopeCreationParams(const KURL& script_url) {
   std::unique_ptr<WorkerSettings> settings;
   bool isNodeJS = false;
   std::string main_script;
-  if (GetExecutionContext()->IsDocument()) {
-    Document* document = ToDocument(GetExecutionContext());
+  if (auto* document = DynamicTo<Document>(GetExecutionContext())) {
     devtools_worker_token = document->GetFrame()
                                 ? document->GetFrame()->GetDevToolsFrameToken()
                                 : base::UnguessableToken::Create();

@@ -489,7 +489,7 @@ bool CrashpadClient::SetHandlerMachPort(
 }
 
 base::mac::ScopedMachSendRight CrashpadClient::GetHandlerMachPort() const {
-  DCHECK(exception_port_.is_valid());
+  //DCHECK(exception_port_.is_valid());
 
   // For the purposes of this method, only return a port set by
   // SetHandlerMachPort().

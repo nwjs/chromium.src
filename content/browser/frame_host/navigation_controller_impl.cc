@@ -930,7 +930,7 @@ bool NavigationControllerImpl::RendererDidNavigate(
   for (size_t i = 0; i < params.redirects.size(); ++i) {
     redirect_chain_size += params.redirects[i].spec().length();
   }
-  UMA_HISTOGRAM_COUNTS("Navigation.RedirectChainSize", redirect_chain_size);
+  UMA_HISTOGRAM_COUNTS_1M("Navigation.RedirectChainSize", redirect_chain_size);
 
   // Once it is committed, we no longer need to track several pieces of state on
   // the entry.
@@ -1661,10 +1661,8 @@ void NavigationControllerImpl::CopyStateFrom(const NavigationController& temp,
   needs_reload_ = needs_reload;
   InsertEntriesFrom(source, source.GetEntryCount());
 
-  for (SessionStorageNamespaceMap::const_iterator it =
-           source.session_storage_namespace_map_.begin();
-       it != source.session_storage_namespace_map_.end();
-       ++it) {
+  for (auto it = source.session_storage_namespace_map_.begin();
+       it != source.session_storage_namespace_map_.end(); ++it) {
     SessionStorageNamespaceImpl* source_namespace =
         static_cast<SessionStorageNamespaceImpl*>(it->second.get());
     session_storage_namespace_map_[it->first] = source_namespace->Clone();
@@ -1840,15 +1838,16 @@ bool NavigationControllerImpl::StartHistoryNavigationInNewSubframe(
     const char kFramePathPrefix[] = "<!--framePath ";
     if (base::StartsWith(unique_name, kFramePathPrefix,
                          base::CompareCase::SENSITIVE)) {
-      UMA_HISTOGRAM_COUNTS("SessionRestore.RestoreSubframeFramePathLength",
-                           unique_name.size());
+      UMA_HISTOGRAM_COUNTS_1M("SessionRestore.RestoreSubframeFramePathLength",
+                              unique_name.size());
     }
   }
 
   std::unique_ptr<NavigationRequest> request = CreateNavigationRequest(
       render_frame_host->frame_tree_node(), *entry, frame_entry,
       ReloadType::NONE, false /* is_same_document_history_load */,
-      true /* is_history_navigation_in_new_child */, nullptr, nullptr);
+      true /* is_history_navigation_in_new_child */, nullptr, nullptr,
+      base::TimeTicks() /* input_start */, WasActivatedOption::kUnknown);
 
   if (!request)
     return false;
@@ -1938,7 +1937,8 @@ void NavigationControllerImpl::NavigateFromFrameProxy(
   std::unique_ptr<NavigationRequest> request = CreateNavigationRequest(
       render_frame_host->frame_tree_node(), *entry, frame_entry.get(),
       ReloadType::NONE, false /* is_same_document_history_load */,
-      false /* is_history_navigation_in_new_child */, post_body, nullptr);
+      false /* is_history_navigation_in_new_child */, post_body, nullptr,
+      base::TimeTicks() /* input_start */, WasActivatedOption::kUnknown);
 
   if (!request)
     return;
@@ -2195,7 +2195,8 @@ void NavigationControllerImpl::NavigateToExistingPendingEntry(
         CreateNavigationRequest(
             root, *pending_entry_, pending_entry_->GetFrameEntry(root),
             reload_type, false /* is_same_document_history_load */,
-            false /* is_history_navigation_in_new_child */, nullptr, nullptr);
+            false /* is_history_navigation_in_new_child */, nullptr, nullptr,
+            base::TimeTicks() /* input_start */, WasActivatedOption::kUnknown);
     if (!navigation_request) {
       // This navigation cannot start (e.g. the URL is invalid), delete the
       // pending NavigationEntry.
@@ -2229,14 +2230,14 @@ void NavigationControllerImpl::NavigateToExistingPendingEntry(
   // Send all the same document frame loads before the different document loads.
   for (auto& item : same_document_loads) {
     FrameTreeNode* frame = item->frame_tree_node();
-    if (nwfaketop_node && nwfaketop_node->IsDescendantOf(frame))
+    if (nwfaketop_node && nwfaketop_node->current_frame_host()->IsDescendantOf(frame->current_frame_host()))
       continue;
     frame->navigator()->Navigate(std::move(item), reload_type,
                                  pending_entry_->restore_type());
   }
   for (auto& item : different_document_loads) {
     FrameTreeNode* frame = item->frame_tree_node();
-    if (nwfaketop_node && nwfaketop_node->IsDescendantOf(frame))
+    if (nwfaketop_node && nwfaketop_node->current_frame_host()->IsDescendantOf(frame->current_frame_host()))
       continue;
     frame->navigator()->Navigate(std::move(item), reload_type,
                                  pending_entry_->restore_type());
@@ -2281,7 +2282,9 @@ void NavigationControllerImpl::FindFramesToNavigate(
           CreateNavigationRequest(
               frame, *pending_entry_, new_item, reload_type,
               true /* is_same_document_history_load */,
-              false /* is_history_navigation_in_new_child */, nullptr, nullptr);
+              false /* is_history_navigation_in_new_child */, nullptr, nullptr,
+              base::TimeTicks() /* input_start */,
+              WasActivatedOption::kUnknown);
       if (navigation_request) {
         // Only add the request if was properly created. It's possible for the
         // creation to fail in certain cases, e.g. when the URL is invalid.
@@ -2307,7 +2310,9 @@ void NavigationControllerImpl::FindFramesToNavigate(
           CreateNavigationRequest(
               frame, *pending_entry_, new_item, reload_type,
               false /* is_same_document_history_load */,
-              false /* is_history_navigation_in_new_child */, nullptr, nullptr);
+              false /* is_history_navigation_in_new_child */, nullptr, nullptr,
+              base::TimeTicks() /* input_start */,
+              WasActivatedOption::kUnknown);
       if (navigation_request) {
         // Only add the request if was properly created. It's possible for the
         // creation to fail in certain cases, e.g. when the URL is invalid.
@@ -2391,7 +2396,8 @@ void NavigationControllerImpl::NavigateWithoutEntry(
       node, *pending_entry_, pending_entry_->GetFrameEntry(node), reload_type,
       false /* is_same_document_history_load */,
       false /* is_history_navigation_in_new_child */, nullptr,
-      params.navigation_ui_data ? params.navigation_ui_data->Clone() : nullptr);
+      params.navigation_ui_data ? params.navigation_ui_data->Clone() : nullptr,
+      params.input_start, params.was_activated);
 
   // If the navigation couldn't start, return immediately and discard the
   // pending NavigationEntry.
@@ -2553,7 +2559,9 @@ NavigationControllerImpl::CreateNavigationRequest(
     bool is_same_document_history_load,
     bool is_history_navigation_in_new_child,
     const scoped_refptr<network::ResourceRequestBody>& post_body,
-    std::unique_ptr<NavigationUIData> navigation_ui_data) {
+    std::unique_ptr<NavigationUIData> navigation_ui_data,
+    base::TimeTicks input_start,
+    WasActivatedOption was_activated) {
   GURL dest_url = frame_entry->url();
   Referrer dest_referrer = frame_entry->referrer();
   if (reload_type == ReloadType::ORIGINAL_REQUEST_URL &&
@@ -2626,7 +2634,7 @@ NavigationControllerImpl::CreateNavigationRequest(
       frame_tree_node, dest_url, dest_referrer, *frame_entry, entry,
       navigation_type, previews_state, is_same_document_history_load,
       is_history_navigation_in_new_child, post_body, navigation_start, this,
-      std::move(navigation_ui_data));
+      std::move(navigation_ui_data), input_start, was_activated);
 }
 
 void NavigationControllerImpl::NotifyNavigationEntryCommitted(

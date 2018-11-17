@@ -103,7 +103,8 @@ gpu::ContextResult GLES2CommandBufferStub::Initialize(
         init_params.attribs.bind_generates_resource, channel_->image_manager(),
         gmb_factory ? gmb_factory->AsImageFactory() : nullptr,
         manager->watchdog() /* progress_reporter */,
-        manager->gpu_feature_info(), manager->discardable_manager());
+        manager->gpu_feature_info(), manager->discardable_manager(),
+        manager->shared_image_manager());
   }
 
 #if defined(OS_MACOSX)
@@ -193,8 +194,9 @@ gpu::ContextResult GLES2CommandBufferStub::Initialize(
       surface_ = gl::init::CreateOffscreenGLSurfaceWithFormat(gfx::Size(),
                                                               surface_format);
       if (!surface_) {
-        LOG(ERROR) << "ContextResult::kFatalFailure: Failed to create surface.";
-        return gpu::ContextResult::kFatalFailure;
+        LOG(ERROR)
+            << "ContextResult::kSurfaceFailure: Failed to create surface.";
+        return gpu::ContextResult::kSurfaceFailure;
       }
     } else {
       surface_ = default_surface;
@@ -217,8 +219,8 @@ gpu::ContextResult GLES2CommandBufferStub::Initialize(
         weak_ptr_factory_.GetWeakPtr(), surface_handle_, surface_format);
     if (!surface_ || !surface_->Initialize(surface_format)) {
       surface_ = nullptr;
-      LOG(ERROR) << "ContextResult::kFatalFailure: Failed to create surface.";
-      return gpu::ContextResult::kFatalFailure;
+      LOG(ERROR) << "ContextResult::kSurfaceFailure: Failed to create surface.";
+      return gpu::ContextResult::kSurfaceFailure;
     }
     if (init_params.attribs.enable_swap_timestamps_if_supported &&
         surface_->SupportsSwapTimestamps())
@@ -231,7 +233,7 @@ gpu::ContextResult GLES2CommandBufferStub::Initialize(
     if (share_command_buffer_stub) {
       share_group_ = share_command_buffer_stub->share_group();
     } else {
-      share_group_ = new gl::GLShareGroup();
+      share_group_ = base::MakeRefCounted<gl::GLShareGroup>();
     }
   } else {
     // When using the validating command decoder, always use the global share

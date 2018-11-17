@@ -69,13 +69,13 @@
 #import "chrome/browser/ui/cocoa/apps/app_shim_menu_controller_mac.h"
 #include "chrome/browser/ui/cocoa/apps/quit_with_apps_controller_mac.h"
 #import "chrome/browser/ui/cocoa/bookmarks/bookmark_menu_bridge.h"
+#import "chrome/browser/ui/cocoa/confirm_quit.h"
 #import "chrome/browser/ui/cocoa/confirm_quit_panel_controller.h"
 #include "chrome/browser/ui/cocoa/handoff_active_url_observer_bridge.h"
 #import "chrome/browser/ui/cocoa/history_menu_bridge.h"
 #include "chrome/browser/ui/cocoa/last_active_browser_cocoa.h"
 #import "chrome/browser/ui/cocoa/profiles/profile_menu_controller.h"
 #import "chrome/browser/ui/cocoa/share_menu_controller.h"
-#import "chrome/browser/ui/confirm_quit.h"
 #include "chrome/browser/ui/extensions/application_launch.h"
 #include "chrome/browser/ui/startup/startup_browser_creator.h"
 #include "chrome/browser/ui/startup/startup_browser_creator_impl.h"
@@ -413,11 +413,9 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
   // If the OSX version supports this method, the system will automatically
   // hide the item if there's no touch bar. However, for unsupported versions,
-  // we'll have to manually remove the item from the menu. The item also has
-  // to be removed if the feature is disabled.
+  // we'll have to manually remove the item from the menu.
   if (![NSApp
-          respondsToSelector:@selector(toggleTouchBarCustomizationPalette:)] ||
-      !base::FeatureList::IsEnabled(features::kBrowserTouchBar)) {
+          respondsToSelector:@selector(toggleTouchBarCustomizationPalette:)]) {
     NSMenu* mainMenu = [NSApp mainMenu];
     NSMenu* viewMenu = [[mainMenu itemWithTag:IDC_VIEW_MENU] submenu];
     NSMenuItem* customizeItem = [viewMenu itemWithTag:IDC_CUSTOMIZE_TOUCH_BAR];
@@ -443,7 +441,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 - (void)applicationWillHide:(NSNotification*)notification {
   if (![self isProfileReady])
     return;
-  apps::ExtensionAppShimHandler::OnChromeWillHide();
+  apps::ExtensionAppShimHandler::Get()->OnChromeWillHide();
 }
 
 - (BOOL)tryToTerminateApplication:(NSApplication*)app {
@@ -1338,7 +1336,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 - (void)registerServicesMenuTypesTo:(NSApplication*)app {
   // Note that RenderWidgetHostViewCocoa implements NSServicesRequests which
   // handles requests from services.
-  NSArray* types = [NSArray arrayWithObjects:NSStringPboardType, nil];
+  NSArray* types = @[ base::mac::CFToNSCast(kUTTypeUTF8PlainText) ];
   [app registerServicesMenuSendTypes:types returnTypes:types];
 }
 
@@ -1589,11 +1587,14 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   // This works around an apparent AppKit bug where setting a *different* NSMenu
   // submenu on a *hidden* menu item forces the item to become visible.
   // See https://crbug.com/497813 for more details.
+#if 0
   NSMenuItem* bookmarkItem = [[NSApp mainMenu] itemWithTag:IDC_BOOKMARKS_MENU];
   BOOL hidden = [bookmarkItem isHidden];
   [bookmarkItem setHidden:NO];
+#endif
   lastProfile_ = profile;
 
+#if 0
   auto& entry = profileBookmarkMenuBridgeMap_[profile->GetPath()];
   if (!entry) {
     // This creates a deep copy, but only the first 3 items in the root menu
@@ -1619,6 +1620,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
   chrome::BrowserCommandController::
       UpdateSharedCommandsForIncognitoAvailability(
           menuState_.get(), lastProfile_);
+#endif
   profilePrefRegistrar_.reset(new PrefChangeRegistrar());
   profilePrefRegistrar_->Init(lastProfile_->GetPrefs());
   profilePrefRegistrar_->Add(
