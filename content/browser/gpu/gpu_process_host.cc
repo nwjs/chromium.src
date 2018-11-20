@@ -688,6 +688,7 @@ GpuProcessHost::GpuProcessHost(int host_id, GpuProcessKind kind)
       in_process_(false),
       kind_(kind),
       process_launched_(false),
+      closing_(false),
       weak_ptr_factory_(this) {
   if (base::CommandLine::ForCurrentProcess()->HasSwitch(
           switches::kSingleProcess) ||
@@ -711,6 +712,7 @@ GpuProcessHost::~GpuProcessHost() {
   if (in_process_gpu_thread_)
     DCHECK(process_);
 
+  closing_ = true;
   SendOutstandingReplies();
 
 #if defined(OS_MACOSX)
@@ -861,6 +863,8 @@ void GpuProcessHost::InitOzone() {
 bool GpuProcessHost::Init() {
   init_start_time_ = base::TimeTicks::Now();
 
+  if (in_process_ && closing_)
+    return true;
   TRACE_EVENT_INSTANT0("gpu", "LaunchGpuProcess", TRACE_EVENT_SCOPE_THREAD);
 
   // May be null during test execution.

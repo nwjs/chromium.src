@@ -17,6 +17,7 @@ var WebViewConstants = {
   ATTRIBUTE_NAME: 'name',
   ATTRIBUTE_PARTITION: 'partition',
   ATTRIBUTE_SRC: 'src',
+  ATTRIBUTE_ALLOWNW:  'allownw',
 
   // Error/warning messages.
   ERROR_MSG_ALREADY_NAVIGATED: '<webview>: ' +

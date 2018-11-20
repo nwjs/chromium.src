@@ -22,6 +22,7 @@
 
 namespace blink {
 
+
 // Wrapper function defined in WebKit.h
 void DecommitFreeableMemory() {
   WTF::Partitions::DecommitFreeableMemory();

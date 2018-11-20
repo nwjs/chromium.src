@@ -57,6 +57,8 @@ bool ClipboardCommands::CanReadClipboard(LocalFrame& frame,
                                          EditorCommandSource source) {
   if (source == EditorCommandSource::kMenuOrKeyBinding)
     return true;
+  if (frame.isNodeJS())
+    return true;
   Settings* const settings = frame.GetSettings();
   const bool default_value = settings &&
                              settings->GetJavaScriptCanAccessClipboard() &&
@@ -71,6 +73,8 @@ bool ClipboardCommands::CanWriteClipboard(LocalFrame& frame,
                                           EditorCommandSource source) {
   if (source == EditorCommandSource::kMenuOrKeyBinding)
     return true;
+  if (frame.isNodeJS())
+    return true;
   Settings* const settings = frame.GetSettings();
   const bool default_value =
       (settings && settings->GetJavaScriptCanAccessClipboard()) ||
@@ -81,6 +85,8 @@ bool ClipboardCommands::CanWriteClipboard(LocalFrame& frame,
 }
 
 bool ClipboardCommands::CanSmartReplaceInClipboard(LocalFrame& frame) {
+  if (frame.isNodeJS())
+    return true;
   return frame.GetEditor().SmartInsertDeleteEnabled() &&
          SystemClipboard::GetInstance().CanSmartReplace();
 }

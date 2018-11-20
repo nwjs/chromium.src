@@ -52,6 +52,7 @@ class ScriptContextSet {
   // This may also include invalid contexts. TODO(kalman): Useful?
   size_t size() const { return contexts_.size(); }
 
+  const std::set<ScriptContext*>& contexts() const { return contexts_; }
   // Creates and starts managing a new ScriptContext. Ownership is held.
   // Returns a weak reference to the new ScriptContext.
   ScriptContext* Register(blink::WebLocalFrame* frame,
@@ -133,7 +134,9 @@ class ScriptContextSet {
       const Extension* extension,
       int world_id,
       const GURL& url,
-      const blink::WebSecurityOrigin& origin);
+      const blink::WebSecurityOrigin& origin,
+      const blink::WebLocalFrame* frame = nullptr
+                                             );
 
   // Weak reference to all installed Extensions that are also active in this
   // process.

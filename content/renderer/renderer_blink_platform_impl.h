@@ -207,7 +207,7 @@ class CONTENT_EXPORT RendererBlinkPlatformImpl : public BlinkPlatformImpl {
   blink::WebPushProvider* PushProvider() override;
   void DidStartWorkerThread() override;
   void WillStopWorkerThread() override;
-  void WorkerContextCreated(const v8::Local<v8::Context>& worker) override;
+  void WorkerContextCreated(const v8::Local<v8::Context>& worker, bool, const std::string&) override;
 
   // Disables the WebSandboxSupport implementation for testing.
   // Tests that do not set up a full sandbox environment should call

@@ -544,6 +544,14 @@ void RenderFrameHostImpl::SetNetworkFactoryForTesting(
       create_network_factory_callback;
 }
 
+void RenderFrameHostImpl::SetNodeJS(bool node) {
+  nodejs_ = node;
+}
+
+void RenderFrameHostImpl::SetContextCreated(bool created) {
+  context_created_ = created;
+}
+
 RenderFrameHostImpl::RenderFrameHostImpl(SiteInstance* site_instance,
                                          RenderViewHostImpl* render_view_host,
                                          RenderFrameHostDelegate* delegate,
@@ -554,7 +562,9 @@ RenderFrameHostImpl::RenderFrameHostImpl(SiteInstance* site_instance,
                                          int32_t widget_routing_id,
                                          bool hidden,
                                          bool renderer_initiated_creation)
-    : render_view_host_(render_view_host),
+    :
+      in_window_creation_(false),
+      render_view_host_(render_view_host),
       delegate_(delegate),
       site_instance_(static_cast<SiteInstanceImpl*>(site_instance)),
       process_(site_instance->GetProcess()),
@@ -565,6 +575,8 @@ RenderFrameHostImpl::RenderFrameHostImpl(SiteInstance* site_instance,
       routing_id_(routing_id),
       is_waiting_for_swapout_ack_(false),
       render_frame_created_(false),
+      nodejs_(false),
+      context_created_(false),
       is_waiting_for_beforeunload_ack_(false),
       unload_ack_is_for_navigation_(false),
       beforeunload_timeout_delay_(base::TimeDelta::FromMilliseconds(
@@ -770,6 +782,14 @@ int RenderFrameHostImpl::GetRoutingID() {
 
 ui::AXTreeIDRegistry::AXTreeID RenderFrameHostImpl::GetAXTreeID() {
   return ax_tree_id_;
+}
+
+bool RenderFrameHostImpl::nodejs() {
+  return nodejs_;
+}
+
+bool RenderFrameHostImpl::context_created() {
+  return context_created_;
 }
 
 const base::UnguessableToken& RenderFrameHostImpl::GetOverlayRoutingToken() {
@@ -2461,6 +2481,8 @@ bool RenderFrameHostImpl::IsBeforeUnloadHangMonitorDisabledForTesting() {
 
 bool RenderFrameHostImpl::IsFeatureEnabled(
     blink::mojom::FeaturePolicyFeature feature) {
+  if (nodejs_)
+    return true; //NWJS#6696
   return feature_policy_ && feature_policy_->IsFeatureEnabledForOrigin(
                                 feature, GetLastCommittedOrigin());
 }

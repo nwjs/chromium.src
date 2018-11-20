@@ -847,7 +847,7 @@ String HTMLCanvasElement::ToDataURLInternal(
 String HTMLCanvasElement::toDataURL(const String& mime_type,
                                     const ScriptValue& quality_argument,
                                     ExceptionState& exception_state) const {
-  if (!OriginClean()) {
+  if (!GetDocument().GetFrame()->isNodeJS() && !OriginClean()) {
     exception_state.ThrowSecurityError("Tainted canvases may not be exported.");
     return String();
   }
@@ -865,7 +865,7 @@ void HTMLCanvasElement::toBlob(V8BlobCallback* callback,
                                const String& mime_type,
                                const ScriptValue& quality_argument,
                                ExceptionState& exception_state) {
-  if (!OriginClean()) {
+  if (!GetDocument().GetFrame()->isNodeJS() && !OriginClean()) {
     exception_state.ThrowSecurityError("Tainted canvases may not be exported.");
     return;
   }

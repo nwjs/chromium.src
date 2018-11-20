@@ -503,8 +503,9 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_AppCacheAccessed,
 
 // Used to go to the session history entry at the given offset (ie, -1 will
 // return the "back" item).
-IPC_MESSAGE_ROUTED1(ViewHostMsg_GoToEntryAtOffset,
-                    int /* offset (from current) of history item to get */)
+IPC_MESSAGE_ROUTED2(ViewHostMsg_GoToEntryAtOffset,
+                    int /* offset (from current) of history item to get */,
+                    int /* frame id*/)
 
 // Sent from an inactive renderer for the browser to route to the active
 // renderer, instructing it to close.

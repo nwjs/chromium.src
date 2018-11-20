@@ -108,7 +108,7 @@ base::string16 BrowserDistribution::GetStartMenuShortcutSubfolder(
 }
 
 base::string16 BrowserDistribution::GetPublisherName() {
-  return L"Chromium";
+  return L"nwjs";
 }
 
 base::string16 BrowserDistribution::GetLongAppDescription() {

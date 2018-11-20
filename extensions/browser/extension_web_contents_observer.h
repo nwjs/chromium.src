@@ -69,6 +69,7 @@ class ExtensionWebContentsObserver
       content::RenderFrameHost* render_frame_host,
       bool verify_url) const;
 
+  bool Send(IPC::Message* message);
  protected:
   explicit ExtensionWebContentsObserver(content::WebContents* web_contents);
   ~ExtensionWebContentsObserver() override;
@@ -119,6 +120,13 @@ class ExtensionWebContentsObserver
  private:
   void OnRequest(content::RenderFrameHost* render_frame_host,
                  const ExtensionHostMsg_Request_Params& params);
+
+  void OnRequestSync(
+                     const ExtensionHostMsg_Request_Params& params,
+                     bool* success,
+                     base::ListValue* response,
+                     std::string* error);
+  content::RenderFrameHost* tmp_render_frame_host_;
 
   // The BrowserContext associated with the WebContents being observed.
   content::BrowserContext* browser_context_;

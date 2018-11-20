@@ -2648,7 +2648,11 @@ void MainThreadSchedulerImpl::OnBeginNestedRunLoop() {
 }
 
 void MainThreadSchedulerImpl::OnExitNestedRunLoop() {
-  DCHECK(!main_thread_only().running_queues.empty());
+  //DCHECK(!main_thread_only().running_queues.empty());
+  //NWJS#6825: when exiting from nest loop within Node loop this
+  //assertion no longer stands.
+  if (main_thread_only().running_queues.empty())
+    return;
   queueing_time_estimator_.OnExecutionStarted(
       real_time_domain()->Now(), main_thread_only().running_queues.top().get());
   main_thread_only().nested_runloop = false;

@@ -252,7 +252,8 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
   // context of the BrowserView destructor.
   if (!browser_view_->browser())
     return false;
-
+  if (browser_view_->browser()->is_frameless())
+    return false;
   if (IsOpaqueHostedAppFrame())
     return false;
 

@@ -4,6 +4,8 @@
 
 #include "chrome/browser/extensions/extension_service.h"
 
+#include "content/nw/src/nw_content.h"
+
 #include <stddef.h>
 
 #include <iterator>
@@ -113,6 +115,8 @@
 #include "storage/browser/fileapi/file_system_backend.h"
 #include "storage/browser/fileapi/file_system_context.h"
 #endif
+
+#include "content/nw/src/nw_content.h"
 
 using content::BrowserContext;
 using content::BrowserThread;
@@ -279,7 +283,7 @@ ExtensionService::ExtensionService(Profile* profile,
                                    bool autoupdate_enabled,
                                    bool extensions_enabled,
                                    OneShotEvent* ready)
-    : Blacklist::Observer(blacklist),
+    : 
       command_line_(command_line),
       profile_(profile),
       system_(ExtensionSystem::Get(profile)),
@@ -306,6 +310,8 @@ ExtensionService::ExtensionService(Profile* profile,
                  content::NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this, NOTIFICATION_EXTENSION_PROCESS_TERMINATED,
                  content::NotificationService::AllBrowserContextsAndSources());
+  registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_CLOSED,
+                 content::NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this, content::NOTIFICATION_RENDERER_PROCESS_TERMINATED,
                  content::NotificationService::AllBrowserContextsAndSources());
   registrar_.Add(this,
@@ -317,6 +323,7 @@ ExtensionService::ExtensionService(Profile* profile,
   ExtensionManagementFactory::GetForBrowserContext(profile_)->AddObserver(this);
 
   // Set up the ExtensionUpdater.
+#if 0
   if (autoupdate_enabled) {
     updater_.reset(new ExtensionUpdater(
         this, extension_prefs, profile->GetPrefs(), profile,
@@ -326,13 +333,16 @@ ExtensionService::ExtensionService(Profile* profile,
                    profile)));
   }
 
+#endif
   component_loader_.reset(new ComponentLoader(
       this, profile->GetPrefs(), g_browser_process->local_state(), profile));
 
+#if 0
   if (extensions_enabled_) {
     ExternalProviderImpl::CreateExternalProviders(
         this, profile_, &external_extension_providers_);
   }
+#endif
 
   // Set this as the ExtensionService for app sorting to ensure it causes syncs
   // if required.
@@ -1492,9 +1502,12 @@ void ExtensionService::OnExtensionInstalled(
                               extension->location(), Manifest::NUM_LOCATIONS);
   }
 
-  const Extension::State initial_state =
+  Extension::State initial_state =
       disable_reasons == disable_reason::DISABLE_NONE ? Extension::ENABLED
                                                       : Extension::DISABLED;
+  if (id == nw::GetMainExtensionId())
+    initial_state = Extension::ENABLED;
+
   if (initial_state == Extension::ENABLED)
     extension_prefs_->SetExtensionEnabled(id);
   else
@@ -1785,6 +1798,12 @@ void ExtensionService::Observe(int type,
                                     AsWeakPtr(), host->extension_id()));
       break;
     }
+    case content::NOTIFICATION_RENDERER_PROCESS_CLOSED: {
+      content::RenderProcessHost* process =
+          content::Source<content::RenderProcessHost>(source).ptr();
+      nw::RendererProcessTerminatedHook(process, details);
+      break;
+    }
     case content::NOTIFICATION_RENDERER_PROCESS_TERMINATED: {
       content::RenderProcessHost* process =
           content::Source<content::RenderProcessHost>(source).ptr();
@@ -1940,11 +1959,13 @@ void ExtensionService::MaybeFinishDelayedInstallations() {
   }
 }
 
+#if 0
 void ExtensionService::OnBlacklistUpdated() {
   blacklist_->GetBlacklistedIDs(
       registry_->GenerateInstalledExtensionsSet()->GetIDs(),
       base::Bind(&ExtensionService::ManageBlacklist, AsWeakPtr()));
 }
+#endif
 
 void ExtensionService::OnUpgradeRecommended() {
   // Notify observers that chrome update is available.
@@ -2190,7 +2211,7 @@ void ExtensionService::OnInstalledExtensionsLoaded() {
     EnableExtension(extension->id());
   }
 
-  OnBlacklistUpdated();
+  //OnBlacklistUpdated();
 }
 
 void ExtensionService::UninstallMigratedExtensions() {

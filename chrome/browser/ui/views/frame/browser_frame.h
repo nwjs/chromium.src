@@ -44,7 +44,7 @@ class BrowserFrame
     : public views::Widget,
       public views::ContextMenuController {
  public:
-  explicit BrowserFrame(BrowserView* browser_view);
+  explicit BrowserFrame(BrowserView* browser_view, bool frameless = false);
   ~BrowserFrame() override;
 
   // Initialize the frame (creates the underlying native window).
@@ -122,11 +122,12 @@ class BrowserFrame
   NativeBrowserFrame* native_browser_frame() const {
     return native_browser_frame_;
   }
-
+  bool frameless() { return frameless_; }
  private:
   // Callback for MenuRunner.
   void OnMenuClosed();
 
+  bool frameless_;
   NativeBrowserFrame* native_browser_frame_;
 
   // A weak reference to the root view associated with the window. We save a

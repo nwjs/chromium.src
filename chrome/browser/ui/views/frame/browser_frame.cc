@@ -47,8 +47,8 @@
 ////////////////////////////////////////////////////////////////////////////////
 // BrowserFrame, public:
 
-BrowserFrame::BrowserFrame(BrowserView* browser_view)
-    : native_browser_frame_(nullptr),
+BrowserFrame::BrowserFrame(BrowserView* browser_view, bool frameless)
+    : frameless_(frameless), native_browser_frame_(nullptr),
       root_view_(nullptr),
       browser_frame_view_(nullptr),
       browser_view_(browser_view) {
@@ -65,6 +65,10 @@ void BrowserFrame::InitBrowserFrame() {
   native_browser_frame_ =
       NativeBrowserFrameFactory::CreateNativeBrowserFrame(this, browser_view_);
   views::Widget::InitParams params = native_browser_frame_->GetWidgetParams();
+  if (frameless_)
+    params.remove_standard_frame = true;
+  if (browser_view_->browser()->initial_ontop())
+    params.keep_on_top = true;
   params.delegate = browser_view_;
   if (browser_view_->browser()->is_type_tabbed()) {
     // Typed panel/popup can only return a size once the widget has been

@@ -716,6 +716,8 @@ void DevToolsWindow::ToggleDevToolsWindow(
 
   // If window is docked and visible, we hide it on toggle. If window is
   // undocked, we show (activate) it.
+  if (window->headless_)
+    return;
   if (!window->is_docked_ || do_open)
     window->ScheduleShow(action);
   else
@@ -826,6 +828,8 @@ void DevToolsWindow::Show(const DevToolsToggleAction& action) {
   bool should_show_window =
       !browser_ || (action.type() != DevToolsToggleAction::kInspect);
 
+  should_show_window = should_show_window && !headless_;
+
   if (!browser_)
     CreateDevToolsBrowser();
 
@@ -914,7 +918,8 @@ DevToolsWindow::DevToolsWindow(FrontendType frontend_type,
                                std::unique_ptr<WebContents> main_web_contents,
                                DevToolsUIBindings* bindings,
                                WebContents* inspected_web_contents,
-                               bool can_dock)
+                               bool can_dock,
+                               bool headless)
     : frontend_type_(frontend_type),
       profile_(profile),
       main_web_contents_(main_web_contents.get()),
@@ -925,6 +930,7 @@ DevToolsWindow::DevToolsWindow(FrontendType frontend_type,
       owned_main_web_contents_(std::move(main_web_contents)),
       can_dock_(can_dock),
       close_on_detach_(true),
+      headless_(headless),
       // This initialization allows external front-end to work without changes.
       // We don't wait for docking call, but instead immediately show undocked.
       // Passing "dockSide=undocked" parameter ensures proper UI.
@@ -932,9 +938,15 @@ DevToolsWindow::DevToolsWindow(FrontendType frontend_type,
       action_on_load_(DevToolsToggleAction::NoOp()),
       intercepted_page_beforeunload_(false),
       ready_for_test_(false) {
+  // shouldn't own the web content in embedded cdt use case #6004
+  // or it will be double freed on quit
+  if (headless)
+    owned_main_web_contents_.release();
   // Set up delegate, so we get fully-functional window immediately.
   // It will not appear in UI though until |life_stage_ == kLoadCompleted|.
-  main_web_contents_->SetDelegate(this);
+  if (!headless) //NWJS#4709: keep delegate to web_view_guest so the
+                 //shortcut is handled there
+    main_web_contents_->SetDelegate(this);
   // Bindings take ownership over devtools as its delegate.
   bindings_->SetDelegate(this);
   data_use_measurement::DataUseWebContentsObserver::CreateForWebContents(
@@ -994,7 +1006,7 @@ DevToolsWindow* DevToolsWindow::Create(
     bool can_dock,
     const std::string& settings,
     const std::string& panel,
-    bool has_other_clients) {
+    bool has_other_clients, content::WebContents* cdt_web_contents) {
   if (!AllowDevToolsFor(profile, inspected_web_contents))
     return nullptr;
 
@@ -1012,6 +1024,20 @@ DevToolsWindow* DevToolsWindow::Create(
   // Create WebContents with devtools.
   GURL url(GetDevToolsURL(profile, frontend_type, frontend_url, can_dock, panel,
                           has_other_clients));
+
+  if (cdt_web_contents) {
+    cdt_web_contents->GetController().LoadURL(
+      DecorateFrontendURL(url), content::Referrer(),
+      ui::PAGE_TRANSITION_AUTO_TOPLEVEL, std::string());
+    DevToolsUIBindings* bindings =
+      DevToolsUIBindings::ForWebContents(cdt_web_contents);
+    if (!bindings)
+      return nullptr;
+    std::unique_ptr<WebContents> cdt_contents(cdt_web_contents);
+    return new DevToolsWindow(frontend_type, profile, std::move(cdt_contents), bindings,
+                              inspected_web_contents, can_dock, true);
+  }
+
   std::unique_ptr<WebContents> main_web_contents =
       WebContents::Create(WebContents::CreateParams(profile));
   main_web_contents->GetController().LoadURL(
@@ -1173,7 +1199,8 @@ void DevToolsWindow::WebContentsCreated(WebContents* source_contents,
                                         int opener_render_frame_id,
                                         const std::string& frame_name,
                                         const GURL& target_url,
-                                        WebContents* new_contents) {
+                                        WebContents* new_contents,
+                                        const base::string16& nw_window_manifest) {
   if (target_url.SchemeIs(content::kChromeDevToolsScheme) &&
       target_url.path().rfind("toolbox.html") != std::string::npos) {
     CHECK(can_dock_);
@@ -1286,7 +1313,7 @@ bool DevToolsWindow::PreHandleGestureEvent(
 }
 
 void DevToolsWindow::ActivateWindow() {
-  if (life_stage_ != kLoadCompleted)
+  if (life_stage_ != kLoadCompleted || headless_)
     return;
   if (is_docked_ && GetInspectedBrowserWindow())
     main_web_contents_->Focus();
@@ -1488,6 +1515,10 @@ void DevToolsWindow::ShowCertificateViewer(const std::string& cert_chain) {
     return;
   gfx::NativeWindow parent = browser->window()->GetNativeWindow();
   ::ShowCertificateViewer(inspected_contents, parent, cert.get());
+}
+
+void DevToolsWindow::Close() {
+  browser_->window()->Close();
 }
 
 void DevToolsWindow::OnLoadCompleted() {

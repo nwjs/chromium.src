@@ -4,6 +4,8 @@
 
 #include "chrome/browser/extensions/tab_helper.h"
 
+#include "chrome/browser/ui/browser_window.h"
+
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/strings/string_util.h"
@@ -316,9 +318,22 @@ bool TabHelper::OnMessageReceived(const IPC::Message& message,
                         OnGetAppInstallState)
     IPC_MESSAGE_HANDLER(ExtensionHostMsg_ContentScriptsExecuting,
                         OnContentScriptsExecuting)
+    IPC_MESSAGE_HANDLER(ExtensionHostMsg_UpdateDraggableRegions,
+                        UpdateDraggableRegions)
     IPC_MESSAGE_UNHANDLED(handled = false)
   IPC_END_MESSAGE_MAP()
   return handled;
+}
+
+void TabHelper::UpdateDraggableRegions(
+    content::RenderFrameHost* sender,
+    const std::vector<DraggableRegion>& regions) {
+  if (sender->GetParent())
+    return;
+  Browser* browser = chrome::FindBrowserWithWebContents(web_contents());
+  if (!browser)
+    return;
+  browser->window()->UpdateDraggableRegions(regions);
 }
 
 void TabHelper::DidCloneToNewWebContents(WebContents* old_web_contents,

@@ -114,6 +114,7 @@ class PasswordFormManager : public PasswordFormManagerInterface,
   // PasswordFormManagerInterface:
   bool IsNewLogin() const override;
   bool IsPendingCredentialsPublicSuffixMatch() const override;
+  bool IsPendingCredentialsOriginExtension() const;
   bool RetryPasswordFormPasswordUpdate() const override;
   bool IsPossibleChangePasswordFormWithoutUsername() const override;
 

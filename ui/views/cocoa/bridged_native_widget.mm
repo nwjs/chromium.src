@@ -38,6 +38,11 @@
 
 using views_bridge_mac::mojom::WindowVisibilityState;
 
+namespace content {
+  extern bool g_force_cpu_draw;
+  static const char kForceCPUDrawLayer = '\0';
+}
+
 namespace {
 constexpr auto kUIPaintTimeout = base::TimeDelta::FromSeconds(5);
 }  // namespace
@@ -86,6 +91,18 @@ constexpr auto kUIPaintTimeout = base::TimeDelta::FromSeconds(5);
 @implementation ViewsCompositorSuperview
 - (NSView*)hitTest:(NSPoint)aPoint {
   return nil;
+}
+
+- (void)drawRect:(NSRect)dirty {
+  if (content::g_force_cpu_draw) {
+    CGContextRef ctx = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
+    CGContextClipToRect(ctx, NSRectToCGRect(dirty));
+    //get the flipped layer from kForceCPUDrawLayer and do renderInContext
+    CALayer* flipped_layer = objc_getAssociatedObject(self, &content::kForceCPUDrawLayer);
+    [flipped_layer renderInContext:ctx];
+  } else {
+    [super drawRect:dirty];
+  }
 }
 @end
 
@@ -418,7 +435,7 @@ void BridgedNativeWidget::CreateContentView(const gfx::Rect& bounds) {
 
   // Layer backing the content view improves resize performance, reduces memory
   // use (no backing store), and clips sublayers to rounded window corners.
-  [bridged_view_ setWantsLayer:YES];
+  [bridged_view_ setWantsLayer:!content::g_force_cpu_draw];
 
   [window_ setContentView:bridged_view_];
 }
@@ -1070,6 +1087,11 @@ void BridgedNativeWidget::SetCALayerParams(
   // the content display on-screen.
   display_ca_layer_tree_->UpdateCALayerTree(ca_layer_params);
 
+  if (content::g_force_cpu_draw) {
+    // this is to tell the NSView that the CALayer content has been updated
+    [compositor_superview_ setNeedsDisplay:YES];
+  }
+
   if (ca_transaction_sync_suppressed_)
     ca_transaction_sync_suppressed_ = false;
 
@@ -1214,6 +1236,14 @@ void BridgedNativeWidget::AddCompositorSuperview() {
       std::make_unique<ui::DisplayCALayerTree>(background_layer.get());
   [compositor_superview_ setLayer:background_layer];
   [compositor_superview_ setWantsLayer:YES];
+  if (content::g_force_cpu_draw) {
+    [compositor_superview_ setLayer:nil];
+    [compositor_superview_ setWantsLayer:NO];
+    //DisplayCALayerTree flipped_layer_
+    CALayer* flipped_layer = background_layer.get().sublayers[0];
+    objc_setAssociatedObject(compositor_superview_, &content::kForceCPUDrawLayer, flipped_layer, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+    [flipped_layer setGeometryFlipped:NO];
+  }
 
   // The UI compositor should always be the first subview, to ensure webviews
   // are drawn on top of it.

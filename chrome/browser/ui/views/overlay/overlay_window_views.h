@@ -17,6 +17,9 @@ class CloseImageButton;
 class ToggleImageButton;
 }  // namespace views
 
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Woverloaded-virtual"
+
 // The Chrome desktop implementation of OverlayWindow. This will only be
 // implemented in views, which will support all desktop platforms.
 class OverlayWindowViews : public content::OverlayWindow,
@@ -183,5 +186,7 @@ class OverlayWindowViews : public content::OverlayWindow,
 
   DISALLOW_COPY_AND_ASSIGN(OverlayWindowViews);
 };
+
+#pragma clang diagnostic pop
 
 #endif  // CHROME_BROWSER_UI_VIEWS_OVERLAY_OVERLAY_WINDOW_VIEWS_H_

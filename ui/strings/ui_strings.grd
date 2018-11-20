@@ -618,6 +618,12 @@ need to be translated for each locale.-->
       <message name="IDS_APP_ACCELERATOR_WITH_MODIFIER" desc="Accelerator with a modifier key">
         <ph name="KEY_MODIFIER_NAME">$1<ex>Ctrl</ex></ph>+<ph name="KEY_COMBO_NAME">$2<ex>C</ex></ph>
       </message>
+      <message name="IDS_APP_WINDOWS_MODIFIER" desc="Command key shortcut modifier">
+        Win+<ph name="KEY_COMBO_NAME">$1<ex>C</ex></ph>
+      </message>
+      <message name="IDS_APP_SUPER_MODIFIER" desc="Command key shortcut modifier">
+        Super+<ph name="KEY_COMBO_NAME">$1<ex>C</ex></ph>
+      </message>
 
       <!-- Byte size units -->
       <message name="IDS_APP_BYTES" desc="Units tag indicating a quantity of bytes">

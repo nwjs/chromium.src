@@ -20,14 +20,15 @@ CONTENT_EXPORT std::string GetWebKitRevision();
 // Builds a User-agent compatible string that describes the OS and CPU type.
 // On Android, the string will only include the build number if true is passed
 // as an argument.
-CONTENT_EXPORT std::string BuildOSCpuInfo(bool include_android_build_number);
+CONTENT_EXPORT std::string BuildOSCpuInfo(bool include_android_build_number = false);
+
+CONTENT_EXPORT std::string BuildOSInfo();
 
 // Helper function to generate a full user agent string from a short
 // product name.
 CONTENT_EXPORT std::string BuildUserAgentFromProduct(
     const std::string& product);
 
-#if defined(OS_ANDROID)
 // Helper function to generate a full user agent string given a short
 // product name and some extra text to be added to the OS info.
 // This is currently only used for Android Web View.
@@ -35,7 +36,6 @@ CONTENT_EXPORT std::string BuildUserAgentFromProductAndExtraOSInfo(
     const std::string& product,
     const std::string& extra_os_info,
     const bool include_android_build_number);
-#endif
 
 // Builds a full user agent string given a string describing the OS and a
 // product name.

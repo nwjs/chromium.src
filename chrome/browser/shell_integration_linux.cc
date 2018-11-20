@@ -49,6 +49,8 @@
 #include "chrome/common/chrome_switches.h"
 #include "chrome/grit/chrome_unscaled_resources.h"
 #include "components/version_info/version_info.h"
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_package.h"
 #include "ui/base/resource/resource_bundle.h"
 #include "ui/gfx/image/image_family.h"
 #include "url/gurl.h"
@@ -183,6 +185,7 @@ shell_integration::DefaultWebClientState GetIsDefaultWebClient(
 // the .desktop extension.  We cannot simply use argv[0] in this case, because
 // on the stable channel, the executable name is google-chrome-stable, but the
 // desktop file is google-chrome.desktop.
+#if 0
 std::string GetDesktopBaseName(const std::string& desktop_file_name) {
   static const char kDesktopExtension[] = ".desktop";
   if (base::EndsWith(desktop_file_name, kDesktopExtension,
@@ -192,6 +195,7 @@ std::string GetDesktopBaseName(const std::string& desktop_file_name) {
   }
   return desktop_file_name;
 }
+#endif
 
 namespace {
 
@@ -377,6 +381,10 @@ base::FilePath GetChromeExePath() {
 
 std::string GetProgramClassName(const base::CommandLine& command_line,
                                 const std::string& desktop_file_name) {
+  // NW fix
+  // set WM_NAME to name of package.json
+  return nw::package()->GetName();
+#if 0
   std::string class_name = GetDesktopBaseName(desktop_file_name);
   std::string user_data_dir =
       command_line.GetSwitchValueNative(switches::kUserDataDir);
@@ -387,18 +395,25 @@ std::string GetProgramClassName(const base::CommandLine& command_line,
   return user_data_dir.empty()
              ? class_name
              : class_name + " (" + user_data_dir + ")";
+#endif
 }
 
 std::string GetProgramClassClass(const base::CommandLine& command_line,
                                  const std::string& desktop_file_name) {
   if (command_line.HasSwitch(switches::kWmClass))
     return command_line.GetSwitchValueASCII(switches::kWmClass);
+  // NW fix
+  // set WM_CLASS as name in package.json and allowed to be overwritten
+  // with --class CLI parameter
+  return nw::package()->GetName();
+#if 0
   std::string class_class = GetDesktopBaseName(desktop_file_name);
   if (!class_class.empty()) {
     // Capitalize the first character like gtk does.
     class_class[0] = base::ToUpperASCII(class_class[0]);
   }
   return class_class;
+#endif
 }
 
 }  // namespace internal

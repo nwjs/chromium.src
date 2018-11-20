@@ -7,6 +7,8 @@
 #include <set>
 #include <utility>
 
+#include "content/nw/src/nw_content.h"
+
 #include "base/bind.h"
 #include "base/location.h"
 #include "base/macros.h"
@@ -47,6 +49,11 @@
 #include "ui/base/template_expressions.h"
 #include "ui/base/webui/i18n_source_stream.h"
 #include "url/url_util.h"
+
+namespace nw {
+typedef bool (*CheckStoragePartitionMatchesFn)(int render_process_id, const GURL& url);
+CONTENT_EXPORT CheckStoragePartitionMatchesFn gCheckStoragePartitionMatches = nullptr;
+}
 
 namespace content {
 

@@ -123,6 +123,8 @@
 }
 
 - (BOOL)windowShouldClose:(id)sender {
+  if (![self nativeWidgetMac]->GetWidget()->NWCanClose())
+    return false;
   views::NonClientView* nonClientView =
       [self nativeWidgetMac]->GetWidget()->non_client_view();
   return !nonClientView || nonClientView->CanClose();

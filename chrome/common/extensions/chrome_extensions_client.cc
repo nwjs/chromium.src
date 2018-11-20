@@ -37,6 +37,8 @@
 #include "ui/base/l10n/l10n_util.h"
 #include "url/gurl.h"
 
+#include "content/nw/src/api/generated_schemas.h"
+
 namespace extensions {
 
 namespace {

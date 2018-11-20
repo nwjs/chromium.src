@@ -56,7 +56,7 @@ PermissionsData::PageAccess ExtensionInjectionHost::CanExecuteOnFrame(
   if (top_frame_security_origin.Protocol().Utf8() == kExtensionScheme &&
       top_frame_security_origin.Host().Utf8() != extension_->id() &&
       !PermissionsData::CanExecuteScriptEverywhere(extension_->id(),
-                                                   extension_->location())) {
+                                                   extension_->location(), extension_->GetType())) {
     return PermissionsData::PageAccess::kDenied;
   }
 

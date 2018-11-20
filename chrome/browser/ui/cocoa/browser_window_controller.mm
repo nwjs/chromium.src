@@ -1560,8 +1560,10 @@ bool IsTabDetachingInFullscreenEnabled() {
                                      step:(translate::TranslateStep)step
                                 errorType:(translate::TranslateErrors::Type)
                                 errorType {
+#if 0
   ShowTranslateBubbleViews([self window], [self locationBarBridge], contents,
                            step, errorType, true);
+#endif
 }
 
 - (void)dismissPermissionBubble {

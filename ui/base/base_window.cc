@@ -12,5 +12,9 @@ bool BaseWindow::IsRestored(const BaseWindow& window) {
      !window.IsFullscreen();
 }
 
+void BaseWindow::ForceClose() {
+  Close();
+}
+
 }  // namespace ui
 

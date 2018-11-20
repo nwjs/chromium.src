@@ -16,6 +16,9 @@ class TestBrowserWindowAura : public TestBrowserWindow {
   ~TestBrowserWindowAura() override;
 
   // TestBrowserWindow overrides:
+  void UpdateDraggableRegions(
+         const std::vector<extensions::DraggableRegion>& regions) override;
+  SkRegion* GetDraggableRegion() override;
   gfx::NativeWindow GetNativeWindow() const override;
   void Show() override;
   void Hide() override;

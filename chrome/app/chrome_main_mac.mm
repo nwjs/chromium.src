@@ -19,6 +19,8 @@
 #include "chrome/common/chrome_paths_internal.h"
 #include "content/public/common/content_paths.h"
 
+#include "content/nw/src/nw_base.h"
+
 void SetUpBundleOverrides() {
   base::mac::ScopedNSAutoreleasePool pool;
 
@@ -27,9 +29,4 @@ void SetUpBundleOverrides() {
   NSBundle* base_bundle = chrome::OuterAppBundle();
   base::mac::SetBaseBundleID([[base_bundle bundleIdentifier] UTF8String]);
 
-  // On the Mac, the child executable lives at a predefined location within
-  // the app bundle's versioned directory.
-  base::PathService::Override(content::CHILD_PROCESS_EXE,
-                              chrome::GetVersionedDirectory().Append(
-                                  chrome::kHelperProcessExecutablePath));
 }

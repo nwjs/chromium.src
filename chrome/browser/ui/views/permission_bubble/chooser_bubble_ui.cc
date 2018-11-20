@@ -4,6 +4,8 @@
 
 #include "chrome/browser/ui/views/permission_bubble/chooser_bubble_ui.h"
 
+#include "extensions/components/native_app_window/native_app_window_views.h"
+
 #include "base/strings/string16.h"
 #include "chrome/browser/chooser_controller/chooser_controller.h"
 #include "chrome/browser/ui/browser_dialogs.h"
@@ -22,10 +24,14 @@ using bubble_anchor_util::AnchorConfiguration;
 namespace {
 
 AnchorConfiguration GetChooserAnchorConfiguration(Browser* browser) {
+  if (!browser)
+    return {};
   return bubble_anchor_util::GetPageInfoAnchorConfiguration(browser);
 }
 
 gfx::Rect GetChooserAnchorRect(Browser* browser) {
+  if (!browser)
+    return gfx::Rect();
   return bubble_anchor_util::GetPageInfoAnchorRect(browser);
 }
 
@@ -37,7 +43,7 @@ class ChooserBubbleUiViewDelegate : public views::BubbleDialogDelegateView,
                                     public views::TableViewObserver {
  public:
   ChooserBubbleUiViewDelegate(
-      Browser* browser,
+      Browser* browser, extensions::AppWindow* app_window,
       std::unique_ptr<ChooserController> chooser_controller);
   ~ChooserBubbleUiViewDelegate() override;
 
@@ -76,7 +82,7 @@ class ChooserBubbleUiViewDelegate : public views::BubbleDialogDelegateView,
 };
 
 ChooserBubbleUiViewDelegate::ChooserBubbleUiViewDelegate(
-    Browser* browser,
+    Browser* browser, extensions::AppWindow* app_window,
     std::unique_ptr<ChooserController> chooser_controller)
     : device_chooser_content_view_(nullptr) {
   // ------------------------------------
@@ -182,12 +188,13 @@ void ChooserBubbleUiViewDelegate::UpdateTableView() const {
 // ChooserBubbleUi
 ChooserBubbleUi::ChooserBubbleUi(
     Browser* browser,
+    void* app_window,
     std::unique_ptr<ChooserController> chooser_controller)
-    : browser_(browser), chooser_bubble_ui_view_delegate_(nullptr) {
-  DCHECK(browser_);
+  : browser_(browser), app_window_((extensions::AppWindow*)app_window), chooser_bubble_ui_view_delegate_(nullptr) {
+  //DCHECK(browser_);
   DCHECK(chooser_controller);
   chooser_bubble_ui_view_delegate_ =
-      new ChooserBubbleUiViewDelegate(browser, std::move(chooser_controller));
+    new ChooserBubbleUiViewDelegate(browser_, app_window_, std::move(chooser_controller));
 }
 
 ChooserBubbleUi::~ChooserBubbleUi() {

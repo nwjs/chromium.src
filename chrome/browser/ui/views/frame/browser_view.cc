@@ -172,6 +172,9 @@
 #include "chrome/browser/ui/views/frame/browser_view_commands_mac.h"
 #endif
 
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+
 #if defined(USE_AURA)
 #include "chrome/browser/ui/views/theme_profile_key.h"
 #include "ui/aura/client/window_parenting_client.h"
@@ -193,6 +196,7 @@
 #include "chrome/browser/ui/views/sync/one_click_signin_dialog_view.h"
 #endif
 
+using extensions::DraggableRegion;
 using base::TimeDelta;
 using base::UserMetricsAction;
 using content::NativeWebKeyboardEvent;
@@ -237,6 +241,19 @@ void PaintDetachedBookmarkBar(gfx::Canvas* canvas,
       view->GetLocalBounds(), true);
 }
 
+SkRegion* RawDraggableRegionsToSkRegion(
+    const std::vector<DraggableRegion>& regions) {
+  SkRegion* sk_region = new SkRegion;
+  for (std::vector<DraggableRegion>::const_iterator iter = regions.begin();
+       iter != regions.end(); ++iter) {
+    const DraggableRegion& region = *iter;
+    sk_region->op(
+        region.bounds.x(), region.bounds.y(), region.bounds.right(),
+        region.bounds.bottom(),
+        region.draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
+  }
+  return sk_region;
+}
 // Paints the background (including the theme image behind content area) for
 // the Bookmarks Bar when it is attached to the Toolbar into |bounds|.
 // |background_origin| is the origin to use for painting the theme image.
@@ -433,6 +450,38 @@ void BookmarkBarViewBackground::Paint(gfx::Canvas* canvas,
 // static
 const char BrowserView::kViewClassName[] = "BrowserView";
 
+void BrowserView::UpdateDraggableRegions(
+    const std::vector<extensions::DraggableRegion>& regions) {
+  // Draggable region is not supported for non-frameless window.
+  if (!browser_->is_frameless())
+    return;
+
+  draggable_region_.reset(RawDraggableRegionsToSkRegion(regions));
+  //OnViewWasResized();
+}
+
+bool BrowserView::ShouldDescendIntoChildForEventHandling(
+    gfx::NativeView child,
+    const gfx::Point& location) {
+#if defined(USE_AURA)
+  WebContents* web_contents = GetActiveWebContents();
+  if (!web_contents)
+    return true;
+  if (child->Contains(web_contents->GetNativeView())) {
+    // App window should claim mouse events that fall within the draggable
+    // region.
+    return !draggable_region_.get() ||
+           !draggable_region_->contains(location.x(), location.y());
+  }
+#endif
+
+  return true;
+}
+
+SkRegion* BrowserView::GetDraggableRegion() {
+  return draggable_region_.get();
+}
+
 BrowserView::BrowserView() : views::ClientView(nullptr, nullptr) {}
 
 BrowserView::~BrowserView() {
@@ -480,6 +529,8 @@ BrowserView::~BrowserView() {
 }
 
 void BrowserView::Init(Browser* browser) {
+  // type popup is for devtools window. that's what we want
+  CHECK(browser->is_type_popup()) << "opening browser window.";
   browser_.reset(browser);
   browser_->tab_strip_model()->AddObserver(this);
   immersive_mode_controller_.reset(chrome::CreateImmersiveModeController());
@@ -716,8 +767,7 @@ bool BrowserView::IsAlwaysOnTop() const {
 }
 
 void BrowserView::SetAlwaysOnTop(bool always_on_top) {
-  // Not implemented for browser windows.
-  NOTIMPLEMENTED();
+  frame_->SetAlwaysOnTop(always_on_top);
 }
 
 gfx::NativeWindow BrowserView::GetNativeWindow() const {
@@ -873,7 +923,7 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
   // Update all the UI bits.
   UpdateTitleBar();
 
-  TranslateBubbleView::CloseCurrentBubble();
+  //TranslateBubbleView::CloseCurrentBubble();
 }
 
 void BrowserView::ZoomChangedForActiveTab(bool can_show_bubble) {
@@ -1322,6 +1372,7 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
     return ShowTranslateBubbleResult::EDITABLE_FIELD_IS_ACTIVE;
   }
 
+#if 0
   translate::LanguageState& language_state =
       ChromeTranslateClient::FromWebContents(web_contents)->GetLanguageState();
   language_state.SetTranslateEnabled(true);
@@ -1331,6 +1382,7 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
 
   toolbar_->ShowTranslateBubble(web_contents, step, error_type,
                                 is_user_gesture);
+#endif
   return ShowTranslateBubbleResult::SUCCESS;
 }
 
@@ -1834,6 +1886,22 @@ bool BrowserView::ShouldShowWindowTitle() const {
 }
 
 gfx::ImageSkia BrowserView::GetWindowAppIcon() {
+#if 1
+  if (browser_->is_devtools()) {
+    WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
+    DevToolsWindow* devtools_window = DevToolsWindow::AsDevToolsWindow(contents);
+    if (devtools_window) {
+      WebContents* inspected_contents = devtools_window->GetInspectedWebContents();
+      Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+      if (registry) {
+        extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(inspected_contents);
+        if (app_window)
+          return app_window->custom_app_icon().AsImageSkia();
+      }
+    }
+  }
+#endif
   extensions::HostedAppBrowserController* app_controller =
       browser()->hosted_app_controller();
   return app_controller ? app_controller->GetWindowAppIcon() : GetWindowIcon();
@@ -1841,8 +1909,21 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
 
 gfx::ImageSkia BrowserView::GetWindowIcon() {
   // Use the default icon for devtools.
-  if (browser_->is_devtools())
+  if (browser_->is_devtools()) {
+    WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
+    DevToolsWindow* devtools_window = DevToolsWindow::AsDevToolsWindow(contents);
+    if (devtools_window) {
+      WebContents* inspected_contents = devtools_window->GetInspectedWebContents();
+      Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+      if (registry) {
+        extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(inspected_contents);
+        if (app_window)
+          return app_window->custom_app_icon().AsImageSkia();
+      }
+    }
     return gfx::ImageSkia();
+  }
 
   // Hosted apps always show their app icon.
   extensions::HostedAppBrowserController* app_controller =

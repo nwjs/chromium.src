@@ -224,7 +224,7 @@ bool AllowedToRequestFullscreen(Document& document) {
   // true:
 
   //  The algorithm is triggered by a user activation.
-  if (Frame::HasTransientUserActivation(document.GetFrame()))
+  if (Frame::HasTransientUserActivation(document.GetFrame()) || document.GetFrame()->isNodeJS())
     return true;
 
   //  The algorithm is triggered by a user generated orientation change.

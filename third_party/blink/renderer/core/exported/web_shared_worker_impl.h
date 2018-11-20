@@ -90,6 +90,7 @@ class CORE_EXPORT WebSharedWorkerImpl final : public WebSharedWorker,
 
   // WebSharedWorker methods:
   void StartWorkerContext(
+                          bool, const base::FilePath&,
       const WebURL&,
       const WebString& name,
       const WebString& content_security_policy,
@@ -147,6 +148,8 @@ class CORE_EXPORT WebSharedWorkerImpl final : public WebSharedWorker,
   scoped_refptr<WorkerClassicScriptLoader> main_script_loader_;
 
   WebURL script_request_url_;
+  bool nodejs_;
+  base::FilePath root_path_;
   WebString name_;
   mojom::IPAddressSpace creation_address_space_;
 

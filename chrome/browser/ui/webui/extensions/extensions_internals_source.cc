@@ -37,6 +37,8 @@ const char* TypeToString(extensions::Manifest::Type type) {
       return "TYPE_LEGACY_PACKAGED_APP";
     case extensions::Manifest::TYPE_PLATFORM_APP:
       return "TYPE_PLATFORM_APP";
+    case extensions::Manifest::TYPE_NWJS_APP:
+      return "TYPE_NWJS_APP";
     case extensions::Manifest::TYPE_SHARED_MODULE:
       return "TYPE_SHARED_MODULE";
     case extensions::Manifest::NUM_LOAD_TYPES:

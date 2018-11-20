@@ -363,13 +363,18 @@ void EmulationHandler::UpdateTouchEventEmulationState() {
   if (touch_emulation_enabled_) {
     if (auto* touch_emulator =
             host_->GetRenderWidgetHost()->GetTouchEmulator()) {
+      touch_emulator->set_rfh_limit(host_->GetWeakPtr());
       touch_emulator->Enable(
           TouchEmulator::Mode::kEmulatingTouchFromMouse,
           TouchEmulationConfigurationToType(touch_emulation_configuration_));
     }
   } else {
-    if (auto* touch_emulator = host_->GetRenderWidgetHost()->GetTouchEmulator())
+    if (auto* touch_emulator =
+            host_->GetRenderWidgetHost()->GetTouchEmulator()) {
       touch_emulator->Disable();
+      touch_emulator->set_rfh_limit(nullptr);
+    }
+
   }
   if (GetWebContents()) {
     GetWebContents()->SetForceDisableOverscrollContent(

@@ -26,7 +26,8 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(Browser* browser,
   // so we don't need to do anything with the pointer.
   BrowserView* view = new BrowserView();
   view->Init(browser);
-  (new BrowserFrame(view))->InitBrowserFrame();
+  bool frameless = browser->is_frameless();
+  (new BrowserFrame(view, frameless))->InitBrowserFrame();
   view->GetWidget()->non_client_view()->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));
 

@@ -3468,7 +3468,8 @@ class ViewCreatingWebViewClient : public FrameTestHelpers::TestWebViewClient {
                       const WebString& name,
                       WebNavigationPolicy,
                       bool,
-                      WebSandboxFlags) override {
+                      WebSandboxFlags,
+                      WebString*) override {
     return web_view_helper_.InitializeWithOpener(opener);
   }
 

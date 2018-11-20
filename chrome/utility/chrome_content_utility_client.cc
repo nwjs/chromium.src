@@ -107,6 +107,9 @@
 #include "services/content/simple_browser/public/mojom/constants.mojom.h"  // nogncheck
 #include "services/content/simple_browser/simple_browser_service.h"  // nogncheck
 #endif
+#if defined(OS_WIN)
+#pragma warning(disable:4065)
+#endif
 
 namespace {
 

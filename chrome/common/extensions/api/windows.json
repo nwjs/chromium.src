@@ -233,6 +233,12 @@
               "width": {"type": "integer", "minimum": 0, "optional": true, "description": "The width in pixels of the new window, including the frame. If not specified defaults to a natural width."},
               "height": {"type": "integer", "minimum": 0, "optional": true, "description": "The height in pixels of the new window, including the frame. If not specified defaults to a natural height."},
               "focused": {"type": "boolean", "optional": true, "description": "If true, opens an active window. If false, opens an inactive window."},
+              "hidden": {"type": "boolean", "optional": true, "description": ""},
+              "frameless": {"type": "boolean", "optional": true, "description": ""},
+              "new_instance": {"type": "boolean", "optional": true, "description": ""},
+              "inject_js_start": {"type":"string", "optional": true, "description": ""},
+              "inject_js_end": {"type":"string", "optional": true, "description": ""},
+              "alwaysOnTop": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
               "incognito": {"type": "boolean", "optional": true, "description": "Whether the new window should be an incognito window."},
               "type": {
                 "$ref": "CreateType",
@@ -275,6 +281,7 @@
             "type": "object",
             "name": "updateInfo",
             "properties": {
+              "alwaysOnTop": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
               "left": {"type": "integer", "optional": true, "description": "The offset from the left edge of the screen to move the window to in pixels. This value is ignored for panels."},
               "top": {"type": "integer", "optional": true, "description": "The offset from the top edge of the screen to move the window to in pixels. This value is ignored for panels."},
               "width": {"type": "integer", "minimum": 0, "optional": true, "description": "The width to resize the window to in pixels. This value is ignored for panels."},

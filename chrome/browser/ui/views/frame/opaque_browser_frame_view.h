@@ -187,7 +187,7 @@ class OpaqueBrowserFrameView : public BrowserNonClientFrameView,
                            bool draw_bottom,
                            SkColor color,
                            gfx::Canvas* canvas) const;
-
+  bool frameless_;
   // Our layout manager also calculates various bounds.
   OpaqueBrowserFrameViewLayout* layout_;
 

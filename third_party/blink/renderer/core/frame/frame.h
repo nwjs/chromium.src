@@ -81,6 +81,10 @@ enum class ReportOptions { kReportOnFailure, kDoNotReport };
 class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
  public:
   virtual ~Frame();
+  void setNodeJS(bool node) { nodejs_ = node; }
+  bool isNodeJS() const { return nodejs_; }
+  bool isNwDisabledChildFrame() const;
+  bool isNwFakeTop() const;
 
   virtual void Trace(blink::Visitor*);
 
@@ -103,6 +107,8 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
                                   const KURL&,
                                   bool replace_current_item,
                                   UserGestureStatus) = 0;
+  void setDevtoolsJail(Frame* iframe);
+  Frame* getDevtoolsJail() { return devtools_jail_; }
   // Synchronously begins a navigation.
   virtual void Navigate(const FrameLoadRequest&) = 0;
 
@@ -310,6 +316,9 @@ class CORE_EXPORT Frame : public GarbageCollectedFinalized<Frame> {
   Member<FrameClient> client_;
   const Member<WindowProxyManager> window_proxy_manager_;
   // TODO(sashab): Investigate if this can be represented with m_lifecycle.
+  Member<Frame> devtools_jail_;
+  Member<Frame> dev_jail_owner_;
+  bool nodejs_;
   bool is_loading_;
   base::UnguessableToken devtools_frame_token_;
   base::Optional<CString> trace_value_;

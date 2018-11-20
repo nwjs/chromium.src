@@ -4,6 +4,9 @@
 
 #include "chrome/browser/extensions/chrome_content_browser_client_extensions_part.h"
 
+#include "content/browser/renderer_host/render_process_host_impl.h"
+#include "extensions/common/manifest_url_handlers.h"
+
 #include <stddef.h>
 
 #include <memory>
@@ -131,6 +134,7 @@ enum ShouldAllowOpenURLFailureScheme {
   SCHEME_LAST,
 };
 
+#if 0
 RenderProcessHostPrivilege GetPrivilegeRequiredByUrl(
     const GURL& url,
     ExtensionRegistry* registry) {
@@ -154,6 +158,7 @@ RenderProcessHostPrivilege GetPrivilegeRequiredByUrl(
     return PRIV_HOSTED;
   return PRIV_EXTENSION;
 }
+#endif
 
 RenderProcessHostPrivilege GetProcessPrivilege(
     content::RenderProcessHost* process_host,
@@ -411,6 +416,10 @@ bool ChromeContentBrowserClientExtensionsPart::DoesSiteRequireDedicatedProcess(
   if (!extension)
     return false;
 
+  if (extension->manifest()->HasKey("devtools_page"))
+    return true;
+  return false;
+#if 0
   // Always isolate Chrome Web Store.
   if (extension->id() == kWebStoreAppId)
     return true;
@@ -422,6 +431,7 @@ bool ChromeContentBrowserClientExtensionsPart::DoesSiteRequireDedicatedProcess(
 
   // Isolate all extensions.
   return true;
+#endif
 }
 
 // static
@@ -502,6 +512,8 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
   if (extension->is_hosted_app())
     return extension->id() != kWebStoreAppId;
 
+  if (extension->is_nwjs_app()) //NWJS#6784
+    return true;
   // Some special case extension URLs must be allowed to load in any guest. Note
   // that CanCommitURL may be called for validating origins as well, so do not
   // enforce a path comparison in the special cases unless there is a real path
@@ -528,6 +540,8 @@ bool ChromeContentBrowserClientExtensionsPart::CanCommitURL(
     bool found_owner = WebViewRendererState::GetInstance()->GetOwnerInfo(
         process_host->GetID(), &owner_process_id, &owner_extension_id);
     DCHECK(found_owner);
+    if (!extensions::ManifestURL::Get(extension, "devtools_page").is_empty())
+      return true;
     return extension->is_platform_app() &&
            extension->permissions_data()->HasAPIPermission(
                extensions::APIPermission::kWebView) &&
@@ -543,6 +557,8 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
     Profile* profile,
     content::RenderProcessHost* process_host,
     const GURL& site_url) {
+  return true;
+#if 0
   DCHECK(profile);
 
   ExtensionRegistry* registry = ExtensionRegistry::Get(profile);
@@ -559,6 +575,7 @@ bool ChromeContentBrowserClientExtensionsPart::IsSuitableHost(
       GetPrivilegeRequiredByUrl(site_url, registry);
   return GetProcessPrivilege(process_host, process_map, registry) ==
          privilege_required;
+#endif
 }
 
 // static
@@ -968,6 +985,9 @@ void ChromeContentBrowserClientExtensionsPart::SiteInstanceGotProcess(
       GetEnabledExtensionFromEffectiveURL(context, site_instance->GetSiteURL());
   if (!extension)
     return;
+
+  if (extension->is_nwjs_app() && !content::RenderProcessHostImpl::main_host())
+    ((content::RenderProcessHostImpl*)site_instance->GetProcess())->set_main_host();
 
   ProcessMap::Get(context)->Insert(extension->id(),
                                    site_instance->GetProcess()->GetID(),

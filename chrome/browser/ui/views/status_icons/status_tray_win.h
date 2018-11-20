@@ -39,6 +39,9 @@ class StatusTrayWin : public StatusTray {
   LRESULT CALLBACK
       WndProc(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);
 
+  StatusIconWin* key_handler() { return key_handler_; }
+  void set_key_handler(StatusIconWin* win) { key_handler_ = win; }
+
  protected:
   // Overriden from StatusTray:
   std::unique_ptr<StatusIcon> CreatePlatformStatusIcon(
@@ -48,7 +51,7 @@ class StatusTrayWin : public StatusTray {
 
  private:
   FRIEND_TEST_ALL_PREFIXES(StatusTrayWinTest, EnsureVisibleTest);
-
+  StatusIconWin* key_handler_;
   // Static callback invoked when a message comes in to our messaging window.
   static LRESULT CALLBACK
       WndProcStatic(HWND hwnd, UINT message, WPARAM wparam, LPARAM lparam);

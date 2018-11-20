@@ -200,6 +200,7 @@ class CONTENT_EXPORT RenderFrameImpl
       public blink::WebFrameSerializerClient,
       service_manager::mojom::InterfaceProvider {
  public:
+  bool skip_blocking_parser_;
   // Creates a new RenderFrame as the main frame of |render_view|.
   static RenderFrameImpl* CreateMainFrame(
       RenderViewImpl* render_view,
@@ -516,6 +517,7 @@ class CONTENT_EXPORT RenderFrameImpl
   void BlockRequests() override;
   void ResumeBlockedRequests() override;
   void CancelBlockedRequests() override;
+  void SetSkipBlockingParser(bool) override;
 #if defined(OS_ANDROID)
   void ExtractSmartClipData(
       const gfx::Rect& rect,
@@ -769,6 +771,12 @@ class CONTENT_EXPORT RenderFrameImpl
       const blink::WebVector<char>& data,
       blink::WebFrameSerializerClient::FrameSerializationStatus status)
       override;
+  void willHandleNavigationPolicy(
+                                          blink::WebFrame*,
+                                          const blink::WebURLRequest&,
+                                          blink::WebNavigationPolicy*,
+                                          blink::WebString* manifest = NULL,
+                                          bool new_win = true) override;
 
   // Binds to the site engagement service in the browser.
   void BindEngagement(blink::mojom::EngagementClientAssociatedRequest request);

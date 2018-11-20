@@ -63,6 +63,12 @@
 #include "extensions/common/extension_set.h"
 #endif
 
+#include "content/public/common/renderer_preferences.h"
+
+#include "content/nw/src/nw_base.h"
+#include "content/nw/src/nw_content.h"
+#include "content/nw/src/common/shell_switches.h"
+
 using content::GlobalRequestID;
 using content::NavigationController;
 using content::WebContents;
@@ -425,6 +431,17 @@ std::unique_ptr<content::WebContents> CreateTargetContents(
       ->SetExtensionAppById(params.extension_app_id);
 #endif
 
+  nw::Package* package = nw::package();
+  std::string js_doc_start(params.inject_js_start), js_doc_end(params.inject_js_end);
+  if (js_doc_start.empty())
+    package->root()->GetString(::switches::kmInjectJSDocStart, &js_doc_start);
+  target_contents->GetMutableRendererPrefs()->nw_inject_js_doc_start = js_doc_start;
+  if (js_doc_end.empty())
+    package->root()->GetString(::switches::kmInjectJSDocEnd, &js_doc_end);
+  target_contents->GetMutableRendererPrefs()->nw_inject_js_doc_end = js_doc_end;
+  if (!js_doc_start.empty() || !js_doc_end.empty())
+    target_contents->GetRenderViewHost()->SyncRendererPrefs();
+
   return target_contents;
 }
 
@@ -455,7 +472,7 @@ void Navigate(NavigateParams* params) {
   if (!AdjustNavigateParamsForURL(params))
     return;
 
-#if BUILDFLAG(ENABLE_EXTENSIONS)
+#if 0 //BUILDFLAG(ENABLE_EXTENSIONS)
   const extensions::Extension* extension =
     extensions::ExtensionRegistry::Get(params->initiating_profile)->
         enabled_extensions().GetExtensionOrAppByURL(params->url);

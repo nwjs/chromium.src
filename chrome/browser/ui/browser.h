@@ -141,6 +141,7 @@ class Browser : public TabStripModelObserver,
     FEATURE_BOOKMARKBAR = 16,
     FEATURE_INFOBAR = 32,
     FEATURE_DOWNLOADSHELF = 64,
+    FEATURE_NW_FRAMELESS = 128
   };
 
   // The context for a download blocked notification from
@@ -171,6 +172,8 @@ class Browser : public TabStripModelObserver,
 
     static CreateParams CreateForDevTools(Profile* profile);
 
+    bool frameless = false;
+    bool always_on_top = false;
     // The browser type.
     Type type;
 
@@ -222,6 +225,8 @@ class Browser : public TabStripModelObserver,
   explicit Browser(const CreateParams& params);
   ~Browser() override;
 
+  bool NWCanClose(bool user_force = false);
+
   // Set overrides for the initial window bounds and maximized state.
   void set_override_bounds(const gfx::Rect& bounds) {
     override_bounds_ = bounds;
@@ -230,6 +235,8 @@ class Browser : public TabStripModelObserver,
   void set_initial_show_state(ui::WindowShowState initial_show_state) {
     initial_show_state_ = initial_show_state;
   }
+
+  bool initial_ontop() const { return initial_ontop_; }
   // Return true if the initial window bounds have been overridden.
   bool bounds_overridden() const {
     return !override_bounds_.IsEmpty();
@@ -249,6 +256,7 @@ class Browser : public TabStripModelObserver,
   Type type() const { return type_; }
   const std::string& app_name() const { return app_name_; }
   bool is_trusted_source() const { return is_trusted_source_; }
+  bool is_frameless() const { return frameless_; }
   Profile* profile() const { return profile_; }
   gfx::Rect override_bounds() const { return override_bounds_; }
   const std::string& initial_workspace() const { return initial_workspace_; }
@@ -631,7 +639,8 @@ class Browser : public TabStripModelObserver,
                           int opener_render_frame_id,
                           const std::string& frame_name,
                           const GURL& target_url,
-                          content::WebContents* new_contents) override;
+                          content::WebContents* new_contents,
+                          const base::string16& nw_window_manifest) override;
   void RendererUnresponsive(
       content::WebContents* source,
       content::RenderWidgetHost* render_widget_host,
@@ -897,6 +906,7 @@ class Browser : public TabStripModelObserver,
 
   PrefChangeRegistrar profile_pref_registrar_;
 
+  bool frameless_;
   // This Browser's type.
   const Type type_;
 
@@ -962,6 +972,8 @@ class Browser : public TabStripModelObserver,
   gfx::Rect override_bounds_;
   ui::WindowShowState initial_show_state_;
   const std::string initial_workspace_;
+
+  bool initial_ontop_;
 
   // Tracks when this browser is being created by session restore.
   bool is_session_restore_;

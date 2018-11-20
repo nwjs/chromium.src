@@ -72,6 +72,8 @@ void Frame::Trace(blink::Visitor* visitor) {
   visitor->Trace(window_proxy_manager_);
   visitor->Trace(dom_window_);
   visitor->Trace(client_);
+  visitor->Trace(dev_jail_owner_);
+  visitor->Trace(devtools_jail_);
 }
 
 void Frame::Detach(FrameDetachType type) {
@@ -96,6 +98,10 @@ void Frame::Detach(FrameDetachType type) {
   // the frame tree. https://crbug.com/578349.
   DisconnectOwnerElement();
   page_ = nullptr;
+  if (dev_jail_owner_) {
+    dev_jail_owner_->setDevtoolsJail(nullptr);
+    dev_jail_owner_ = nullptr;
+  }
 }
 
 void Frame::DisconnectOwnerElement() {
@@ -225,6 +231,8 @@ std::unique_ptr<UserGestureIndicator> Frame::NotifyUserActivation(
 // static
 bool Frame::HasTransientUserActivation(LocalFrame* frame,
                                        bool checkIfMainThread) {
+  if (frame && frame->isNodeJS())
+    return true;
   if (RuntimeEnabledFeatures::UserActivationV2Enabled()) {
     return frame ? frame->HasTransientUserActivation() : false;
   }
@@ -302,6 +310,9 @@ Frame::Frame(FrameClient* client,
       owner_(owner),
       client_(client),
       window_proxy_manager_(window_proxy_manager),
+      devtools_jail_(nullptr),
+      dev_jail_owner_(nullptr),
+      nodejs_(false),
       is_loading_(false),
       devtools_frame_token_(client->GetDevToolsFrameToken()),
       create_stack_(base::debug::StackTrace()) {
@@ -322,4 +333,42 @@ STATIC_ASSERT_ENUM(FrameDetachType::kRemove,
 STATIC_ASSERT_ENUM(FrameDetachType::kSwap,
                    WebRemoteFrameClient::DetachType::kSwap);
 
-}  // namespace blink
+bool Frame::isNwDisabledChildFrame() const
+{
+  const Frame* current_frame = this;
+  const Frame* ancestor_frame = Tree().Parent();
+  do {
+    if (current_frame->owner_) {
+      if (current_frame->owner_->IsLocal())
+        if (ToHTMLFrameOwnerElement(current_frame->owner_)->FastHasAttribute(nwdisableAttr))
+          return true;
+    }
+    current_frame = ancestor_frame;
+    if (ancestor_frame)
+      ancestor_frame = ancestor_frame->Tree().Parent();
+  } while (current_frame);
+  return false;
+}
+
+void Frame::setDevtoolsJail(Frame* iframe)
+{
+  devtools_jail_ = iframe;
+  if (iframe)
+    iframe->dev_jail_owner_ = this;
+  else if (devtools_jail_)
+    devtools_jail_->dev_jail_owner_ = nullptr;
+}
+
+bool Frame::isNwFakeTop() const
+{
+  if (owner_) {
+    if (owner_->IsLocal())
+      if (ToHTMLFrameOwnerElement(owner_)->FastHasAttribute(nwfaketopAttr))
+        return true;
+  }
+  return false;
+}
+
+
+} // namespace blink
+

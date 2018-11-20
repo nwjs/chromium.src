@@ -10,6 +10,7 @@
 
 #include "base/macros.h"
 #include "base/unguessable_token.h"
+#include "base/files/file_path.h"
 #include "content/child/scoped_child_process_reference.h"
 #include "content/common/service_worker/service_worker_provider.mojom.h"
 #include "content/common/shared_worker/shared_worker.mojom.h"
@@ -123,6 +124,9 @@ class EmbeddedSharedWorkerStub : public blink::WebSharedWorkerClient,
 
   ScopedChildProcessReference process_ref_;
   const int appcache_host_id_;
+  bool nodejs_ = false;
+  base::FilePath root_path_;
+
   WebApplicationCacheHostImpl* app_cache_host_ = nullptr;  // Not owned.
 
   // S13nServiceWorker: The info needed to connect to the

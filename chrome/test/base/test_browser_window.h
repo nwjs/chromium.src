@@ -38,6 +38,9 @@ class TestBrowserWindow : public BrowserWindow {
   ~TestBrowserWindow() override;
 
   // BrowserWindow:
+  void UpdateDraggableRegions(
+         const std::vector<extensions::DraggableRegion>& regions) override;
+  SkRegion* GetDraggableRegion() override;
   void Show() override {}
   void ShowInactive() override {}
   void Hide() override {}

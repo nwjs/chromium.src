@@ -7,6 +7,8 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/policy_cert_verifier.h"
+
 #include "base/base64.h"
 #include "base/bind.h"
 #include "base/bind_helpers.h"
@@ -443,21 +445,20 @@ void IOThread::ConstructSystemRequestContext() {
         globals_->data_use_ascriber->CreateNetworkDelegate(
             std::move(chrome_network_delegate), GetMetricsDataUseForwarder()));
 
-    std::unique_ptr<net::CertVerifier> cert_verifier;
-    if (g_cert_verifier_for_io_thread_testing) {
-      cert_verifier = std::make_unique<WrappedCertVerifierForIOThreadTesting>();
-    } else {
+    std::unique_ptr<nw::PolicyCertVerifier> cert_verifier;
+    //if (g_cert_verifier_for_io_thread_testing) {
+    //  cert_verifier = std::make_unique<WrappedCertVerifierForIOThreadTesting>();
+    //} else {
 #if defined(OS_CHROMEOS)
       // Creates a CertVerifyProc that doesn't allow any profile-provided certs.
       cert_verifier = std::make_unique<net::CachingCertVerifier>(
           std::make_unique<net::MultiThreadedCertVerifier>(
               base::MakeRefCounted<chromeos::CertVerifyProcChromeOS>()));
 #else
-      cert_verifier = std::make_unique<net::CachingCertVerifier>(
-          std::make_unique<net::MultiThreadedCertVerifier>(
-              net::CertVerifyProc::CreateDefault()));
+  cert_verifier = std::make_unique<nw::PolicyCertVerifier>(base::Closure());
+  cert_verifier->InitializeOnIOThread(net::CertVerifyProc::CreateDefault());
 #endif
-    }
+  //}
     const base::CommandLine& command_line =
         *base::CommandLine::ForCurrentProcess();
     builder->SetCertVerifier(

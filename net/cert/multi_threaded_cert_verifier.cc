@@ -203,14 +203,14 @@ std::unique_ptr<ResultHelper> DoVerifyOnWorkerThread(
     const std::string& ocsp_response,
     int flags,
     const scoped_refptr<CRLSet>& crl_set,
-    const CertificateList& additional_trust_anchors) {
+    const CertificateList* additional_trust_anchors) {
   TRACE_EVENT0(kNetTracingCategory, "DoVerifyOnWorkerThread");
   auto verify_result = std::make_unique<ResultHelper>();
   MultiThreadedCertVerifierScopedAllowBaseSyncPrimitives
       allow_base_sync_primitives;
   verify_result->error = verify_proc->Verify(
       cert.get(), hostname, ocsp_response, flags, crl_set.get(),
-      additional_trust_anchors, &verify_result->result);
+      *additional_trust_anchors, &verify_result->result);
   return verify_result;
 }
 
@@ -253,7 +253,7 @@ class CertVerifierJob {
         {base::MayBlock(), base::TaskShutdownBehavior::CONTINUE_ON_SHUTDOWN},
         base::BindOnce(&DoVerifyOnWorkerThread, verify_proc, key_.certificate(),
                        key_.hostname(), key_.ocsp_response(), flags,
-                       config.crl_set, config.additional_trust_anchors),
+                       config.crl_set, &config.additional_trust_anchors),
         base::BindOnce(&CertVerifierJob::OnJobCompleted,
                        weak_ptr_factory_.GetWeakPtr(), config_id));
   }

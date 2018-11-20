@@ -86,6 +86,9 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
 
   RenderWidgetHostViewCocoa* cocoa_view() const;
 
+  // Used by g_force_cpu_draw
+  CALayer* background_layer() const;
+
   // |delegate| is used to separate out the logic from the NSResponder delegate.
   // |delegate| is retained by this class.
   // |delegate| should be set at most once.
@@ -301,6 +304,7 @@ class CONTENT_EXPORT RenderWidgetHostViewMac
   void UpdateNSViewAndDisplayProperties();
 
   // RenderWidgetHostNSViewLocalClient implementation.
+  RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() override;
   BrowserAccessibilityManager* GetRootBrowserAccessibilityManager() override;
   void ForwardKeyboardEvent(const NativeWebKeyboardEvent& key_event,
                             const ui::LatencyInfo& latency_info) override;

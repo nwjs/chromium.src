@@ -30,6 +30,7 @@
   #
   # chrome/ and ios/chrome/ must start at the same id.
   # App only use one file depending on whether it is iOS or other platform.
+
   # Chromium strings and Google Chrome strings must start at the same id.
   # We only use one file depending on whether we're building Chromium or
   # Google Chrome.
@@ -427,4 +428,8 @@
   # Please read the header and find the right section above instead.
 
   # Resource ids starting at 31000 are reserved for projects built on Chromium.
+  "chrome/browser/nwjs_resources.grd": {
+    "includes": [32000],
+    "structures": [32450],
+  },
 }

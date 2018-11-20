@@ -231,6 +231,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                       const GURL& first_party_url,
                       const net::CanonicalCookie& cookie,
                       bool blocked_by_policy) override;
+  base::FilePath GetRootPath() override;
   void AllowWorkerFileSystem(
       const GURL& url,
       content::ResourceContext* context,

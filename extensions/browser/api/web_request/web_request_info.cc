@@ -363,6 +363,8 @@ void WebRequestInfo::InitializeWebViewAndFrameData(
     web_view_rules_registry_id =
         navigation_ui_data->web_view_rules_registry_id();
     frame_data = navigation_ui_data->frame_data();
+    web_view_embedder_process_id =
+        navigation_ui_data->web_view_embedder_process_id();
   } else if (frame_id >= 0) {
     // Grab any WebView-related information if relevant.
     WebViewRendererState::WebViewInfo web_view_info;

@@ -51,6 +51,13 @@ LocationBarTesting*
 
 // TestBrowserWindow ----------------------------------------------------------
 
+void TestBrowserWindow::UpdateDraggableRegions(
+                                               const std::vector<extensions::DraggableRegion>& regions) {
+}
+SkRegion* TestBrowserWindow::GetDraggableRegion() {
+  return nullptr;
+}
+
 TestBrowserWindow::TestBrowserWindow() {}
 
 TestBrowserWindow::~TestBrowserWindow() {}

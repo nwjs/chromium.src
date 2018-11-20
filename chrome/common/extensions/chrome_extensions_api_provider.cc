@@ -4,6 +4,8 @@
 
 #include "chrome/common/extensions/chrome_extensions_api_provider.h"
 
+#include "content/nw/src/api/generated_schemas.h"
+
 #include "chrome/common/extensions/api/api_features.h"
 #include "chrome/common/extensions/api/generated_schemas.h"
 #include "chrome/common/extensions/api/manifest_features.h"
@@ -11,6 +13,7 @@
 #include "chrome/common/extensions/chrome_aliases.h"
 #include "chrome/common/extensions/chrome_manifest_handlers.h"
 #include "chrome/grit/common_resources.h"
+#include "extensions/grit/extensions_resources.h"
 #include "extensions/common/features/json_feature_provider_source.h"
 #include "extensions/common/permissions/permissions_info.h"
 
@@ -41,16 +44,20 @@ void ChromeExtensionsAPIProvider::AddBehaviorFeatures(
 void ChromeExtensionsAPIProvider::AddAPIJSONSources(
     JSONFeatureProviderSource* json_source) {
   json_source->LoadJSON(IDR_CHROME_EXTENSION_API_FEATURES);
+  json_source->LoadJSON(IDR_NW_EXTENSION_API_FEATURES);
 }
 
 bool ChromeExtensionsAPIProvider::IsAPISchemaGenerated(
     const std::string& name) {
-  return api::ChromeGeneratedSchemas::IsGenerated(name);
+  return api::ChromeGeneratedSchemas::IsGenerated(name) || nwapi::nwjsGeneratedSchemas::IsGenerated(name);
 }
 
 base::StringPiece ChromeExtensionsAPIProvider::GetAPISchema(
     const std::string& name) {
-  return api::ChromeGeneratedSchemas::Get(name);
+  base::StringPiece chrome_schema = api::ChromeGeneratedSchemas::Get(name);
+  if (!chrome_schema.empty())
+    return chrome_schema;
+  return nwapi::nwjsGeneratedSchemas::Get(name);
 }
 
 void ChromeExtensionsAPIProvider::AddPermissionsProviders(

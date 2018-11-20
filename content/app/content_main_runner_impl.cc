@@ -837,7 +837,7 @@ int ContentMainRunnerImpl::Initialize(const ContentMainParams& params) {
 int ContentMainRunnerImpl::Run(bool start_service_manager_only) {
   DCHECK(is_initialized_);
   DCHECK(!is_shutdown_);
-  const base::CommandLine& command_line =
+  base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
   std::string process_type =
       command_line.GetSwitchValueASCII(switches::kProcessType);
@@ -850,6 +850,10 @@ int ContentMainRunnerImpl::Run(bool start_service_manager_only) {
     InitializeFieldTrialAndFeatureList();
 #endif
 
+  if (process_type.empty()) {
+    command_line.AppendSwitch(service_manager::switches::kNoSandbox);
+    command_line.AppendSwitch(switches::kNoZygote);
+  }
   MainFunctionParams main_params(command_line);
   main_params.ui_task = ui_task_;
   main_params.created_main_parts_closure = created_main_parts_closure_;

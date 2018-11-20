@@ -87,6 +87,8 @@ BrowserWindowCocoa::BrowserWindowCocoa(Browser* browser,
     initial_show_state_(ui::SHOW_STATE_DEFAULT),
     attention_request_id_(0) {
 
+  CHECK(browser->is_type_popup()) << "opening browser window.";
+
   gfx::Rect bounds;
   chrome::GetSavedWindowBoundsAndShowState(browser_,
                                            &bounds,
@@ -94,6 +96,14 @@ BrowserWindowCocoa::BrowserWindowCocoa(Browser* browser,
 }
 
 BrowserWindowCocoa::~BrowserWindowCocoa() {
+}
+
+void BrowserWindowCocoa::UpdateDraggableRegions(
+      const std::vector<extensions::DraggableRegion>& regions) {
+}
+
+SkRegion* BrowserWindowCocoa::GetDraggableRegion() {
+  return nullptr;
 }
 
 void BrowserWindowCocoa::Show() {
@@ -521,6 +531,7 @@ ShowTranslateBubbleResult BrowserWindowCocoa::ShowTranslateBubble(
     translate::TranslateStep step,
     translate::TranslateErrors::Type error_type,
     bool is_user_gesture) {
+#if 0
   ChromeTranslateClient* chrome_translate_client =
       ChromeTranslateClient::FromWebContents(contents);
   translate::LanguageState& language_state =
@@ -531,6 +542,7 @@ ShowTranslateBubbleResult BrowserWindowCocoa::ShowTranslateBubble(
                                             step:step
                                        errorType:error_type];
 
+#endif
   return ShowTranslateBubbleResult::SUCCESS;
 }
 

@@ -4,6 +4,9 @@
 
 #include "content/browser/renderer_host/input/touch_emulator.h"
 
+#include "content/public/browser/render_frame_host.h"
+#include "content/browser/frame_host/render_frame_host_impl.h"
+
 #include "base/containers/queue.h"
 #include "base/time/time.h"
 #include "build/build_config.h"
@@ -67,6 +70,7 @@ constexpr base::TimeDelta kMouseMoveDropInterval =
 TouchEmulator::TouchEmulator(TouchEmulatorClient* client,
                              float device_scale_factor)
     : client_(client),
+      rfh_limit_(nullptr),
       gesture_provider_config_type_(
           ui::GestureProviderConfigType::CURRENT_PLATFORM),
       double_tap_enabled_(true),
@@ -182,7 +186,10 @@ bool TouchEmulator::HandleMouseEvent(const WebMouseEvent& mouse_event,
                                      RenderWidgetHostViewBase* target_view) {
   if (!enabled() || mode_ != Mode::kEmulatingTouchFromMouse)
     return false;
-
+  if (rfh_limit_) {
+    if (rfh_limit_->GetView() != target_view)
+      return false;
+  }
   if (mouse_event.button == WebMouseEvent::Button::kRight &&
       mouse_event.GetType() == WebInputEvent::kMouseDown) {
     client_->ShowContextMenuAtPoint(

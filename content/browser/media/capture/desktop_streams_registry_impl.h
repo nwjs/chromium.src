@@ -37,7 +37,7 @@ class CONTENT_EXPORT DesktopStreamsRegistryImpl
       int render_frame_id,
       const GURL& origin,
       std::string* extension_name,
-      const DesktopStreamRegistryType type) override;
+      const DesktopStreamRegistryType type, bool nodejs = false) override;
 
  private:
   // Type used to store list of accepted desktop media streams.

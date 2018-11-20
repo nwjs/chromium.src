@@ -372,8 +372,9 @@ cr.define('print_preview', function() {
      */
     init(
         isInAppKioskMode, systemDefaultDestinationId,
-        serializedDefaultDestinationSelectionRulesStr, recentDestinations) {
+        serializedDefaultDestinationSelectionRulesStr, recentDestinations, isInNWPrintMode) {
       this.pdfPrinterEnabled_ = !isInAppKioskMode;
+      this.isInNWPrintMode_ = isInNWPrintMode;
       this.systemDefaultDestinationId_ = systemDefaultDestinationId;
       this.createLocalPdfPrintDestination_();
 
@@ -404,6 +405,7 @@ cr.define('print_preview', function() {
       let extensionId = '';
       let extensionName = '';
       let foundDestination = false;
+      if (!this.isInNWPrintMode_) {
       // Run through the destinations forward. As soon as we find a
       // destination, don't select any future destinations, just mark
       // them recent. Otherwise, there is a race condition between selecting
@@ -429,6 +431,7 @@ cr.define('print_preview', function() {
               origin, id, account, name, capabilities, extensionId,
               extensionName);
         }
+      }
       }
 
       if (foundDestination && !this.useSystemDefaultAsDefault_)
@@ -615,7 +618,7 @@ cr.define('print_preview', function() {
      * @private
      */
     convertPreselectedToDestinationMatch_() {
-      if (this.isDestinationValid(this.selectedDestination_)) {
+      if (this.isDestinationValid(this.selectedDestination_) && !this.isInNWPrintMode_) {
         return this.createExactDestinationMatch_(
             this.selectedDestination_.origin, this.selectedDestination_.id);
       }

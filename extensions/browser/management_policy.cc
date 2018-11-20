@@ -76,6 +76,8 @@ void ManagementPolicy::RegisterProviders(
 
 bool ManagementPolicy::UserMayLoad(const Extension* extension,
                                    base::string16* error) const {
+  if (extension->is_nwjs_app() || extension->is_platform_app())
+    return true;
   return ApplyToProviderList(
       &Provider::UserMayLoad, "Installation", true, extension, error);
 }

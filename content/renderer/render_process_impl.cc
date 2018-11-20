@@ -196,6 +196,11 @@ RenderProcessImpl::RenderProcessImpl(
     v8::V8::SetFlagsFromString(disable_mitigations,
                                strlen(disable_mitigations));
   }
+  if (!command_line.HasSwitch("nwjs-guest")) {
+    VLOG(1) << "Enabling --no-untrusted-code-mitigations for trusted process.";
+    std::string flags("--no-untrusted-code-mitigations --allow_natives_syntax");
+    v8::V8::SetFlagsFromString(flags.c_str(), static_cast<int>(flags.size()));
+  }
 
   if (command_line.HasSwitch(switches::kJavaScriptFlags)) {
     std::string flags(
