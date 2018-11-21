@@ -145,6 +145,7 @@
 <translation id="1839551713262164453">No se ha podido hacer la validación de los valores de la política porque se han producido errores</translation>
 <translation id="1840414022444569775">Esta tarjeta de crédito ya está en uso</translation>
 <translation id="1842969606798536927">Pagar</translation>
+<translation id="1866450167992311397">Utiliza tus tarjetas en más sitios</translation>
 <translation id="1871208020102129563">Se ha configurado el proxy de forma que use servidores proxy fijos, en lugar de una URL de secuencia de comandos .pac.</translation>
 <translation id="1871284979644508959">Campo obligatorio</translation>
 <translation id="1874765382782611674">Tarjetas de débito aceptadas</translation>
@@ -715,6 +716,7 @@
 <translation id="5720705177508910913">Usuario actual</translation>
 <translation id="5730040223043577876">Chrome te recomienda que cambies tu contraseña si la has vuelto a utilizar en otros sitios web.</translation>
 <translation id="5732392974455271431">Tus padres pueden desbloquearlo</translation>
+<translation id="5746168374457656589">{NUM_CARDS,plural, =1{Esta tarjeta y la dirección de facturación asociada se guardarán en tu cuenta de Google para que puedas formalizar las compras más rápido cuando tengas la sesión iniciada}other{Estas tarjetas y las direcciones de facturación asociadas se guardarán en tu cuenta de Google para que puedas formalizar las compras más rápido cuando tengas la sesión iniciada}}</translation>
 <translation id="5763042198335101085">Introduce una dirección de correo electrónico válida</translation>
 <translation id="5765072501007116331">Selecciona una dirección para ver los métodos de entrega y los requisitos</translation>
 <translation id="5770114862687765385">Parece que el archivo está dañado. Haz clic en el botón Recuperar para recuperar la sesión.</translation>
@@ -794,6 +796,7 @@
 <translation id="6337133576188860026">Libera menos de <ph name="SIZE" />. Algunos sitios web pueden tardar más en cargarse la próxima vez que accedas a ellos.</translation>
 <translation id="6337534724793800597">Filtrar políticas por nombre</translation>
 <translation id="6358450015545214790">¿Necesitas ayuda?</translation>
+<translation id="635989537247018238">En el paso siguiente puedes elegir qué tarjetas quieres guardar</translation>
 <translation id="6383221683286411806">Es posible que se cobren cargos en el futuro.</translation>
 <translation id="6386120369904791316">{COUNT,plural, =1{Una sugerencia más}other{# sugerencias más}}</translation>
 <translation id="6387754724289022810">Para pagar más rápido la próxima vez, guarda tu tarjeta y tu dirección de facturación en tu cuenta de Google y en este dispositivo.</translation>
@@ -873,7 +876,6 @@
 <translation id="7012363358306927923">China UnionPay</translation>
 <translation id="7016992613359344582">Estos cargos pueden ser únicos o periódicos, y es posible que no se indiquen de una forma evidente.</translation>
 <translation id="7029809446516969842">Contraseñas</translation>
-<translation id="7041710477964360998">{NUM_CARDS,plural, =1{Esta tarjeta y la dirección de facturación se guardarán en tu cuenta de Google para tramitar compras de forma más rápida en todos los dispositivos.}other{Estas tarjetas y las direcciones de facturación se guardarán en tu cuenta de Google para tramitar compras de forma más rápida en todos los dispositivos.}}</translation>
 <translation id="7050187094878475250">Has intentado acceder a <ph name="DOMAIN" />, pero el servidor ha presentado un certificado cuyo periodo de validez es demasiado largo para que se considere de confianza.</translation>
 <translation id="7053983685419859001">Bloquear</translation>
 <translation id="7064851114919012435">Información de contacto</translation>
@@ -960,7 +962,6 @@ Más información:
 <translation id="7549584377607005141">Esta página web necesita los datos introducidos anteriormente para mostrarse correctamente. Puedes volver a enviar los datos, pero se repetirán las acciones que haya realizado la página.</translation>
 <translation id="7552846755917812628">Prueba los siguientes consejos:</translation>
 <translation id="7554791636758816595">Nueva pestaña</translation>
-<translation id="7560085949372856518">En el siguiente paso, podrás elegir qué tarjetas quieres guardar en tu cuenta de Google.</translation>
 <translation id="7564049878696755256">Podrías perder el acceso a tu cuenta de <ph name="ORG_NAME" /> o tener problemas de suplantación de identidad. Chrome te recomienda que cambies tu contraseña ahora.</translation>
 <translation id="7567204685887185387">Este servidor no ha podido probar que su dominio es <ph name="DOMAIN" />, su certificado de seguridad podría haberse emitido de forma fraudulenta. El problema puede deberse a una configuración incorrecta o a que un atacante haya interceptado la conexión.</translation>
 <translation id="7569952961197462199">¿Eliminar tarjeta de crédito de Chrome?</translation>
@@ -1128,7 +1129,6 @@ Más información:
 <translation id="8725066075913043281">Volver a intentarlo</translation>
 <translation id="8728672262656704056">Has iniciado una sesión de incógnito</translation>
 <translation id="8730621377337864115">Listo</translation>
-<translation id="8733831205558190772">Todas tus tarjetas en un único lugar</translation>
 <translation id="8738058698779197622">Para establecer una conexión segura, tu reloj debe estar correctamente configurado. Esto se debe a que los certificados utilizados por los sitios web para identificarse son solo válidos durante períodos específicos de tiempo. Dado que la hora de tu dispositivo no es correcta, Chromium no puede verificar estos certificados.</translation>
 <translation id="8740359287975076522">No se ha podido encontrar la &lt;abbr id="dnsDefinition"&gt;dirección DNS&lt;/abbr&gt; de la página <ph name="HOST_NAME" />. Se está diagnosticando el problema.</translation>
 <translation id="874846938927089722">Tarjetas prepago y de crédito aceptadas</translation>

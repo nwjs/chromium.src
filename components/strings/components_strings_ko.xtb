@@ -145,6 +145,7 @@
 <translation id="1839551713262164453">오류가 발생하여 정책 값의 유효성을 검사하지 못했습니다.</translation>
 <translation id="1840414022444569775">이미 사용된 카드 번호입니다.</translation>
 <translation id="1842969606798536927">결제하기</translation>
+<translation id="1866450167992311397">더 많은 장소에서 카드 사용</translation>
 <translation id="1871208020102129563">프록시가 .pac 스크립트 URL이 아닌 고정 프록시 서버를 사용하도록 설정됩니다.</translation>
 <translation id="1871284979644508959">필수 입력란</translation>
 <translation id="1874765382782611674">사용 가능한 직불카드</translation>
@@ -715,6 +716,7 @@
 <translation id="5720705177508910913">현재 사용자</translation>
 <translation id="5730040223043577876">다른 사이트에서 비밀번호를 재사용했다면 비밀번호를 재설정하는 것이 좋습니다.</translation>
 <translation id="5732392974455271431">부모님이 차단 해제할 수 있습니다.</translation>
+<translation id="5746168374457656589">{NUM_CARDS,plural, =1{로그인된 모든 기기에서 더 빠르게 결제할 수 있도록 이 카드 및 청구서 수신 주소가 Google 계정에 저장됩니다.}other{로그인된 모든 기기에서 더 빠르게 결제할 수 있도록 이 카드 및 청구서 수신 주소가 Google 계정에 저장됩니다.}}</translation>
 <translation id="5763042198335101085">올바른 이메일 주소를 입력하세요.</translation>
 <translation id="5765072501007116331">배달 방법과 요구사항을 확인하려면 주소를 선택하세요.</translation>
 <translation id="5770114862687765385">파일이 손상된 것 같습니다. 세션을 다시 설정하려면 '재설정' 버튼을 클릭하세요.</translation>
@@ -794,6 +796,7 @@
 <translation id="6337133576188860026"><ph name="SIZE" /> 미만의 저장용량을 확보합니다. 일부 사이트는 다음 방문 시 로드 속도가 느려질 수 있습니다.</translation>
 <translation id="6337534724793800597">이름별로 정책 필터링</translation>
 <translation id="6358450015545214790">자세히 알아보기</translation>
+<translation id="635989537247018238">다음 단계에서 저장할 카드를 선택할 수 있습니다.</translation>
 <translation id="6383221683286411806">해당 사이트에서 비용이 청구될 수 있음</translation>
 <translation id="6386120369904791316">{COUNT,plural, =1{그 외 제안 1건}other{그 외 제안 #건}}</translation>
 <translation id="6387754724289022810">다음번에 더 빠르게 결제할 수 있도록 Google 계정과 기기에 카드와 청구서 수신 주소를 저장하세요.</translation>
@@ -873,7 +876,6 @@
 <translation id="7012363358306927923">China UnionPay</translation>
 <translation id="7016992613359344582">이러한 청구는 일회성일 수도 있고 반복적일 수도 있으며 명확하지 않을 수도 있습니다.</translation>
 <translation id="7029809446516969842">비밀번호</translation>
-<translation id="7041710477964360998">{NUM_CARDS,plural, =1{모든 기기에서 신속하게 결제하기 위해 이 카드 및 청구서 수신 주소가 Google 계정에 저장됩니다.}other{모든 기기에서 신속하게 결제하기 위해 이 카드 및 청구서 수신 주소가 Google 계정에 저장됩니다.}}</translation>
 <translation id="7050187094878475250"><ph name="DOMAIN" />에 접속하려고 했지만 서버가 제시한 인증서의 유효 기간이 너무 길어서 신뢰할 수 없습니다.</translation>
 <translation id="7053983685419859001">차단</translation>
 <translation id="7064851114919012435">연락처 정보</translation>
@@ -959,7 +961,6 @@
 <translation id="7549584377607005141">이 웹페이지를 제대로 표시하려면 이전에 입력한 데이터가 필요합니다. 이 데이터를 다시 보낼 수 있지만 이 경우 해당 페이지에서 이전에 수행한 작업이 반복됩니다.</translation>
 <translation id="7552846755917812628">다음 도움말을 확인해 보세요.</translation>
 <translation id="7554791636758816595">새 탭</translation>
-<translation id="7560085949372856518">다음 단계에서 Google 계정에 저장할 카드를 선택할 수 있습니다.</translation>
 <translation id="7564049878696755256"><ph name="ORG_NAME" /> 계정에 액세스할 수 없게 되거나 신원 도용이 발생할 수도 있습니다. 따라서 지금 비밀번호를 변경하는 것이 좋습니다.</translation>
 <translation id="7567204685887185387">이 서버가 <ph name="DOMAIN" />임을 입증할 수 없으며 서버의 보안 인증서가 부정한 방식으로 발행되었을 수 있습니다. 서버를 잘못 설정했거나 불법 사용자가 연결을 가로채고 있기 때문일 수 있습니다.</translation>
 <translation id="7569952961197462199">Chrome에서 신용카드를 삭제하시겠습니까?</translation>
@@ -1127,7 +1128,6 @@
 <translation id="8725066075913043281">다시 시도하세요</translation>
 <translation id="8728672262656704056">시크릿 모드로 전환됨</translation>
 <translation id="8730621377337864115">완료</translation>
-<translation id="8733831205558190772">모든 카드를 한곳에 보관</translation>
 <translation id="8738058698779197622">보안 연결을 설정하려면 시계가 올바로 설정되어 있어야 합니다. 웹사이트가 자신을 식별하는 데 사용하는 인증서가 특정 기간에만 유효하기 때문입니다. 기기의 시계가 잘못 설정되어 Chromium에서 이 인증서를 확인할 수 없습니다.</translation>
 <translation id="8740359287975076522"><ph name="HOST_NAME" />의 &lt;abbr id="dnsDefinition"&gt;DNS 주소&lt;/abbr&gt;를 찾을 수 없습니다. 문제를 진단하는 중입니다.</translation>
 <translation id="874846938927089722">사용 가능한 신용카드 및 선불카드</translation>

@@ -2,12 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+let appWindow;
+let appOrigin;
+
 function generateContents(appIcon, appTitle, appPackageName) {
   const doc = document;
   const recommendAppsContainer = doc.getElementById('recommend-apps-container');
   const item = doc.createElement('div');
   item.classList.add('item');
-  item.classList.add('checked');
   item.setAttribute('data-packagename', appPackageName);
 
   const imagePicker = doc.createElement('div');
@@ -97,6 +99,8 @@ function removeRippleCircle_(e) {
 function toggleCheckStatus_(e) {
   const item = e.currentTarget.parentNode;
   item.classList.toggle('checked');
+
+  sendNumberOfSelectedApps();
 }
 
 function getSelectedPackages() {
@@ -139,3 +143,22 @@ function isConfirmKey_(e) {
   return e.keyCode === 13   // Enter
       || e.keyCode === 32;  // Space
 }
+
+/**
+ * Send the number of selected apps back to the embedding page.
+ */
+function sendNumberOfSelectedApps() {
+  if (appWindow && appOrigin) {
+    const checkedItems = document.querySelectorAll('.checked');
+    appWindow.postMessage(
+        {type: 'NUM_OF_SELECTED_APPS', numOfSelected: checkedItems.length},
+        appOrigin);
+  }
+}
+
+function onMessage_(e) {
+  appWindow = e.source;
+  appOrigin = e.origin;
+}
+
+window.addEventListener('message', onMessage_);

@@ -145,6 +145,7 @@
 <translation id="1839551713262164453">Validasi nilai kebijakan gagal karena terjadi error</translation>
 <translation id="1840414022444569775">Nomor kartu ini telah digunakan</translation>
 <translation id="1842969606798536927">Bayar</translation>
+<translation id="1866450167992311397">Gunakan kartu Anda di lebih banyak tempat</translation>
 <translation id="1871208020102129563">Proxy disetel untuk menggunakan server proxy tetap, bukan URL skrip .pac.</translation>
 <translation id="1871284979644508959">Bidang wajib diisi</translation>
 <translation id="1874765382782611674">Kartu Debit yang Diterima</translation>
@@ -715,6 +716,7 @@
 <translation id="5720705177508910913">Pengguna saat ini</translation>
 <translation id="5730040223043577876">Chrome menyarankan untuk menyetel ulang sandi jika Anda juga menggunakannya di situs lain.</translation>
 <translation id="5732392974455271431">Orang tua dapat membuka blokirnya untukmu</translation>
+<translation id="5746168374457656589">{NUM_CARDS,plural, =1{Kartu ini dan alamat penagihannya akan disimpan ke Akun Google sehingga Anda dapat mempercepat proses pembayaran di mana pun Anda login}other{Kartu ini dan alamat penagihannya akan disimpan ke Akun Google sehingga Anda dapat mempercepat proses pembayaran di mana pun Anda login}}</translation>
 <translation id="5763042198335101085">Masukkan alamat email yang valid</translation>
 <translation id="5765072501007116331">Untuk melihat persyaratan dan metode pengiriman, pilih alamat</translation>
 <translation id="5770114862687765385">File tersebut sepertinya rusak. Harap klik tombol 'Setel Ulang' untuk menyetel ulang sesi.</translation>
@@ -794,6 +796,7 @@
 <translation id="6337133576188860026">Sediakan ruang kurang dari <ph name="SIZE" />. Beberapa situs mungkin dimuat lebih lambat saat dibuka lagi.</translation>
 <translation id="6337534724793800597">Filter kebijakan menurut nama</translation>
 <translation id="6358450015545214790">Apakah maksud ini?</translation>
+<translation id="635989537247018238">Pada langkah berikutnya, Anda dapat memilih kartu yang akan disimpan</translation>
 <translation id="6383221683286411806">Kemungkinan mengenakan tagihan di awal.</translation>
 <translation id="6386120369904791316">{COUNT,plural, =1{1 saran lain}other{# saran lain}}</translation>
 <translation id="6387754724289022810">Untuk membayar lebih cepat di pembelian berikutnya, simpan kartu dan alamat penagihan ke akun Google Anda.</translation>
@@ -873,7 +876,6 @@
 <translation id="7012363358306927923">China UnionPay</translation>
 <translation id="7016992613359344582">Tagihan ini bisa hanya satu kali atau berulang, dan mungkin tidak pasti.</translation>
 <translation id="7029809446516969842">Sandi</translation>
-<translation id="7041710477964360998">{NUM_CARDS,plural, =1{Kartu ini dan alamat penagihannya akan disimpan ke Akun Google Anda untuk mempercepat proses pembayaran di semua perangkat.}other{Kartu-kartu ini dan tiap alamat penagihannya akan disimpan ke Akun Google Anda untuk mempercepat proses pembayaran di semua perangkat.}}</translation>
 <translation id="7050187094878475250">Anda berusaha menjangkau <ph name="DOMAIN" />, namun server memberikan sertifikat yang masa berlakunya terlalu lama untuk dapat dipercaya.</translation>
 <translation id="7053983685419859001">Blokir</translation>
 <translation id="7064851114919012435">Info kontak</translation>
@@ -958,7 +960,6 @@
 <translation id="7549584377607005141">Halaman web ini membutuhkan data yang Anda masukkan sebelumnya agar dapat ditampilkan dengan benar. Anda dapat mengirimkan data ini lagi, namun dengan begitu Anda akan mengulangi tindakan apa pun yang sebelumnya dilakukan oleh halaman ini.</translation>
 <translation id="7552846755917812628">Coba tips berikut:</translation>
 <translation id="7554791636758816595">Tab Baru</translation>
-<translation id="7560085949372856518">Pada langkah selanjutnya, Anda dapat memilih kartu mana yang akan disimpan ke Akun Google Anda.</translation>
 <translation id="7564049878696755256">Anda dapat kehilangan akses ke akun <ph name="ORG_NAME" /> atau mengalami pencurian identitas. Chrome menyarankan Anda untuk mengubah sandi sekarang.</translation>
 <translation id="7567204685887185387">Server ini tidak dapat membuktikan bahwa ini adalah <ph name="DOMAIN" />; sertifikat keamanannya mungkin telah dikeluarkan dengan curang. Hal ini disebabkan oleh kesalahan konfigurasi atau penyerang memotong sambungan Anda.</translation>
 <translation id="7569952961197462199">Hapus kartu kredit dari Chrome?</translation>
@@ -1124,7 +1125,6 @@
 <translation id="8725066075913043281">Coba lagi</translation>
 <translation id="8728672262656704056">Anda masuk mode penyamaran</translation>
 <translation id="8730621377337864115">Selesai</translation>
-<translation id="8733831205558190772">Semua kartu Anda di satu tempat</translation>
 <translation id="8738058698779197622">Untuk membuat sambungan aman, jam perlu disetel dengan benar. Hal ini karena sertifikat yang digunakan situs web untuk mengidentifikasi situs web tersebut hanya valid untuk jangka waktu tertentu. Karena jam perangkat tidak benar, Chromium tidak dapat memverifikasi sertifikat ini.</translation>
 <translation id="8740359287975076522">&lt;abbr id="dnsDefinition"&gt;Alamat DNS&lt;/abbr&gt; <ph name="HOST_NAME" /> tidak dapat ditemukan. Mendiagnosis masalah.</translation>
 <translation id="874846938927089722">Kartu Kredit dan Prabayar yang Diterima</translation>

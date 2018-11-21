@@ -280,6 +280,17 @@ This file contains the strings for ash.
       <message name="IDS_ASH_STATUS_TRAY_CAST_STOP" desc="The label used in the tray popup to stop casting.">
         Stop
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_QUIET_MODE_TOOLTIP" desc="The tooltip text for the status area icon to tell do-not-disturb mode is currently on.">
+        Do Not Disturb is on
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_INDICATOR_IME_TOOLTIP" desc="The tooltip text for the status area icon to tell the type of keyboard or input method engine.">
+        Using <ph name="IME_NAME">$1<ex>US keyboard</ex></ph>
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_NOTIFICATIONS_COUNT_TOOLTIP" desc="The tooltip text for a status area icon to describe number of notifications. [ICU Syntax]">
+        {NUM_NOTIFICATIONS, plural,
+         =1 {1 notification}
+         other {# notifications}}
+      </message>
 
       <message name="IDS_ASH_STATUS_TRAY_BLUETOOTH" desc="The label used as the header in the bluetooth popup.">
         Bluetooth
@@ -550,6 +561,9 @@ This file contains the strings for ash.
       <message name="IDS_ASH_CHILD_USER_IS_MANAGED_BY_TWO_PARENTS_NOTICE" desc="Text for notifications showing that this user is managed by two parents' accounts.">
         Account managed by <ph name="FIRST_PARENT_EMAIL">$1<ex>first@example.com</ex></ph> and <ph name="SECOND_PARENT_EMAIL">$2<ex>second@example.com</ex></ph>
       </message>
+      <message name="IDS_ASH_STATUS_TRAY_FAMILY_LINK_LABEL" desc="Tooltip of the status area icon indicating that the session is managed by Family Link.">
+         This account is managed by Family Link
+      </message>
 
       <message name="IDS_ASH_STATUS_TRAY_PREVIOUS_MENU" desc="The accessible text for header entries for detailed versions of status tray items.">
         Previous menu
@@ -779,6 +793,9 @@ This file contains the strings for ash.
       </message>
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_DISCONNECTED_TOOLTIP" desc="The tooltip text used when network is not connected.">
         Disconnected
+      </message>
+      <message name="IDS_ASH_STATUS_TRAY_NETWORK_NOT_CONNECTED_A11Y" desc="The message used by accessibility for telling that currently the device is not connected to a network.">
+        Not connected to netowrk
       </message>
       <message name="IDS_ASH_STATUS_TRAY_NETWORK_CONNECTING_TOOLTIP" desc="The tooltip text used when network is connecting.">
         Connecting to <ph name="NETWORK_NAME">$1<ex>public wifi</ex></ph>

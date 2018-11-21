@@ -64,6 +64,7 @@ ScreenTimeController::ScreenTimeController(content::BrowserContext* context)
       pref_service_(Profile::FromBrowserContext(context)->GetPrefs()) {
   session_manager::SessionManager::Get()->AddObserver(this);
   system::TimezoneSettings::GetInstance()->AddObserver(this);
+  chromeos::DBusThreadManager::Get()->GetSystemClockClient()->AddObserver(this);
   pref_change_registrar_.Init(pref_service_);
   pref_change_registrar_.Add(
       prefs::kUsageTimeLimit,
@@ -74,6 +75,8 @@ ScreenTimeController::ScreenTimeController(content::BrowserContext* context)
 ScreenTimeController::~ScreenTimeController() {
   session_manager::SessionManager::Get()->RemoveObserver(this);
   system::TimezoneSettings::GetInstance()->RemoveObserver(this);
+  chromeos::DBusThreadManager::Get()->GetSystemClockClient()->RemoveObserver(
+      this);
 }
 
 base::TimeDelta ScreenTimeController::GetScreenTimeDuration() {
@@ -242,7 +245,8 @@ void ScreenTimeController::SaveCurrentStateToPref(
   state_dict->SetKey(kScreenStateTimeUsageLimitEnabled,
                      base::Value(state.is_time_usage_limit_enabled));
   state_dict->SetKey(kScreenStateRemainingUsage,
-                     base::Value(state.remaining_usage.InMinutes()));
+                     base::Value(base::checked_cast<int>(
+                         state.remaining_usage.InMilliseconds())));
   state_dict->SetKey(kScreenStateUsageLimitStarted,
                      base::Value(state.time_usage_limit_started.ToDoubleT()));
   state_dict->SetKey(kScreenStateNextStateChangeTime,
@@ -300,7 +304,7 @@ ScreenTimeController::GetLastStateFromPref() {
   if (!remaining_usage || !remaining_usage->is_int())
     return base::nullopt;
   result.remaining_usage =
-      base::TimeDelta::FromMinutes(remaining_usage->GetInt());
+      base::TimeDelta::FromMilliseconds(remaining_usage->GetInt());
 
   // Verify time_usage_limit_started from the pref is a double value.
   const base::Value* time_usage_limit_started =
@@ -365,6 +369,10 @@ void ScreenTimeController::OnSessionStateChanged() {
 
 void ScreenTimeController::TimezoneChanged(const icu::TimeZone& timezone) {
   CheckTimeLimit("TimezoneChanged");
+}
+
+void ScreenTimeController::SystemClockUpdated() {
+  CheckTimeLimit("SystemClockUpdated");
 }
 
 }  // namespace chromeos
