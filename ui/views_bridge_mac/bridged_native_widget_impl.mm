@@ -505,7 +505,7 @@ void BridgedNativeWidgetImpl::CreateContentView(uint64_t ns_view_id,
     [bridged_view_ setLayer:nil];
     [bridged_view_ setWantsLayer:NO];
     //DisplayCALayerTree flipped_layer_
-    CALayer* flipped_layer = background_layer.get().sublayers[0];
+    CALayer* flipped_layer = background_layer.sublayers[0];
     [bridged_view_ setForceCPUDrawLayer:flipped_layer];
     [flipped_layer setGeometryFlipped:NO];
   }
