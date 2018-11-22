@@ -28,6 +28,7 @@ ScriptState::ScriptState(v8::Local<v8::Context> context,
   for (int i = 32; i <= 36; i++) { //node_context_data.h
     context->SetAlignedPointerInEmbedderData(i, nullptr);
   }
+  context->SetAlignedPointerInEmbedderData(50, nullptr);
 }
 
 ScriptState::~ScriptState() {
