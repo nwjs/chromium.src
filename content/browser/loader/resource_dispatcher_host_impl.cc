@@ -987,6 +987,8 @@ void ResourceDispatcherHostImpl::ContinuePendingBeginRequest(
       -1,  // frame_tree_node_id
       request_data.plugin_child_id, request_id, request_data.render_frame_id,
       request_data.is_main_frame,
+      request_data.fetch_window_id ? *request_data.fetch_window_id
+                                   : base::UnguessableToken(),
       static_cast<ResourceType>(request_data.resource_type),
       static_cast<ui::PageTransition>(request_data.transition_type),
       false,  // is download
@@ -1192,6 +1194,7 @@ ResourceRequestInfoImpl* ResourceDispatcherHostImpl::CreateRequestInfo(
       ChildProcessHost::kInvalidUniqueID,  // plugin_child_id
       MakeRequestID(), render_frame_route_id,
       false,  // is_main_frame
+      {},     // fetch_window_id
       RESOURCE_TYPE_SUB_RESOURCE, ui::PAGE_TRANSITION_LINK,
       download,  // is_download
       false,     // is_stream
@@ -1212,24 +1215,38 @@ ResourceRequestInfoImpl* ResourceDispatcherHostImpl::CreateRequestInfo(
       false);          // initiated_in_secure_context
 }
 
+// static
 void ResourceDispatcherHostImpl::OnRenderViewHostCreated(
     int child_id,
     int route_id,
     net::URLRequestContextGetter* url_request_context_getter) {
-  scheduler_->OnClientCreated(child_id, route_id,
-                              url_request_context_getter->GetURLRequestContext()
-                                  ->network_quality_estimator());
+  auto* host = ResourceDispatcherHostImpl::Get();
+  if (host && host->scheduler_) {
+    host->scheduler_->OnClientCreated(
+        child_id, route_id,
+        url_request_context_getter->GetURLRequestContext()
+            ->network_quality_estimator());
+  }
 }
 
+// static
 void ResourceDispatcherHostImpl::OnRenderViewHostDeleted(int child_id,
                                                          int route_id) {
-  scheduler_->OnClientDeleted(child_id, route_id);
+  auto* host = ResourceDispatcherHostImpl::Get();
+  if (host && host->scheduler_) {
+    host->scheduler_->OnClientDeleted(child_id, route_id);
+  }
 }
 
+// static
 void ResourceDispatcherHostImpl::OnRenderViewHostSetIsLoading(int child_id,
                                                               int route_id,
                                                               bool is_loading) {
-  scheduler_->DeprecatedOnLoadingStateChanged(child_id, route_id, !is_loading);
+  auto* host = ResourceDispatcherHostImpl::Get();
+  if (host && host->scheduler_) {
+    host->scheduler_->DeprecatedOnLoadingStateChanged(child_id, route_id,
+                                                      !is_loading);
+  }
 }
 
 // The object died, so cancel and detach all requests associated with it except
@@ -1554,8 +1571,9 @@ void ResourceDispatcherHostImpl::BeginNavigationRequest(
       info.frame_tree_node_id,
       ChildProcessHost::kInvalidUniqueID,  // plugin_child_id
       global_request_id.request_id,
-      -1,  // request_data.render_frame_id,
-      info.is_main_frame, resource_type, info.common_params.transition,
+      -1,                      // request_data.render_frame_id,
+      info.is_main_frame, {},  // fetch_window_id
+      resource_type, info.common_params.transition,
       false,  // is download
       false,  // is stream
       info.common_params.allow_download, info.common_params.has_user_gesture,
