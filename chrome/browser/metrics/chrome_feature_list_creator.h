@@ -5,10 +5,16 @@
 #ifndef CHROME_BROWSER_METRICS_CHROME_FEATURE_LIST_CREATOR_H_
 #define CHROME_BROWSER_METRICS_CHROME_FEATURE_LIST_CREATOR_H_
 
+#include <memory>
+#include <string>
+
 #include "base/macros.h"
+#include "build/build_config.h"
 #include "chrome/browser/chrome_browser_field_trials.h"
+#include "chrome/browser/first_run/first_run.h"
 #include "chrome/browser/metrics/field_trial_synchronizer.h"
 #include "chrome/browser/policy/chrome_browser_policy_connector.h"
+#include "chrome/installer/util/master_preferences.h"
 #include "components/metrics_services_manager/metrics_services_manager.h"
 #include "components/prefs/pref_service.h"
 #include "services/preferences/public/cpp/in_process_service_factory.h"
@@ -29,6 +35,10 @@ class ChromeFeatureListCreator {
   // base::FeatureList::SetInstance() to set the global instance.
   void CreateFeatureList();
 
+  // Sets the application locale and verifies (via a CHECK) that it matches
+  // what was used when creating field trials.
+  void SetApplicationLocale(const std::string& locale);
+
   // Gets the MetricsServicesManagerClient* used in this class.
   metrics_services_manager::MetricsServicesManagerClient*
   GetMetricsServicesManagerClient();
@@ -44,10 +54,18 @@ class ChromeFeatureListCreator {
   std::unique_ptr<policy::ChromeBrowserPolicyConnector>
   TakeChromeBrowserPolicyConnector();
 
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+  std::unique_ptr<installer::MasterPreferences> TakeMasterPrefs();
+#endif
+
   // Passes ownership of the |pref_service_factory_| to the caller.
   std::unique_ptr<prefs::InProcessPrefServiceFactory> TakePrefServiceFactory();
 
   PrefService* local_state() { return local_state_.get(); }
+  policy::ChromeBrowserPolicyConnector* browser_policy_connector() {
+    return browser_policy_connector_.get();
+  }
+  const std::string& actual_locale() { return actual_locale_; }
 
  private:
   void CreatePrefService();
@@ -55,9 +73,18 @@ class ChromeFeatureListCreator {
   void SetupFieldTrials();
   void CreateMetricsServices();
 
+  // Imports variations master preference any preferences (to local state)
+  // needed for first run. This is always called and early outs if not
+  // first-run.
+  void SetupMasterPrefs();
+
   // If TakePrefService() is called, the caller will take the ownership
   // of this variable. Stop using this variable afterwards.
   std::unique_ptr<PrefService> local_state_;
+
+  // The locale used by the application. It is set when initializing the
+  // ResouceBundle.
+  std::string actual_locale_;
 
   // This is owned by |metrics_services_manager_| but we need to expose it.
   ChromeMetricsServicesManagerClient* metrics_services_manager_client_;
@@ -73,6 +100,10 @@ class ChromeFeatureListCreator {
       browser_policy_connector_;
 
   std::unique_ptr<prefs::InProcessPrefServiceFactory> pref_service_factory_;
+
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+  std::unique_ptr<installer::MasterPreferences> installer_master_prefs_;
+#endif
 
   DISALLOW_COPY_AND_ASSIGN(ChromeFeatureListCreator);
 };

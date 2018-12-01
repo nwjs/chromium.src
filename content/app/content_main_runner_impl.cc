@@ -399,12 +399,6 @@ void PreSandboxInit() {
 
 #endif  // OS_LINUX
 
-bool IsRootProcess() {
-  const base::CommandLine& command_line =
-      *base::CommandLine::ForCurrentProcess();
-  return command_line.GetSwitchValueASCII(switches::kProcessType).empty();
-}
-
 }  // namespace
 
 class ContentClientInitializer {
@@ -662,14 +656,6 @@ int ContentMainRunnerImpl::Initialize(const ContentMainParams& params) {
     return exit_code;
   completed_basic_startup_ = true;
 
-  // We will need to use data from resources.pak in later cl, so load the file
-  // now.
-  if (IsRootProcess()) {
-    ui::DataPack* data_pack = delegate_->LoadServiceManifestDataPack();
-    // TODO(ranj): Read manifest from this data pack.
-    ignore_result(data_pack);
-  }
-
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
   std::string process_type =
@@ -904,7 +890,7 @@ int ContentMainRunnerImpl::Run(bool start_service_manager_only) {
       field_trial_list_ = SetUpFieldTrialsAndFeatureList();
     }
 
-    delegate_->PostEarlyInitialization();
+    delegate_->PostEarlyInitialization(main_params.ui_task != nullptr);
 
     if (GetContentClient()->browser()->ShouldCreateTaskScheduler()) {
       // The FeatureList needs to create before starting the TaskScheduler.

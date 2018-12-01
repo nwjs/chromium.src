@@ -5,6 +5,7 @@
 #include "chrome/browser/metrics/chrome_feature_list_creator.h"
 
 #include <set>
+#include <vector>
 
 #include "base/base_switches.h"
 #include "base/feature_list.h"
@@ -12,6 +13,7 @@
 #include "base/files/file_util.h"
 #include "base/memory/scoped_refptr.h"
 #include "base/path_service.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/sys_info.h"
 #include "base/time/time.h"
 #include "base/trace_event/trace_event.h"
@@ -23,7 +25,9 @@
 #include "chrome/browser/prefs/browser_prefs.h"
 #include "chrome/browser/prefs/chrome_pref_service_factory.h"
 #include "chrome/common/chrome_paths.h"
+#include "chrome/common/chrome_result_codes.h"
 #include "chrome/common/pref_names.h"
+#include "chrome/installer/util/google_update_settings.h"
 #include "components/flags_ui/flags_ui_pref_names.h"
 #include "components/flags_ui/pref_service_flags_storage.h"
 #include "components/language/core/browser/pref_names.h"
@@ -38,6 +42,7 @@
 #include "components/variations/pref_names.h"
 #include "components/variations/service/variations_service.h"
 #include "components/variations/variations_crash_keys.h"
+#include "services/service_manager/embedder/result_codes.h"
 #include "ui/base/resource/resource_bundle.h"
 
 #if defined(OS_CHROMEOS)
@@ -76,7 +81,13 @@ void ChromeFeatureListCreator::CreateFeatureList() {
   CreatePrefService();
   ConvertFlagsToSwitches();
   CreateMetricsServices();
+  SetupMasterPrefs();
   SetupFieldTrials();
+}
+
+void ChromeFeatureListCreator::SetApplicationLocale(const std::string& locale) {
+  actual_locale_ = locale;
+  metrics_services_manager_->GetVariationsService()->EnsureLocaleEquals(locale);
 }
 
 metrics_services_manager::MetricsServicesManagerClient*
@@ -102,6 +113,13 @@ std::unique_ptr<prefs::InProcessPrefServiceFactory>
 ChromeFeatureListCreator::TakePrefServiceFactory() {
   return std::move(pref_service_factory_);
 }
+
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+std::unique_ptr<installer::MasterPreferences>
+ChromeFeatureListCreator::TakeMasterPrefs() {
+  return std::move(installer_master_prefs_);
+}
+#endif
 
 void ChromeFeatureListCreator::CreatePrefService() {
   base::FilePath local_state_file;
@@ -131,6 +149,23 @@ void ChromeFeatureListCreator::CreatePrefService() {
       local_state_file, browser_policy_connector_->GetPolicyService(),
       std::move(pref_registry), false, std::move(delegate),
       browser_policy_connector_.get());
+
+// TODO(asvitkine): This is done here so that the pref is set before
+// VariationsService queries the locale. This should potentially be moved to
+// somewhere better, e.g. as a helper in first_run namespace.
+#if defined(OS_WIN)
+  if (first_run::IsChromeFirstRun()) {
+    // During first run we read the google_update registry key to find what
+    // language the user selected when downloading the installer. This
+    // becomes our default language in the prefs.
+    // Other platforms obey the system locale.
+    base::string16 install_lang;
+    if (GoogleUpdateSettings::GetLanguage(&install_lang)) {
+      local_state_->SetString(language::prefs::kApplicationLocale,
+                              base::UTF16ToASCII(install_lang));
+    }
+  }
+#endif  // defined(OS_WIN)
 }
 
 void ChromeFeatureListCreator::ConvertFlagsToSwitches() {
@@ -193,4 +228,45 @@ void ChromeFeatureListCreator::CreateMetricsServices() {
   metrics_services_manager_ =
       std::make_unique<metrics_services_manager::MetricsServicesManager>(
           std::move(client));
+}
+
+void ChromeFeatureListCreator::SetupMasterPrefs() {
+// Android does first run in Java instead of native.
+// Chrome OS has its own out-of-box-experience code.
+#if !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
+  // On first run, we need to process the predictor preferences before the
+  // browser's profile_manager object is created, but after ResourceBundle
+  // is initialized.
+  if (!first_run::IsChromeFirstRun())
+    return;
+
+  installer_master_prefs_ = first_run::LoadMasterPrefs();
+  if (!installer_master_prefs_)
+    return;
+
+  // Store the initial VariationsService seed in local state, if it exists
+  // in master prefs. Note: The getters we call remove them from the installer
+  // master prefs, which is why both the seed and signature are retrieved here
+  // and not within the ifs below.
+  std::string compressed_variations_seed =
+      installer_master_prefs_->GetCompressedVariationsSeed();
+  std::string variations_seed_signature =
+      installer_master_prefs_->GetVariationsSeedSignature();
+
+  if (!compressed_variations_seed.empty()) {
+    local_state_->SetString(variations::prefs::kVariationsCompressedSeed,
+                            compressed_variations_seed);
+
+    if (!variations_seed_signature.empty()) {
+      local_state_->SetString(variations::prefs::kVariationsSeedSignature,
+                              variations_seed_signature);
+    }
+    // Set the variation seed date to the current system time. If the user's
+    // clock is incorrect, this may cause some field trial expiry checks to
+    // not do the right thing until the next seed update from the server,
+    // when this value will be updated.
+    local_state_->SetInt64(variations::prefs::kVariationsSeedDate,
+                           base::Time::Now().ToInternalValue());
+  }
+#endif  // !defined(OS_ANDROID) && !defined(OS_CHROMEOS)
 }
