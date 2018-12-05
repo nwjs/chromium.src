@@ -171,7 +171,8 @@ void FileInputType::HandleDOMActivateEvent(Event& event) {
                                input.FastHasAttribute(captureAttr);
     params.requestor = document.Url();
     params.initial_path = input.nwworkingdir();
-    params.save_as = input.FastHasAttribute(nwsaveasAttr);
+    if (input.FastHasAttribute(nwsaveasAttr))
+      params.mode = WebFileChooserParams::Mode::kSave;
     params.initial_value = input.nwsaveas();
     params.extract_directory = input.FastHasAttribute(webkitdirectoryAttr);
     if (params.selected_files.size() > 0)

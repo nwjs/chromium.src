@@ -76,7 +76,6 @@ struct WebFileChooserParams {
 
   WebString initial_path;
   bool extract_directory = true;
-  bool save_as = false;
 
 };
 
