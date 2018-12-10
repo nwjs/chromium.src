@@ -125,6 +125,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldLockToOrigin(content::BrowserContext* browser_context,
                           const GURL& effective_site_url) override;
   const char* GetInitiatorSchemeBypassingDocumentBlocking() override;
+  bool IsNWOrigin(const url::Origin& origin, content::ResourceContext* context) override;
   void LogInitiatorSchemeBypassingDocumentBlocking(
       const url::Origin& initiator_origin,
       int render_process_id,

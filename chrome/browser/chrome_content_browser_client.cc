@@ -1489,6 +1489,17 @@ ChromeContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
 #endif
 }
 
+bool ChromeContentBrowserClient::IsNWOrigin(const url::Origin& origin, content::ResourceContext* context) {
+  ProfileIOData* io_data = ProfileIOData::FromResourceContext(context);
+  const Extension* extension =
+    io_data->GetExtensionInfoMap()->extensions().GetByID(nw::GetMainExtensionId());
+  if (!extension)
+    return false;
+  if (extension->web_extent().MatchesURL(origin.GetURL()))
+    return true;
+  return false;
+}
+
 void ChromeContentBrowserClient::LogInitiatorSchemeBypassingDocumentBlocking(
     const url::Origin& initiator_origin,
     int render_process_id,

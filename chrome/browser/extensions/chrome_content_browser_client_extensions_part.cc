@@ -874,11 +874,11 @@ void ChromeContentBrowserClientExtensionsPart::
 
   // Assert that |initiator_origin| corresponds to an extension and extract the
   // |extension_id|.
-  DCHECK_EQ(kExtensionScheme, initiator_origin.scheme());
+  //DCHECK_EQ(kExtensionScheme, initiator_origin.scheme());
   const std::string& extension_id = initiator_origin.host();
-  ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context);
-  DCHECK(registry);
-  DCHECK(registry->enabled_extensions().GetByID(extension_id));
+  //ExtensionRegistry* registry = ExtensionRegistry::Get(browser_context);
+  //DCHECK(registry);
+  //DCHECK(registry->enabled_extensions().GetByID(extension_id));
 
   // Don't log anything if the request was initiated by an extension process
   // (we're only interested in requests initiated by content scripts).

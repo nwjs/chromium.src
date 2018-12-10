@@ -121,6 +121,10 @@ ContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
   return nullptr;
 }
 
+bool ContentBrowserClient::IsNWOrigin(const url::Origin& origin, ResourceContext* context) {
+  return false;
+}
+
 void ContentBrowserClient::LogInitiatorSchemeBypassingDocumentBlocking(
     const url::Origin& initiator_origin,
     int render_process_id,
