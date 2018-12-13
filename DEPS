@@ -38,7 +38,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "win, linux64, mac64, win64",
+  "buildspec_platforms": "win, ios, linux64, chromeos, win64, android, mac64",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -111,7 +111,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'b14fdae7799e2990dd49d7c6d933ca4928b936ef',
+  'v8_revision': 'b5a5d900a5385d6429edefb11ece72bfa649ca47',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -131,7 +131,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling PDFium
   # and whatever else without interference from each other.
-  'pdfium_revision': '4a3dddbfe8fdcb69303ade5d74897513d56dbe3c',
+  'pdfium_revision': '5fe886fd17a413b39214ffdd7b2fba5326b88011',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling openmax_dl
   # and whatever else without interference from each other.
@@ -619,8 +619,9 @@ deps = {
     Var('chromium_git') + '/external/github.com/google/crc32c.git' + '@' + 'f8925d027884dde9a8f567f1fa230b92048f6132',
 
   # For Linux and Chromium OS.
+  # Manually rolled onto the release-R71-11151.B branch.
   'src/third_party/cros_system_api': {
-      'url': Var('chromium_git') + '/chromiumos/platform2/system_api.git' + '@' + '5a432f7b9d71d63dee1afed6769cdb0e71b6895d',
+      'url': Var('chromium_git') + '/chromiumos/platform2/system_api.git' + '@' + 'ca14da75123ef1055bf2441f2a07869b01fe4728',
       'condition': 'checkout_linux',
   },
 
@@ -771,7 +772,7 @@ deps = {
     Var('chromium_git') + '/chromium/deps/hunspell_dictionaries.git' + '@' + 'a9bac57ce6c9d390a52ebaad3259f5fdb871210e',
 
   'src/third_party/icu':
-    Var('chromium_git') + '/chromium/deps/icu.git' + '@' + '5841b97d994b2e3aa67629c555e2226361e09272',
+    Var('chromium_git') + '/chromium/deps/icu.git' + '@' + '751b6431c067510892b4c1427d72567cec542244',
 
   'src/third_party/icu4j': {
       'packages': [
@@ -1142,7 +1143,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@18e0ab67cf3a7f08adca8e2a96e2722c1298fffa',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@d8131e94cda53559d4983b738662fe1a821cd90a',
     'condition': 'checkout_src_internal',
   },
 
