@@ -1058,11 +1058,11 @@ void Dispatcher::OnLoaded(
         extension->manifest()->GetString("name", &name);
         extension->manifest()->GetString("version", &version);
         nw::SetUserAgentOverride(user_agent, name, version);
+      }
 
-        int dom_storage_quota_mb;
-        if (extension->manifest()->GetInteger("dom_storage_quota", &dom_storage_quota_mb)) {
-          content::DOMStorageMap::SetQuotaOverride(dom_storage_quota_mb * 1024 * 1024);
-        }
+      int dom_storage_quota_mb;
+      if (extension->manifest()->GetInteger("dom_storage_quota", &dom_storage_quota_mb)) {
+        content::DOMStorageMap::SetQuotaOverride(dom_storage_quota_mb * 1024 * 1024);
       }
       std::string temp_path;
       if (extension->manifest()->GetString("nw-temp-dir", &temp_path)) {

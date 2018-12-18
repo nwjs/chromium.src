@@ -221,6 +221,10 @@ WebViewImpl.prototype.setUserAgentOverride = function(userAgentOverride) {
   return true;
 };
 
+WebViewImpl.prototype.getGuestId = function() {
+  return this.guest.getId();
+};
+
 WebViewImpl.prototype.showDevTools = function(show, container) {
   if (!this.guest.getId()) {
     return;
