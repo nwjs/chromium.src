@@ -60,9 +60,9 @@ const char kGrantError[] =
 const char kNotWhitelistedForOffscreenTabApi[] =
     "Extension is not whitelisted for use of the unstable, in-development "
     "chrome.tabCapture.captureOffscreenTab API.";
-#endif
 const char kInvalidStartUrl[] =
     "Invalid/Missing/Malformatted starting URL for off-screen tab.";
+#endif
 const char kTooManyOffscreenTabs[] =
     "Extension has already started too many off-screen tabs.";
 const char kCapturingSameOffscreenTab[] =
@@ -86,9 +86,11 @@ bool OptionsSpecifyAudioOrVideo(const TabCapture::CaptureOptions& options) {
   return (options.audio && *options.audio) || (options.video && *options.video);
 }
 
+#if 0
 bool IsAcceptableOffscreenTabUrl(const GURL& url) {
   return url.is_valid() && (url.SchemeIsHTTPOrHTTPS() || url.SchemeIs("data"));
 }
+#endif
 
 // Removes all mandatory and optional constraint entries that start with the
 // "goog" prefix.  These are never needed and may cause the renderer-side
@@ -324,8 +326,10 @@ ExtensionFunction::ResponseAction TabCaptureCaptureOffscreenTabFunction::Run() {
 #endif
 
   const GURL start_url(params->start_url);
+#if 0
   if (!IsAcceptableOffscreenTabUrl(start_url))
     return RespondNow(Error(kInvalidStartUrl));
+#endif
 
   if (!OptionsSpecifyAudioOrVideo(params->options))
     return RespondNow(Error(kNoAudioOrVideo));
