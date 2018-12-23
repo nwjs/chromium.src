@@ -275,6 +275,10 @@ class BrowserView : public BrowserWindow,
   }
 
   // BrowserWindow:
+  void SetMinimumSize(gfx::Size) override;
+  void SetMaximumSize(gfx::Size) override;
+  void SetResizable(bool) override;
+  void SetAllVisible(bool) override;
   void UpdateDraggableRegions(
       const std::vector<extensions::DraggableRegion>& regions) override;
   SkRegion* GetDraggableRegion() override;
@@ -474,6 +478,7 @@ class BrowserView : public BrowserWindow,
   bool CanClose() override;
   int NonClientHitTest(const gfx::Point& point) override;
   gfx::Size GetMinimumSize() const override;
+  gfx::Size GetMaximumSize() const override;
 
   // infobars::InfoBarContainer::Delegate:
   void InfoBarContainerStateChanged(bool is_animating) override;
@@ -670,6 +675,8 @@ class BrowserView : public BrowserWindow,
   void ReparentTopContainerForEndOfImmersive();
 
   std::unique_ptr<SkRegion> draggable_region_;
+  bool resizable_ = true;
+  gfx::Size minimum_size_, maximum_size_;
   // The BrowserFrame that hosts this view.
   BrowserFrame* frame_ = nullptr;
 

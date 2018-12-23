@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "content/nw/src/nw_content.h"
+#include "chrome/browser/ui/views/frame/browser_view.h"
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -218,6 +219,8 @@ void ReportRequestedWindowState(windows::WindowState state) {
 
 ui::WindowShowState ConvertToWindowShowState(windows::WindowState state) {
   switch (state) {
+    case windows::WINDOW_STATE_HIDDEN:
+      return ui::SHOW_STATE_HIDDEN;
     case windows::WINDOW_STATE_NORMAL:
     case windows::WINDOW_STATE_DOCKED:
       return ui::SHOW_STATE_NORMAL;
@@ -255,6 +258,7 @@ bool IsValidStateForWindowsCreateFunction(
     case windows::WINDOW_STATE_NORMAL:
     case windows::WINDOW_STATE_DOCKED:
     case windows::WINDOW_STATE_NONE:
+    case windows::WINDOW_STATE_HIDDEN:
       return true;
   }
   NOTREACHED();
@@ -543,6 +547,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool new_instance = false;
   bool frameless = false;
   bool always_on_top = false;
+  bool all_visible = false;
+  bool resizable = true;
+  int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
 
   std::string inject_js_start, inject_js_end;
@@ -576,6 +583,14 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
           &ignored_show_state);
     }
 
+    if (create_data->min_width)
+      min_width = *create_data->min_width;
+    if (create_data->max_width)
+      max_width = *create_data->max_width;
+    if (create_data->min_height)
+      min_height = *create_data->min_height;
+    if (create_data->max_height)
+      max_height = *create_data->max_height;
     // Any part of the bounds can optionally be set by the caller.
     if (create_data->left)
       window_bounds.set_x(*create_data->left);
@@ -604,6 +619,10 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       frameless = *create_data->frameless;
     if (create_data->always_on_top)
       always_on_top = *create_data->always_on_top;
+    if (create_data->all_visible)
+      all_visible = *create_data->all_visible;
+    if (create_data->resizable)
+      resizable = *create_data->resizable;
   }
 
   // Create a new BrowserWindow.
@@ -611,6 +630,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
                                       user_gesture());
   create_params.frameless = frameless;
   create_params.always_on_top = always_on_top;
+  create_params.all_visible = all_visible;
+  create_params.resizable = resizable;
+
   if (extension_id.empty()) {
     create_params.initial_bounds = window_bounds;
   } else {
@@ -676,6 +698,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   }
   chrome::SelectNumberedTab(new_window, 0);
 
+  new_window->window()->SetMinimumSize(gfx::Size(min_width, min_height));
+  new_window->window()->SetMaximumSize(gfx::Size(max_width, max_height));
   if (!hidden) {
   if (focused)
     new_window->window()->Show();
@@ -784,6 +808,9 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     case ui::SHOW_STATE_NORMAL:
       browser->window()->Restore();
       break;
+    case ui::SHOW_STATE_HIDDEN:
+      browser->window()->Hide();
+      break;
     default:
       break;
   }
@@ -795,6 +822,30 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     bounds = browser->window()->GetBounds();
   bool set_bounds = false;
 
+  bool set_min_size = false;
+  bool set_max_size = false;
+  gfx::Size min_size = BrowserView::GetBrowserViewForBrowser(browser)->GetMinimumSize();
+  gfx::Size max_size = BrowserView::GetBrowserViewForBrowser(browser)->GetMaximumSize();
+  if (params->update_info.min_width) {
+    min_size.set_width(*params->update_info.min_width);
+    set_min_size = true;
+  }
+  if (params->update_info.min_height) {
+    min_size.set_height(*params->update_info.min_height);
+    set_min_size = true;
+  }
+  if (params->update_info.max_width) {
+    max_size.set_width(*params->update_info.max_width);
+    set_max_size = true;
+  }
+  if (params->update_info.max_height) {
+    max_size.set_height(*params->update_info.max_height);
+    set_max_size = true;
+  }
+  if (set_min_size)
+    browser->window()->SetMinimumSize(min_size);
+  if (set_max_size)
+    browser->window()->SetMaximumSize(max_size);
   // Any part of the bounds can optionally be set by the caller.
   if (params->update_info.left) {
     bounds.set_x(*params->update_info.left);
@@ -841,6 +892,10 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     }
   }
 
+  if (params->update_info.resizable)
+    browser->window()->SetResizable(*params->update_info.resizable);
+  if (params->update_info.all_visible)
+    browser->window()->SetAllVisible(*params->update_info.all_visible);
   if (params->update_info.always_on_top)
     browser->window()->SetAlwaysOnTop(*params->update_info.always_on_top);
   if (params->update_info.draw_attention)

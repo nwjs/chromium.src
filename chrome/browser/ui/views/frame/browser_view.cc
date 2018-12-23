@@ -493,6 +493,14 @@ SkRegion* BrowserView::GetDraggableRegion() {
   return draggable_region_.get();
 }
 
+void BrowserView::SetAllVisible(bool visible) {
+  frame_->SetVisibleOnAllWorkspaces(visible);
+}
+
+void BrowserView::SetResizable(bool resizable) {
+  resizable_ = resizable;
+}
+
 BrowserView::BrowserView() : views::ClientView(nullptr, nullptr) {}
 
 BrowserView::~BrowserView() {
@@ -548,6 +556,7 @@ void BrowserView::Init(std::unique_ptr<Browser> browser) {
   CHECK(browser->is_type_popup()) << "opening browser window.";
   browser_ = std::move(browser);
   browser_->tab_strip_model()->AddObserver(this);
+  resizable_ = browser_->initial_resizable();
   immersive_mode_controller_.reset(chrome::CreateImmersiveModeController());
 }
 
@@ -742,7 +751,7 @@ void BrowserView::ShowInactive() {
 }
 
 void BrowserView::Hide() {
-  // Not implemented.
+  frame_->Hide();
 }
 
 bool BrowserView::IsVisible() const {
@@ -1726,11 +1735,11 @@ bool BrowserView::GetAcceleratorForCommandId(
 // BrowserView, views::WidgetDelegate implementation:
 
 bool BrowserView::CanResize() const {
-  return true;
+  return resizable_;
 }
 
 bool BrowserView::CanMaximize() const {
-  return true;
+  return resizable_;
 }
 
 bool BrowserView::CanMinimize() const {
@@ -2312,10 +2321,25 @@ int BrowserView::NonClientHitTest(const gfx::Point& point) {
   return GetBrowserViewLayout()->NonClientHitTest(point);
 }
 
+void BrowserView::SetMinimumSize(gfx::Size size) {
+  minimum_size_ = size;
+  GetWidget()->OnSizeConstraintsChanged();
+}
+
+void BrowserView::SetMaximumSize(gfx::Size size) {
+  maximum_size_ = size;
+  GetWidget()->OnSizeConstraintsChanged();
+}
+
 gfx::Size BrowserView::GetMinimumSize() const {
+  if (!minimum_size_.IsEmpty())
+    return minimum_size_;
   return GetBrowserViewLayout()->GetMinimumSize();
 }
 
+gfx::Size BrowserView::GetMaximumSize() const {
+  return maximum_size_;
+}
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, views::View overrides:
 

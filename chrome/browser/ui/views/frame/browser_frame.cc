@@ -70,6 +70,8 @@ void BrowserFrame::InitBrowserFrame() {
     params.remove_standard_frame = true;
   if (browser_view_->browser()->initial_ontop())
     params.keep_on_top = true;
+  if (browser_view_->browser()->initial_allvisible())
+    params.visible_on_all_workspaces = true;
   params.delegate = browser_view_;
   if (browser_view_->browser()->is_type_tabbed()) {
     // Typed panel/popup can only return a size once the widget has been

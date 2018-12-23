@@ -117,6 +117,10 @@ class BrowserWindow : public ui::BaseWindow {
 
   //////////////////////////////////////////////////////////////////////////////
   // Browser specific methods:
+  virtual void SetResizable(bool) = 0;
+  virtual void SetAllVisible(bool) = 0;
+  virtual void SetMinimumSize(gfx::Size) = 0;
+  virtual void SetMaximumSize(gfx::Size) = 0;
   virtual void UpdateDraggableRegions(
                                       const std::vector<extensions::DraggableRegion>& regions) = 0;
   virtual SkRegion* GetDraggableRegion() = 0;

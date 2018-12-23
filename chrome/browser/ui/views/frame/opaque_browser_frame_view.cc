@@ -219,6 +219,10 @@ gfx::Size OpaqueBrowserFrameView::GetMinimumSize() const {
   return layout_->GetMinimumSize(width());
 }
 
+gfx::Size OpaqueBrowserFrameView::GetMaximumSize() const {
+  return layout_->GetMinimumSize(width(), true);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, views::NonClientFrameView implementation:
 
@@ -451,6 +455,10 @@ int OpaqueBrowserFrameView::GetIconSize() const {
 
 gfx::Size OpaqueBrowserFrameView::GetBrowserViewMinimumSize() const {
   return browser_view()->GetMinimumSize();
+}
+
+gfx::Size OpaqueBrowserFrameView::GetBrowserViewMaximumSize() const {
+  return browser_view()->GetMaximumSize();
 }
 
 bool OpaqueBrowserFrameView::ShouldShowCaptionButtons() const {

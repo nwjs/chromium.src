@@ -8,8 +8,8 @@ if (manifest.window) {
   //options.innerBounds = {};
   if (manifest.window.frame === false)
     options.frameless = true;
-  //if (manifest.window.resizable === false)
-  //  options.resizable = false;
+  if (manifest.window.resizable === false)
+    options.resizable = false;
   if (manifest.window.height)
     options.height = manifest.window.height;
   if (manifest.window.width)
@@ -30,8 +30,8 @@ if (manifest.window) {
   //   options.show_in_taskbar = false;
   if (manifest.window['always_on_top'] === true)
     options.alwaysOnTop = true;
-  // if (manifest.window['visible_on_all_workspaces'] === true)
-  //   options.visibleOnAllWorkspaces = true;
+  if (manifest.window['visible_on_all_workspaces'] === true)
+    options.allVisible = true;
   // if (manifest.window.transparent)
   //   options.alphaEnabled = true;
   // if (manifest.window.kiosk === true)

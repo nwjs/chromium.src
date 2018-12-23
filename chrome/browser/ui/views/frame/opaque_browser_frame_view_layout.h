@@ -52,7 +52,7 @@ class OpaqueBrowserFrameViewLayout : public views::LayoutManager {
   gfx::Rect GetBoundsForTabStrip(const gfx::Size& tabstrip_preferred_size,
                                  int total_width) const;
 
-  gfx::Size GetMinimumSize(int available_width) const;
+  gfx::Size GetMinimumSize(int available_width, bool max = false) const;
 
   // Returns the bounds of the window required to display the content area at
   // the specified bounds.

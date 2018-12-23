@@ -174,6 +174,8 @@ class Browser : public TabStripModelObserver,
 
     bool frameless = false;
     bool always_on_top = false;
+    bool all_visible = false;
+    bool resizable = true;
     // The browser type.
     Type type;
 
@@ -237,6 +239,8 @@ class Browser : public TabStripModelObserver,
   }
 
   bool initial_ontop() const { return initial_ontop_; }
+  bool initial_allvisible() const { return initial_allvisible_; }
+  bool initial_resizable() const { return initial_resizable_; }
   // Return true if the initial window bounds have been overridden.
   bool bounds_overridden() const {
     return !override_bounds_.IsEmpty();
@@ -982,6 +986,8 @@ class Browser : public TabStripModelObserver,
   const std::string initial_workspace_;
 
   bool initial_ontop_;
+  bool initial_allvisible_;
+  bool initial_resizable_;
 
   // Tracks when this browser is being created by session restore.
   bool is_session_restore_;

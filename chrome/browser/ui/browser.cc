@@ -409,6 +409,8 @@ Browser::Browser(const CreateParams& params)
       initial_show_state_(params.initial_show_state),
       initial_workspace_(params.initial_workspace),
       initial_ontop_(params.always_on_top),
+      initial_allvisible_(params.all_visible),
+      initial_resizable_(params.resizable),
       is_session_restore_(params.is_session_restore),
       content_setting_bubble_model_delegate_(
           new BrowserContentSettingBubbleModelDelegate(this)),

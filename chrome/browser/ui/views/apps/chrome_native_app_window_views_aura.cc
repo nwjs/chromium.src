@@ -40,6 +40,7 @@ ChromeNativeAppWindowViewsAura::GetRestorableState(
     case ui::SHOW_STATE_NORMAL:
     case ui::SHOW_STATE_MAXIMIZED:
     case ui::SHOW_STATE_FULLSCREEN:
+    case ui::SHOW_STATE_HIDDEN:
       return restore_state;
 
     case ui::SHOW_STATE_DEFAULT:
