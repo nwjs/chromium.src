@@ -38,6 +38,10 @@ class TestBrowserWindow : public BrowserWindow {
   TestBrowserWindow();
   ~TestBrowserWindow() override;
 
+  void SetResizable(bool) override {}
+  void SetAllVisible(bool) override {}
+  void SetMinimumSize(gfx::Size) override {}
+  void SetMaximumSize(gfx::Size) override {}
   // BrowserWindow:
   void UpdateDraggableRegions(
          const std::vector<extensions::DraggableRegion>& regions) override;

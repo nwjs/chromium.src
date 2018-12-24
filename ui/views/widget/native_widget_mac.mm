@@ -382,6 +382,7 @@ void NativeWidgetMac::Show(ui::WindowShowState show_state,
     case ui::SHOW_STATE_NORMAL:
     case ui::SHOW_STATE_INACTIVE:
     case ui::SHOW_STATE_MINIMIZED:
+    case ui::SHOW_STATE_HIDDEN:
       break;
     case ui::SHOW_STATE_MAXIMIZED:
     case ui::SHOW_STATE_FULLSCREEN:
