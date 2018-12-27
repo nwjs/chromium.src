@@ -38,6 +38,7 @@ class VIEWS_EXPORT WidgetDelegate {
 
   // Called whenever the widget's position changes.
   virtual void OnWidgetMove();
+  virtual void OnWidgetResize();
 
   // Called with the display changes (color depth or resolution).
   virtual void OnDisplayChanged();

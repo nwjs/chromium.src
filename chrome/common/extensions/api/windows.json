@@ -340,6 +340,46 @@
     ],
     "events": [
       {
+        "name": "onMove",
+        "type": "function",
+        "description": "Fired when a window is moving.",
+        "filters": [
+          {
+            "name": "windowTypes",
+            "type": "array",
+            "items": { "$ref": "WindowType" },
+            "description": "Conditions that the window's type being created must satisfy. By default it satisfies <code>['normal', 'popup']</code>."
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "Window",
+            "name": "window",
+            "description": "Details of the created window."
+          }
+        ]
+      },
+      {
+        "name": "onWindowChanged",
+        "type": "function",
+        "description": "Fired when a window is changed.",
+        "filters": [
+          {
+            "name": "windowTypes",
+            "type": "array",
+            "items": { "$ref": "WindowType" },
+            "description": "Conditions that the window's type being created must satisfy. By default it satisfies <code>['normal', 'popup']</code>."
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "Window",
+            "name": "window",
+            "description": "Details of the created window."
+          }
+        ]
+      },
+      {
         "name": "onCreated",
         "type": "function",
         "description": "Fired when a window is created.",

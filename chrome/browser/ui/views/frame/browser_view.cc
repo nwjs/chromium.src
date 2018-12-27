@@ -4,6 +4,10 @@
 
 #include "chrome/browser/ui/views/frame/browser_view.h"
 
+#include "chrome/browser/extensions/api/tabs/tabs_windows_api.h"
+#include "chrome/browser/extensions/api/tabs/windows_event_router.h"
+#include "chrome/browser/extensions/browser_extension_window_controller.h"
+
 #include <stdint.h>
 
 #include <algorithm>
@@ -2084,6 +2088,7 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
     WidgetDelegate::SaveWindowPlacement(bounds, show_state);
     chrome::SaveWindowPlacement(browser_.get(), bounds, show_state);
   }
+  NativeWindowChanged();
 }
 
 bool BrowserView::GetSavedWindowPlacement(
@@ -2145,6 +2150,13 @@ views::View* BrowserView::CreateOverlayView() {
   overlay_view_->SetEventTargeter(
       std::make_unique<views::ViewTargeter>(overlay_view_targeter_.get()));
   return overlay_view_;
+}
+
+void BrowserView::NativeWindowChanged() {
+  extensions::TabsWindowsAPI* tabs_window_api =
+    extensions::TabsWindowsAPI::Get(browser_->profile());
+  tabs_window_api->windows_event_router()->
+    OnWindowChanged(browser_ ? browser_->extension_window_controller() : nullptr);
 }
 
 void BrowserView::OnWidgetDestroying(views::Widget* widget) {
@@ -2235,6 +2247,10 @@ void BrowserView::OnWidgetMove() {
   LocationBarView* location_bar_view = GetLocationBarView();
   if (location_bar_view)
     location_bar_view->GetOmniboxView()->CloseOmniboxPopup();
+  extensions::TabsWindowsAPI* tabs_window_api =
+    extensions::TabsWindowsAPI::Get(browser_->profile());
+  tabs_window_api->windows_event_router()->
+    OnWindowMove(browser_ ? browser_->extension_window_controller() : nullptr);
 }
 
 views::Widget* BrowserView::GetWidget() {

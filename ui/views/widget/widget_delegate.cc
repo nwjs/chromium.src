@@ -25,6 +25,8 @@ WidgetDelegate::~WidgetDelegate() {
 
 void WidgetDelegate::OnWidgetMove() {
 }
+void WidgetDelegate::OnWidgetResize() {
+}
 
 void WidgetDelegate::OnDisplayChanged() {
 }

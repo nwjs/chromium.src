@@ -124,6 +124,7 @@ class BrowserWindow : public ui::BaseWindow {
   virtual void UpdateDraggableRegions(
                                       const std::vector<extensions::DraggableRegion>& regions) = 0;
   virtual SkRegion* GetDraggableRegion() = 0;
+  virtual void NativeWindowChanged() = 0;
 
   // Sets the shown |ratio| of the browser's top controls (a.k.a. top-chrome) as
   // a result of gesture scrolling in |web_contents|.

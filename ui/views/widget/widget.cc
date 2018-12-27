@@ -1143,6 +1143,8 @@ void Widget::OnNativeWidgetSizeChanged(const gfx::Size& new_size) {
   NotifyCaretBoundsChanged(GetInputMethod());
   SaveWindowPlacementIfInitialized();
 
+  widget_delegate_->OnWidgetResize();
+
   for (WidgetObserver& observer : observers_)
     observer.OnWidgetBoundsChanged(this, GetWindowBoundsInScreen());
 }
