@@ -38,6 +38,7 @@ class TestBrowserWindow : public BrowserWindow {
   TestBrowserWindow();
   ~TestBrowserWindow() override;
 
+  void SetShowInTaskbar(bool) override {}
   void SetResizable(bool) override {}
   void SetAllVisible(bool) override {}
   void SetMinimumSize(gfx::Size) override {}

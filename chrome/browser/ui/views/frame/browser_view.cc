@@ -8,6 +8,20 @@
 #include "chrome/browser/extensions/api/tabs/windows_event_router.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
 
+#if defined(OS_WIN)
+#include <shobjidl.h>
+#include <dwmapi.h>
+
+#include "base/win/windows_version.h"
+#include "ui/base/win/hidden_window.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/icon_util.h"
+#include "ui/gfx/font_list.h"
+#include "ui/gfx/platform_font.h"
+#include "ui/display/win/dpi.h"
+#include "ui/views/win/hwnd_util.h"
+#endif
+
 #include <stdint.h>
 
 #include <algorithm>
@@ -491,6 +505,42 @@ bool BrowserView::ShouldDescendIntoChildForEventHandling(
 #endif
 
   return true;
+}
+
+void BrowserView::SetShowInTaskbar(bool show) {
+#if defined(OS_WIN)
+  views::Widget* widget = GetWidget()->GetTopLevelWidget();
+
+  if (show == false && base::win::GetVersion() < base::win::VERSION_VISTA) {
+    // Change the owner of native window. Only needed on Windows XP.
+    ::SetParent(views::HWNDForWidget(widget),
+                ui::GetHiddenWindow());
+  }
+
+  Microsoft::WRL::ComPtr<ITaskbarList3> taskbar;
+  HRESULT result = ::CoCreateInstance(CLSID_TaskbarList, nullptr,
+                                      CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&taskbar));
+  if (FAILED(result)) {
+    VLOG(1) << "Failed creating a TaskbarList object: " << result;
+    return;
+  }
+
+  result = taskbar->HrInit();
+  if (FAILED(result)) {
+    LOG(ERROR) << "Failed initializing an ITaskbarList interface.";
+    return;
+  }
+
+  if (show)
+    result = taskbar->AddTab(views::HWNDForWidget(widget));
+  else
+    result = taskbar->DeleteTab(views::HWNDForWidget(widget));
+
+  if (FAILED(result)) {
+    LOG(ERROR) << "Failed to change the show in taskbar attribute";
+    return;
+  }
+#endif
 }
 
 SkRegion* BrowserView::GetDraggableRegion() {

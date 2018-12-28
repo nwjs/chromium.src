@@ -275,6 +275,7 @@ class BrowserView : public BrowserWindow,
   }
 
   // BrowserWindow:
+  void SetShowInTaskbar(bool) override;
   void NativeWindowChanged() override;
   void SetMinimumSize(gfx::Size) override;
   void SetMaximumSize(gfx::Size) override;

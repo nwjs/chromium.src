@@ -176,6 +176,7 @@ class Browser : public TabStripModelObserver,
     bool always_on_top = false;
     bool all_visible = false;
     bool resizable = true;
+    bool show_in_taskbar = true;
     // The browser type.
     Type type;
 
@@ -241,6 +242,7 @@ class Browser : public TabStripModelObserver,
   bool initial_ontop() const { return initial_ontop_; }
   bool initial_allvisible() const { return initial_allvisible_; }
   bool initial_resizable() const { return initial_resizable_; }
+  bool initial_showintaskbar() const { return initial_showintaskbar_; }
   // Return true if the initial window bounds have been overridden.
   bool bounds_overridden() const {
     return !override_bounds_.IsEmpty();
@@ -988,6 +990,7 @@ class Browser : public TabStripModelObserver,
   bool initial_ontop_;
   bool initial_allvisible_;
   bool initial_resizable_;
+  bool initial_showintaskbar_;
 
   // Tracks when this browser is being created by session restore.
   bool is_session_restore_;

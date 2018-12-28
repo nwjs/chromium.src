@@ -117,6 +117,7 @@ class BrowserWindow : public ui::BaseWindow {
 
   //////////////////////////////////////////////////////////////////////////////
   // Browser specific methods:
+  virtual void SetShowInTaskbar(bool) = 0;
   virtual void SetResizable(bool) = 0;
   virtual void SetAllVisible(bool) = 0;
   virtual void SetMinimumSize(gfx::Size) = 0;

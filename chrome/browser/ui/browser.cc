@@ -411,6 +411,7 @@ Browser::Browser(const CreateParams& params)
       initial_ontop_(params.always_on_top),
       initial_allvisible_(params.all_visible),
       initial_resizable_(params.resizable),
+      initial_showintaskbar_(params.show_in_taskbar),
       is_session_restore_(params.is_session_restore),
       content_setting_bubble_model_delegate_(
           new BrowserContentSettingBubbleModelDelegate(this)),
@@ -478,6 +479,9 @@ Browser::Browser(const CreateParams& params)
   window_ = params.window ? params.window
                           : CreateBrowserWindow(std::unique_ptr<Browser>(this),
                                                 params.user_gesture);
+
+  if (!initial_showintaskbar_)
+    window_->SetShowInTaskbar(false);
 
   if (hosted_app_controller_)
     hosted_app_controller_->UpdateLocationBarVisibility(false);

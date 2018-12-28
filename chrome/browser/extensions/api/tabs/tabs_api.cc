@@ -548,6 +548,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool frameless = false;
   bool always_on_top = false;
   bool all_visible = false;
+  bool show_in_taskbar = true;
   bool resizable = true;
   int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
@@ -623,6 +624,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       all_visible = *create_data->all_visible;
     if (create_data->resizable)
       resizable = *create_data->resizable;
+    if (create_data->show_in_taskbar)
+      show_in_taskbar = *create_data->show_in_taskbar;
   }
 
   // Create a new BrowserWindow.
@@ -632,6 +635,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   create_params.always_on_top = always_on_top;
   create_params.all_visible = all_visible;
   create_params.resizable = resizable;
+  create_params.show_in_taskbar = show_in_taskbar;
 
   if (extension_id.empty()) {
     create_params.initial_bounds = window_bounds;
@@ -898,6 +902,8 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     browser->window()->SetAllVisible(*params->update_info.all_visible);
   if (params->update_info.always_on_top)
     browser->window()->SetAlwaysOnTop(*params->update_info.always_on_top);
+  if (params->update_info.show_in_taskbar)
+    browser->window()->SetShowInTaskbar(*params->update_info.show_in_taskbar);
   if (params->update_info.draw_attention)
     browser->window()->FlashFrame(*params->update_info.draw_attention);
 
