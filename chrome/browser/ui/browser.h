@@ -177,6 +177,7 @@ class Browser : public TabStripModelObserver,
     bool all_visible = false;
     bool resizable = true;
     bool show_in_taskbar = true;
+    std::string title;
     // The browser type.
     Type type;
 
@@ -238,6 +239,8 @@ class Browser : public TabStripModelObserver,
   void set_initial_show_state(ui::WindowShowState initial_show_state) {
     initial_show_state_ = initial_show_state;
   }
+
+  void set_title_override(const std::string& title) { title_override_ = title; }
 
   bool initial_ontop() const { return initial_ontop_; }
   bool initial_allvisible() const { return initial_allvisible_; }
@@ -991,6 +994,7 @@ class Browser : public TabStripModelObserver,
   bool initial_allvisible_;
   bool initial_resizable_;
   bool initial_showintaskbar_;
+  std::string title_override_;
 
   // Tracks when this browser is being created by session restore.
   bool is_session_restore_;

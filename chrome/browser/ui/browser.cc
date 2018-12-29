@@ -412,6 +412,7 @@ Browser::Browser(const CreateParams& params)
       initial_allvisible_(params.all_visible),
       initial_resizable_(params.resizable),
       initial_showintaskbar_(params.show_in_taskbar),
+      title_override_(params.title),
       is_session_restore_(params.is_session_restore),
       content_setting_bubble_model_delegate_(
           new BrowserContentSettingBubbleModelDelegate(this)),
@@ -695,10 +696,25 @@ base::string16 Browser::GetWindowTitleFromWebContents(
     bool include_app_name,
     content::WebContents* contents) const {
   base::string16 title;
+  base::string16 override = base::UTF8ToUTF16(title_override_);
 
   // |contents| can be NULL because GetWindowTitleForCurrentTab is called by the
   // window during the window's creation (before tabs have been added).
-  if (contents) {
+  content::NavigationEntry* entry = contents ?
+      contents->GetController().GetLastCommittedEntry() : nullptr;
+  if (!entry || entry->GetTitle().empty()) {
+    if (override.empty()) {
+      const std::string extension_id =
+        web_app::GetAppIdFromApplicationName(app_name());
+      const Extension* extension =
+        extensions::ExtensionRegistry::Get(profile())
+          ->GetExtensionById(extension_id,
+                             extensions::ExtensionRegistry::EVERYTHING);
+      if (extension)
+        title = base::UTF8ToUTF16(extension->name());
+    } else
+      title = override;
+  } else if (contents) {
     title = hosted_app_controller_ ? hosted_app_controller_->GetTitle()
                                    : contents->GetTitle();
     FormatTitleForDisplay(&title);
@@ -713,6 +729,8 @@ base::string16 Browser::GetWindowTitleFromWebContents(
   return title;
 #endif
 
+  if (title.empty() && is_app())
+    return override;
   // If there is no title and this is an app, fall back on the app name. This
   // ensures that the native window gets a title which is important for a11y,
   // for example the window selector uses the Aura window title.

@@ -13,6 +13,7 @@
 
 #include "content/nw/src/nw_content.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
+#include "extensions/browser/extension_registry.h"
 
 #include "base/bind.h"
 #include "base/command_line.h"
@@ -539,7 +540,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   if (!IsValidStateForWindowsCreateFunction(create_data))
     return RespondNow(Error(tabs_constants::kInvalidWindowStateError));
 
-  Browser::Type window_type = Browser::TYPE_TABBED;
+  Browser::Type window_type = Browser::TYPE_POPUP;
 
   gfx::Rect window_bounds;
   bool focused = true;
@@ -550,6 +551,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool all_visible = false;
   bool show_in_taskbar = true;
   bool resizable = true;
+  std::string title;
   int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
 
@@ -626,25 +628,29 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       resizable = *create_data->resizable;
     if (create_data->show_in_taskbar)
       show_in_taskbar = *create_data->show_in_taskbar;
+    if (create_data->title)
+      title = *create_data->title;
   }
 
   // Create a new BrowserWindow.
   Browser::CreateParams create_params(window_type, window_profile,
                                       user_gesture());
-  create_params.frameless = frameless;
-  create_params.always_on_top = always_on_top;
-  create_params.all_visible = all_visible;
-  create_params.resizable = resizable;
-  create_params.show_in_taskbar = show_in_taskbar;
 
   if (extension_id.empty()) {
     create_params.initial_bounds = window_bounds;
   } else {
     create_params = Browser::CreateParams::CreateForApp(
         web_app::GenerateApplicationNameFromAppId(extension_id),
-        false /* trusted_source */, window_bounds, window_profile,
+        extension() && extension()->is_nwjs_app() /* trusted_source */, window_bounds, window_profile,
         user_gesture());
   }
+  create_params.frameless = frameless;
+  create_params.always_on_top = always_on_top;
+  create_params.all_visible = all_visible;
+  create_params.resizable = resizable;
+  create_params.show_in_taskbar = show_in_taskbar;
+  create_params.title = title;
+
   create_params.initial_show_state = ui::SHOW_STATE_NORMAL;
   if (create_data && create_data->state) {
     if (create_data->state == windows::WINDOW_STATE_LOCKED_FULLSCREEN &&
