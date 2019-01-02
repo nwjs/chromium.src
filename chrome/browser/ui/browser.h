@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "ui/gfx/image/image.h"
+
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
@@ -163,6 +165,7 @@ class Browser : public TabStripModelObserver,
     explicit CreateParams(Profile* profile, bool user_gesture);
     CreateParams(Type type, Profile* profile, bool user_gesture);
     CreateParams(const CreateParams& other);
+    ~CreateParams();
 
     static CreateParams CreateForApp(const std::string& app_name,
                                      bool trusted_source,
@@ -178,6 +181,7 @@ class Browser : public TabStripModelObserver,
     bool resizable = true;
     bool show_in_taskbar = true;
     std::string title;
+    gfx::Image icon;
     // The browser type.
     Type type;
 
@@ -246,6 +250,8 @@ class Browser : public TabStripModelObserver,
   bool initial_allvisible() const { return initial_allvisible_; }
   bool initial_resizable() const { return initial_resizable_; }
   bool initial_showintaskbar() const { return initial_showintaskbar_; }
+  gfx::Image icon_override() const { return icon_override_; }
+
   // Return true if the initial window bounds have been overridden.
   bool bounds_overridden() const {
     return !override_bounds_.IsEmpty();
@@ -995,6 +1001,7 @@ class Browser : public TabStripModelObserver,
   bool initial_resizable_;
   bool initial_showintaskbar_;
   std::string title_override_;
+  gfx::Image icon_override_;
 
   // Tracks when this browser is being created by session restore.
   bool is_session_restore_;

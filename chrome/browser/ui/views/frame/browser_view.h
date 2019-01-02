@@ -275,6 +275,7 @@ class BrowserView : public BrowserWindow,
   }
 
   // BrowserWindow:
+  void ForceClose() override;
   void SetShowInTaskbar(bool) override;
   void NativeWindowChanged() override;
   void SetMinimumSize(gfx::Size) override;
@@ -441,6 +442,7 @@ class BrowserView : public BrowserWindow,
                                   ui::Accelerator* accelerator) const override;
 
   // views::WidgetDelegate:
+  bool NWCanClose(bool user_force = false) const override;
   bool ShouldDescendIntoChildForEventHandling(
       gfx::NativeView child,
       const gfx::Point& location) override;

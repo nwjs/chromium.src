@@ -940,6 +940,7 @@ class VIEWS_EXPORT Widget : public internal::NativeWidgetDelegate,
 
   // Set to true if the widget is in the process of closing.
   bool widget_closed_;
+  bool force_closing_;
 
   // The saved "show" state for this window. See note in SetInitialBounds
   // that explains why we save this.

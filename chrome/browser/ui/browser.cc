@@ -328,6 +328,8 @@ void UnmuteIfMutedByExtension(content::WebContents* contents,
 ////////////////////////////////////////////////////////////////////////////////
 // Browser, CreateParams:
 
+Browser::CreateParams::~CreateParams() {}
+
 Browser::CreateParams::CreateParams(Profile* profile, bool user_gesture)
     : CreateParams(TYPE_POPUP, profile, user_gesture) {}
 
@@ -413,6 +415,7 @@ Browser::Browser(const CreateParams& params)
       initial_resizable_(params.resizable),
       initial_showintaskbar_(params.show_in_taskbar),
       title_override_(params.title),
+      icon_override_(params.icon),
       is_session_restore_(params.is_session_restore),
       content_setting_bubble_model_delegate_(
           new BrowserContentSettingBubbleModelDelegate(this)),
@@ -670,6 +673,8 @@ bool Browser::is_devtools() const {
 // Browser, State Storage and Retrieval for UI:
 
 gfx::Image Browser::GetCurrentPageIcon() const {
+  if (!icon_override_.IsEmpty())
+    return icon_override_;
   WebContents* web_contents = tab_strip_model_->GetActiveWebContents();
   // |web_contents| can be NULL since GetCurrentPageIcon() is called by the
   // window during the window's creation (before tabs have been added).

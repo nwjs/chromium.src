@@ -257,6 +257,7 @@
               "allVisible": {"type": "boolean", "optional": true, "description": "Whether the window is visible on all workspaces"},
               "resizable": {"type": "boolean", "optional": true, "description": "Whether the window is resizable"},
               "title":{"type":"string", "optional": true, "description": ""},
+              "icon":{"type":"string", "optional": true, "description": ""},
               "incognito": {"type": "boolean", "optional": true, "description": "Whether the new window should be an incognito window."},
               "type": {
                 "$ref": "CreateType",

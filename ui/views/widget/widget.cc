@@ -170,6 +170,7 @@ Widget::Widget()
       frame_type_(FRAME_TYPE_DEFAULT),
       always_render_as_active_(false),
       widget_closed_(false),
+      force_closing_(false),
       saved_show_state_(ui::SHOW_STATE_DEFAULT),
       focus_on_creation_(true),
       is_top_level_(false),
@@ -577,9 +578,12 @@ void Widget::Close(bool force) {
     return;
   }
 
-  if (non_client_view_ && !non_client_view_->CanClose())
+  if (!force && !force_closing_ && !NWCanClose())
     return;
-  if (!force && !NWCanClose())
+  if (force)
+    force_closing_ = true; //for reentering this function after force close
+
+  if (non_client_view_ && !non_client_view_->CanClose())
     return;
 
   // The actions below can cause this function to be called again, so mark

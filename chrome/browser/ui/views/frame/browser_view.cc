@@ -7,6 +7,7 @@
 #include "chrome/browser/extensions/api/tabs/tabs_windows_api.h"
 #include "chrome/browser/extensions/api/tabs/windows_event_router.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
+#include "components/favicon/content/content_favicon_driver.h"
 
 #if defined(OS_WIN)
 #include <shobjidl.h>
@@ -479,6 +480,13 @@ void BookmarkBarViewBackground::Paint(gfx::Canvas* canvas,
 // static
 const char BrowserView::kViewClassName[] = "BrowserView";
 
+void BrowserView::ForceClose() {
+  GetWidget()->Close(true);
+}
+bool BrowserView::NWCanClose(bool user_force) const {
+  return browser_->NWCanClose(user_force);
+}
+
 void BrowserView::UpdateDraggableRegions(
     const std::vector<extensions::DraggableRegion>& regions) {
   // Draggable region is not supported for non-frameless window.
@@ -553,6 +561,9 @@ void BrowserView::SetAllVisible(bool visible) {
 
 void BrowserView::SetResizable(bool resizable) {
   resizable_ = resizable;
+  GetWidget()->OnSizeConstraintsChanged();
+  frame_->non_client_view()->ResetWindowControls();
+  frame_->non_client_view()->Layout();
 }
 
 BrowserView::BrowserView() : views::ClientView(nullptr, nullptr) {}
@@ -2044,13 +2055,26 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
 #if 1
   if (browser_->is_devtools()) {
     WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
-    DevToolsWindow* devtools_window = DevToolsWindow::AsDevToolsWindow(contents);
+    DevToolsWindow* devtools_window =
+        DevToolsWindow::AsDevToolsWindow(contents);
     if (devtools_window) {
-      WebContents* inspected_contents = devtools_window->GetInspectedWebContents();
-      Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
-      extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+      WebContents* inspected_contents =
+          devtools_window->GetInspectedWebContents();
+      Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
+      if (browser && !browser->icon_override().IsEmpty())
+        return *browser->icon_override().ToImageSkia();
+      favicon::FaviconDriver* favicon_driver =
+          favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
+      gfx::Image app_icon = favicon_driver->GetFavicon();
+      if (!app_icon.IsEmpty())
+        return *app_icon.ToImageSkia();
+      Profile* profile =
+          Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry =
+          extensions::AppWindowRegistry::Get(profile);
       if (registry) {
-        extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(inspected_contents);
+        extensions::AppWindow* app_window =
+            registry->GetAppWindowForWebContents(inspected_contents);
         if (app_window)
           return app_window->custom_app_icon().AsImageSkia();
       }
@@ -2066,13 +2090,26 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
   // Use the default icon for devtools.
   if (browser_->is_devtools()) {
     WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
-    DevToolsWindow* devtools_window = DevToolsWindow::AsDevToolsWindow(contents);
+    DevToolsWindow* devtools_window =
+        DevToolsWindow::AsDevToolsWindow(contents);
     if (devtools_window) {
-      WebContents* inspected_contents = devtools_window->GetInspectedWebContents();
-      Profile* profile = Profile::FromBrowserContext(contents->GetBrowserContext());
-      extensions::AppWindowRegistry* registry = extensions::AppWindowRegistry::Get(profile);
+      WebContents* inspected_contents =
+          devtools_window->GetInspectedWebContents();
+      Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
+      if (browser && !browser->icon_override().IsEmpty())
+        return *browser->icon_override().ToImageSkia();
+      favicon::FaviconDriver* favicon_driver =
+          favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
+      gfx::Image app_icon = favicon_driver->GetFavicon();
+      if (!app_icon.IsEmpty())
+        return *app_icon.ToImageSkia();
+      Profile* profile =
+          Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry =
+          extensions::AppWindowRegistry::Get(profile);
       if (registry) {
-        extensions::AppWindow* app_window = registry->GetAppWindowForWebContents(inspected_contents);
+        extensions::AppWindow* app_window =
+            registry->GetAppWindowForWebContents(inspected_contents);
         if (app_window)
           return app_window->custom_app_icon().AsImageSkia();
       }

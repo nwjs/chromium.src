@@ -11,6 +11,7 @@
 #include <utility>
 #include <vector>
 
+#include "content/nw/src/nw_base.h"
 #include "content/nw/src/nw_content.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "extensions/browser/extension_registry.h"
@@ -651,6 +652,16 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   create_params.show_in_taskbar = show_in_taskbar;
   create_params.title = title;
 
+  if (create_data && create_data->icon) {
+    base::ThreadRestrictions::ScopedAllowIO allow_io;
+    gfx::Image app_icon;
+    nw::Package* package = nw::package();
+    if (nw::GetPackageImage(package,
+                            base::FilePath::FromUTF8Unsafe(*create_data->icon),
+                            &app_icon)) {
+      create_params.icon = app_icon;
+    }
+  }
   create_params.initial_show_state = ui::SHOW_STATE_NORMAL;
   if (create_data && create_data->state) {
     if (create_data->state == windows::WINDOW_STATE_LOCKED_FULLSCREEN &&

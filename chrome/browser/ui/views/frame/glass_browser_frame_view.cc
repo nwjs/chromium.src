@@ -378,8 +378,13 @@ void GlassBrowserFrameView::UpdateWindowTitle() {
 
 void GlassBrowserFrameView::ResetWindowControls() {
   minimize_button_->SetState(views::Button::STATE_NORMAL);
-  maximize_button_->SetState(views::Button::STATE_NORMAL);
-  restore_button_->SetState(views::Button::STATE_NORMAL);
+  if (browser_view()->CanMaximize()) {
+    maximize_button_->SetState(views::Button::STATE_NORMAL);
+    restore_button_->SetState(views::Button::STATE_NORMAL);
+  } else {
+    maximize_button_->SetState(views::Button::STATE_DISABLED);
+    restore_button_->SetState(views::Button::STATE_DISABLED);
+  }
   close_button_->SetState(views::Button::STATE_NORMAL);
   if (hosted_app_button_container_)
     hosted_app_button_container_->UpdateContentSettingViewsVisibility();
@@ -486,7 +491,8 @@ int GlassBrowserFrameView::FrameTopBorderThicknessPx(bool restored) const {
   // off the top of the screen.
   if (frame()->IsFullscreen() && !restored)
     return 0;
-
+  if (!browser_view()->CanResize() && !restored)
+    return 0;
   // Note that this method assumes an equal resize handle thickness on all
   // sides of the window.
   // TODO(dfried): Consider having it return a gfx::Insets object instead.
@@ -551,6 +557,8 @@ int GlassBrowserFrameView::WindowTopY() const {
   // FrameTopBorderThickness()) and floor(system dsf) pixels when restored.
   // Unfortunately we can't represent either of those at hidpi without using
   // non-integral dips, so we return the closest reasonable values instead.
+  if (!browser_view()->CanResize() && IsMaximized())
+    return 1;
   return IsMaximized() ? FrameTopBorderThickness(false) : 1;
 }
 
