@@ -612,6 +612,8 @@ Browser::~Browser() {
 
 bool Browser::NWCanClose(bool user_force) {
   WebContents* web_contents = tab_strip_model_->GetActiveWebContents();
+  if (!web_contents)
+    return true;
   const extensions::Extension* extension =
             extensions::ProcessManager::Get(profile_)
                 ->GetExtensionForWebContents(web_contents);

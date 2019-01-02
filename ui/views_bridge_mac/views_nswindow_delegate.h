@@ -39,6 +39,7 @@ VIEWS_EXPORT
 // Notify that the system control tint changed.
 - (void)onSystemControlTintChanged:(NSNotification*)notification;
 
+- (void)onWindowWillStartLiveResize:(NSNotification*)notification;
 // Called on the delegate of a modal sheet when its modal session ends.
 - (void)sheetDidEnd:(NSWindow*)sheet
          returnCode:(NSInteger)returnCode

@@ -8,6 +8,8 @@
 
 #include <memory>
 
+#include "content/public/common/content_features.h"
+
 #include "base/allocator/allocator_shim.h"
 #include "base/allocator/buildflags.h"
 #include "base/auto_reset.h"
@@ -760,6 +762,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
   // Notify BrowserList to keep the application running so it doesn't go away
   // when all the browser windows get closed.
+  if (!base::FeatureList::IsEnabled(::features::kNWNewWin))
   keep_alive_.reset(new ScopedKeepAlive(KeepAliveOrigin::APP_CONTROLLER,
                                         KeepAliveRestartOption::DISABLED));
 

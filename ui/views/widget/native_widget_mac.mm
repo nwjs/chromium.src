@@ -447,7 +447,9 @@ bool NativeWidgetMac::IsVisibleOnAllWorkspaces() const {
 }
 
 void NativeWidgetMac::Maximize() {
-  NOTIMPLEMENTED();  // See IsMaximized().
+  if (IsFullscreen())
+    return;
+  bridge()->SetMaximized(true);
 }
 
 void NativeWidgetMac::Minimize() {
@@ -457,9 +459,9 @@ void NativeWidgetMac::Minimize() {
 }
 
 bool NativeWidgetMac::IsMaximized() const {
-  // The window frame isn't altered on Mac unless going fullscreen. The green
-  // "+" button just makes the window bigger. So, always false.
-  return false;
+  if (!bridge_host_)
+    return false;
+  return bridge_host_->IsMaximized();
 }
 
 bool NativeWidgetMac::IsMinimized() const {
@@ -473,6 +475,7 @@ void NativeWidgetMac::Restore() {
     return;
   bridge()->SetFullscreen(false);
   bridge()->SetMiniaturized(false);
+  bridge()->SetMaximized(false);
 }
 
 void NativeWidgetMac::SetFullscreen(bool fullscreen) {

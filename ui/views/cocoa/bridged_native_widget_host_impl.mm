@@ -232,6 +232,12 @@ void BridgedNativeWidgetHostImpl::SetFullscreen(bool fullscreen) {
   bridge()->SetFullscreen(target_fullscreen_state_);
 }
 
+bool BridgedNativeWidgetHostImpl::IsMaximized() const {
+  bool maximized = false;
+  bridge()->IsMaximized(&maximized);
+  return maximized && !is_miniaturized_;
+}
+
 void BridgedNativeWidgetHostImpl::SetRootView(views::View* root_view) {
   root_view_ = root_view;
   if (root_view_) {

@@ -156,6 +156,17 @@ using NSViewComparatorValue = id;
 using NSViewComparatorValue = __kindof NSView*;
 #endif
 
+bool NSWindowIsMaximized(NSWindow* window) {
+  // -[NSWindow isZoomed] only works if the zoom button is enabled.
+  if ([[window standardWindowButton:NSWindowZoomButton] isEnabled])
+    return [window isZoomed];
+  
+  // We don't attempt to distinguish between a window that has been explicitly
+  // maximized versus one that has just been dragged by the user to fill the
+  // screen. This is the same behavior as -[NSWindow isZoomed] above.
+  return NSEqualRects([window frame], [[window screen] visibleFrame]);
+}
+
 // Returns true if the content_view is reparented.
 bool PositionWindowInNativeViewParent(NSView* content_view) {
   return [[content_view window] contentView] != content_view;
@@ -368,6 +379,12 @@ void BridgedNativeWidgetImpl::InitWindow(
       addObserver:window_delegate_
          selector:@selector(onWindowOrderChanged:)
              name:NSApplicationDidHideNotification
+           object:nil];
+
+  [[NSNotificationCenter defaultCenter]
+      addObserver:window_delegate_
+         selector:@selector(onWindowWillStartLiveResize:)
+             name:NSWindowWillStartLiveResizeNotification
            object:nil];
 
   [[NSNotificationCenter defaultCenter]
@@ -854,6 +871,12 @@ void BridgedNativeWidgetImpl::OnPositionChanged() {
   UpdateWindowGeometry();
 }
 
+void BridgedNativeWidgetImpl::OnWindowWillStartLiveResize() {
+  if (!NSWindowIsMaximized(window_) && !in_fullscreen_transition_) {
+    bounds_before_maximize_ = [window_ frame];
+  }
+}
+
 void BridgedNativeWidgetImpl::OnVisibilityChanged() {
   const bool window_visible = [window_ isVisible];
   if (window_visible_ == window_visible)
@@ -1066,6 +1089,30 @@ void BridgedNativeWidgetImpl::SetFullscreen(bool fullscreen) {
   if (fullscreen == target_fullscreen_state_)
     return;
   ToggleDesiredFullscreenState();
+}
+
+bool BridgedNativeWidgetImpl::IsMaximized(bool* maximized) {
+  *maximized = NSWindowIsMaximized(window_);
+  return true;
+}
+
+void BridgedNativeWidgetImpl::IsMaximized(IsMaximizedCallback callback) {
+  bool maximized = false;
+  IsMaximized(&maximized);
+  std::move(callback).Run(maximized);
+}
+
+void BridgedNativeWidgetImpl::SetMaximized(bool maximized) {
+  if (!maximized) {
+    if (NSWindowIsMaximized(window_))
+      [window_ setFrame:bounds_before_maximize_ display:YES animate:YES];
+    return;
+  }
+  if (!NSWindowIsMaximized(window_))
+    [window_ setFrame:[[window_ screen] visibleFrame] display:YES animate:YES];
+  
+  if ([window_ isMiniaturized])
+    [window_ deminiaturize:nil];
 }
 
 void BridgedNativeWidgetImpl::SetMiniaturized(bool miniaturized) {
