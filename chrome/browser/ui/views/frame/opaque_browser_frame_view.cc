@@ -324,9 +324,14 @@ void OpaqueBrowserFrameView::GetWindowMask(const gfx::Size& size,
 void OpaqueBrowserFrameView::ResetWindowControls() {
   if (frameless_)
     return;
-  restore_button_->SetState(views::Button::STATE_NORMAL);
   minimize_button_->SetState(views::Button::STATE_NORMAL);
-  maximize_button_->SetState(views::Button::STATE_NORMAL);
+  if (browser_view()->CanMaximize()) {
+    restore_button_->SetState(views::Button::STATE_NORMAL);
+    maximize_button_->SetState(views::Button::STATE_NORMAL);
+  } else {
+    restore_button_->SetState(views::Button::STATE_DISABLED);
+    maximize_button_->SetState(views::Button::STATE_DISABLED);
+  }
   // The close button isn't affected by this constraint.
   if (hosted_app_button_container_)
     hosted_app_button_container_->UpdateContentSettingViewsVisibility();

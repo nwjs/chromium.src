@@ -2065,7 +2065,9 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
         return *browser->icon_override().ToImageSkia();
       favicon::FaviconDriver* favicon_driver =
           favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
-      gfx::Image app_icon = favicon_driver->GetFavicon();
+      gfx::Image app_icon;
+      if (favicon_driver)
+        app_icon = favicon_driver->GetFavicon();
       if (!app_icon.IsEmpty())
         return *app_icon.ToImageSkia();
       Profile* profile =
@@ -2100,7 +2102,9 @@ gfx::ImageSkia BrowserView::GetWindowIcon() {
         return *browser->icon_override().ToImageSkia();
       favicon::FaviconDriver* favicon_driver =
           favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
-      gfx::Image app_icon = favicon_driver->GetFavicon();
+      gfx::Image app_icon;
+      if (favicon_driver)
+        app_icon = favicon_driver->GetFavicon();
       if (!app_icon.IsEmpty())
         return *app_icon.ToImageSkia();
       Profile* profile =
