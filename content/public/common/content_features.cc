@@ -12,7 +12,7 @@
 namespace features {
 
 const base::Feature kNWNewWin{
-    "NWNewWin", base::FEATURE_DISABLED_BY_DEFAULT};
+    "nw2", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // All features in alphabetical order.
 

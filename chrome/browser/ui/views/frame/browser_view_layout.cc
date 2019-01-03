@@ -48,6 +48,8 @@ const int kTabShadowSize = 2;
 // of the omnibox.
 const int kConstrainedWindowOverlap = 3;
 
+const int kMenuHeight = 25;
+
 // Combines View::ConvertPointToTarget and View::HitTest for a given |point|.
 // Converts |point| from |src| to |dst| and hit tests it against |dst|. The
 // converted |point| can then be retrieved and used for additional tests.
@@ -127,6 +129,7 @@ BrowserViewLayout::BrowserViewLayout()
     : browser_(nullptr),
       browser_view_(nullptr),
       top_container_(nullptr),
+      menu_bar_(nullptr),
       tab_strip_(nullptr),
       toolbar_(nullptr),
       bookmark_bar_(nullptr),
@@ -199,6 +202,8 @@ gfx::Size BrowserViewLayout::GetMinimumSize() {
       tabstrip_size.height() + toolbar_size.height() +
       bookmark_bar_size.height() + infobar_container_size.height() +
       contents_size.height();
+  if (menu_bar_)
+    min_height += kMenuHeight;
   int widths[] = {
         tabstrip_size.width(),
         toolbar_size.width(),
@@ -329,6 +334,11 @@ void BrowserViewLayout::Layout(views::View* browser_view) {
             delegate_->GetThemeBackgroundXInset());
   }
   top = LayoutToolbar(top);
+
+  if (menu_bar_) {
+    menu_bar_->SetBounds(0, top, browser_view_->width(), kMenuHeight);
+    top += kMenuHeight;
+  }
 
   top = LayoutBookmarkAndInfoBars(top, browser_view->y());
 

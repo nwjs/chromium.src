@@ -103,6 +103,9 @@ namespace web_modal {
 class WebContentsModalDialogHost;
 }
 
+namespace nw {
+  class Menu;
+}
 namespace viz {
 class SurfaceId;
 }
@@ -230,6 +233,7 @@ class Browser : public TabStripModelObserver,
 
   // Constructors, Creation, Showing //////////////////////////////////////////
 
+  nw::Menu* nw_menu_;
   explicit Browser(const CreateParams& params);
   ~Browser() override;
 

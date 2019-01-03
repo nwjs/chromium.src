@@ -577,13 +577,13 @@ class BrowserView : public BrowserWindow,
   // LoadCompleteListener::Delegate implementation. Creates the JumpList after
   // the first page load.
   void OnLoadCompleted() override;
-
+public:
   // Returns the BrowserViewLayout.
   BrowserViewLayout* GetBrowserViewLayout() const;
 
   // Returns the ContentsLayoutManager.
   ContentsLayoutManager* GetContentsLayoutManager() const;
-
+private:
   // Prepare to show the Bookmark Bar for the specified WebContents.
   // Returns true if the Bookmark Bar can be shown (i.e. it's supported for this
   // Browser type) and there should be a subsequent re-layout to show it.

@@ -445,6 +445,11 @@ const Extension* GetExtensionForNSWindow(NSWindow* window) {
             [NSApp setMainMenu:appWindow->menu_->menu_];
             return;
         }
+        Browser* browser = chrome::FindBrowserWithWindow(window);
+        if (browser && browser->nw_menu_) {
+          [NSApp setMainMenu:browser->nw_menu_->menu_];
+          return;
+        }
         [self appBecameMain:extension];
     }
     else

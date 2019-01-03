@@ -63,6 +63,8 @@ class BrowserViewLayout : public views::LayoutManager {
   void set_download_shelf(views::View* download_shelf) {
     download_shelf_ = download_shelf;
   }
+  void set_menu_bar(views::View* menu_bar) { menu_bar_ = menu_bar; }
+  views::View* menu_bar() { return menu_bar_; }
 
   web_modal::WebContentsModalDialogHost* GetWebContentsModalDialogHost();
 
@@ -132,6 +134,7 @@ class BrowserViewLayout : public views::LayoutManager {
   // NOTE: If you add a view, try to add it as a views::View, which makes
   // testing much easier.
   views::View* top_container_;
+  views::View* menu_bar_;
   TabStrip* tab_strip_;
   views::View* toolbar_;
   BookmarkBarView* bookmark_bar_;

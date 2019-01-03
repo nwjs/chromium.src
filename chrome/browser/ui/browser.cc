@@ -394,7 +394,7 @@ class Browser::InterstitialObserver : public content::WebContentsObserver {
 // Browser, Constructors, Creation, Showing:
 
 Browser::Browser(const CreateParams& params)
-    : extension_registry_observer_(this),
+    : nw_menu_(nullptr), extension_registry_observer_(this),
       frameless_(params.frameless),
       type_(params.type),
       profile_(params.profile),
