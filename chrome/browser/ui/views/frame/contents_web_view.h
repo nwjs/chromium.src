@@ -23,7 +23,7 @@ class ContentsWebView
     : public views::WebView,
       public WebContentsCloseHandlerDelegate {
  public:
-  explicit ContentsWebView(content::BrowserContext* browser_context);
+  explicit ContentsWebView(content::BrowserContext* browser_context, bool transparent);
   ~ContentsWebView() override;
 
   // Sets the status bubble, which should be repositioned every time
@@ -49,6 +49,7 @@ class ContentsWebView
  private:
   void UpdateBackgroundColor();
   StatusBubbleViews* status_bubble_;
+  bool transparent_;
 
   std::unique_ptr<ui::LayerTreeOwner> cloned_layer_tree_;
 

@@ -250,6 +250,8 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
   // context of the BrowserView destructor.
   if (!browser_view_->browser())
     return false;
+  if (browser_view_->browser()->is_transparent())
+    return true;
   if (browser_view_->browser()->is_frameless())
     return false;
   if (IsOpaqueHostedAppFrame())
@@ -267,8 +269,8 @@ bool BrowserDesktopWindowTreeHostWin::ShouldUseNativeFrame() const {
 
 bool BrowserDesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent()
     const {
-  return !ShouldCustomDrawSystemTitlebar() &&
-         views::DesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent();
+  return browser_view_->browser()->is_transparent() || (!ShouldCustomDrawSystemTitlebar() &&
+         views::DesktopWindowTreeHostWin::ShouldWindowContentsBeTransparent());
 }
 
 void BrowserDesktopWindowTreeHostWin::FrameTypeChanged() {

@@ -32,8 +32,8 @@ if (manifest.window) {
     options.alwaysOnTop = true;
   if (manifest.window['visible_on_all_workspaces'] === true)
     options.allVisible = true;
-  // if (manifest.window.transparent)
-  //   options.alphaEnabled = true;
+  if (manifest.window.transparent)
+    options.alphaEnabled = true;
   // if (manifest.window.kiosk === true)
   //   options.kiosk = true;
   // if (manifest.window.position)

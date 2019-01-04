@@ -8,6 +8,7 @@
 #include "chrome/browser/extensions/api/tabs/windows_event_router.h"
 #include "chrome/browser/extensions/browser_extension_window_controller.h"
 #include "components/favicon/content/content_favicon_driver.h"
+#include "content/public/browser/render_widget_host.h"
 
 #if defined(OS_WIN)
 #include <shobjidl.h>
@@ -2642,7 +2643,7 @@ void BrowserView::InitViews() {
   if (!toolbar_button_provider_)
     SetToolbarButtonProvider(toolbar_);
 
-  contents_web_view_ = new ContentsWebView(browser_->profile());
+  contents_web_view_ = new ContentsWebView(browser_->profile(), browser_->is_transparent());
   contents_web_view_->set_id(VIEW_ID_TAB_CONTAINER);
   contents_web_view_->SetEmbedFullscreenWidgetMode(true);
 
@@ -2654,8 +2655,10 @@ void BrowserView::InitViews() {
   devtools_web_view_->SetVisible(false);
 
   contents_container_ = new views::View();
-  contents_container_->SetBackground(views::CreateSolidBackground(
-      GetThemeProvider()->GetColor(ThemeProperties::COLOR_CONTROL_BACKGROUND)));
+  if (browser_->is_transparent())
+    contents_container_->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
+  else
+    contents_container_->SetBackground(views::CreateSolidBackground(GetThemeProvider()->GetColor(ThemeProperties::COLOR_CONTROL_BACKGROUND)));
   contents_container_->AddChildView(devtools_web_view_);
   contents_container_->AddChildView(contents_web_view_);
   contents_container_->SetLayoutManager(std::make_unique<ContentsLayoutManager>(

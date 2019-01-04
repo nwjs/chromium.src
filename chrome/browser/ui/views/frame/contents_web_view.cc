@@ -17,9 +17,9 @@
 #include "ui/wm/core/window_util.h"
 #endif
 
-ContentsWebView::ContentsWebView(content::BrowserContext* browser_context)
+ContentsWebView::ContentsWebView(content::BrowserContext* browser_context, bool transparent)
     : views::WebView(browser_context),
-      status_bubble_(nullptr) {
+      status_bubble_(nullptr), transparent_(transparent) {
 }
 
 ContentsWebView::~ContentsWebView() {
@@ -63,6 +63,9 @@ void ContentsWebView::UpdateBackgroundColor() {
 
   const SkColor ntp_background = color_utils::GetResultingPaintColor(
       theme->GetColor(ThemeProperties::COLOR_NTP_BACKGROUND), SK_ColorWHITE);
+  if (transparent_)
+    SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
+  else
   if (is_letterboxing()) {
     // Set the background color to a dark tint of the new tab page's background
     // color.  This is the color filled within the WebView's bounds when its
@@ -87,7 +90,7 @@ void ContentsWebView::UpdateBackgroundColor() {
     content::RenderWidgetHostView* rwhv =
         web_contents()->GetRenderWidgetHostView();
     if (rwhv)
-      rwhv->SetBackgroundColor(ntp_background);
+      rwhv->SetBackgroundColor(transparent_ ? SK_ColorTRANSPARENT : ntp_background);
   }
 }
 

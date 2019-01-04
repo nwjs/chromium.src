@@ -548,6 +548,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   bool hidden = false;
   bool new_instance = false;
   bool frameless = false;
+  bool transparent = false;
   bool always_on_top = false;
   bool all_visible = false;
   bool show_in_taskbar = true;
@@ -621,6 +622,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       new_instance = *create_data->new_instance;
     if (create_data->frameless)
       frameless = *create_data->frameless;
+    if (create_data->alpha_enabled)
+      transparent = *create_data->alpha_enabled;
     if (create_data->always_on_top)
       always_on_top = *create_data->always_on_top;
     if (create_data->all_visible)
@@ -646,6 +649,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
         user_gesture());
   }
   create_params.frameless = frameless;
+  create_params.alpha_enabled = transparent;
   create_params.always_on_top = always_on_top;
   create_params.all_visible = all_visible;
   create_params.resizable = resizable;

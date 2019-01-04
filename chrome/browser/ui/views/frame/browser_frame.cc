@@ -68,6 +68,8 @@ void BrowserFrame::InitBrowserFrame() {
   views::Widget::InitParams params = native_browser_frame_->GetWidgetParams();
   if (frameless_)
     params.remove_standard_frame = true;
+  if (browser_view_->browser()->is_transparent())
+    params.opacity = views::Widget::InitParams::TRANSLUCENT_WINDOW;
   if (browser_view_->browser()->initial_ontop())
     params.keep_on_top = true;
   if (browser_view_->browser()->initial_allvisible())

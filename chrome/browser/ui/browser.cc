@@ -15,6 +15,7 @@
 #include "extensions/browser/app_window/app_window.h"
 #include "content/nw/src/nw_content.h"
 #include "content/nw/src/nw_base.h"
+#include "ui/display/display.h"
 
 #include "base/base_paths.h"
 #include "base/bind.h"
@@ -396,6 +397,7 @@ class Browser::InterstitialObserver : public content::WebContentsObserver {
 Browser::Browser(const CreateParams& params)
     : nw_menu_(nullptr), extension_registry_observer_(this),
       frameless_(params.frameless),
+      alpha_enabled_(params.alpha_enabled),
       type_(params.type),
       profile_(params.profile),
       window_(NULL),
@@ -436,6 +438,11 @@ Browser::Browser(const CreateParams& params)
       << "Only off the record browser may be opened in guest mode";
   CHECK(!profile_->IsSystemProfile())
       << "The system profile should never have a real browser.";
+
+  content::g_support_transparency = !base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kDisableTransparency);
+  if (content::g_support_transparency) {
+    content::g_force_cpu_draw = base::CommandLine::ForCurrentProcess()->HasSwitch(::switches::kForceCpuDraw);
+  }
 
   // TODO(jeremy): Move to initializer list once flag is removed.
   if (IsFastTabUnloadEnabled())
