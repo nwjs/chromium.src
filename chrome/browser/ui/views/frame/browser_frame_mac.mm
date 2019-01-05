@@ -139,6 +139,9 @@ NativeWidgetMacNSWindow* BrowserFrameMac::CreateNSWindow(
     if (@available(macOS 10.10, *))
       [ns_window setTitlebarAppearsTransparent:YES];
   } else {
+    if (params.remove_standard_frame)
+      style_mask = NSBorderlessWindowMask;
+
     ns_window.reset([[NativeWidgetMacNSWindow alloc]
         initWithContentRect:ui::kWindowSizeDeterminedLater
                   styleMask:style_mask
