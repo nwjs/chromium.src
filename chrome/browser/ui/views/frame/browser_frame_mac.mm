@@ -4,6 +4,8 @@
 
 #import "chrome/browser/ui/views/frame/browser_frame_mac.h"
 
+#include "ui/display/display.h"
+
 #import "base/mac/foundation_util.h"
 #include "chrome/browser/apps/app_shim/extension_app_shim_handler_mac.h"
 #include "chrome/browser/global_keyboard_shortcuts_mac.h"
@@ -118,7 +120,7 @@ void BrowserFrameMac::InitNativeWidget(
     const views::Widget::InitParams& params) {
   views::NativeWidgetMac::InitNativeWidget(params);
 
-  [[GetNativeWindow() contentView] setWantsLayer:YES];
+  [[GetNativeWindow() contentView] setWantsLayer:!content::g_force_cpu_draw];
 }
 
 NativeWidgetMacNSWindow* BrowserFrameMac::CreateNSWindow(
