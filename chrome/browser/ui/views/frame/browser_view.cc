@@ -2669,7 +2669,7 @@ void BrowserView::InitViews() {
   infobar_container_ = new InfoBarContainerView(this);
   AddChildView(infobar_container_);
 
-  InitStatusBubble();
+  //InitStatusBubble();
 
   // Create do-nothing view for the sake of controlling the z-order of the find
   // bar widget.

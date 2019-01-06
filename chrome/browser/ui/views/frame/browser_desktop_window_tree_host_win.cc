@@ -124,7 +124,7 @@ void BrowserDesktopWindowTreeHostWin::HandleDestroying() {
 void BrowserDesktopWindowTreeHostWin::HandleFrameChanged() {
   // Reinitialize the status bubble, since it needs to be initialized
   // differently depending on whether or not DWM composition is enabled
-  browser_view_->InitStatusBubble();
+  //browser_view_->InitStatusBubble();
 
   // We need to update the glass region on or off before the base class adjusts
   // the window region.
