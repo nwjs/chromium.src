@@ -864,11 +864,13 @@ void RenderViewContextMenu::InitMenu() {
   if (command_line->HasSwitch(switches::kDisableDevTools))
     enable_devtools = false;
 
+#if 0
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_DEVELOPER)) {
     if (enable_devtools)
     AppendDeveloperItems();
   }
+#endif
 
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_DEVTOOLS_UNPACKED_EXT)) {

@@ -32,6 +32,7 @@ namespace {
 
 // Given a |browser| that's an app or popup window, checks if it's hosting the
 // settings page.
+#if 0
 bool IsChromeSettingsAppOrPopupWindow(Browser* browser) {
   DCHECK(browser);
   content::WebContents* web_contents =
@@ -42,7 +43,7 @@ bool IsChromeSettingsAppOrPopupWindow(Browser* browser) {
   return gurl.SchemeIs(content::kChromeUIScheme) &&
          gurl.host_piece() == chrome::kChromeUISettingsHost;
 }
-
+#endif
 }  // namespace
 
 SystemMenuModelBuilder::SystemMenuModelBuilder(
@@ -103,6 +104,7 @@ void SystemMenuModelBuilder::BuildSystemMenuForBrowserWindow(
 
 void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
     ui::SimpleMenuModel* model) {
+#if 0
   model->AddItemWithStringId(IDC_BACK, IDS_CONTENT_CONTEXT_BACK);
   model->AddItemWithStringId(IDC_FORWARD, IDS_CONTENT_CONTEXT_FORWARD);
   model->AddItemWithStringId(IDC_RELOAD, IDS_APP_MENU_RELOAD);
@@ -137,6 +139,7 @@ void SystemMenuModelBuilder::BuildSystemMenuForAppOrPopupWindow(
   // for this rare case, simply prevent the user from teleporting the window.
   if (!IsChromeSettingsAppOrPopupWindow(browser()))
     AppendTeleportMenu(model);
+#endif
 }
 
 void SystemMenuModelBuilder::AddFrameToggleItems(ui::SimpleMenuModel* model) {
