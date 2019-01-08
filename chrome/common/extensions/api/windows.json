@@ -406,6 +406,23 @@
         ]
       },
       {
+        "name": "onRemoving",
+        "type": "function",
+        "description": "Fired when a window wants to be closed.",
+        "filters": [
+          {
+            "name": "windowTypes",
+            "type": "array",
+            "items": { "$ref": "WindowType" },
+            "description": "Conditions that the window's type being removed must satisfy. By default it satisfies <code>['normal', 'popup']</code>."
+          }
+        ],
+        "parameters": [
+          {"type": "integer", "name": "windowId", "minimum": 0, "description": "ID of the removed window."},
+          {"type": "string", "name": "flag", "description": ""}
+        ]
+      },
+      {
         "name": "onRemoved",
         "type": "function",
         "description": "Fired when a window is removed (closed).",

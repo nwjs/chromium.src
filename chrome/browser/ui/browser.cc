@@ -16,6 +16,7 @@
 #include "content/nw/src/nw_content.h"
 #include "content/nw/src/nw_base.h"
 #include "ui/display/display.h"
+#include "chrome/browser/extensions/extension_tab_util.h"
 
 #include "base/base_paths.h"
 #include "base/bind.h"
@@ -626,20 +627,29 @@ bool Browser::NWCanClose(bool user_force) {
                 ->GetExtensionForWebContents(web_contents);
   if (!extension)
     return true;
-  content::RenderFrameHost* rfh = web_contents->GetMainFrame();
+  //content::RenderFrameHost* rfh = web_contents->GetMainFrame();
   extensions::EventRouter* event_router = extensions::EventRouter::Get(profile_);
   std::string listener_extension_id;
+  int instance_id = extensions::ExtensionTabUtil::GetWindowId(this);
   bool listening_to_close = event_router->
-    ExtensionHasEventListener(extension->id(), "nw.Window.onClose",
-                              rfh->GetRenderViewHost()->GetRoutingID(),
+    ExtensionHasEventListener(extension->id(), extensions::api::windows::OnRemoving::kEventName,
+                              extensions::ExtensionTabUtil::GetWindowId(this),
                               &listener_extension_id);
   if (listening_to_close) {
-    base::ListValue args;
+    std::unique_ptr<base::ListValue> args(new base::ListValue());
+    args->AppendInteger(session_id().id());
     if (user_force)
-      args.AppendString("quit");
-    rfh->Send(new ExtensionMsg_MessageInvoke(
-      rfh->GetRoutingID(), listener_extension_id, "nw.Window",
-      "onClose", args));
+      args->AppendString("quit");
+    else
+      args->AppendString("");
+    auto event =
+      std::make_unique<extensions::Event>(extensions::events::UNKNOWN,
+                                          extensions::api::windows::OnRemoving::kEventName,
+                                          std::move(args), profile());
+    event->filter_info = extensions::EventFilteringInfo();
+    event->filter_info.window_exposed_by_default = true;
+    event->filter_info.instance_id = instance_id;
+    event_router->BroadcastEvent(std::move(event));
     return false;
   }
   return true;
