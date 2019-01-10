@@ -36,8 +36,8 @@ if (manifest.window) {
     options.alphaEnabled = true;
   // if (manifest.window.kiosk === true)
   //   options.kiosk = true;
-  // if (manifest.window.position)
-  //   options.position = manifest.window.position;
+  if (manifest.window.position)
+    options.position = manifest.window.position;
   if (manifest.window.title)
     options.title = manifest.window.title;
 }

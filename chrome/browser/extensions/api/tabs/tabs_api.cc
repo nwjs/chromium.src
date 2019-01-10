@@ -556,6 +556,7 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   std::string title;
   int min_width = 0; int min_height = 0; int max_width = 0; int max_height = 0;
   std::string extension_id;
+  std::string position;
 
   std::string inject_js_start, inject_js_end;
   if (create_data) {
@@ -634,6 +635,8 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
       show_in_taskbar = *create_data->show_in_taskbar;
     if (create_data->title)
       title = *create_data->title;
+    if (create_data->position)
+      position = *create_data->position;
   }
 
   // Create a new BrowserWindow.
@@ -678,6 +681,9 @@ ExtensionFunction::ResponseAction WindowsCreateFunction::Run() {
   }
 
   Browser* new_window = new Browser(create_params);
+
+  if (position == "center")
+    BrowserView::GetBrowserViewForBrowser(new_window)->frame()->CenterWindow(create_params.initial_bounds.size());
 
   for (const GURL& url : urls) {
     NavigateParams navigate_params(new_window, url, ui::PAGE_TRANSITION_LINK);
@@ -902,6 +908,10 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
     // general solution is needed. See http://crbug.com/251813 .
     browser->window()->SetBounds(bounds);
   }
+
+  if (params->update_info.position &&
+      *params->update_info.position == "center")
+    BrowserView::GetBrowserViewForBrowser(browser)->frame()->CenterWindow(bounds.size());
 
   if (params->update_info.focused) {
     if (*params->update_info.focused) {

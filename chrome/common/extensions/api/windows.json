@@ -259,6 +259,7 @@
               "resizable": {"type": "boolean", "optional": true, "description": "Whether the window is resizable"},
               "title":{"type":"string", "optional": true, "description": ""},
               "icon":{"type":"string", "optional": true, "description": ""},
+              "position":{"type":"string", "optional": true, "description": ""},
               "incognito": {"type": "boolean", "optional": true, "description": "Whether the new window should be an incognito window."},
               "type": {
                 "$ref": "CreateType",
@@ -314,6 +315,7 @@
               "width": {"type": "integer", "minimum": 0, "optional": true, "description": "The width to resize the window to in pixels. This value is ignored for panels."},
               "height": {"type": "integer", "minimum": 0, "optional": true, "description": "The height to resize the window to in pixels. This value is ignored for panels."},
               "focused": {"type": "boolean", "optional": true, "description": "If <code>true</code>, brings the window to the front; cannot be combined with the state 'minimized'. If <code>false</code>, brings the next window in the z-order to the front; cannot be combined with the state 'fullscreen' or 'maximized'."},
+              "position": {"type":"string", "optional": true, "description": ""},  
               "drawAttention": {"type": "boolean", "optional": true, "description": "If <code>true</code>, causes the window to be displayed in a manner that draws the user's attention to the window, without changing the focused window. The effect lasts until the user changes focus to the window. This option has no effect if the window already has focus. Set to <code>false</code> to cancel a previous <code>drawAttention</code> request."},
               "state": {
                 "$ref": "WindowState",

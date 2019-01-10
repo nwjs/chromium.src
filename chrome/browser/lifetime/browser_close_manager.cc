@@ -41,7 +41,7 @@ void ShowInProgressDownloads(Profile* profile) {
 
 }  // namespace
 
-BrowserCloseManager::BrowserCloseManager() : current_browser_(nullptr) {
+BrowserCloseManager::BrowserCloseManager(bool force) : current_browser_(nullptr), force_(force) {
 }
 
 BrowserCloseManager::~BrowserCloseManager() {
@@ -167,7 +167,10 @@ void BrowserCloseManager::CloseBrowsers() {
       browser_shutdown::GetShutdownType() == browser_shutdown::END_SESSION;
 
   for (auto* browser : browser_list_copy) {
-    browser->window()->Close();
+    if (force_)
+      browser->window()->ForceClose();
+    else
+      browser->window()->Close();
     if (session_ending) {
       // This path is hit during logoff/power-down. In this case we won't get
       // a final message and so we force the browser to be deleted.
