@@ -747,6 +747,7 @@ void RenderViewContextMenu::AppendCurrentExtensionItems() {
 void RenderViewContextMenu::InitMenu() {
   RenderViewContextMenuBase::InitMenu();
 
+#if 0
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PASSWORD)) {
     AppendPasswordItems();
@@ -790,7 +791,7 @@ void RenderViewContextMenu::InitMenu() {
           ContextMenuContentType::ITEM_GROUP_MEDIA_PLUGIN)) {
     AppendPluginItems();
   }
-
+#endif
   // ITEM_GROUP_MEDIA_FILE has no specific items.
 
   bool editable =
@@ -803,6 +804,7 @@ void RenderViewContextMenu::InitMenu() {
     AppendCopyItem();
   }
 
+#if 0
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_SEARCH_PROVIDER) &&
       params_.misspelled_word.empty()) {
@@ -849,7 +851,7 @@ void RenderViewContextMenu::InitMenu() {
                ContextMenuContentType::ITEM_GROUP_CURRENT_EXTENSION));
     AppendAllExtensionItems();
   }
-
+#endif
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_CURRENT_EXTENSION)) {
     DCHECK(!content_type_->SupportsGroup(
@@ -879,10 +881,12 @@ void RenderViewContextMenu::InitMenu() {
   }
 #endif
 
+#if 0
   if (content_type_->SupportsGroup(
           ContextMenuContentType::ITEM_GROUP_PRINT_PREVIEW)) {
     AppendPrintPreviewItems();
   }
+#endif
 
   // Remove any redundant trailing separator.
   int index = menu_model_.GetItemCount() - 1;
