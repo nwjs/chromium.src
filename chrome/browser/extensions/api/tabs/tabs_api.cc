@@ -837,6 +837,7 @@ ExtensionFunction::ResponseAction WindowsUpdateFunction::Run() {
           true, extension()->url());
       break;
     case ui::SHOW_STATE_NORMAL:
+      browser->window()->Show();
       browser->window()->Restore();
       break;
     case ui::SHOW_STATE_HIDDEN:
