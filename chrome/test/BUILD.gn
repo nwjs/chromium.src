@@ -1476,6 +1476,7 @@ test("browser_tests") {
         # should be deleted and this line removed. See the
         # chrome_extensions_browsertests target for more.
         #"//extensions:chrome_extensions_browsertests",
+        "//extensions:test_support",
         "//extensions/common/api",
       ]
 
@@ -2207,6 +2208,8 @@ test("browser_tests") {
       "../../content/nw/src/nwjs_browsertest.cc",
       "../browser/extensions/extension_apitest.cc",
       "../browser/extensions/extension_browsertest.cc",
+      "../browser/extensions/extension_function_test_utils.cc",
+      "../browser/extensions/extension_function_test_utils.h",
       "../browser/apps/platform_apps/app_browsertest_util.cc",
       "../browser/apps/platform_apps/app_browsertest_util.h",
       "../browser/pdf/pdf_extension_test_util.cc",
