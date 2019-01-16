@@ -76,7 +76,7 @@ namespace {
 
 // Maximum message size allowed to be read from a Mojo message pipe in any
 // service manager embedder process.
-constexpr size_t kMaximumMojoMessageSize = 128 * 1024 * 1024;
+constexpr size_t kMaximumMojoMessageSize = 256 * 1024 * 1024;
 
 class ServiceProcessLauncherDelegateImpl
     : public service_manager::ServiceProcessLauncherDelegate {

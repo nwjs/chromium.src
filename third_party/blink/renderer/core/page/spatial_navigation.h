@@ -89,11 +89,11 @@ CORE_EXPORT bool IsOffscreenAfterFrameScroll(const Node*, WebFocusType);
 bool ScrollInDirection(LocalFrame*, WebFocusType);
 bool ScrollInDirection(Node* container, WebFocusType);
 bool IsNavigableContainer(const Node*, WebFocusType);
+CORE_EXPORT bool IsScrollableNode(const Node* node);
 CORE_EXPORT bool IsScrollableAreaOrDocument(const Node*);
 CORE_EXPORT Node* ScrollableAreaOrDocumentOf(Node*);
 bool CanScrollInDirection(const Node* container, WebFocusType);
 bool CanScrollInDirection(const LocalFrame*, WebFocusType);
-bool CanBeScrolledIntoView(WebFocusType, const FocusCandidate&);
 bool AreElementsOnSameLine(const FocusCandidate& first_candidate,
                            const FocusCandidate& second_candidate);
 void DistanceDataForNode(WebFocusType,

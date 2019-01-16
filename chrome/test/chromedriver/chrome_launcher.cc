@@ -51,9 +51,9 @@
 #include "chrome/test/chromedriver/log_replay/chrome_replay_impl.h"
 #include "chrome/test/chromedriver/log_replay/replay_http_client.h"
 #include "chrome/test/chromedriver/net/net_util.h"
-#include "chrome/test/chromedriver/net/url_request_context_getter.h"
 #include "crypto/rsa_private_key.h"
 #include "crypto/sha2.h"
+#include "services/network/public/mojom/url_loader_factory.mojom.h"
 #include "third_party/zlib/google/zip.h"
 #include "url/gurl.h"
 
@@ -207,7 +207,7 @@ Status PrepareDesktopCommandLine(const Capabilities& capabilities,
 
 Status WaitForDevToolsAndCheckVersion(
     const NetAddress& address,
-    URLRequestContextGetter* context_getter,
+    network::mojom::URLLoaderFactory* factory,
     const SyncWebSocketFactory& socket_factory,
     const Capabilities* capabilities,
     int wait_time,
@@ -236,12 +236,12 @@ Status WaitForDevToolsAndCheckVersion(
         cmd_line->GetSwitchValueNative("devtools-replay");
     base::FilePath log_file_path(log_path);
     client.reset(
-        new ReplayHttpClient(address, context_getter, socket_factory,
+        new ReplayHttpClient(address, factory, socket_factory,
                              std::move(device_metrics), std::move(window_types),
                              capabilities->page_load_strategy, log_file_path));
   } else {
     client.reset(new DevToolsHttpClient(
-        address, context_getter, socket_factory, std::move(device_metrics),
+        address, factory, socket_factory, std::move(device_metrics),
         std::move(window_types), capabilities->page_load_strategy));
   }
 
@@ -324,7 +324,7 @@ Status CreateBrowserwideDevToolsClientAndConnect(
 }
 
 Status LaunchRemoteChromeSession(
-    URLRequestContextGetter* context_getter,
+    network::mojom::URLLoaderFactory* factory,
     const SyncWebSocketFactory& socket_factory,
     const Capabilities& capabilities,
     std::vector<std::unique_ptr<DevToolsEventListener>>
@@ -333,8 +333,8 @@ Status LaunchRemoteChromeSession(
   Status status(kOk);
   std::unique_ptr<DevToolsHttpClient> devtools_http_client;
   status = WaitForDevToolsAndCheckVersion(
-      capabilities.debugger_address, context_getter, socket_factory,
-      &capabilities, 60, &devtools_http_client);
+      capabilities.debugger_address, factory, socket_factory, &capabilities, 60,
+      &devtools_http_client);
   if (status.IsError()) {
     return Status(kUnknownError, "cannot connect to chrome at " +
                       capabilities.debugger_address.ToString(),
@@ -358,7 +358,7 @@ Status LaunchRemoteChromeSession(
   return Status(kOk);
 }
 
-Status LaunchDesktopChrome(URLRequestContextGetter* context_getter,
+Status LaunchDesktopChrome(network::mojom::URLLoaderFactory* factory,
                            const SyncWebSocketFactory& socket_factory,
                            const Capabilities& capabilities,
                            std::vector<std::unique_ptr<DevToolsEventListener>>
@@ -469,8 +469,8 @@ Status LaunchDesktopChrome(URLRequestContextGetter* context_getter,
     }
     if (status.IsOk()) {
       status = WaitForDevToolsAndCheckVersion(
-          NetAddress(devtools_port), context_getter, socket_factory,
-          &capabilities, 1, &devtools_http_client);
+          NetAddress(devtools_port), factory, socket_factory, &capabilities, 1,
+          &devtools_http_client);
     }
     if (status.IsOk()) {
       break;
@@ -552,7 +552,7 @@ Status LaunchDesktopChrome(URLRequestContextGetter* context_getter,
   return Status(kOk);
 }
 
-Status LaunchAndroidChrome(URLRequestContextGetter* context_getter,
+Status LaunchAndroidChrome(network::mojom::URLLoaderFactory* factory,
                            const SyncWebSocketFactory& socket_factory,
                            const Capabilities& capabilities,
                            std::vector<std::unique_ptr<DevToolsEventListener>>
@@ -589,9 +589,9 @@ Status LaunchAndroidChrome(URLRequestContextGetter* context_getter,
   }
 
   std::unique_ptr<DevToolsHttpClient> devtools_http_client;
-  status = WaitForDevToolsAndCheckVersion(
-      NetAddress(devtools_port), context_getter, socket_factory, &capabilities,
-      60, &devtools_http_client);
+  status = WaitForDevToolsAndCheckVersion(NetAddress(devtools_port), factory,
+                                          socket_factory, &capabilities, 60,
+                                          &devtools_http_client);
   if (status.IsError()) {
     device->TearDown();
     return status;
@@ -615,7 +615,7 @@ Status LaunchAndroidChrome(URLRequestContextGetter* context_getter,
   return Status(kOk);
 }
 
-Status LaunchReplayChrome(URLRequestContextGetter* context_getter,
+Status LaunchReplayChrome(network::mojom::URLLoaderFactory* factory,
                           const SyncWebSocketFactory& socket_factory,
                           const Capabilities& capabilities,
                           std::vector<std::unique_ptr<DevToolsEventListener>>
@@ -643,9 +643,9 @@ Status LaunchReplayChrome(URLRequestContextGetter* context_getter,
 #endif
 
   std::unique_ptr<DevToolsHttpClient> devtools_http_client;
-  status = WaitForDevToolsAndCheckVersion(NetAddress(0), context_getter,
-                                          socket_factory, &capabilities, 1,
-                                          &devtools_http_client);
+  status =
+      WaitForDevToolsAndCheckVersion(NetAddress(0), factory, socket_factory,
+                                     &capabilities, 1, &devtools_http_client);
 
   std::unique_ptr<DevToolsClient> devtools_websocket_client;
   status = CreateBrowserwideDevToolsClientAndConnect(
@@ -687,7 +687,7 @@ Status LaunchReplayChrome(URLRequestContextGetter* context_getter,
 
 }  // namespace
 
-Status LaunchChrome(URLRequestContextGetter* context_getter,
+Status LaunchChrome(network::mojom::URLLoaderFactory* factory,
                     const SyncWebSocketFactory& socket_factory,
                     DeviceManager* device_manager,
                     const Capabilities& capabilities,
@@ -698,21 +698,21 @@ Status LaunchChrome(URLRequestContextGetter* context_getter,
   if (capabilities.IsRemoteBrowser()) {
     // TODO(johnchen): Clean up naming for ChromeDriver sessions created
     // by connecting to an already-running Chrome at a given debuggerAddress.
-    return LaunchRemoteChromeSession(
-        context_getter, socket_factory, capabilities,
-        std::move(devtools_event_listeners), chrome);
+    return LaunchRemoteChromeSession(factory, socket_factory, capabilities,
+                                     std::move(devtools_event_listeners),
+                                     chrome);
   }
   const base::CommandLine* cmd_line = base::CommandLine::ForCurrentProcess();
   if (capabilities.IsAndroid()) {
-    return LaunchAndroidChrome(context_getter, socket_factory, capabilities,
+    return LaunchAndroidChrome(factory, socket_factory, capabilities,
                                std::move(devtools_event_listeners),
                                device_manager, chrome);
   } else if (cmd_line->HasSwitch("devtools-replay")) {
-    return LaunchReplayChrome(context_getter, socket_factory, capabilities,
+    return LaunchReplayChrome(factory, socket_factory, capabilities,
                               std::move(devtools_event_listeners), chrome,
                               w3c_compliant);
   } else {
-    return LaunchDesktopChrome(context_getter, socket_factory, capabilities,
+    return LaunchDesktopChrome(factory, socket_factory, capabilities,
                                std::move(devtools_event_listeners), chrome,
                                w3c_compliant);
   }

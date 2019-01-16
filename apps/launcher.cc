@@ -137,7 +137,7 @@ class PlatformAppPathLauncher
       return;
 
     if (entry_paths_.empty()) {
-      LaunchWithNoLaunchData();
+      LaunchWithBasicData();
       return;
     }
 
@@ -177,7 +177,8 @@ class PlatformAppPathLauncher
         LOG(WARNING) << "Cannot make absolute path from " << it->value();
         base::PostTaskWithTraits(
             FROM_HERE, {BrowserThread::UI},
-            base::Bind(&PlatformAppPathLauncher::LaunchWithNoLaunchData, this));
+            base::BindOnce(&PlatformAppPathLauncher::LaunchWithBasicData,
+                           this));
         return;
       }
     }
@@ -196,10 +197,10 @@ class PlatformAppPathLauncher
   }
 
   void OnFilesInvalid(const base::FilePath& /* error_path */) {
-    LaunchWithNoLaunchData();
+    LaunchWithBasicData();
   }
 
-  void LaunchWithNoLaunchData() {
+  void LaunchWithBasicData() {
     // This method is required as an entry point on the UI thread.
     DCHECK_CURRENTLY_ON(BrowserThread::UI);
 
@@ -210,6 +211,8 @@ class PlatformAppPathLauncher
     std::unique_ptr<app_runtime::LaunchData> launch_data =
         std::make_unique<app_runtime::LaunchData>();
     launch_data->action_data = std::move(action_data_);
+    if (!handler_id_.empty())
+      launch_data->id = std::make_unique<std::string>(handler_id_);
 
     AppRuntimeEventRouter::DispatchOnLaunchedEvent(
         context_, app, launch_source_, std::move(launch_data));
@@ -277,7 +280,7 @@ class PlatformAppPathLauncher
     // with no launch data.
     if (!handler) {
       LOG(WARNING) << "Extension does not provide a valid file handler.";
-      LaunchWithNoLaunchData();
+      LaunchWithBasicData();
       return;
     }
 

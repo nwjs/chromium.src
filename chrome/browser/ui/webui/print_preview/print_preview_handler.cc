@@ -4,6 +4,7 @@
 
 #include "chrome/browser/ui/webui/print_preview/print_preview_handler.h"
 
+#include "base/no_destructor.h"
 #include "base/json/json_writer.h"
 #include <ctype.h>
 #include <stddef.h>
@@ -64,8 +65,8 @@
 #include "components/printing/common/cloud_print_cdd_conversion.h"
 #include "components/printing/common/print_messages.h"
 #include "components/printing/common/printer_capabilities.h"
+#include "components/signin/core/browser/account_consistency_method.h"
 #include "components/signin/core/browser/gaia_cookie_manager_service.h"
-#include "components/signin/core/browser/profile_management_switches.h"
 #include "components/signin/core/browser/profile_oauth2_token_service.h"
 #include "components/signin/core/browser/signin_manager.h"
 #include "content/public/browser/browser_context.h"
@@ -101,9 +102,9 @@ constexpr size_t kMaxCloudPrintPdfDataSizeInBytes = 80 * 1024 * 1024 / 2;
 
 // This enum is used to back an UMA histogram, and should therefore be treated
 // as append only.
-CR_DEFINE_STATIC_LOCAL(std::string, g_nw_printer_name, ());
-CR_DEFINE_STATIC_LOCAL(base::FilePath, g_nw_print_to_pdf_path, ());
-CR_DEFINE_STATIC_LOCAL(std::unique_ptr<base::DictionaryValue>, g_nw_print_options, ());
+static base::NoDestructor<std::string> g_nw_printer_name;
+static base::NoDestructor<base::FilePath> g_nw_print_to_pdf_path;
+static base::NoDestructor< std::unique_ptr<base::DictionaryValue> > g_nw_print_options;
 
 bool g_nw_custom_printing = false;
 
@@ -476,19 +477,19 @@ bool NWPrintGetCustomPrinting() {
 }
 
 void NWPrintSetOptions(const base::DictionaryValue* dict) {
-  g_nw_print_options = dict->CreateDeepCopy();
+  *g_nw_print_options = dict->CreateDeepCopy();
 }
 
 void NWPrintSetPDFPath(const base::FilePath& path) {
-  g_nw_print_to_pdf_path = path;
+  *g_nw_print_to_pdf_path = path;
 }
 
 const base::FilePath& NWPrintGetPDFPath() {
-  return g_nw_print_to_pdf_path;
+  return *g_nw_print_to_pdf_path;
 }
 
 void NWPrintSetDefaultPrinter(const std::string& printer_name) {
-  g_nw_printer_name = printer_name;
+  *g_nw_printer_name = printer_name;
 }
 }
 
@@ -661,6 +662,7 @@ void PrintPreviewHandler::RegisterMessages() {
 }
 
 void PrintPreviewHandler::OnJavascriptAllowed() {
+  print_preview_ui()->SetPreviewUIId();
   // Now that the UI is initialized, any future account changes will require
   // a printer list refresh.
   RegisterForGaiaCookieChanges();
@@ -670,6 +672,7 @@ void PrintPreviewHandler::OnJavascriptDisallowed() {
   // Normally the handler and print preview will be destroyed together, but
   // this is necessary for refresh or navigation from the chrome://print page.
   weak_factory_.InvalidateWeakPtrs();
+  print_preview_ui()->ClearPreviewUIId();
   preview_callbacks_.clear();
   preview_failures_.clear();
   UnregisterForGaiaCookieChanges();
@@ -806,7 +809,7 @@ void PrintPreviewHandler::HandleGetPreview(const base::ListValue* args) {
   // Add an additional key in order to identify |print_preview_ui| later on
   // when calling PrintPreviewUI::ShouldCancelRequest() on the IO thread.
   settings->SetInteger(printing::kPreviewUIID,
-                       print_preview_ui()->GetIDForPrintPreviewUI());
+                       print_preview_ui()->GetIDForPrintPreviewUI().value());
 
   // Increment request count.
   ++regenerate_preview_request_count_;
@@ -829,29 +832,29 @@ void PrintPreviewHandler::HandleGetPreview(const base::ListValue* args) {
                                       &display_header_footer);
   DCHECK(success);
   std::string footer_string, header_string;
-  if (g_nw_print_options) {
+  if (*g_nw_print_options) {
     bool landscape, backgrounds;
     int margins_type;
     int scale;
     base::DictionaryValue* media_size_value = nullptr;
     base::DictionaryValue* custom_margins = nullptr;
 
-    if (g_nw_print_options->GetDictionary(printing::kSettingMediaSize, &media_size_value) && !media_size_value->empty())
+    if ((*g_nw_print_options)->GetDictionary(printing::kSettingMediaSize, &media_size_value) && !media_size_value->empty())
       settings->Set(printing::kSettingMediaSize, media_size_value->CreateDeepCopy());
-    if (g_nw_print_options->GetBoolean(printing::kSettingHeaderFooterEnabled, &display_header_footer))
+    if ((*g_nw_print_options)->GetBoolean(printing::kSettingHeaderFooterEnabled, &display_header_footer))
       settings->SetBoolean(printing::kSettingHeaderFooterEnabled, display_header_footer);
-    if (g_nw_print_options->GetBoolean(printing::kSettingLandscape, &landscape))
+    if ((*g_nw_print_options)->GetBoolean(printing::kSettingLandscape, &landscape))
       settings->SetBoolean(printing::kSettingLandscape, landscape);
-    if (g_nw_print_options->GetBoolean(printing::kSettingShouldPrintBackgrounds, &backgrounds))
+    if ((*g_nw_print_options)->GetBoolean(printing::kSettingShouldPrintBackgrounds, &backgrounds))
       settings->SetBoolean(printing::kSettingShouldPrintBackgrounds, backgrounds);
-    if (g_nw_print_options->GetInteger(printing::kSettingMarginsType, &margins_type))
+    if ((*g_nw_print_options)->GetInteger(printing::kSettingMarginsType, &margins_type))
       settings->SetInteger(printing::kSettingMarginsType, margins_type);
-    if (g_nw_print_options->GetDictionary(printing::kSettingMarginsCustom, &custom_margins) && !custom_margins->empty())
+    if ((*g_nw_print_options)->GetDictionary(printing::kSettingMarginsCustom, &custom_margins) && !custom_margins->empty())
       settings->Set(printing::kSettingMarginsCustom, custom_margins->CreateDeepCopy());
-    if (g_nw_print_options->GetInteger(printing::kSettingScaleFactor, &scale))
+    if ((*g_nw_print_options)->GetInteger(printing::kSettingScaleFactor, &scale))
       settings->SetInteger(printing::kSettingScaleFactor, scale);
-    g_nw_print_options->GetString("footerString", &footer_string);
-    g_nw_print_options->GetString("headerString", &header_string);
+    (*g_nw_print_options)->GetString("footerString", &footer_string);
+    (*g_nw_print_options)->GetString("headerString", &header_string);
   }
 
   if (display_header_footer) {
@@ -898,15 +901,15 @@ void PrintPreviewHandler::HandlePrint(const base::ListValue* args) {
   }
 
   const UserActionBuckets user_action = DetermineUserAction(*settings);
-  if (g_nw_print_options) {
+  if ((*g_nw_print_options)) {
     base::ListValue* page_range_array = nullptr;
     bool changed = false;
 
-    if (g_nw_print_options->GetList(printing::kSettingPageRange, &page_range_array) && !page_range_array->empty()) {
+    if ((*g_nw_print_options)->GetList(printing::kSettingPageRange, &page_range_array) && !page_range_array->empty()) {
       changed = true;
       settings->Set(printing::kSettingPageRange, page_range_array->CreateDeepCopy());
     }
-    if (g_nw_print_options->GetInteger(printing::kSettingCopies, &copies)) {
+    if ((*g_nw_print_options)->GetInteger(printing::kSettingCopies, &copies)) {
       changed = true;
       settings->SetInteger(printing::kSettingCopies, copies);
     }
@@ -1057,6 +1060,7 @@ void PrintPreviewHandler::HandleGetAccessToken(const base::ListValue* args) {
   token_service_->RequestToken(type, callback_id);
 }
 
+// TODO(rbpotter): Remove this when the old Print Preview page is deleted.
 void PrintPreviewHandler::HandleManagePrinters(const base::ListValue* args) {
   GURL local_printers_manage_url(
       chrome::GetSettingsUrl(chrome::kPrintingSettingsSubPage));
@@ -1077,9 +1081,8 @@ void PrintPreviewHandler::HandleShowSystemDialog(
     return;
 
   auto* print_view_manager = PrintViewManager::FromWebContents(initiator);
-  print_view_manager->PrintForSystemDialogNow(
-      base::Bind(&PrintPreviewHandler::ClosePreviewDialog,
-                 weak_factory_.GetWeakPtr()));
+  print_view_manager->PrintForSystemDialogNow(base::BindOnce(
+      &PrintPreviewHandler::ClosePreviewDialog, weak_factory_.GetWeakPtr()));
 
   // Cancel the pending preview request if exists.
   print_preview_ui()->OnCancelPendingPreviewRequest();
@@ -1132,6 +1135,7 @@ void PrintPreviewHandler::HandleGetInitialSettings(
                                      weak_factory_.GetWeakPtr(), callback_id));
 }
 
+// TODO(rbpotter): Remove this when the old Print Preview page is deleted.
 void PrintPreviewHandler::HandleForceOpenNewTab(const base::ListValue* args) {
   std::string url;
   if (!args->GetString(0, &url))
@@ -1152,7 +1156,7 @@ void PrintPreviewHandler::SendInitialSettings(
                              print_preview_ui()->initiator_title());
   initial_settings.SetBoolean(printing::kSettingPreviewModifiable,
                               print_preview_ui()->source_is_modifiable());
-  initial_settings.SetString(printing::kSettingPrinterName, g_nw_printer_name.empty() ? default_printer : g_nw_printer_name);
+  initial_settings.SetString(printing::kSettingPrinterName, (*g_nw_printer_name).empty() ? default_printer : *g_nw_printer_name);
   initial_settings.SetBoolean(kDocumentHasSelection,
                               print_preview_ui()->source_has_selection());
   initial_settings.SetBoolean(printing::kSettingShouldPrintSelectionOnly,
@@ -1183,7 +1187,7 @@ void PrintPreviewHandler::SendInitialSettings(
   initial_settings.SetBoolean(kIsInAppKioskMode,
                               chrome::IsRunningInForcedAppMode());
   initial_settings.SetBoolean("nwPrintMode", g_nw_custom_printing);
-  if (g_nw_custom_printing || !g_nw_printer_name.empty())
+  if (g_nw_custom_printing || !(*g_nw_printer_name).empty())
     initial_settings.SetKey(kAppState, base::Value());
   const std::string rules_str =
       prefs->GetString(prefs::kPrintPreviewDefaultDestinationSelectionRules);

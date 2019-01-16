@@ -6,7 +6,6 @@
 
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
 
-#include "base/auto_reset.h"
 #include "base/command_line.h"
 #include "base/logging.h"
 #include "base/mac/call_with_eh_frame.h"
@@ -103,12 +102,6 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 
 }  // namespace
 
-// Method exposed for the purposes of overriding.
-// Used to determine when a Panel window can become the key window.
-@interface NSApplication (PanelsCanBecomeKey)
-- (void)_cycleWindowsReversed:(BOOL)arg1;
-@end
-
 @interface BrowserCrApplication ()<NativeEventProcessor> {
   base::ObserverList<content::NativeEventProcessorObserver>::Unchecked
       observers_;
@@ -135,14 +128,6 @@ std::string DescriptionForNSEvent(NSEvent* event) {
       self.appearance = [NSAppearance appearanceNamed:NSAppearanceNameDarkAqua];
     }
   }
-
-  // Sanity check to alert if overridden methods are not supported.
-  DCHECK([NSApplication
-      instancesRespondToSelector:@selector(_cycleWindowsReversed:)]);
-  DCHECK([NSApplication
-      instancesRespondToSelector:@selector(_removeWindow:)]);
-  DCHECK([NSApplication
-      instancesRespondToSelector:@selector(_setKeyWindow:)]);
 
   return self;
 }
@@ -373,15 +358,6 @@ std::string DescriptionForNSEvent(NSEvent* event) {
       accessibility_state->DisableAccessibility();
   }
   return [super accessibilitySetValue:value forAttribute:attribute];
-}
-
-- (void)_cycleWindowsReversed:(BOOL)arg1 {
-  base::AutoReset<BOOL> pin(&cyclingWindows_, YES);
-  [super _cycleWindowsReversed:arg1];
-}
-
-- (BOOL)isCyclingWindows {
-  return cyclingWindows_;
 }
 
 - (void)addNativeEventProcessorObserver:

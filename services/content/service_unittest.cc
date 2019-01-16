@@ -37,6 +37,9 @@ class TestNavigableContentsClient : public mojom::NavigableContentsClient {
                                response_headers) override {}
   void DidStopLoading() override {}
   void DidAutoResizeView(const gfx::Size& new_size) override {}
+  void DidSuppressNavigation(const GURL& url,
+                             WindowOpenDisposition disposition,
+                             bool from_user_gesture) override {}
 
   DISALLOW_COPY_AND_ASSIGN(TestNavigableContentsClient);
 };
@@ -57,6 +60,11 @@ class TestNavigableContentsDelegate : public NavigableContentsDelegate {
     last_navigated_url_ = url;
     if (navigation_callback_)
       navigation_callback_.Run();
+  }
+
+  void GoBack(
+      content::mojom::NavigableContents::GoBackCallback callback) override {
+    std::move(callback).Run(false /* success */);
   }
 
   gfx::NativeView GetNativeView() override { return nullptr; }

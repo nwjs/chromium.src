@@ -11,6 +11,7 @@
 
 #include "extensions/common/draggable_region.h"
 
+#include "base/callback_forward.h"
 #include "base/macros.h"
 #include "base/memory/ref_counted.h"
 #include "base/memory/weak_ptr.h"
@@ -51,7 +52,11 @@ class TabHelper : public content::WebContentsObserver,
  public:
   ~TabHelper() override;
 
-  void CreateHostedAppFromWebContents(bool shortcut_app_requested);
+  using OnceInstallCallback =
+      base::OnceCallback<void(const ExtensionId& app_id, bool success)>;
+
+  void CreateHostedAppFromWebContents(bool shortcut_app_requested,
+                                      OnceInstallCallback callback);
   void UpdateDraggableRegions(content::RenderFrameHost* sender,
                               const std::vector<DraggableRegion>& regions);
   bool CanCreateBookmarkApp() const;
@@ -193,6 +198,9 @@ class TabHelper : public content::WebContentsObserver,
   std::unique_ptr<ActiveTabPermissionGranter> active_tab_permission_granter_;
 
   std::unique_ptr<BookmarkAppHelper> bookmark_app_helper_;
+
+  // Reponse to CreateHostedAppFromWebContents request.
+  OnceInstallCallback install_callback_;
 
   ScopedObserver<ExtensionRegistry, ExtensionRegistryObserver>
       registry_observer_;

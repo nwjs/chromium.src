@@ -54,7 +54,10 @@
       <structure name="IDR_SIGNIN_SHARED_CSS_HTML" file="resources\signin\signin_shared_css.html" preprocess="true" allowexternalscript="true" type="chrome_html" />
     </structures>
     <includes>
+        <include name="IDR_DISCARDS_GRAPH_TAB_HTML" file="${root_gen_dir}\chrome\browser\resources\discards\graph_tab.html" compress="gzip" use_base_dir="false" allowexternalscript="true" type="BINDATA" />
+        <include name="IDR_DISCARDS_GRAPH_TAB_JS" file="resources\discards\graph_tab.js" compress="gzip" type="BINDATA" />
       <if expr="is_win or is_macosx or is_linux">
+        <include name="IDR_DISCARDS_MOJO_API_HTML" file="resources\discards\mojo_api.html" compress="gzip" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_DISCARDS_DATABASE_TAB_HTML" file="resources\discards\database_tab.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
         <include name="IDR_DISCARDS_DATABASE_TAB_JS" file="resources\discards\database_tab.js" type="BINDATA" />
         <include name="IDR_DISCARDS_DISCARDS_MAIN_HTML" file="resources\discards\discards_main.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
@@ -197,6 +200,12 @@
         <include name="IDR_HELP_PAGE_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
         <include name="IDR_CHANNEL_CHANGE_PAGE_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       </if>
+      <include name="IDR_APP_MANAGEMENT_MOJO_LITE_JS" file="${root_gen_dir}\chrome\browser\ui\webui\app_management\app_management.mojom-lite.js" use_base_dir="false" type="BINDATA" />
+      <include name="IDR_APP_MANAGEMENT_APP_HTML" file="resources\app_management\app.html" type="BINDATA" />
+      <include name="IDR_APP_MANAGEMENT_APP_JS" file="resources\app_management\app.js" type="BINDATA" />
+      <include name="IDR_APP_MANAGEMENT_BROWSER_PROXY_HTML" file="resources\app_management\browser_proxy.html" type="BINDATA" />
+      <include name="IDR_APP_MANAGEMENT_BROWSER_PROXY_JS" file="resources\app_management\browser_proxy.js" type="BINDATA" />
+      <include name="IDR_APP_MANAGEMENT_INDEX_HTML" file="resources\app_management\index.html" type="BINDATA" />
       <include name="IDR_HISTORY_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_HISTORY_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_OTHER_DEVICES_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
@@ -234,14 +243,6 @@
         <include name="IDR_LOCAL_DISCOVERY_PRINTER_PNG" file="resources\empty.png" type="BINDATA" />
       </if>
 
-      <include name="IDR_INSTANT_IFRAME_VALIDATION_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_LOCAL_NTP_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_LOCAL_NTP_CSS" file="resources\empty.css" type="BINDATA" />
-      <include name="IDR_LOCAL_NTP_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_LOCAL_NTP_VOICE_CSS" file="resources\empty.css" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_LOCAL_NTP_VOICE_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_LOCAL_NTP_CUSTOM_BACKGROUNDS_CSS" file="resources\empty.css" flattenhtml="true" type="BINDATA" />
-      <include name="IDR_LOCAL_NTP_CUSTOM_BACKGROUNDS_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_LOCAL_NTP_FAST_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_LOCAL_NTP_FAST_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_LOCAL_NTP_FAST_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
@@ -249,23 +250,14 @@
       <include name="IDR_LOCAL_NTP_DESIGN_JS" file="resources\empty.js" flattenhtml="true" type="BINDATA" />
       <include name="IDR_LOCAL_STATE_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_LOCAL_STATE_JS" file="resources\empty.js" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_IFRAME_CSS" file="resources\empty.css" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_TITLE_HTML" file="resources\empty.html" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_TITLE_CSS" file="resources\empty.css" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_TITLE_JS" file="resources\empty.js" type="BINDATA" />
       <include name="IDR_MOST_VISITED_THUMBNAIL_HTML" file="resources\empty.html" type="BINDATA" />
       <include name="IDR_MOST_VISITED_THUMBNAIL_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_MOST_VISITED_THUMBNAIL_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_SINGLE_HTML" file="resources\empty.html" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_SINGLE_CSS" file="resources\empty.css" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_SINGLE_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_MOST_VISITED_UTIL_JS" file="resources\empty.js" type="BINDATA" flattenhtml="true" />
       <include name="IDR_MOST_VISITED_WINDOW_DISPOSITION_UTIL_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_CUSTOM_LINKS_EDIT_HTML" file="resources\empty.html" type="BINDATA" />
-      <include name="IDR_CUSTOM_LINKS_EDIT_CSS" file="resources\empty.css" type="BINDATA" />
-      <include name="IDR_CUSTOM_LINKS_EDIT_JS" file="resources\empty.js" type="BINDATA" />
-      <include name="IDR_CUSTOM_LINKS_ADD_SVG" file="resources\local_ntp\icons\add_link.svg" type="BINDATA" />
-      <include name="IDR_CUSTOM_LINKS_EDIT_MENU_SVG" file="resources\local_ntp\icons\edit_menu.svg" type="BINDATA" />
+      <include name="IDR_OMNIBOX_COLUMN_WIDTHS_CSS" file="resources\omnibox\omnibox_column_widths.css" type="BINDATA" compress="gzip" />
+      <include name="IDR_OMNIBOX_ELEMENT_JS" file="resources\omnibox\omnibox_element.js" type="BINDATA" compress="gzip" />
+      <include name="IDR_OMNIBOX_INPUTS_JS" file="resources\omnibox\omnibox_inputs.js" type="BINDATA" compress="gzip" />
+      <include name="IDR_OMNIBOX_OUTPUT_JS" file="resources\omnibox\omnibox_output.js" type="BINDATA" compress="gzip" />
       <include name="IDR_OMNIBOX_HTML" file="resources\empty.html" flattenhtml="true" allowexternalscript="true" type="BINDATA" />
       <include name="IDR_OMNIBOX_CSS" file="resources\empty.css" type="BINDATA" />
       <include name="IDR_OMNIBOX_JS" file="resources\empty.js" type="BINDATA" />

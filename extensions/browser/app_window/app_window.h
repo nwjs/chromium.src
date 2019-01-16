@@ -475,7 +475,7 @@ class AppWindow : public content::WebContentsDelegate,
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) override;
   void ActivateContents(content::WebContents* contents) override;
-  void HandleKeyboardEvent(
+  bool HandleKeyboardEvent(
       content::WebContents* source,
       const content::NativeWebKeyboardEvent& event) override;
   void RequestToLockMouse(content::WebContents* web_contents,

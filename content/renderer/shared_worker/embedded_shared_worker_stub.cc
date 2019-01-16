@@ -16,6 +16,7 @@
 #include "content/public/common/content_client.h"
 #include "content/public/common/content_features.h"
 #include "content/public/common/content_switches.h"
+#include "content/public/common/network_service_util.h"
 #include "content/public/common/origin_util.h"
 #include "content/public/common/renderer_preferences.h"
 #include "content/public/renderer/content_renderer_client.h"
@@ -70,7 +71,7 @@ class SharedWorkerWebApplicationCacheHostImpl
       const WebApplicationCacheHost* spawning_host) override {}
   void DidReceiveResponseForMainResource(
       const blink::WebURLResponse&) override {}
-  void DidReceiveDataForMainResource(const char* data, unsigned len) override {}
+  void DidReceiveDataForMainResource(const char* data, size_t len) override {}
   void DidFinishLoadingMainResource(bool success) override {}
 
   // Cache selection is also different for workers. We know at construction
@@ -203,14 +204,6 @@ class WebServiceWorkerNetworkProviderForSharedWorker
   std::unique_ptr<NavigationResponseOverrideParameters> response_override_;
 };
 
-// "ForSharedWorker" is to avoid collisions in Jumbo builds.
-bool IsOutOfProcessNetworkServiceForSharedWorker() {
-  return base::FeatureList::IsEnabled(network::features::kNetworkService) &&
-         !base::FeatureList::IsEnabled(features::kNetworkServiceInProcess) &&
-         !base::CommandLine::ForCurrentProcess()->HasSwitch(
-             switches::kSingleProcess);
-}
-
 }  // namespace
 
 EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
@@ -225,7 +218,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
     int appcache_host_id,
     network::mojom::URLLoaderFactoryAssociatedPtrInfo
         main_script_loader_factory,
-    blink::mojom::SharedWorkerMainScriptLoadParamsPtr main_script_load_params,
+    blink::mojom::WorkerMainScriptLoadParamsPtr main_script_load_params,
     std::unique_ptr<URLLoaderFactoryBundleInfo> factory_bundle,
     mojom::ControllerServiceWorkerInfoPtr controller_info,
     mojom::SharedWorkerHostPtr host,
@@ -250,8 +243,6 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
     response_override_->url_loader_client_endpoints =
         std::move(main_script_load_params->url_loader_client_endpoints);
     response_override_->response = main_script_load_params->response_head;
-    // TODO(nhiroki): Set |response_override_->redirects|.
-    // (https://crbug.com/715632)
     response_override_->redirect_responses =
         main_script_load_params->redirect_response_heads;
     response_override_->redirect_infos =
@@ -278,8 +269,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
     subresource_loader_factories_->Update(
         render_thread->blink_platform_impl()
             ->CreateDefaultURLLoaderFactoryBundle()
-            ->PassInterface(),
-        base::nullopt /* subresource_overrides */);
+            ->PassInterface());
   }
 
   // |factory_bundle| is provided in the
@@ -293,7 +283,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
     // The default factory might not be to the network service if a feature like
     // AppCache set itself to the default, but treat a connection error as fatal
     // anyway so clients don't get stuck.
-    if (IsOutOfProcessNetworkServiceForSharedWorker()) {
+    if (IsOutOfProcessNetworkService()) {
       default_factory_connection_error_handler_holder_.Bind(
           std::move(factory_bundle->default_factory_info()));
       default_factory_connection_error_handler_holder_->Clone(
@@ -305,8 +295,7 @@ EmbeddedSharedWorkerStub::EmbeddedSharedWorkerStub(
 
     subresource_loader_factories_->Update(
         std::make_unique<ChildURLLoaderFactoryBundleInfo>(
-            std::move(factory_bundle)),
-        base::nullopt /* subresource_overrides */);
+            std::move(factory_bundle)));
   }
 
   impl_->StartWorkerContext(nodejs_, root_path_,
@@ -410,7 +399,7 @@ void EmbeddedSharedWorkerStub::WaitForServiceWorkerControllerInfo(
   context->PingContainerHost(std::move(callback));
 }
 
-std::unique_ptr<blink::WebWorkerFetchContext>
+scoped_refptr<blink::WebWorkerFetchContext>
 EmbeddedSharedWorkerStub::CreateWorkerFetchContext(
     blink::WebServiceWorkerNetworkProvider* web_network_provider) {
   DCHECK(web_network_provider);
@@ -439,7 +428,7 @@ EmbeddedSharedWorkerStub::CreateWorkerFetchContext(
   std::unique_ptr<network::SharedURLLoaderFactoryInfo> fallback_factory =
       subresource_loader_factories_->CloneWithoutDefaultFactory();
 
-  auto worker_fetch_context = std::make_unique<WebWorkerFetchContextImpl>(
+  auto worker_fetch_context = base::MakeRefCounted<WebWorkerFetchContextImpl>(
       std::move(renderer_preferences_), std::move(preference_watcher_request_),
       std::move(worker_client_request),
       std::move(worker_client_registry_ptr_info),

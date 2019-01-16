@@ -502,7 +502,7 @@ content::KeyboardEventProcessingResult AppWindow::PreHandleKeyboardEvent(
   return content::KeyboardEventProcessingResult::NOT_HANDLED;
 }
 
-void AppWindow::HandleKeyboardEvent(
+bool AppWindow::HandleKeyboardEvent(
     WebContents* source,
     const content::NativeWebKeyboardEvent& event) {
 #if 0
@@ -512,10 +512,12 @@ void AppWindow::HandleKeyboardEvent(
   if (event.windows_key_code == ui::VKEY_ESCAPE && IsFullscreen() &&
       !IsForcedFullscreen()) {
     Restore();
-    return;
+    return true;
   }
+
 #endif
-  native_app_window_->HandleKeyboardEvent(event);
+
+  return native_app_window_->HandleKeyboardEvent(event);
 }
 
 void AppWindow::RequestToLockMouse(WebContents* web_contents,
@@ -537,8 +539,7 @@ bool AppWindow::PreHandleGestureEvent(WebContents* source,
     content::BrowserPluginGuestManager* guest_manager =
         source->GetBrowserContext()->GetGuestManager();
     if (guest_manager) {
-      const content::WebContents* guest_contents =
-          guest_manager->GetFullPageGuest(source);
+      content::WebContents* guest_contents = guest_manager->GetFullPageGuest(source);
       if (guest_contents) {
         const extensions::Extension* extension =
             extensions::ProcessManager::Get(guest_contents->GetBrowserContext())

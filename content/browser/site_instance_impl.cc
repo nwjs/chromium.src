@@ -61,6 +61,7 @@ SiteInstanceImpl::~SiteInstanceImpl() {
 // static
 scoped_refptr<SiteInstanceImpl> SiteInstanceImpl::Create(
     BrowserContext* browser_context) {
+  DCHECK(browser_context);
   return base::WrapRefCounted(
       new SiteInstanceImpl(new BrowsingInstance(browser_context)));
 }
@@ -69,6 +70,7 @@ scoped_refptr<SiteInstanceImpl> SiteInstanceImpl::Create(
 scoped_refptr<SiteInstanceImpl> SiteInstanceImpl::CreateForURL(
     BrowserContext* browser_context,
     const GURL& url) {
+  DCHECK(browser_context);
   // This will create a new SiteInstance and BrowsingInstance.
   scoped_refptr<BrowsingInstance> instance(
       new BrowsingInstance(browser_context));
@@ -316,6 +318,7 @@ BrowserContext* SiteInstanceImpl::GetBrowserContext() const {
 // static
 scoped_refptr<SiteInstance> SiteInstance::Create(
     BrowserContext* browser_context) {
+  DCHECK(browser_context);
   return SiteInstanceImpl::Create(browser_context);
 }
 
@@ -323,6 +326,7 @@ scoped_refptr<SiteInstance> SiteInstance::Create(
 scoped_refptr<SiteInstance> SiteInstance::CreateForURL(
     BrowserContext* browser_context,
     const GURL& url) {
+  DCHECK(browser_context);
   return SiteInstanceImpl::CreateForURL(browser_context, url);
 }
 
@@ -343,6 +347,8 @@ bool SiteInstanceImpl::IsSameWebSite(BrowserContext* browser_context,
                                      const GURL& real_src_url,
                                      const GURL& real_dest_url,
                                      bool should_compare_effective_urls) {
+  DCHECK(browser_context);
+
   GURL src_url =
       should_compare_effective_urls
           ? SiteInstanceImpl::GetEffectiveURL(browser_context, real_src_url)
@@ -561,6 +567,8 @@ bool SiteInstanceImpl::HasEffectiveURL(BrowserContext* browser_context,
 bool SiteInstanceImpl::DoesSiteRequireDedicatedProcess(
     BrowserContext* browser_context,
     const GURL& url) {
+  DCHECK(browser_context);
+
 #if 0
   // If --site-per-process is enabled, site isolation is enabled everywhere.
   if (SiteIsolationPolicy::UseDedicatedProcessesForAllSites())
@@ -598,6 +606,8 @@ bool SiteInstanceImpl::DoesSiteRequireDedicatedProcess(
 // static
 bool SiteInstanceImpl::ShouldLockToOrigin(BrowserContext* browser_context,
                                           GURL site_url) {
+  DCHECK(browser_context);
+
   // Don't lock to origin in --single-process mode, since this mode puts
   // cross-site pages into the same process.
   if (RenderProcessHost::run_renderer_in_process())

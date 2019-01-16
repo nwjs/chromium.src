@@ -497,6 +497,7 @@ extern const char kMultipleOverrides[];
 extern const char kNoWildCardsInPaths[];
 extern const char kNPAPIPluginsNotSupported[];
 extern const char kOneUISurfaceOnly[];
+extern const char kPermissionMarkedOptionalAndRequired[];
 extern const char kPermissionMustBeOptional[];
 extern const char kPermissionNotAllowed[];
 extern const char kPermissionNotAllowedInManifest[];

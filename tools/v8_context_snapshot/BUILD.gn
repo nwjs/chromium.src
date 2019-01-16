@@ -104,10 +104,15 @@ if (use_v8_context_snapshot) {
       "//services/service_manager/public/cpp",
       "//third_party/blink/public:blink",
       "//v8",
+      "//v8:v8_initializers",
     ]
 
     if (is_linux && !is_component_build) {
       configs += [ "//build/config/gcc:rpath_for_built_shared_libraries" ]
+    }
+    if (is_mac && !is_component_build) {
+      # linking with ffmpeg lib
+      ldflags = [ "-rpath", "@executable_path/." ]
     }
     configs += [
       "//v8:external_startup_data",

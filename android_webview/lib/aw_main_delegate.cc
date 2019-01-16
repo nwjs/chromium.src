@@ -101,8 +101,9 @@ bool AwMainDelegate::BasicStartupComplete(int* exit_code) {
   // WebView does not yet support screen orientation locking.
   cl->AppendSwitch(switches::kDisableScreenOrientationLock);
 
-  // WebView does not currently support Web Speech API (crbug.com/487255)
-  cl->AppendSwitch(switches::kDisableSpeechAPI);
+  // WebView does not currently support Web Speech Synthesis API,
+  // but it does support Web Speech Recognition API (crbug.com/487255).
+  cl->AppendSwitch(switches::kDisableSpeechSynthesisAPI);
 
   // WebView does not currently support the Permissions API (crbug.com/490120)
   cl->AppendSwitch(switches::kDisablePermissionsAPI);
@@ -231,8 +232,15 @@ void AwMainDelegate::PreSandboxStartup() {
 
   const base::CommandLine& command_line =
       *base::CommandLine::ForCurrentProcess();
+
   std::string process_type =
       command_line.GetSwitchValueASCII(switches::kProcessType);
+  const bool is_browser_process = process_type.empty();
+  if (!is_browser_process) {
+    base::i18n::SetICUDefaultLocale(
+        command_line.GetSwitchValueASCII(switches::kLang));
+  }
+
   int crash_signal_fd = -1;
   if (process_type == switches::kRendererProcess) {
     auto* global_descriptors = base::GlobalDescriptors::GetInstance();
@@ -256,7 +264,7 @@ void AwMainDelegate::PreSandboxStartup() {
     crash_signal_fd =
         global_descriptors->Get(kAndroidWebViewCrashSignalDescriptor);
   }
-  if (process_type.empty()) {
+  if (is_browser_process) {
     if (command_line.HasSwitch(switches::kWebViewSandboxedRenderer)) {
       process_type = breakpad::kBrowserProcessType;
     } else {
@@ -317,6 +325,7 @@ bool AwMainDelegate::ShouldCreateFeatureList() {
   return false;
 }
 
+// This function is called only on the browser process.
 void AwMainDelegate::PostEarlyInitialization(bool is_running_tests) {
   ui::SetLocalePaksStoredInApk(true);
   std::string locale = ui::ResourceBundle::InitSharedInstanceWithLocale(
@@ -334,10 +343,15 @@ void AwMainDelegate::PostEarlyInitialization(bool is_running_tests) {
   base::PathService::Get(ui::DIR_RESOURCE_PAKS_ANDROID, &pak_file_path);
   pak_file_path = pak_file_path.AppendASCII("resources.pak");
   ui::LoadMainAndroidPackFile("assets/resources.pak", pak_file_path);
+
+  aw_feature_list_creator_->CreateFeatureListAndFieldTrials();
 }
 
 content::ContentBrowserClient* AwMainDelegate::CreateContentBrowserClient() {
-  content_browser_client_.reset(new AwContentBrowserClient());
+  DCHECK(!aw_feature_list_creator_);
+  aw_feature_list_creator_ = std::make_unique<AwFeatureListCreator>();
+  content_browser_client_.reset(
+      new AwContentBrowserClient(aw_feature_list_creator_.get()));
   return content_browser_client_.get();
 }
 

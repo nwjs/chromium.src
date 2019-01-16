@@ -355,6 +355,9 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
     CR_MESSAGE_HANDLER_EX(WM_POINTERUPDATE, OnPointerEvent)
     CR_MESSAGE_HANDLER_EX(WM_POINTERENTER, OnPointerEvent)
     CR_MESSAGE_HANDLER_EX(WM_POINTERLEAVE, OnPointerEvent)
+    CR_MESSAGE_HANDLER_EX(WM_NCPOINTERDOWN, OnPointerEvent)
+    CR_MESSAGE_HANDLER_EX(WM_NCPOINTERUP, OnPointerEvent)
+    CR_MESSAGE_HANDLER_EX(WM_NCPOINTERUPDATE, OnPointerEvent)
 
     // Key events.
     CR_MESSAGE_HANDLER_EX(WM_KEYDOWN, OnKeyEvent)
@@ -518,13 +521,6 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   LRESULT HandlePointerEventTypePen(UINT message,
                                     WPARAM w_param,
                                     LPARAM l_param);
-
-  LRESULT GenerateMouseEventFromPointerEvent(
-      UINT message,
-      UINT32 pointer_id,
-      const POINTER_INFO& pointer_info,
-      const gfx::Point& point,
-      const ui::PointerDetails& pointer_details);
 
   // Returns true if the mouse message passed in is an OS synthesized mouse
   // message.
@@ -695,6 +691,11 @@ class VIEWS_EXPORT HWNDMessageHandler : public gfx::WindowImpl,
   // This member variable is set to true if the window is transitioning to
   // glass. Defaults to false.
   bool dwm_transition_desired_;
+
+  // Is DWM composition currently enabled?
+  // Note: According to MSDN docs for DwmIsCompositionEnabled(), this is always
+  // true starting in Windows 8.
+  bool dwm_composition_enabled_;
 
   // True if HandleWindowSizeChanging has been called in the delegate, but not
   // HandleClientSizeChanged.

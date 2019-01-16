@@ -69,8 +69,8 @@ VIEWS_EXPORT
 @property(assign, nonatomic) CALayer* forceCPUDrawLayer;
 
 // Initialize the NSView -> views::View bridge. |viewToHost| must be non-NULL.
-- (id)initWithBridge:(views::BridgedNativeWidgetImpl*)bridge
-              bounds:(gfx::Rect)rect;
+- (instancetype)initWithBridge:(views::BridgedNativeWidgetImpl*)bridge
+                        bounds:(gfx::Rect)rect;
 
 // Clear the hosted view. For example, if it is about to be destroyed.
 - (void)clearView;

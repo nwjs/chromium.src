@@ -2044,35 +2044,44 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 }
 
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, NoPromptOnBack) {
-  // Go to a successful landing page through submitting first, so that it is
-  // reachable through going back, and the remembered page transition is form
-  // submit. There is no need to submit non-empty strings.
-  NavigateToFile("/password/password_form.html");
+  for (bool new_parser_enabled : {false, true}) {
+    base::test::ScopedFeatureList scoped_feature_list;
+    if (new_parser_enabled) {
+      scoped_feature_list.InitAndEnableFeature(
+          features::kNewPasswordFormParsing);
+    } else {
+      scoped_feature_list.InitAndDisableFeature(
+          features::kNewPasswordFormParsing);
+    }
+    // Go to a successful landing page through submitting first, so that it is
+    // reachable through going back, and the remembered page transition is form
+    // submit. There is no need to submit non-empty strings.
+    NavigateToFile("/password/password_form.html");
 
-  NavigationObserver dummy_submit_observer(WebContents());
-  std::string just_submit =
-      "document.getElementById('input_submit_button').click()";
-  ASSERT_TRUE(content::ExecuteScript(WebContents(), just_submit));
-  dummy_submit_observer.Wait();
+    NavigationObserver dummy_submit_observer(WebContents());
+    std::string just_submit =
+        "document.getElementById('input_submit_button').click()";
+    ASSERT_TRUE(content::ExecuteScript(WebContents(), just_submit));
+    dummy_submit_observer.Wait();
 
-  // Now go to a page with a form again, fill the form, and go back instead of
-  // submitting it.
-  NavigateToFile("/password/dummy_submit.html");
+    // Now go to a page with a form again, fill the form, and go back instead of
+    // submitting it.
+    NavigateToFile("/password/dummy_submit.html");
 
-  NavigationObserver observer(WebContents());
-  std::unique_ptr<BubbleObserver> prompt_observer(
-      new BubbleObserver(WebContents()));
-  // The (dummy) submit is necessary to provisionally save the typed password. A
-  // user typing in the password field would not need to submit to provisionally
-  // save it, but the script cannot trigger that just by assigning to the
-  // field's value.
-  std::string fill_and_back =
-      "document.getElementById('password_field').value = 'random';"
-      "document.getElementById('input_submit_button').click();"
-      "window.history.back();";
-  ASSERT_TRUE(content::ExecuteScript(WebContents(), fill_and_back));
-  observer.Wait();
-  EXPECT_FALSE(prompt_observer->IsSavePromptShownAutomatically());
+    NavigationObserver observer(WebContents());
+    BubbleObserver prompt_observer(WebContents());
+    // The (dummy) submit is necessary to provisionally save the typed password.
+    // A user typing in the password field would not need to submit to
+    // provisionally save it, but the script cannot trigger that just by
+    // assigning to the field's value.
+    std::string fill_and_back =
+        "document.getElementById('password_field').value = 'random';"
+        "document.getElementById('input_submit_button').click();"
+        "window.history.back();";
+    ASSERT_TRUE(content::ExecuteScript(WebContents(), fill_and_back));
+    observer.Wait();
+    EXPECT_FALSE(prompt_observer.IsSavePromptShownAutomatically());
+  }
 }
 
 // Regression test for http://crbug.com/452306
@@ -3565,51 +3574,61 @@ IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest,
 // password manager works even though it should be disabled on the previous
 // page.
 IN_PROC_BROWSER_TEST_F(PasswordManagerBrowserTest, CorrectEntryForHttpAuth) {
-  // The embedded_test_server() is already started at this point and adding the
-  // request handler to it would not be thread safe. Therefore, use a new
-  // server.
-  net::EmbeddedTestServer http_test_server;
+  for (bool new_parser_enabled : {false, true}) {
+    base::test::ScopedFeatureList scoped_feature_list;
+    if (new_parser_enabled) {
+      scoped_feature_list.InitAndEnableFeature(
+          features::kNewPasswordFormParsing);
+    } else {
+      scoped_feature_list.InitAndDisableFeature(
+          features::kNewPasswordFormParsing);
+    }
+    // The embedded_test_server() is already started at this point and adding
+    // the request handler to it would not be thread safe. Therefore, use a new
+    // server.
+    net::EmbeddedTestServer http_test_server;
 
-  // Teach the embedded server to handle requests by issuing the basic auth
-  // challenge.
-  http_test_server.RegisterRequestHandler(base::Bind(&HandleTestAuthRequest));
-  ASSERT_TRUE(http_test_server.Start());
+    // Teach the embedded server to handle requests by issuing the basic auth
+    // challenge.
+    http_test_server.RegisterRequestHandler(base::Bind(&HandleTestAuthRequest));
+    ASSERT_TRUE(http_test_server.Start());
 
-  LoginPromptBrowserTestObserver login_observer;
-  login_observer.Register(content::Source<content::NavigationController>(
-      &WebContents()->GetController()));
+    LoginPromptBrowserTestObserver login_observer;
+    login_observer.Register(content::Source<content::NavigationController>(
+        &WebContents()->GetController()));
 
-  // Navigate to about:blank first. This is a page where password manager should
-  // not work.
-  ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
+    // Navigate to about:blank first. This is a page where password manager
+    // should not work.
+    ui_test_utils::NavigateToURL(browser(), GURL("about:blank"));
 
-  // Navigate to a page requiring HTTP auth. Wait for the tab to get the correct
-  // WebContents, but don't wait for navigation, which only finishes after
-  // authentication.
-  ui_test_utils::NavigateToURLWithDisposition(
-      browser(), http_test_server.GetURL("/basic_auth"),
-      WindowOpenDisposition::CURRENT_TAB, ui_test_utils::BROWSER_TEST_NONE);
+    // Navigate to a page requiring HTTP auth. Wait for the tab to get the
+    // correct WebContents, but don't wait for navigation, which only finishes
+    // after authentication.
+    ui_test_utils::NavigateToURLWithDisposition(
+        browser(), http_test_server.GetURL("/basic_auth"),
+        WindowOpenDisposition::CURRENT_TAB, ui_test_utils::BROWSER_TEST_NONE);
 
-  content::NavigationController* nav_controller =
-      &WebContents()->GetController();
-  NavigationObserver nav_observer(WebContents());
-  WindowedAuthNeededObserver auth_needed_observer(nav_controller);
-  auth_needed_observer.Wait();
+    content::NavigationController* nav_controller =
+        &WebContents()->GetController();
+    NavigationObserver nav_observer(WebContents());
+    WindowedAuthNeededObserver auth_needed_observer(nav_controller);
+    auth_needed_observer.Wait();
 
-  WindowedAuthSuppliedObserver auth_supplied_observer(nav_controller);
-  // Offer valid credentials on the auth challenge.
-  ASSERT_EQ(1u, login_observer.handlers().size());
-  LoginHandler* handler = *login_observer.handlers().begin();
-  ASSERT_TRUE(handler);
-  // Any username/password will work.
-  handler->SetAuth(base::UTF8ToUTF16("user"), base::UTF8ToUTF16("pwd"));
-  auth_supplied_observer.Wait();
+    WindowedAuthSuppliedObserver auth_supplied_observer(nav_controller);
+    // Offer valid credentials on the auth challenge.
+    ASSERT_EQ(1u, login_observer.handlers().size());
+    LoginHandler* handler = *login_observer.handlers().begin();
+    ASSERT_TRUE(handler);
+    // Any username/password will work.
+    handler->SetAuth(base::UTF8ToUTF16("user"), base::UTF8ToUTF16("pwd"));
+    auth_supplied_observer.Wait();
 
-  // The password manager should be working correctly.
-  nav_observer.Wait();
-  WaitForPasswordStore();
-  BubbleObserver bubble_observer(WebContents());
-  EXPECT_TRUE(bubble_observer.IsSavePromptShownAutomatically());
+    // The password manager should be working correctly.
+    nav_observer.Wait();
+    WaitForPasswordStore();
+    BubbleObserver bubble_observer(WebContents());
+    EXPECT_TRUE(bubble_observer.IsSavePromptShownAutomatically());
+  }
 }
 
 // Test that if HTTP auth login (i.e., credentials not put through web forms)

@@ -20,8 +20,8 @@
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_gesture_recognizer.h"
 #import "ios/chrome/browser/ui/overscroll_actions/overscroll_actions_view.h"
 #import "ios/chrome/browser/ui/page_info/page_info_legacy_coordinator.h"
-#include "ios/chrome/browser/ui/rtl_geometry.h"
-#include "ios/chrome/browser/ui/uikit_ui_util.h"
+#include "ios/chrome/browser/ui/util/rtl_geometry.h"
+#include "ios/chrome/browser/ui/util/uikit_ui_util.h"
 #import "ios/chrome/browser/ui/voice/voice_search_notification_names.h"
 #include "ios/public/provider/chrome/browser/chrome_browser_provider.h"
 #import "ios/public/provider/chrome/browser/ui/fullscreen_provider.h"
@@ -264,7 +264,6 @@ NSString* const kOverscrollActionsDidEnd = @"OverscrollActionsDidStop";
 @implementation OverscrollActionsController
 
 @synthesize overscrollActionView = _overscrollActionView;
-@synthesize initialHeaderInset = _initialHeaderInset;
 @synthesize initialHeaderHeight = _initialHeaderHeight;
 @synthesize overscrollState = _overscrollState;
 @synthesize delegate = _delegate;
@@ -387,12 +386,7 @@ NSString* const kOverscrollActionsDidEnd = @"OverscrollActionsDidStop";
   CGFloat topMargin = 0;
   if (!_webViewProxy && base::FeatureList::IsEnabled(
                             web::features::kBrowserContainerFullscreen)) {
-    CGFloat topMargin = 0.0;
-    if (@available(iOS 11, *)) {
-      topMargin = self.scrollView.safeAreaInsets.top;
-    } else {
-      topMargin = StatusBarHeight();
-    }
+    topMargin = self.scrollView.safeAreaInsets.top;
   }
   if (contentOffsetFromExpandedHeader >= 0) {
     // Record initial content offset and dispatch delegate on state change.
@@ -876,11 +870,7 @@ NSString* const kOverscrollActionsDidEnd = @"OverscrollActionsDidStop";
 }
 
 - (CGFloat)initialHeaderInset {
-  if (_initialHeaderInset == 0) {
-    _initialHeaderInset =
-        [[self delegate] overscrollActionsControllerHeaderInset:self];
-  }
-  return _initialHeaderInset;
+  return [self.delegate overscrollActionsControllerHeaderInset:self];
 }
 
 #pragma mark - Bounce dynamic

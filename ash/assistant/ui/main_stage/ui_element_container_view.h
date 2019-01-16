@@ -10,7 +10,6 @@
 #include <utility>
 #include <vector>
 
-#include "ash/assistant/assistant_response_processor.h"
 #include "ash/assistant/model/assistant_interaction_model_observer.h"
 #include "ash/assistant/ui/base/assistant_scroll_view.h"
 #include "base/macros.h"
@@ -44,6 +43,7 @@ class UiElementContainerView : public AssistantScrollView,
   const char* GetClassName() const override;
   gfx::Size CalculatePreferredSize() const override;
   int GetHeightForWidth(int width) const override;
+  gfx::Size GetMinimumSize() const override;
   void OnContentsPreferredSizeChanged(views::View* content_view) override;
   void PreferredSizeChanged() override;
 

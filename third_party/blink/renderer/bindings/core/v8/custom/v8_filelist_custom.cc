@@ -6,7 +6,7 @@
 #include "third_party/blink/renderer/core/frame/local_frame.h"
 
 namespace blink {
-void V8FileList::constructorCustom(const v8::FunctionCallbackInfo<v8::Value>& args)
+void V8FileList::ConstructorCustom(const v8::FunctionCallbackInfo<v8::Value>& args)
 {
   ExecutionContext* context = CurrentExecutionContext(args.GetIsolate());
   if (context && context->IsDocument()) {

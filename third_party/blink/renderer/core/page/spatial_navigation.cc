@@ -46,10 +46,7 @@
 
 namespace blink {
 
-using namespace HTMLNames;
-
 static void DeflateIfOverlapped(LayoutRect&, LayoutRect&);
-static bool IsScrollableNode(const Node*);
 
 FocusCandidate::FocusCandidate(Node* node, WebFocusType direction)
     : visible_node(nullptr),
@@ -667,37 +664,6 @@ void DistanceDataForNode(WebFocusType direction,
   candidate.distance = sqrt(euclidian_distance_pow2) +
                        navigation_axis_distance +
                        weighted_orthogonal_axis_distance - sqrt(overlap);
-}
-
-bool CanBeScrolledIntoView(WebFocusType direction,
-                           const FocusCandidate& candidate) {
-  DCHECK(candidate.visible_node);
-  DCHECK(candidate.is_offscreen);
-  LayoutRect candidate_rect = candidate.rect_in_root_frame;
-  // TODO(ecobos@igalia.com): Investigate interaction with Shadow DOM.
-  for (Node& parent_node :
-       NodeTraversal::AncestorsOf(*candidate.visible_node)) {
-    if (UNLIKELY(!parent_node.GetLayoutObject())) {
-      DCHECK(parent_node.IsElementNode() &&
-             ToElement(parent_node).HasDisplayContentsStyle());
-      continue;
-    }
-
-    LayoutRect parent_rect = NodeRectInRootFrame(&parent_node);
-    if (!candidate_rect.Intersects(parent_rect)) {
-      if (((direction == kWebFocusTypeLeft ||
-            direction == kWebFocusTypeRight) &&
-           parent_node.GetLayoutObject()->Style()->OverflowX() ==
-               EOverflow::kHidden) ||
-          ((direction == kWebFocusTypeUp || direction == kWebFocusTypeDown) &&
-           parent_node.GetLayoutObject()->Style()->OverflowY() ==
-               EOverflow::kHidden))
-        return false;
-    }
-    if (parent_node == candidate.enclosing_scrollable_box)
-      return CanScrollInDirection(&parent_node, direction);
-  }
-  return true;
 }
 
 // Returns a thin rectangle that represents one of box's sides.

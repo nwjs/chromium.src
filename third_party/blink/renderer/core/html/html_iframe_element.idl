@@ -33,7 +33,7 @@ interface HTMLIFrameElement : HTMLElement {
     [CEReactions, Reflect] attribute boolean allowFullscreen;
     [CEReactions, Reflect] attribute boolean nwdisable;
     [CEReactions, Reflect] attribute boolean nwfaketop;
-    [CEReactions, Reflect, TreatNullAs=NullString, Custom=Setter] attribute DOMString nwUserAgent;
+    [CEReactions, Reflect, TreatNullAs=EmptyString, Custom=Setter] attribute DOMString nwUserAgent;
     [CEReactions, Reflect] attribute DOMString width;
     [CEReactions, Reflect] attribute DOMString height;
 

@@ -164,6 +164,9 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
 
   ~WebViewGuest() override;
 
+  void ClearCodeCache(base::Time remove_since,
+                      uint32_t removal_mask,
+                      const base::Closure& callback);
   void ClearDataInternal(const base::Time remove_since,
                          uint32_t removal_mask,
                          const base::Closure& callback);
@@ -212,7 +215,7 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
                               const base::string16& source_id) final;
   void CloseContents(content::WebContents* source) final;
   bool HandleContextMenu(const content::ContextMenuParams& params) final;
-  void HandleKeyboardEvent(content::WebContents* source,
+  bool HandleKeyboardEvent(content::WebContents* source,
                            const content::NativeWebKeyboardEvent& event) final;
   void LoadProgressChanged(content::WebContents* source, double progress) final;
   bool PreHandleGestureEvent(content::WebContents* source,
@@ -268,6 +271,8 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   // WebContentsObserver implementation.
   void DidStartNavigation(content::NavigationHandle* navigation_handle) final;
   void DidRedirectNavigation(
+      content::NavigationHandle* navigation_handle) final;
+  void ReadyToCommitNavigation(
       content::NavigationHandle* navigation_handle) final;
   void DidFinishNavigation(content::NavigationHandle* navigation_handle) final;
   void DocumentOnLoadCompletedInMainFrame() final;
@@ -348,13 +353,27 @@ class WebViewGuest : public guest_view::GuestView<WebViewGuest> {
   // Tracks the name, and target URL of the new window. Once the first
   // navigation commits, we no longer track this information.
   struct NewWindowInfo {
-    GURL url;
+    // Name of the new window.
     std::string name;
-    bool changed;
-    NewWindowInfo(const GURL& url, const std::string& name) :
-        url(url),
-        name(name),
-        changed(false) {}
+
+    // Expected initial URL of the new window.
+    GURL url;
+
+    // Whether OpenURL navigation from the newly created GuestView has changed
+    // |url|. The pending OpenURL navigation needs to be applied after attaching
+    // the GuestView.
+    bool url_changed_via_open_url;
+
+    // Whether the newly created GuestView begun navigating away from the
+    // initial URL.  Used to suppress the initial navigation when attaching the
+    // GuestView and applying its attributes.
+    bool did_start_navigating_away_from_initial_url;
+
+    NewWindowInfo(const GURL& url, const std::string& name)
+        : name(name),
+          url(url),
+          url_changed_via_open_url(false),
+          did_start_navigating_away_from_initial_url(false) {}
   };
 
   using PendingWindowMap = std::map<WebViewGuest*, NewWindowInfo>;

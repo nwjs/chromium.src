@@ -29,9 +29,11 @@
 #import "ui/gfx/mac/nswindow_frame_controls.h"
 #import "ui/views_bridge_mac/bridged_content_view.h"
 #import "ui/views_bridge_mac/bridged_native_widget_host_helper.h"
+#import "ui/views_bridge_mac/browser_native_widget_window_mac.h"
 #import "ui/views_bridge_mac/cocoa_mouse_capture.h"
 #import "ui/views_bridge_mac/cocoa_window_move_loop.h"
 #include "ui/views_bridge_mac/mojo/bridged_native_widget_host.mojom.h"
+#import "ui/views_bridge_mac/native_widget_mac_frameless_nswindow.h"
 #import "ui/views_bridge_mac/native_widget_mac_nswindow.h"
 #import "ui/views_bridge_mac/views_nswindow_delegate.h"
 
@@ -70,7 +72,7 @@ constexpr auto kUIPaintTimeout = base::TimeDelta::FromSeconds(5);
 
 @implementation ViewsNSWindowCloseAnimator
 
-- (id)initWithWindow:(NSWindow*)window {
+- (instancetype)initWithWindow:(NSWindow*)window {
   if ((self = [super init])) {
     window_.reset([window retain]);
     animation_.reset(
@@ -249,16 +251,6 @@ gfx::Size BridgedNativeWidgetImpl::GetWindowSizeForClientSize(
 }
 
 // static
-BridgedNativeWidgetImpl* BridgedNativeWidgetImpl::GetFromNativeWindow(
-    gfx::NativeWindow window) {
-  if (NativeWidgetMacNSWindow* widget_window =
-          base::mac::ObjCCast<NativeWidgetMacNSWindow>(window)) {
-    return GetFromId([widget_window bridgedNativeWidgetId]);
-  }
-  return nullptr;  // Not created by NativeWidgetMac.
-}
-
-// static
 BridgedNativeWidgetImpl* BridgedNativeWidgetImpl::GetFromId(
     uint64_t bridged_native_widget_id) {
   auto found = GetIdToWidgetImplMap().find(bridged_native_widget_id);
@@ -270,14 +262,41 @@ BridgedNativeWidgetImpl* BridgedNativeWidgetImpl::GetFromId(
 // static
 base::scoped_nsobject<NativeWidgetMacNSWindow>
 BridgedNativeWidgetImpl::CreateNSWindow(
-    views_bridge_mac::mojom::CreateWindowParams* params) {
-  base::scoped_nsobject<NativeWidgetMacNSWindow> result(
-      [[NativeWidgetMacNSWindow alloc]
+    const views_bridge_mac::mojom::CreateWindowParams* params) {
+  base::scoped_nsobject<NativeWidgetMacNSWindow> ns_window;
+  switch (params->window_class) {
+    case views_bridge_mac::mojom::WindowClass::kDefault:
+      ns_window.reset([[NativeWidgetMacNSWindow alloc]
           initWithContentRect:ui::kWindowSizeDeterminedLater
                     styleMask:params->style_mask
                       backing:NSBackingStoreBuffered
                         defer:NO]);
-  return result;
+      break;
+    case views_bridge_mac::mojom::WindowClass::kBrowser:
+      ns_window.reset([[BrowserNativeWidgetWindow alloc]
+          initWithContentRect:ui::kWindowSizeDeterminedLater
+                    styleMask:params->style_mask
+                      backing:NSBackingStoreBuffered
+                        defer:NO]);
+      break;
+    case views_bridge_mac::mojom::WindowClass::kFrameless:
+      ns_window.reset([[NativeWidgetMacFramelessNSWindow alloc]
+          initWithContentRect:ui::kWindowSizeDeterminedLater
+                    styleMask:params->style_mask
+                      backing:NSBackingStoreBuffered
+                        defer:NO]);
+      break;
+  }
+  if (@available(macOS 10.10, *)) {
+    if (params->titlebar_appears_transparent)
+      [ns_window setTitlebarAppearsTransparent:YES];
+
+    if (params->window_title_hidden)
+      [ns_window setTitleVisibility:NSWindowTitleHidden];
+  }
+  if (params->animation_enabled)
+    [ns_window setAnimationBehavior:NSWindowAnimationBehaviorDocumentWindow];
+  return ns_window;
 }
 
 BridgedNativeWidgetImpl::BridgedNativeWidgetImpl(
@@ -316,6 +335,7 @@ void BridgedNativeWidgetImpl::SetWindow(
   window_delegate_.reset(
       [[ViewsNSWindowDelegate alloc] initWithBridgedNativeWidget:this]);
   window_ = std::move(window);
+  [window_ setBridgeImpl:this];
   [window_ setBridgedNativeWidgetId:id_];
   [window_ setReleasedWhenClosed:NO];  // Owned by scoped_nsobject.
   [window_ setDelegate:window_delegate_];
@@ -513,9 +533,8 @@ void BridgedNativeWidgetImpl::CreateContentView(uint64_t ns_view_id,
   auto* background_layer = [CALayer layer];
   display_ca_layer_tree_ =
       std::make_unique<ui::DisplayCALayerTree>(background_layer);
-  [bridged_view_ setLayer:background_layer];
-
-  [bridged_view_ setWantsLayer:YES];
+  [compositor_view setLayer:background_layer];
+  [compositor_view setWantsLayer:YES];
   [bridged_view_ addSubview:compositor_view];
 
   if (content::g_force_cpu_draw) {
@@ -714,8 +733,10 @@ bool BridgedNativeWidgetImpl::HasCapture() {
 }
 
 bool BridgedNativeWidgetImpl::RunMoveLoop(const gfx::Vector2d& drag_offset) {
-  DCHECK(!HasCapture());
   // https://crbug.com/876493
+  CHECK(!HasCapture());
+  // Does some *other* widget have capture?
+  CHECK(!CocoaMouseCapture::GetGlobalCaptureWindow());
   CHECK(!window_move_loop_);
 
   // RunMoveLoop caller is responsible for updating the window to be under the
@@ -772,6 +793,7 @@ void BridgedNativeWidgetImpl::OnWindowWillClose() {
   DCHECK(!show_animation_);
 
   [window_ setDelegate:nil];
+  [window_ setBridgeImpl:nullptr];
 
   // Ensure that |this| cannot be reached by its id while it is being destroyed.
   size_t erased = GetIdToWidgetImplMap().erase(id_);
@@ -1028,6 +1050,15 @@ bool BridgedNativeWidgetImpl::ShouldRunCustomAnimationFor(
   return true;
 }
 
+bool BridgedNativeWidgetImpl::RedispatchKeyEvent(NSEvent* event) {
+  NSWindow* window = ns_window();
+  DCHECK([window.class conformsToProtocol:@protocol(CommandDispatchingWindow)]);
+  NSObject<CommandDispatchingWindow>* command_dispatching_window =
+      base::mac::ObjCCastStrict<NSObject<CommandDispatchingWindow>>(window);
+  return
+      [[command_dispatching_window commandDispatcher] redispatchKeyEvent:event];
+}
+
 NSWindow* BridgedNativeWidgetImpl::ns_window() {
   return window_.get();
 }
@@ -1195,6 +1226,28 @@ void BridgedNativeWidgetImpl::SetTextInputClient(
   [bridged_view_ setTextInputClient:text_input_client];
 }
 
+void BridgedNativeWidgetImpl::RedispatchKeyEvent(
+    uint64_t type,
+    uint64_t modifier_flags,
+    double timestamp,
+    const base::string16& characters,
+    const base::string16& characters_ignoring_modifiers,
+    uint32_t key_code) {
+  NSEvent* event =
+      [NSEvent keyEventWithType:static_cast<NSEventType>(type)
+                             location:NSZeroPoint
+                        modifierFlags:modifier_flags
+                            timestamp:timestamp
+                         windowNumber:[window_ windowNumber]
+                              context:nil
+                           characters:base::SysUTF16ToNSString(characters)
+          charactersIgnoringModifiers:base::SysUTF16ToNSString(
+                                          characters_ignoring_modifiers)
+                            isARepeat:NO
+                              keyCode:key_code];
+  RedispatchKeyEvent(event);
+}
+
 ////////////////////////////////////////////////////////////////////////////////
 // BridgedNativeWidgetImpl, former BridgedNativeWidgetOwner:
 
@@ -1299,7 +1352,7 @@ void BridgedNativeWidgetImpl::UpdateWindowGeometry() {
 
 void BridgedNativeWidgetImpl::UpdateWindowDisplay() {
   host_->OnWindowDisplayChanged(
-      display::Screen::GetScreen()->GetDisplayNearestWindow(window_));
+      display::Screen::GetScreen()->GetDisplayNearestWindow(window_.get()));
 }
 
 bool BridgedNativeWidgetImpl::IsWindowModalSheet() const {

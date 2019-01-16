@@ -51,6 +51,11 @@ void NavigableContents::NavigateWithParams(const GURL& url,
   contents_->Navigate(url, std::move(params));
 }
 
+void NavigableContents::GoBack(
+    content::mojom::NavigableContents::GoBackCallback callback) {
+  contents_->GoBack(std::move(callback));
+}
+
 void NavigableContents::DidFinishNavigation(
     const GURL& url,
     bool is_main_frame,
@@ -70,6 +75,13 @@ void NavigableContents::DidStopLoading() {
 void NavigableContents::DidAutoResizeView(const gfx::Size& new_size) {
   for (auto& observer : observers_)
     observer.DidAutoResizeView(new_size);
+}
+
+void NavigableContents::DidSuppressNavigation(const GURL& url,
+                                              WindowOpenDisposition disposition,
+                                              bool from_user_gesture) {
+  for (auto& observer : observers_)
+    observer.DidSuppressNavigation(url, disposition, from_user_gesture);
 }
 
 void NavigableContents::OnEmbedTokenReceived(

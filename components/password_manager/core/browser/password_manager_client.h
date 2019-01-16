@@ -12,6 +12,7 @@
 #include "components/autofill/core/common/password_form.h"
 #include "components/password_manager/core/browser/credentials_filter.h"
 #include "components/password_manager/core/browser/hsts_query.h"
+#include "components/password_manager/core/browser/manage_passwords_referrer.h"
 #include "components/password_manager/core/browser/password_manager_metrics_util.h"
 #include "components/password_manager/core/browser/password_store.h"
 #include "net/cert/cert_status_flags.h"
@@ -20,7 +21,7 @@
 class PrefService;
 
 namespace autofill {
-class AutofillManager;
+class AutofillDownloadManager;
 }
 
 namespace favicon {
@@ -179,13 +180,7 @@ class PasswordManagerClient {
 
   // Reports whether and how passwords are synced in the embedder. The default
   // implementation always returns NOT_SYNCING.
-  // TODO(crbug.com/515108): Factor this out of the client to the sync layer.
   virtual SyncState GetPasswordSyncState() const;
-
-  // Reports whether and how browsing history is synced in the embedder. The
-  // default implementation always returns NOT_SYNCING.
-  // TODO(crbug.com/515108): Factor this out of the client to the sync layer.
-  virtual SyncState GetHistorySyncState() const;
 
   // Returns true if last navigation page had HTTP error i.e 5XX or 4XX
   virtual bool WasLastNavigationHTTPError() const;
@@ -201,8 +196,8 @@ class PasswordManagerClient {
   PasswordManager* GetPasswordManager();
   virtual const PasswordManager* GetPasswordManager() const;
 
-  // Returns the AutofillManager for the main frame.
-  virtual autofill::AutofillManager* GetAutofillManagerForMainFrame();
+  // Returns the AutofillDownloadManager for votes uploading.
+  virtual autofill::AutofillDownloadManager* GetAutofillDownloadManager();
 
   // Returns the main frame URL.
   virtual const GURL& GetMainFrameURL() const;
@@ -220,6 +215,9 @@ class PasswordManagerClient {
 
   // Record that we saw a password field on this page.
   virtual void AnnotateNavigationEntry(bool has_password_field);
+
+  // Returns the current best guess as to the page's display language.
+  virtual std::string GetPageLanguage() const;
 
 #if defined(SAFE_BROWSING_DB_LOCAL)
   // Return the PasswordProtectionService associated with this instance.
@@ -273,6 +271,10 @@ class PasswordManagerClient {
   // Causes all live PasswordFormManager objects to query the password store
   // again. Results in updating the fill information on the page.
   virtual void UpdateFormManagers() {}
+
+  // Causes a navigation to the manage passwords page.
+  virtual void NavigateToManagePasswordsPage(ManagePasswordsReferrer referrer) {
+  }
 
  private:
   DISALLOW_COPY_AND_ASSIGN(PasswordManagerClient);

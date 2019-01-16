@@ -126,7 +126,7 @@ class BrowserFrame : public views::Widget,
   bool frameless() { return frameless_; }
  protected:
   // ui::MaterialDesignControllerObserver:
-  void OnMdModeChanged() override;
+  void OnTouchUiChanged() override;
 
  private:
   // Callback for MenuRunner.

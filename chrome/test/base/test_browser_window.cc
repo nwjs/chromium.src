@@ -144,7 +144,7 @@ LocationBar* TestBrowserWindow::GetLocationBar() const {
 }
 
 PageActionIconContainer* TestBrowserWindow::GetPageActionIconContainer() {
-  return nullptr;
+  return &page_action_icon_container_;
 }
 
 ToolbarActionsBar* TestBrowserWindow::GetToolbarActionsBar() {
@@ -155,6 +155,11 @@ content::KeyboardEventProcessingResult
 TestBrowserWindow::PreHandleKeyboardEvent(
     const content::NativeWebKeyboardEvent& event) {
   return content::KeyboardEventProcessingResult::NOT_HANDLED;
+}
+
+bool TestBrowserWindow::HandleKeyboardEvent(
+    const content::NativeWebKeyboardEvent& event) {
+  return false;
 }
 
 bool TestBrowserWindow::IsBookmarkBarVisible() const {

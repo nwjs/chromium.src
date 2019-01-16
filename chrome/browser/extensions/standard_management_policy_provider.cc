@@ -110,7 +110,8 @@ bool StandardManagementPolicyProvider::UserMayLoad(
     case Manifest::TYPE_PLATFORM_APP:
     case Manifest::TYPE_NWJS_APP:
     case Manifest::TYPE_SHARED_MODULE: {
-      if (!settings_->IsAllowedManifestType(extension->GetType()))
+      if (!settings_->IsAllowedManifestType(extension->GetType(),
+                                            extension->id()))
         return ReturnLoadError(extension, error);
       break;
     }

@@ -17,7 +17,6 @@
                                                 CrAppControlProtocol> {
  @private
   BOOL handlingSendEvent_;
-  BOOL cyclingWindows_;
 }
 
 // Our implementation of |-terminate:| only attempts to terminate the
@@ -26,9 +25,6 @@
 - (void)cancelTerminate:(id)sender;
 - (void)closeAllWindowsQuit:(id)sender;
 
-// Keep track of whether windows are being cycled for use in determining whether
-// a Panel window can become the key window.
-- (BOOL)isCyclingWindows;
 @end
 
 #endif  // __OBJC__

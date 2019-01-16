@@ -22,7 +22,11 @@ class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
   USING_GARBAGE_COLLECTED_MIXIN(ModuleMap::Entry);
 
  public:
-  static Entry* Create(ModuleMap* map) { return new Entry(map); }
+  static Entry* Create(ModuleMap* map) {
+    return MakeGarbageCollected<Entry>(map);
+  }
+
+  explicit Entry(ModuleMap*);
   ~Entry() override {}
 
   void Trace(blink::Visitor*) override;
@@ -36,7 +40,6 @@ class ModuleMap::Entry final : public GarbageCollectedFinalized<Entry>,
 
  private:
   friend class ModuleMap;
-  explicit Entry(ModuleMap*);
 
   void DispatchFinishedNotificationAsync(SingleModuleClient*);
 
@@ -117,7 +120,7 @@ void ModuleMap::Trace(blink::Visitor* visitor) {
   visitor->Trace(loader_registry_);
 }
 
-// https://html.spec.whatwg.org/multipage/webappapis.html#fetch-a-single-module-script
+// <specdef href="https://html.spec.whatwg.org/#fetch-a-single-module-script">
 void ModuleMap::FetchSingleModuleScript(
     const ModuleScriptFetchRequest& request,
     FetchClientSettingsObjectSnapshot* fetch_client_settings_object,
@@ -148,7 +151,7 @@ void ModuleMap::FetchSingleModuleScript(
   // <spec step="3">If moduleMap[url] exists, asynchronously complete this
   // algorithm with moduleMap[url], and abort these steps.</spec>
   //
-  // <spec step="11">Set moduleMap[url] to module script, and asynchronously
+  // <spec step="12">Set moduleMap[url] to module script, and asynchronously
   // complete this algorithm with module script.</spec>
   if (client)
     entry->AddClient(client);

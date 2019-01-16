@@ -46,11 +46,16 @@ NavigableContentsImpl::~NavigableContentsImpl() = default;
 
 void NavigableContentsImpl::Navigate(const GURL& url,
                                      mojom::NavigateParamsPtr params) {
-  // Ignore non-HTTP/HTTPS requests for now.
-  if (!url.SchemeIsHTTPOrHTTPS())
+  // Ignore non-HTTP/HTTPS/data requests for now.
+  if (!url.SchemeIsHTTPOrHTTPS() && !url.SchemeIs(url::kDataScheme))
     return;
 
   delegate_->Navigate(url, std::move(params));
+}
+
+void NavigableContentsImpl::GoBack(
+    mojom::NavigableContents::GoBackCallback callback) {
+  delegate_->GoBack(std::move(callback));
 }
 
 void NavigableContentsImpl::CreateView(bool in_service_process,

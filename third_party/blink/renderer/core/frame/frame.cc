@@ -56,8 +56,6 @@
 
 namespace blink {
 
-using namespace HTMLNames;
-
 Frame::~Frame() {
   InstanceCounters::DecrementCounter(InstanceCounters::kFrameCounter);
   DCHECK(!owner_);
@@ -71,6 +69,7 @@ void Frame::Trace(blink::Visitor* visitor) {
   visitor->Trace(window_proxy_manager_);
   visitor->Trace(dom_window_);
   visitor->Trace(client_);
+  visitor->Trace(navigation_rate_limiter_);
   visitor->Trace(dev_jail_owner_);
   visitor->Trace(devtools_jail_);
 }
@@ -82,6 +81,10 @@ void Frame::Detach(FrameDetachType type) {
   lifecycle_.AdvanceTo(FrameLifecycle::kDetaching);
 
   DetachImpl(type);
+
+  if (GetPage())
+    GetPage()->GetFocusController().FrameDetached(this);
+
   // Due to re-entrancy, |this| could have completed detaching already.
   // TODO(dcheng): This DCHECK is not always true. See https://crbug.com/838348.
   DCHECK(IsDetached() == !client_);
@@ -206,15 +209,9 @@ bool Frame::ConsumeTransientUserActivationInLocalTree() {
   return was_active;
 }
 
-bool Frame::DeprecatedIsFeatureEnabled(
-    mojom::FeaturePolicyFeature feature) const {
-  return GetSecurityContext()->IsFeatureEnabled(feature,
-                                                ReportOptions::kDoNotReport);
-}
-
-bool Frame::DeprecatedIsFeatureEnabled(mojom::FeaturePolicyFeature feature,
-                                       ReportOptions report_on_failure) const {
-  return GetSecurityContext()->IsFeatureEnabled(feature, report_on_failure);
+void Frame::ClearUserActivationInLocalTree() {
+  for (Frame* node = this; node; node = node->Tree().TraverseNext(this))
+    node->user_activation_state_.Clear();
 }
 
 void Frame::SetOwner(FrameOwner* owner) {
@@ -257,6 +254,7 @@ Frame::Frame(FrameClient* client,
       owner_(owner),
       client_(client),
       window_proxy_manager_(window_proxy_manager),
+      navigation_rate_limiter_(*this),
       devtools_jail_(nullptr),
       dev_jail_owner_(nullptr),
       nodejs_(false),
@@ -287,7 +285,7 @@ bool Frame::isNwDisabledChildFrame() const
   do {
     if (current_frame->owner_) {
       if (current_frame->owner_->IsLocal())
-        if (ToHTMLFrameOwnerElement(current_frame->owner_)->FastHasAttribute(nwdisableAttr))
+        if (ToHTMLFrameOwnerElement(current_frame->owner_)->FastHasAttribute(html_names::kNwdisableAttr))
           return true;
     }
     current_frame = ancestor_frame;
@@ -310,7 +308,7 @@ bool Frame::isNwFakeTop() const
 {
   if (owner_) {
     if (owner_->IsLocal())
-      if (ToHTMLFrameOwnerElement(owner_)->FastHasAttribute(nwfaketopAttr))
+      if (ToHTMLFrameOwnerElement(owner_)->FastHasAttribute(html_names::kNwfaketopAttr))
         return true;
   }
   return false;

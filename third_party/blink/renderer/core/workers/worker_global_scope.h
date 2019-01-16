@@ -31,6 +31,7 @@
 #include "services/network/public/mojom/fetch_api.mojom-shared.h"
 #include "services/service_manager/public/cpp/interface_provider.h"
 #include "services/service_manager/public/mojom/interface_provider.mojom-blink.h"
+#include "third_party/blink/public/mojom/script/script_type.mojom-blink.h"
 #include "third_party/blink/renderer/bindings/core/v8/active_script_wrappable.h"
 #include "third_party/blink/renderer/bindings/core/v8/v8_cache_options.h"
 #include "third_party/blink/renderer/core/core_export.h"
@@ -38,7 +39,6 @@
 #include "third_party/blink/renderer/core/execution_context/execution_context.h"
 #include "third_party/blink/renderer/core/frame/csp/content_security_policy.h"
 #include "third_party/blink/renderer/core/frame/dom_timer_coordinator.h"
-#include "third_party/blink/renderer/core/frame/dom_window_base64.h"
 #include "third_party/blink/renderer/core/messaging/blink_transferable_message.h"
 #include "third_party/blink/renderer/core/script/script.h"
 #include "third_party/blink/renderer/core/workers/worker_animation_frame_provider.h"
@@ -46,6 +46,7 @@
 #include "third_party/blink/renderer/core/workers/worker_settings.h"
 #include "third_party/blink/renderer/platform/heap/handle.h"
 #include "third_party/blink/renderer/platform/loader/fetch/cached_metadata_handler.h"
+#include "third_party/blink/renderer/platform/wtf/casting.h"
 
 namespace service_manager {
 class InterfaceProvider;
@@ -60,6 +61,7 @@ class FetchClientSettingsObjectSnapshot;
 class FontFaceSet;
 class OffscreenFontSelector;
 class V8VoidFunction;
+class WorkerClassicScriptLoader;
 class WorkerLocation;
 class WorkerNavigator;
 class WorkerThread;
@@ -68,8 +70,7 @@ struct GlobalScopeCreationParams;
 class CORE_EXPORT WorkerGlobalScope
     : public WorkerOrWorkletGlobalScope,
       public ActiveScriptWrappable<WorkerGlobalScope>,
-      public Supplementable<WorkerGlobalScope>,
-      public DOMWindowBase64 {
+      public Supplementable<WorkerGlobalScope> {
   DEFINE_WRAPPERTYPEINFO();
   USING_GARBAGE_COLLECTED_MIXIN(WorkerGlobalScope);
 
@@ -101,9 +102,9 @@ class CORE_EXPORT WorkerGlobalScope
 
   String origin() const;
 
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(rejectionhandled);
-  DEFINE_ATTRIBUTE_EVENT_LISTENER(unhandledrejection);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(error, kError);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(rejectionhandled, kRejectionhandled);
+  DEFINE_ATTRIBUTE_EVENT_LISTENER(unhandledrejection, kUnhandledrejection);
 
   // WorkerUtils
   ScriptValue importNWBin(ScriptState* state, DOMArrayBuffer* buffer);
@@ -142,9 +143,12 @@ class CORE_EXPORT WorkerGlobalScope
   // so that WorkerGlobalScope can be paused.
   void EvaluateClassicScriptPausable(
       const KURL& script_url,
-      AccessControlStatus access_control_status,
       String source_code,
       std::unique_ptr<Vector<char>> cached_meta_data,
+      const v8_inspector::V8StackTraceId& stack_id);
+  void ImportClassicScriptPausable(
+      const KURL& script_url,
+      FetchClientSettingsObjectSnapshot* outside_settings_object,
       const v8_inspector::V8StackTraceId& stack_id);
   void ImportModuleScriptPausable(
       const KURL& module_url_record,
@@ -171,6 +175,9 @@ class CORE_EXPORT WorkerGlobalScope
     return animation_frame_provider_;
   }
 
+  // Returns true when this is a nested worker.
+  virtual bool IsNestedWorker() const { return false; }
+
  protected:
   WorkerGlobalScope(std::unique_ptr<GlobalScopeCreationParams>,
                     WorkerThread*,
@@ -185,7 +192,6 @@ class CORE_EXPORT WorkerGlobalScope
   // Evaluates the given top-level classic script.
   virtual void EvaluateClassicScript(
       const KURL& script_url,
-      AccessControlStatus access_control_status,
       String source_code,
       std::unique_ptr<Vector<char>> cached_meta_data);
 
@@ -197,10 +203,21 @@ class CORE_EXPORT WorkerGlobalScope
 
   void AddPausedCall(base::OnceClosure closure);
 
-  ScriptType GetScriptType() const { return script_type_; }
+  void MaybeRunPausedTasks();
+
+  mojom::ScriptType GetScriptType() const { return script_type_; }
 
  private:
   void SetWorkerSettings(std::unique_ptr<WorkerSettings>);
+
+  // Returns true if this worker script is supposed to be fetched on the main
+  // thread and passed to the worker thread.
+  bool IsScriptFetchedOnMainThread();
+
+  void DidReceiveResponseForClassicScript(
+      WorkerClassicScriptLoader* classic_script_loader);
+  void DidImportClassicScript(WorkerClassicScriptLoader* classic_script_loader,
+                              const v8_inspector::V8StackTraceId& stack_id);
 
   // |kNotHandled| is used when the script was not in
   // InstalledScriptsManager, which means it was not an installed script.
@@ -234,7 +251,7 @@ class CORE_EXPORT WorkerGlobalScope
   void TasksWereUnpaused() override;
 
   const KURL url_;
-  const ScriptType script_type_;
+  const mojom::ScriptType script_type_;
   const String user_agent_;
   const base::UnguessableToken parent_devtools_token_;
   const V8CacheOptions v8_cache_options_;
@@ -266,11 +283,12 @@ class CORE_EXPORT WorkerGlobalScope
   Vector<base::OnceClosure> paused_calls_;
 };
 
-DEFINE_TYPE_CASTS(WorkerGlobalScope,
-                  ExecutionContext,
-                  context,
-                  context->IsWorkerGlobalScope(),
-                  context.IsWorkerGlobalScope());
+template <>
+struct DowncastTraits<WorkerGlobalScope> {
+  static bool AllowFrom(const ExecutionContext& context) {
+    return context.IsWorkerGlobalScope();
+  }
+};
 
 }  // namespace blink
 

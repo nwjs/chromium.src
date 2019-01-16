@@ -305,8 +305,8 @@ gfx::Image OmniboxPopupModel::GetMatchIcon(const AutocompleteMatch& match,
   if (!extension_icon.IsEmpty())
     return edit_model_->client()->GetSizedIcon(extension_icon);
 
-  if (OmniboxFieldTrial::IsShowSuggestionFaviconsEnabled() &&
-      !AutocompleteMatch::IsSearchType(match.type)) {
+  // Get the favicon for navigational suggestions.
+  if (!AutocompleteMatch::IsSearchType(match.type)) {
     // Because the Views UI code calls GetMatchIcon in both the layout and
     // painting code, we may generate multiple OnFaviconFetched callbacks,
     // all run one after another. This seems to be harmless as the callback
@@ -323,8 +323,7 @@ gfx::Image OmniboxPopupModel::GetMatchIcon(const AutocompleteMatch& match,
       return edit_model_->client()->GetSizedIcon(favicon);
   }
 
-  const auto& vector_icon_type = AutocompleteMatch::TypeToVectorIcon(
-      match.type, IsStarredMatch(match), match.document_type);
+  const auto& vector_icon_type = match.GetVectorIcon(IsStarredMatch(match));
 
   return edit_model_->client()->GetSizedIcon(vector_icon_type,
                                              vector_icon_color);

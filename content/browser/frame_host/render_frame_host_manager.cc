@@ -4,7 +4,6 @@
 
 #include "content/browser/frame_host/render_frame_host_manager.h"
 
-#include "content/public/common/browser_side_navigation_policy.h"
 #include <stddef.h>
 
 #include <algorithm>
@@ -436,8 +435,7 @@ void RenderFrameHostManager::DiscardUnusedFrame(
   // shortly, since |render_frame_host| is its last active frame and will be
   // deleted below.  See https://crbug.com/627400.
   if (frame_tree_node_->IsMainFrame()) {
-    rvh->set_main_frame_routing_id(MSG_ROUTING_NONE);
-    rvh->SetIsActive(false);
+    rvh->SetMainFrameRoutingId(MSG_ROUTING_NONE);
     rvh->set_is_swapped_out(true);
   }
 
@@ -2164,8 +2162,18 @@ void RenderFrameHostManager::CommitPending() {
       ->render_frame_delegate()
       ->FullscreenStateChanged(current_frame_host(), false);
 
-  // While the old frame is still current, remove its children from the tree.
-  frame_tree_node_->ResetForNewProcess();
+  // If the removed frame was created by a script, then its history entry will
+  // never be reused - we can save some memory by removing the history entry.
+  // See also https://crbug.com/784356.
+  // This is done in ~FrameTreeNode, but this is needed here as well. For
+  // instance if the user navigates from A(B) to C and B is deleted after C
+  // commits, then the last committed navigation entry wouldn't match anymore.
+  NavigationEntryImpl* navigation_entry = static_cast<NavigationEntryImpl*>(
+      delegate_->GetLastCommittedNavigationEntryForRenderManager());
+  if (navigation_entry) {
+    render_frame_host_->frame_tree_node()->PruneChildFrameNavigationEntries(
+        navigation_entry);
+  }
 
   // Swap in the pending or speculative frame and make it active. Also ensure
   // the FrameTree stays in sync.
@@ -2229,7 +2237,10 @@ void RenderFrameHostManager::CommitPending() {
   // to MSG_ROUTING_NONE.
   if (is_main_frame) {
     RenderViewHostImpl* rvh = render_frame_host_->render_view_host();
-    rvh->set_main_frame_routing_id(render_frame_host_->routing_id());
+    // Recall if the RenderViewHostImpl had a main frame routing id already. If
+    // not then it is transitioning from swapped out to active.
+    bool was_active = rvh->is_active();
+    rvh->SetMainFrameRoutingId(render_frame_host_->routing_id());
 
     // If the RenderViewHost is transitioning from swapped out to active state,
     // it was reused, so dispatch a RenderViewReady event.  For example, this
@@ -2238,12 +2249,11 @@ void RenderFrameHostManager::CommitPending() {
     //
     // TODO(alexmos):  Remove this and move RenderViewReady consumers to use
     // the main frame's RenderFrameCreated instead.
-    if (!rvh->is_active())
+    if (!was_active)
       rvh->PostRenderViewReady();
 
-    rvh->SetIsActive(true);
     rvh->set_is_swapped_out(false);
-    old_render_frame_host->render_view_host()->set_main_frame_routing_id(
+    old_render_frame_host->render_view_host()->SetMainFrameRoutingId(
         MSG_ROUTING_NONE);
   }
 

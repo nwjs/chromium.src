@@ -43,35 +43,36 @@ int GetRoutingIDForFilteredEvents(ScriptContext* script_context) {
 }
 
 EventFilteringInfo ParseFromObject(v8::Local<v8::Object> object,
+                                   v8::Local<v8::Context> context,
                                    v8::Isolate* isolate) {
   EventFilteringInfo info;
   v8::Local<v8::String> url(v8::String::NewFromUtf8(isolate, "url"));
-  if (object->Has(url)) {
+  if (object->Has(context, url).FromJust()) {
     v8::Local<v8::Value> url_value(object->Get(url));
     info.url = GURL(*v8::String::Utf8Value(isolate, url_value));
   }
   v8::Local<v8::String> instance_id(
       v8::String::NewFromUtf8(isolate, "instanceId"));
-  if (object->Has(instance_id)) {
+  if (object->Has(context, instance_id).FromJust()) {
     v8::Local<v8::Value> instance_id_value(object->Get(instance_id));
     info.instance_id = (instance_id_value->IntegerValue(isolate->GetCurrentContext())).FromJust();
   }
   v8::Local<v8::String> service_type(
       v8::String::NewFromUtf8(isolate, "serviceType"));
-  if (object->Has(service_type)) {
+  if (object->Has(context, service_type).FromJust()) {
     v8::Local<v8::Value> service_type_value(object->Get(service_type));
     info.service_type = std::string(*v8::String::Utf8Value(isolate, service_type_value));
   }
   v8::Local<v8::String> window_types(
       v8::String::NewFromUtf8(isolate, "windowType"));
-  if (object->Has(window_types)) {
+  if (object->Has(context, window_types).FromJust()) {
     v8::Local<v8::Value> window_types_value(object->Get(window_types));
     info.window_type = std::string(*v8::String::Utf8Value(isolate, window_types_value));
   }
 
   v8::Local<v8::String> window_exposed(
       v8::String::NewFromUtf8(isolate, "windowExposedByDefault"));
-  if (object->Has(window_exposed)) {
+  if (object->Has(context, window_exposed).FromJust()) {
     v8::Local<v8::Value> window_exposed_value(object->Get(window_exposed));
     info.window_exposed_by_default = (
         window_exposed_value.As<v8::Boolean>()->Value());
@@ -131,7 +132,7 @@ void EventBindings::MatchAgainstEventFilter(
   EventFilter& event_filter = EventBookkeeper::Get()->event_filter();
   std::string event_name = *v8::String::Utf8Value(isolate, args[0]);
   EventFilteringInfo info =
-    ParseFromObject(args[1]->ToObject(isolate), isolate);
+    ParseFromObject(args[1]->ToObject(isolate), context()->v8_context(), isolate);
   // Only match events routed to this context's RenderFrame or ones
   // that don't
   // have a routingId in their filter.

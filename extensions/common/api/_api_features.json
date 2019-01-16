@@ -201,6 +201,7 @@
       "contexts": ["webui"],
       "matches": [
         "chrome://cast/*",
+        "chrome://discards/*",
         "chrome://extensions-frame/*",
         "chrome://extensions/*",
         "chrome://home/*",
@@ -573,6 +574,7 @@
     "contexts": ["webui"],
     "matches": [
       "chrome://chrome-signin/*",
+      "chrome://discards/*",
       "chrome://home/*",
       "chrome://media-router/*",
       "chrome://mobilesetup/*",
@@ -591,6 +593,7 @@
     "contexts": ["webui"],
     "matches": [
       "chrome://chrome-signin/*",
+      "chrome://discards/*",
       "chrome://home/*",
       "chrome://media-router/*",
       "chrome://mobilesetup/*",
@@ -606,6 +609,7 @@
     "contexts": ["webui"],
     "matches": [
       "chrome://chrome-signin/*",
+      "chrome://discards/*",
       "chrome://home/*",
       "chrome://media-router/*",
       "chrome://mobilesetup/*",

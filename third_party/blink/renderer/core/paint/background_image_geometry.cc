@@ -15,7 +15,7 @@
 #include "third_party/blink/renderer/core/paint/paint_layer_scrollable_area.h"
 #include "third_party/blink/renderer/core/style/border_edge.h"
 #include "third_party/blink/renderer/platform/geometry/layout_rect.h"
-#include "third_party/blink/renderer/platform/layout_unit.h"
+#include "third_party/blink/renderer/platform/geometry/layout_unit.h"
 
 namespace blink {
 
@@ -43,6 +43,13 @@ bool FixedBackgroundPaintsInLocalCoordinates(
     return false;
 
   const LayoutView& view = ToLayoutView(obj);
+
+  // TODO(wangxianzhu): For SPv2, inline this function into
+  // FixedBackgroundPaintsInLocalCoordinates().
+  if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+    return view.GetBackgroundPaintLocation() !=
+           kBackgroundPaintInScrollingContents;
+  }
 
   if (global_paint_flags & kGlobalPaintFlattenCompositingLayers)
     return false;
@@ -368,9 +375,14 @@ LayoutRect FixedAttachmentPositioningArea(const LayoutBoxModelObject& obj,
   // The LayoutView is the only object that can paint a fixed background into
   // its scrolling contents layer, so it gets a special adjustment here.
   if (obj.IsLayoutView()) {
-    auto* mapping = obj.Layer()->GetCompositedLayerMapping();
-    if (mapping && mapping->BackgroundPaintsOntoScrollingContentsLayer())
+    if (RuntimeEnabledFeatures::SlimmingPaintV2Enabled()) {
+      DCHECK_EQ(obj.GetBackgroundPaintLocation(),
+                kBackgroundPaintInScrollingContents);
       rect.SetLocation(IntPoint(ToLayoutView(obj).ScrolledContentOffset()));
+    } else if (auto* mapping = obj.Layer()->GetCompositedLayerMapping()) {
+      if (mapping->BackgroundPaintsOntoScrollingContentsLayer())
+        rect.SetLocation(IntPoint(ToLayoutView(obj).ScrolledContentOffset()));
+    }
   }
 
   rect.MoveBy(AccumulatedScrollOffsetForFixedBackground(obj, container));
@@ -665,9 +677,12 @@ void BackgroundImageGeometry::ComputePositioningArea(
     // Apply the adjustments.
     snapped_dest_rect_ = unsnapped_dest_rect_;
     snapped_dest_rect_.Contract(snapped_dest_adjust);
+    snapped_dest_rect_ = LayoutRect(PixelSnappedIntRect(snapped_dest_rect_));
     unsnapped_dest_rect_.Contract(unsnapped_dest_adjust);
     snapped_positioning_area = unsnapped_positioning_area;
     snapped_positioning_area.Contract(snapped_box_outset);
+    snapped_positioning_area =
+        LayoutRect(PixelSnappedIntRect(snapped_positioning_area));
     unsnapped_positioning_area.Contract(unsnapped_box_outset);
 
     // Offset of the positioning area from the corner of the

@@ -12,7 +12,6 @@
 #include "chrome/browser/lifetime/application_lifetime.h"
 #include "chrome/browser/themes/theme_service.h"
 #include "chrome/browser/themes/theme_service_factory.h"
-#include "chrome/browser/ui/extensions/hosted_app_browser_controller.h"
 #include "chrome/browser/ui/views/frame/browser_frame.h"
 #include "chrome/browser/ui/views/frame/browser_view.h"
 #include "chrome/browser/ui/views/frame/browser_window_property_manager_win.h"
@@ -20,7 +19,6 @@
 #include "chrome/browser/ui/views/tabs/tab_strip.h"
 #include "chrome/browser/win/titlebar_config.h"
 #include "chrome/common/chrome_constants.h"
-#include "ui/base/material_design/material_design_controller.h"
 #include "ui/base/theme_provider.h"
 #include "ui/base/win/hwnd_metrics.h"
 #include "ui/display/win/screen_win.h"
@@ -323,8 +321,7 @@ MARGINS BrowserDesktopWindowTreeHostWin::GetDWMFrameMargins() const {
 bool BrowserDesktopWindowTreeHostWin::IsOpaqueHostedAppFrame() const {
   // TODO(https://crbug.com/868239): Support Windows 7 Aero glass for hosted app
   // window titlebar controls.
-  return extensions::HostedAppBrowserController::
-             IsForExperimentalHostedAppBrowser(browser_view_->browser()) &&
+  return browser_view_->IsBrowserTypeHostedApp() &&
          base::win::GetVersion() < base::win::VERSION_WIN10;
 }
 

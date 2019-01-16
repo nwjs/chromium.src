@@ -6,15 +6,15 @@
 
 namespace blink {
 
-using namespace HTMLNames;
+using namespace html_names;
 
-void V8HTMLIFrameElement::nwUserAgentAttributeSetterCustom(v8::Local<v8::Value> value, const v8::FunctionCallbackInfo<v8::Value>& info)
+void V8HTMLIFrameElement::NwUserAgentAttributeSetterCustom(v8::Local<v8::Value> value, const v8::FunctionCallbackInfo<v8::Value>& info)
 {
   HTMLIFrameElement* frame = V8HTMLIFrameElement::ToImpl(info.Holder());
   // String agentValue = toCoreStringWithNullCheck(value);
   TOSTRING_VOID(V8StringResource<>, agentValue, value);
 
-  frame->setAttribute(HTMLNames::nwuseragentAttr, agentValue);
+  frame->setAttribute(html_names::kNwuseragentAttr, agentValue);
 
   if (frame->ContentFrame()->IsLocalFrame()) {
     LocalFrame* lframe = ToLocalFrame(frame->ContentFrame());
