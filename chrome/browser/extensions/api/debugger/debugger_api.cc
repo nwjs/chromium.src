@@ -226,10 +226,12 @@ bool ExtensionDevToolsClientHost::Attach() {
   if (Manifest::IsPolicyLocation(extension_->location()))
     return true;
 
+#if 0
   infobar_ = ExtensionDevToolsInfoBar::Create(
       extension_id(), extension_->name(), this,
       base::Bind(&ExtensionDevToolsClientHost::InfoBarDismissed,
                  base::Unretained(this)));
+#endif
   return true;
 }
 
