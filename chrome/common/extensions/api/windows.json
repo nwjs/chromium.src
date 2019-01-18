@@ -421,7 +421,7 @@
         ],
         "parameters": [
           {"type": "integer", "name": "windowId", "minimum": 0, "description": "ID of the removed window."},
-          {"type": "string", "name": "flag", "description": ""}
+          {"type": "string", "optional": true, "name": "flag", "description": ""}
         ]
       },
       {
