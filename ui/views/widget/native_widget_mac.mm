@@ -36,6 +36,10 @@
 
 using views_bridge_mac::mojom::WindowVisibilityState;
 
+namespace content {
+  extern bool g_support_transparency;
+}
+
 namespace views {
 namespace {
 
@@ -378,6 +382,7 @@ void NativeWidgetMac::Show(ui::WindowShowState show_state,
     case ui::SHOW_STATE_NORMAL:
     case ui::SHOW_STATE_INACTIVE:
     case ui::SHOW_STATE_MINIMIZED:
+    case ui::SHOW_STATE_HIDDEN:
       break;
     case ui::SHOW_STATE_MAXIMIZED:
     case ui::SHOW_STATE_FULLSCREEN:
@@ -442,7 +447,9 @@ bool NativeWidgetMac::IsVisibleOnAllWorkspaces() const {
 }
 
 void NativeWidgetMac::Maximize() {
-  NOTIMPLEMENTED();  // See IsMaximized().
+  if (IsFullscreen())
+    return;
+  bridge()->SetMaximized(true);
 }
 
 void NativeWidgetMac::Minimize() {
@@ -452,9 +459,9 @@ void NativeWidgetMac::Minimize() {
 }
 
 bool NativeWidgetMac::IsMaximized() const {
-  // The window frame isn't altered on Mac unless going fullscreen. The green
-  // "+" button just makes the window bigger. So, always false.
-  return false;
+  if (!bridge_host_)
+    return false;
+  return bridge_host_->IsMaximized();
 }
 
 bool NativeWidgetMac::IsMinimized() const {
@@ -468,6 +475,7 @@ void NativeWidgetMac::Restore() {
     return;
   bridge()->SetFullscreen(false);
   bridge()->SetMiniaturized(false);
+  bridge()->SetMaximized(false);
 }
 
 void NativeWidgetMac::SetFullscreen(bool fullscreen) {
@@ -598,7 +606,7 @@ void NativeWidgetMac::SetVisibilityAnimationTransition(
 }
 
 bool NativeWidgetMac::IsTranslucentWindowOpacitySupported() const {
-  return false;
+  return content::g_support_transparency;
 }
 
 ui::GestureRecognizer* NativeWidgetMac::GetGestureRecognizer() {

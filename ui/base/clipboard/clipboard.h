@@ -246,7 +246,7 @@ class UI_BASE_EXPORT Clipboard : public base::ThreadChecker {
   static const FormatType& GetIDListFormatType();
 #endif
 
- protected:
+ public:
   static Clipboard* Create();
 
   Clipboard() {}

@@ -328,6 +328,7 @@ void ToolbarView::ShowTranslateBubble(
     translate::TranslateStep step,
     translate::TranslateErrors::Type error_type,
     bool is_user_gesture) {
+#if 0
   views::View* const anchor_view = location_bar();
   PageActionIconView* translate_icon_view =
       location_bar()->translate_icon_view();
@@ -337,6 +338,7 @@ void ToolbarView::ShowTranslateBubble(
                                   is_user_gesture
                                       ? TranslateBubbleView::USER_GESTURE
                                       : TranslateBubbleView::AUTOMATIC);
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////

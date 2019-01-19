@@ -232,7 +232,8 @@ void BrowserList::PostTryToCloseBrowserWindow(
 // static
 void BrowserList::MoveBrowsersInWorkspaceToFront(
     const std::string& new_workspace) {
-  DCHECK(!new_workspace.empty());
+  if(new_workspace.empty())
+    return;
 
   BrowserList* instance = GetInstance();
 

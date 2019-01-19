@@ -165,7 +165,7 @@ ThreadPoolThread* ThreadPool::CreateNewThread() {
   std::unique_ptr<WorkerSettings> settings =
       std::make_unique<WorkerSettings>(GetFrame()->GetSettings());
 
-  proxy->StartWorker(std::make_unique<GlobalScopeCreationParams>(
+  proxy->StartWorker(std::make_unique<GlobalScopeCreationParams>(false, std::string(),
       context->Url(), ScriptType::kClassic, context->UserAgent(),
       context->GetContentSecurityPolicy()->Headers(), kReferrerPolicyDefault,
       context->GetSecurityOrigin(), context->IsSecureContext(),

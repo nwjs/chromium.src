@@ -93,8 +93,10 @@ gfx::Rect OpaqueBrowserFrameViewLayout::GetBoundsForTabStrip(
 }
 
 gfx::Size OpaqueBrowserFrameViewLayout::GetMinimumSize(
-    int available_width) const {
-  gfx::Size min_size = delegate_->GetBrowserViewMinimumSize();
+                                                       int available_width, bool max) const {
+  gfx::Size min_size = max? delegate_->GetBrowserViewMaximumSize() : delegate_->GetBrowserViewMinimumSize();
+  if (max && min_size.IsEmpty())
+    return min_size;
   int border_thickness = FrameBorderThickness(false);
   min_size.Enlarge(2 * border_thickness,
                    NonClientTopHeight(false) + border_thickness);

@@ -82,6 +82,9 @@ class ForwardingClientHelper : public RenderWidgetHostNSViewClientHelper {
   void SmartMagnify(const blink::WebGestureEvent& web_event) override {
     client_->SmartMagnify(TranslateEvent(web_event));
   }
+  RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() override {
+    return nullptr;
+  }
 
   mojom::RenderWidgetHostNSViewClient* client_ = nullptr;
 

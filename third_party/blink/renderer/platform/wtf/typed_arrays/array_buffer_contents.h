@@ -58,10 +58,12 @@ class WTF_EXPORT ArrayBufferContents {
    public:
     DataHandle(void* data,
                size_t length,
+               bool nodejs,
                DataDeleter deleter,
                void* deleter_info)
         : data_(data),
           data_length_(length),
+          is_node_js_(nodejs),
           deleter_(deleter),
           deleter_info_(deleter_info) {}
     // Move constructor
@@ -69,6 +71,10 @@ class WTF_EXPORT ArrayBufferContents {
     ~DataHandle() {
       if (!data_)
         return;
+      if (is_node_js_) {
+        free(data_);
+        return;
+      }
       deleter_(data_, data_length_, deleter_info_);
     }
 
@@ -76,6 +82,7 @@ class WTF_EXPORT ArrayBufferContents {
     DataHandle& operator=(DataHandle&& other) {
       data_ = other.data_;
       data_length_ = other.data_length_;
+      is_node_js_ = other.is_node_js_;
       deleter_ = other.deleter_;
       deleter_info_ = other.deleter_info_;
       other.data_ = nullptr;
@@ -91,6 +98,7 @@ class WTF_EXPORT ArrayBufferContents {
     void* data_;
     size_t data_length_;
 
+    bool is_node_js_;
     DataDeleter deleter_;
     void* deleter_info_;
   };

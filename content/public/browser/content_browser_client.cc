@@ -121,6 +121,10 @@ ContentBrowserClient::GetInitiatorSchemeBypassingDocumentBlocking() {
   return nullptr;
 }
 
+bool ContentBrowserClient::IsNWOrigin(const url::Origin& origin, ResourceContext* context) {
+  return false;
+}
+
 void ContentBrowserClient::LogInitiatorSchemeBypassingDocumentBlocking(
     const url::Origin& initiator_origin,
     int render_process_id,
@@ -336,6 +340,10 @@ void ContentBrowserClient::AllowWorkerFileSystem(
     const std::vector<GlobalFrameRoutingId>& render_frames,
     base::Callback<void(bool)> callback) {
   std::move(callback).Run(true);
+}
+
+base::FilePath ContentBrowserClient::GetRootPath() {
+  return base::FilePath();
 }
 
 bool ContentBrowserClient::AllowWorkerIndexedDB(

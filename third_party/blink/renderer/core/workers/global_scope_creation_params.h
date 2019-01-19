@@ -38,6 +38,7 @@ struct CORE_EXPORT GlobalScopeCreationParams final {
 
  public:
   GlobalScopeCreationParams(
+      bool isNodeJS, const std::string& main_script,
       const KURL& script_url,
       // TODO(asamidoi): Replace ScriptType to mojom::ScriptType
       ScriptType script_type,
@@ -76,6 +77,8 @@ struct CORE_EXPORT GlobalScopeCreationParams final {
   KURL script_url;
 
   ScriptType script_type;
+  bool nodejs_;
+  std::string main_script_;
   String user_agent;
 
   // |content_security_policy_parsed_headers| and

@@ -44,6 +44,8 @@ struct WebFileChooserParams {
   Mode mode = Mode::kOpen;
   // |title| is the title for a file chooser dialog. It can be an empty string.
   WebString title;
+  // revert 14785d90f691b2b20d07612a62ba35a630bbb9ac for nwsaveas #5667
+  WebString initial_value;
   // This contains MIME type strings such as "audio/*" "text/plain" or file
   // extensions beginning with a period (.) such as ".mp3" ".txt".
   // The dialog may restrict selectable files to files with the specified MIME
@@ -71,6 +73,10 @@ struct WebFileChooserParams {
   // If non-empty, represents the URL of the requestor if the request was
   // initiated by a document.
   WebURL requestor;
+
+  WebString initial_path;
+  bool extract_directory = true;
+
 };
 
 }  // namespace blink

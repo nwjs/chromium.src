@@ -32,6 +32,17 @@
 
 #include <memory>
 #include "services/network/public/cpp/shared_url_loader_factory.h"
+
+#include "third_party/node-nw/src/node_webkit.h"
+#define BLINK_HOOK_MAP(type, sym, fn) extern type fn;
+#if defined(COMPONENT_BUILD) && defined(WIN32)
+#define NW_HOOK_MAP(type, sym, fn) BASE_EXPORT type fn;
+#else
+#define NW_HOOK_MAP(type, sym, fn) extern type fn;
+#endif
+#include "content/nw/src/common/node_hooks.h"
+#undef NW_HOOK_MAP
+
 #include "services/network/public/mojom/fetch_api.mojom-blink.h"
 #include "third_party/blink/public/platform/modules/service_worker/web_service_worker_network_provider.h"
 #include "third_party/blink/public/platform/task_type.h"
@@ -202,7 +213,7 @@ void WebSharedWorkerImpl::ConnectTaskOnWorkerThread(
       ->ConnectPausable(std::move(channel));
 }
 
-void WebSharedWorkerImpl::StartWorkerContext(
+void WebSharedWorkerImpl::StartWorkerContext(bool nodejs, const base::FilePath& root_path,
     const WebURL& script_request_url,
     const WebString& name,
     const WebString& content_security_policy,
@@ -215,6 +226,8 @@ void WebSharedWorkerImpl::StartWorkerContext(
     mojo::ScopedMessagePipeHandle interface_provider) {
   DCHECK(IsMainThread());
   script_request_url_ = script_request_url;
+  nodejs_ = nodejs;
+  root_path_ = root_path;
   name_ = name;
   creation_address_space_ = creation_address_space;
   // Chrome doesn't use interface versioning.
@@ -290,6 +303,10 @@ void WebSharedWorkerImpl::ContinueOnScriptLoaderFinished() {
   Document* document = shadow_page_->GetDocument();
   const SecurityOrigin* starter_origin = document->GetSecurityOrigin();
   bool starter_secure_context = document->IsSecureContext();
+  std::string main_script = root_path_.AsUTF8Unsafe();
+  if (g_web_worker_start_thread_fn && nodejs_) {
+    (*g_web_worker_start_thread_fn)(nullptr, (void*)main_script_loader_->Url().GetPath().Utf8().data(), &main_script, &nodejs_);
+  }
 
   WorkerClients* worker_clients = WorkerClients::Create();
   CoreInitializer::GetInstance().ProvideLocalFileSystemToWorker(
@@ -335,6 +352,7 @@ void WebSharedWorkerImpl::ContinueOnScriptLoaderFinished() {
 
   auto global_scope_creation_params =
       std::make_unique<GlobalScopeCreationParams>(
+                                                 nodejs_, main_script,
           script_response_url, script_type, document->UserAgent(),
           content_security_policy ? content_security_policy->Headers()
                                   : Vector<CSPHeaderAndType>(),

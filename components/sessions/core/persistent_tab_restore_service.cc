@@ -148,6 +148,7 @@ enum SerializedWindowShowState : int {
   kSerializedShowStateMaximized = 3,
   kSerializedShowStateInactive = 4,
   kSerializedShowStateFullscreen = 5,
+  kSerializedShowStateHidden = 6,
 };
 
 // Converts a window show state to an integer. This function needs to be kept
@@ -166,6 +167,8 @@ int SerializeWindowShowState(ui::WindowShowState show_state) {
       return kSerializedShowStateInactive;
     case ui::SHOW_STATE_FULLSCREEN:
       return kSerializedShowStateFullscreen;
+    case ui::SHOW_STATE_HIDDEN:
+      return kSerializedShowStateHidden;
     case ui::SHOW_STATE_END:
       // This should never happen.
       NOTREACHED();
@@ -196,6 +199,9 @@ bool DeserializeWindowShowState(int show_state_int,
       return true;
     case kSerializedShowStateFullscreen:
       *show_state = ui::SHOW_STATE_FULLSCREEN;
+      return true;
+    case kSerializedShowStateHidden:
+      *show_state = ui::SHOW_STATE_HIDDEN;
       return true;
     case kSerializedShowStateInvalid:
     default:

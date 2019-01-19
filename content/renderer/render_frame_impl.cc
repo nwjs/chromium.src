@@ -252,6 +252,9 @@
 
 using base::Time;
 using base::TimeDelta;
+
+#include "content/nw/src/nw_content.h"
+
 using blink::WebContentDecryptionModule;
 using blink::WebContextMenuData;
 using blink::WebData;
@@ -1221,6 +1224,16 @@ blink::WebLocalFrame* RenderFrameImpl::UniqueNameFrameAdapter::GetWebFrame()
   return render_frame_->frame_;
 }
 
+void RenderFrameImpl::willHandleNavigationPolicy(
+                                                blink::WebFrame* frame,
+                                                const blink::WebURLRequest& request,
+                                                blink::WebNavigationPolicy* policy,
+                                                blink::WebString* manifest,
+                                                bool new_win) {
+  GetContentClient()->renderer()
+    ->willHandleNavigationPolicy(render_view_, frame, request, policy, manifest, new_win);
+}
+
 // static
 RenderFrameImpl* RenderFrameImpl::Create(
     RenderViewImpl* render_view,
@@ -1602,7 +1615,7 @@ RenderFrameImpl::CreateParams& RenderFrameImpl::CreateParams::operator=(
 
 // RenderFrameImpl ----------------------------------------------------------
 RenderFrameImpl::RenderFrameImpl(CreateParams params)
-    : frame_(nullptr),
+  : skip_blocking_parser_(true), frame_(nullptr),
       is_main_frame_(true),
       unique_name_frame_adapter_(this),
       unique_name_helper_(&unique_name_frame_adapter_),
@@ -3166,6 +3179,11 @@ void RenderFrameImpl::GetInterfaceProvider(
                               browser_info_.identity, std::move(request),
                               std::move(provider));
 }
+
+void RenderFrameImpl::SetSkipBlockingParser(bool value) {
+  skip_blocking_parser_ = value;
+}
+
 void RenderFrameImpl::GetCanonicalUrlForSharing(
     GetCanonicalUrlForSharingCallback callback) {
   WebURL canonical_url = GetWebFrame()->GetDocument().CanonicalUrlForSharing();
@@ -4801,6 +4819,9 @@ bool RenderFrameImpl::RunFileChooser(
   ipc_params.need_local_path = params.need_local_path;
   ipc_params.use_media_capture = params.use_media_capture;
   ipc_params.requestor = params.requestor;
+  ipc_params.initial_path = blink::WebStringToFilePath(params.initial_path);
+  ipc_params.extract_directory = params.extract_directory;
+  ipc_params.default_file_name = blink::WebStringToFilePath(params.initial_value).BaseName();
   return RunFileChooser(ipc_params, chooser_completion);
 }
 
@@ -5235,6 +5256,7 @@ void RenderFrameImpl::DidCreateScriptContext(v8::Local<v8::Context> context,
     blink::WebContextFeatures::EnableMojoJS(context, true);
   }
 
+  GetFrameHost()->SetContextCreated(true);
   for (auto& observer : observers_)
     observer.DidCreateScriptContext(context, world_id);
 }
@@ -5243,6 +5265,7 @@ void RenderFrameImpl::WillReleaseScriptContext(v8::Local<v8::Context> context,
                                                int world_id) {
   for (auto& observer : observers_)
     observer.WillReleaseScriptContext(context, world_id);
+  GetFrameHost()->SetContextCreated(false);
 }
 
 void RenderFrameImpl::DidChangeScrollOffset() {
@@ -5281,6 +5304,10 @@ blink::WebEncryptedMediaClient* RenderFrameImpl::EncryptedMediaClient() {
 }
 
 blink::WebString RenderFrameImpl::UserAgentOverride() {
+  std::string user_agent;
+  if (nw::GetUserAgentFromManifest(&user_agent))
+    return WebString::FromUTF8(user_agent);
+
   if (!render_view_->webview() || !render_view_->webview()->MainFrame() ||
       render_view_->renderer_preferences_.user_agent_override.empty()) {
     return blink::WebString();

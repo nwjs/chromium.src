@@ -73,6 +73,8 @@
 #include "extensions/browser/updater/null_extension_cache.h"
 #endif
 
+#include "content/nw/src/api/generated_api_registration.h"
+
 namespace extensions {
 
 namespace {

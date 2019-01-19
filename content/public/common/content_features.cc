@@ -11,6 +11,9 @@
 
 namespace features {
 
+const base::Feature kNWNewWin{
+    "nw2", base::FEATURE_DISABLED_BY_DEFAULT};
+
 // All features in alphabetical order.
 
 // Enables the allowActivationDelegation attribute on iframes.
@@ -411,7 +414,7 @@ const base::Feature kSignedHTTPExchangeOriginTrial{
 // spare renderer process around for the most recently requested BrowserContext.
 // This feature is only consulted in site-per-process mode.
 const base::Feature kSpareRendererForSitePerProcess{
-    "SpareRendererForSitePerProcess", base::FEATURE_ENABLED_BY_DEFAULT};
+    "SpareRendererForSitePerProcess", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Throttle Blink timers in out-of-view cross origin frames.
 const base::Feature kTimerThrottlingForHiddenFrames{

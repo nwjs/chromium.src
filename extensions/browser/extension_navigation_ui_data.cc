@@ -4,6 +4,8 @@
 
 #include "extensions/browser/extension_navigation_ui_data.h"
 
+#include "content/public/browser/render_process_host.h"
+
 #include "base/memory/ptr_util.h"
 #include "content/public/browser/navigation_handle.h"
 #include "content/public/browser/web_contents.h"
@@ -56,6 +58,7 @@ std::unique_ptr<ExtensionNavigationUIData> ExtensionNavigationUIData::DeepCopy()
   copy->is_web_view_ = is_web_view_;
   copy->web_view_instance_id_ = web_view_instance_id_;
   copy->web_view_rules_registry_id_ = web_view_rules_registry_id_;
+  copy->web_view_embedder_process_id_ = web_view_embedder_process_id_;
   return copy;
 }
 
@@ -77,9 +80,12 @@ ExtensionNavigationUIData::ExtensionNavigationUIData(
     is_web_view_ = true;
     web_view_instance_id_ = web_view->view_instance_id();
     web_view_rules_registry_id_ = web_view->rules_registry_id();
+    web_view_embedder_process_id_ =
+        web_view->owner_web_contents()->GetMainFrame()->GetProcess()->GetID();
   } else {
     is_web_view_ = false;
-    web_view_instance_id_ = web_view_rules_registry_id_ = 0;
+    web_view_instance_id_ = web_view_rules_registry_id_ =
+        web_view_embedder_process_id_ = 0;
   }
 }
 

@@ -254,6 +254,40 @@ void WindowsEventRouter::Observe(
 #endif
 }
 
+void WindowsEventRouter::OnWindowMove(WindowController* window_controller) {
+  if (!HasEventListener(windows::OnMove::kEventName))
+    return;
+  if (!profile_->IsSameProfile(window_controller->profile()))
+    return;
+  // Ignore any windows without an associated browser (e.g., AppWindows).
+  if (!window_controller->GetBrowser())
+    return;
+
+  std::unique_ptr<base::ListValue> args(new base::ListValue());
+  args->Append(ExtensionTabUtil::CreateWindowValueForExtension(
+      *window_controller->GetBrowser(), nullptr,
+      ExtensionTabUtil::kDontPopulateTabs));
+  DispatchEvent(events::UNKNOWN, windows::OnMove::kEventName,
+                window_controller, std::move(args));
+}
+
+void WindowsEventRouter::OnWindowChanged(WindowController* window_controller) {
+  if (!HasEventListener(windows::OnWindowChanged::kEventName))
+    return;
+  if (!profile_->IsSameProfile(window_controller->profile()))
+    return;
+  // Ignore any windows without an associated browser (e.g., AppWindows).
+  if (!window_controller->GetBrowser())
+    return;
+
+  std::unique_ptr<base::ListValue> args(new base::ListValue());
+  args->Append(ExtensionTabUtil::CreateWindowValueForExtension(
+      *window_controller->GetBrowser(), nullptr,
+      ExtensionTabUtil::kDontPopulateTabs));
+  DispatchEvent(events::UNKNOWN, windows::OnWindowChanged::kEventName,
+                window_controller, std::move(args));
+}
+
 void WindowsEventRouter::OnActiveWindowChanged(
     WindowController* window_controller) {
   Profile* window_profile = nullptr;

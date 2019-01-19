@@ -153,9 +153,9 @@ void AttemptExitInternal(bool try_to_quit_application) {
 }
 
 #if !defined(OS_ANDROID)
-void CloseAllBrowsersAndQuit() {
+void CloseAllBrowsersAndQuit(bool force, bool user_force) {
   browser_shutdown::SetTryingToQuit(true);
-  CloseAllBrowsers();
+  CloseAllBrowsers(force, user_force);
 }
 
 void ShutdownIfNoBrowsers() {
@@ -176,7 +176,7 @@ void ShutdownIfNoBrowsers() {
   OnAppExiting();
 }
 
-void CloseAllBrowsers() {
+void CloseAllBrowsers(bool force, bool user_force) {
   // If there are no browsers and closing the last browser would quit the
   // application, send the APP_TERMINATING action here. Otherwise, it will be
   // sent by RemoveBrowser() when the last browser has closed.
@@ -192,7 +192,7 @@ void CloseAllBrowsers() {
       "StartedClosingWindows", false);
 #endif
   scoped_refptr<BrowserCloseManager> browser_close_manager =
-      new BrowserCloseManager;
+      new BrowserCloseManager(force, user_force);
   browser_close_manager->StartClosingBrowsers();
 }
 #endif  // !defined(OS_ANDROID)

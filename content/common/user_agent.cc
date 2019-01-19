@@ -137,7 +137,16 @@ std::string BuildUserAgentFromProduct(const std::string& product) {
   return BuildUserAgentFromOSAndProduct(os_info, product);
 }
 
-#if defined(OS_ANDROID)
+std::string BuildOSInfo() {
+  std::string os_info;
+  base::StringAppendF(
+      &os_info,
+      "%s%s",
+      getUserAgentPlatform().c_str(),
+      BuildOSCpuInfo().c_str());
+  return os_info;
+}
+
 std::string BuildUserAgentFromProductAndExtraOSInfo(
     const std::string& product,
     const std::string& extra_os_info,
@@ -149,6 +158,7 @@ std::string BuildUserAgentFromProductAndExtraOSInfo(
   return BuildUserAgentFromOSAndProduct(os_info, product);
 }
 
+#if 0
 std::string GetAndroidOSInfo(bool include_android_build_number) {
   std::string android_info_str;
 
@@ -174,7 +184,7 @@ std::string GetAndroidOSInfo(bool include_android_build_number) {
 
   return android_info_str;
 }
-#endif  // defined(OS_ANDROID)
+#endif
 
 std::string BuildUserAgentFromOSAndProduct(const std::string& os_info,
                                            const std::string& product) {

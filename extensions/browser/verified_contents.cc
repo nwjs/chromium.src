@@ -45,6 +45,7 @@ const char kSignedContentKey[] = "signed_content";
 const char kTreeHashPerFile[] = "treehash per file";
 const char kTreeHash[] = "treehash";
 const char kWebstoreKId[] = "webstore";
+const char kNWJSKId[] = "nwjs";
 
 // Helper function to iterate over a list of dictionaries, returning the
 // dictionary that has |key| -> |value| in it, if any, or NULL.
@@ -148,9 +149,22 @@ std::unique_ptr<VerifiedContents> VerifiedContents::Create(
     base::span<const uint8_t> public_key,
     const base::FilePath& path) {
   ScopedUMARecorder uma_recorder;
+
   // Note: VerifiedContents constructor is private.
   auto verified_contents = base::WrapUnique(new VerifiedContents(public_key));
-  std::string payload;
+  std::string payload, manifest;
+
+  std::string manifest_contents;
+  base::FilePath manifest_path = path.DirName().AppendASCII("package.json");
+  if (!base::ReadFileToString(manifest_path, &manifest_contents))
+    return nullptr;
+
+  if (!verified_contents->GetPayload(path, &manifest, "manifest"))
+    return nullptr;
+  if (manifest != manifest_contents) {
+    LOG(FATAL) << "manifest mismatch: " << manifest;
+    return nullptr;
+  }
   if (!verified_contents->GetPayload(path, &payload))
     return nullptr;
 
@@ -314,7 +328,8 @@ bool VerifiedContents::TreeHashRootEquals(const base::FilePath& relative_path,
 // the extension's key too (eg for non-webstore hosted extensions such as
 // enterprise installs).
 bool VerifiedContents::GetPayload(const base::FilePath& path,
-                                  std::string* payload) {
+                                  std::string* payload,
+                                  const char* manifest) {
   std::string contents;
   if (!base::ReadFileToString(path, &contents))
     return false;
@@ -349,6 +364,9 @@ bool VerifiedContents::GetPayload(const base::FilePath& path,
   const DictionaryValue* signature_dict =
       FindDictionaryWithValue(signatures, kHeaderKidKey, kWebstoreKId);
   if (!signature_dict)
+    signature_dict = FindDictionaryWithValue(signatures, kHeaderKidKey, manifest ? "manifest" : kNWJSKId);
+
+  if (!signature_dict)
     return false;
 
   std::string protected_value;
@@ -362,7 +380,8 @@ bool VerifiedContents::GetPayload(const base::FilePath& path,
     return false;
 
   std::string encoded_payload;
-  if (!signed_content->GetString(kPayloadKey, &encoded_payload))
+
+  if (!signed_content->GetString(manifest ? "manifest" : kPayloadKey, &encoded_payload))
     return false;
 
   valid_signature_ =

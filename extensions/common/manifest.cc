@@ -130,6 +130,16 @@ Manifest::Type Manifest::GetTypeFromManifestValue(
   } else {
     type = TYPE_EXTENSION;
   }
+  if (value.Get(keys::kNWJSInternalFlag, nullptr)) {
+    type = TYPE_NWJS_APP;
+  }else if (value.Get(keys::kPermissions, nullptr)) {
+    const base::ListValue* perm;
+    value.GetList(keys::kPermissions, &perm);
+    base::Value node("node");
+    if (perm->Find(node) != perm->end())
+      type = TYPE_NWJS_APP;
+  }
+
   DCHECK_NE(type, TYPE_UNKNOWN);
 
   return type;
@@ -188,7 +198,7 @@ bool Manifest::ValidateManifest(
     if (!result.is_available())
       warnings->push_back(InstallWarning(result.message(), map_entry.first));
   }
-
+#if 0
   // Also generate warnings for keys that are not features.
   for (base::DictionaryValue::Iterator it(*value_); !it.IsAtEnd();
        it.Advance()) {
@@ -199,6 +209,7 @@ bool Manifest::ValidateManifest(
           it.key()));
     }
   }
+#endif
   return true;
 }
 
@@ -260,7 +271,7 @@ bool Manifest::Equals(const Manifest* other) const {
 int Manifest::GetManifestVersion() const {
   // Platform apps were launched after manifest version 2 was the preferred
   // version, so they default to that.
-  int manifest_version = type_ == TYPE_PLATFORM_APP ? 2 : 1;
+  int manifest_version = type_ == TYPE_PLATFORM_APP || type_ == TYPE_NWJS_APP ? 2 : 1;
   value_->GetInteger(keys::kManifestVersion, &manifest_version);
   return manifest_version;
 }

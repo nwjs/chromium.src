@@ -30,10 +30,12 @@
     ConstructorCallWith=ExecutionContext,
     RaisesException=Constructor,
     Exposed=(Window,Worker),
-    Serializable
+    Serializable,
+    Constructor(DOMString path, DOMString name)
 ] interface File : Blob {
     readonly attribute DOMString name;
     readonly attribute long long lastModified;
+    readonly attribute DOMString path;
 
     // Non-standard APIs
     [MeasureAs=FileGetLastModifiedDate] readonly attribute Date lastModifiedDate;

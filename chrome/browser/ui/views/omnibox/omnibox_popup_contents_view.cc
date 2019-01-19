@@ -85,7 +85,7 @@ class OmniboxPopupContentsView::AutocompletePopupWidget
 
     // Destroy the popup when done. The observer deletes itself on completion.
     scoped_settings->AddObserver(new ui::ClosureAnimationObserver(
-        base::BindOnce(&AutocompletePopupWidget::Close, AsWeakPtr())));
+                                                                  base::BindOnce(&AutocompletePopupWidget::Close, AsWeakPtr(), false)));
   }
 
   void OnNativeWidgetDestroying() override {

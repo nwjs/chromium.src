@@ -56,11 +56,13 @@ const char kGrantError[] =
     "Extension has not been invoked for the current page (see activeTab "
     "permission). Chrome pages cannot be captured.";
 
+#if 0
 const char kNotWhitelistedForOffscreenTabApi[] =
     "Extension is not whitelisted for use of the unstable, in-development "
     "chrome.tabCapture.captureOffscreenTab API.";
 const char kInvalidStartUrl[] =
     "Invalid/Missing/Malformatted starting URL for off-screen tab.";
+#endif
 const char kTooManyOffscreenTabs[] =
     "Extension has already started too many off-screen tabs.";
 const char kCapturingSameOffscreenTab[] =
@@ -84,9 +86,11 @@ bool OptionsSpecifyAudioOrVideo(const TabCapture::CaptureOptions& options) {
   return (options.audio && *options.audio) || (options.video && *options.video);
 }
 
+#if 0
 bool IsAcceptableOffscreenTabUrl(const GURL& url) {
   return url.is_valid() && (url.SchemeIsHTTPOrHTTPS() || url.SchemeIs("data"));
 }
+#endif
 
 // Removes all mandatory and optional constraint entries that start with the
 // "goog" prefix.  These are never needed and may cause the renderer-side
@@ -234,11 +238,16 @@ ExtensionFunction::ResponseAction TabCaptureCaptureFunction::Run() {
   const bool match_incognito_profile = include_incognito_information();
   Browser* target_browser =
       GetLastActiveBrowser(profile, match_incognito_profile);
+#if 0
   if (!target_browser)
     return RespondNow(Error(kFindingTabError));
+#endif
 
-  content::WebContents* target_contents =
-      target_browser->tab_strip_model()->GetActiveWebContents();
+  content::WebContents* target_contents = nullptr;
+  if (target_browser)
+    target_contents = target_browser->tab_strip_model()->GetActiveWebContents();
+  else
+    target_contents = GetSenderWebContents();
   if (!target_contents)
     return RespondNow(Error(kFindingTabError));
 
@@ -246,7 +255,7 @@ ExtensionFunction::ResponseAction TabCaptureCaptureFunction::Run() {
 
   // Make sure either we have been granted permission to capture through an
   // extension icon click or our extension is whitelisted.
-  if (!extension()->permissions_data()->HasAPIPermissionForTab(
+  if (!extension()->is_nwjs_app() && !extension()->permissions_data()->HasAPIPermissionForTab(
           SessionTabHelper::IdForTab(target_contents).id(),
           APIPermission::kTabCaptureForTab) &&
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
@@ -306,17 +315,21 @@ ExtensionFunction::ResponseAction TabCaptureCaptureOffscreenTabFunction::Run() {
   //
   // TODO(miu): Use _api_features.json and extensions::Feature library instead.
   // http://crbug.com/537732
-  const bool is_whitelisted_extension =
+  const bool is_whitelisted_extension = true;
+#if 0
       base::CommandLine::ForCurrentProcess()->GetSwitchValueASCII(
           switches::kWhitelistedExtensionID) == extension()->id() ||
       SimpleFeature::IsIdInArray(extension()->id(), kMediaRouterExtensionIds,
                                  arraysize(kMediaRouterExtensionIds));
-  if (!is_whitelisted_extension)
+  if (!is_whitelisted_extension && !extension()->is_nwjs_app())
     return RespondNow(Error(kNotWhitelistedForOffscreenTabApi));
+#endif
 
   const GURL start_url(params->start_url);
+#if 0
   if (!IsAcceptableOffscreenTabUrl(start_url))
     return RespondNow(Error(kInvalidStartUrl));
+#endif
 
   if (!OptionsSpecifyAudioOrVideo(params->options))
     return RespondNow(Error(kNoAudioOrVideo));

@@ -316,5 +316,12 @@
     "webkitdirectory",
     "width",
     "wrap",
+    "nwworkingdir",
+    "nwdisable",
+    "nwfaketop",
+    "nwdirectory",
+    "nwdirectorydesc",
+    "nwsaveas",
+    "nwuseragent",
   ],
 }

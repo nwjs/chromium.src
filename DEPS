@@ -94,6 +94,7 @@ vars = {
   'android_git': 'https://android.googlesource.com',
   'aomedia_git': 'https://aomedia.googlesource.com',
   'chromium_git': 'https://chromium.googlesource.com',
+  'nwjs_git': 'https://github.com/nwjs',
   'swiftshader_git': 'https://swiftshader.googlesource.com',
   'pdfium_git': 'https://pdfium.googlesource.com',
   'boringssl_git': 'https://boringssl.googlesource.com',
@@ -385,6 +386,9 @@ deps = {
       ],
       'dep_type': 'cipd',
   },
+
+  'src/tools/gyp':
+    Var('chromium_git') + '/external/gyp.git' + '@' + 'd61a9397e668fa9843c4aa7da9e79460fe590bfb',
 
   'src/third_party/spirv-headers/src':
     Var('chromium_git') + '/external/github.com/KhronosGroup/SPIRV-Headers.git@' +
@@ -1135,8 +1139,8 @@ deps = {
   'src/tools/swarming_client':
     Var('chromium_git') + '/infra/luci/client-py.git' + '@' +  Var('swarming_revision'),
 
-  'src/v8':
-    Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
+  #'src/v8':
+  #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
     'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@d8131e94cda53559d4983b738662fe1a821cd90a',
@@ -2281,7 +2285,15 @@ hooks = [
                 '--no_auth',
                 '--bucket', 'chromium-nodejs/8.9.1',
                 '-s', 'src/third_party/node/linux/node-linux-x64.tar.gz.sha1',
-    ],
+                ],
+  },
+  {
+    'name': 'nw_patch',
+    'pattern': '.',
+    'action': [
+      'python',
+      'src/content/nw/tools/patcher.py'
+      ],
   },
   {
     'name': 'node_mac',

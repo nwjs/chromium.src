@@ -50,6 +50,9 @@
           "name": "maximized",
           "description": "Maximized window state."
         }, {
+          "name": "hidden",
+          "description": "Hidden window state."
+        }, {
           "name": "fullscreen",
           "description": "Fullscreen window state."
         }, {
@@ -67,6 +70,10 @@
         "properties": {
           "id": {"type": "integer", "optional": true, "minimum": 0, "description": "The ID of the window. Window IDs are unique within a browser session. In some circumstances a window may not be assigned an <code>ID</code> property; for example, when querying windows using the $(ref:sessions) API, in which case a session ID may be present."},
           "focused": {"type": "boolean", "description": "Whether the window is currently the focused window."},
+          "maxWidth": {"type": "integer", "optional": true, "description": ""},  
+          "maxHeight": {"type": "integer", "optional": true, "description": ""},  
+          "minWidth": {"type": "integer", "optional": true, "description": ""},  
+          "minHeight": {"type": "integer", "optional": true, "description": ""},  
           "top": {"type": "integer", "optional": true, "description": "The offset of the window from the top edge of the screen in pixels. In some circumstances a window may not be assigned a <code>top</code> property; for example, when querying closed windows from the $(ref:sessions) API."},
           "left": {"type": "integer", "optional": true, "description": "The offset of the window from the left edge of the screen in pixels. In some circumstances a window may not be assigned a <code>left</code> property; for example, when querying closed windows from the $(ref:sessions) API."},
           "width": {"type": "integer", "optional": true, "description": "The width of the window, including the frame, in pixels. In some circumstances a window may not be assigned a <code>width</code> property; for example, when querying closed windows from the $(ref:sessions) API."},
@@ -84,6 +91,9 @@
             "description": "The state of this browser window."
           },
           "alwaysOnTop": {"type": "boolean", "description": "Whether the window is set to be always on top."},
+          "showInTaskbar": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
+          "resizable": {"type": "boolean", "optional": true, "description": "Whether the window is resizable"},
+          "allVisible": {"type": "boolean", "optional": true, "description": "Whether the window is set to be visible on all workspaces."},
           "sessionId": {"type": "string", "optional": true, "description": "The session ID used to uniquely identify a window, obtained from the $(ref:sessions) API."}
         }
       },
@@ -228,11 +238,28 @@
                 ]
               },
               "tabId": {"type": "integer", "minimum": 0, "optional": true, "description": "The ID of the tab to add to the new window."},
+              "maxWidth": {"type": "integer", "optional": true, "description": ""},  
+              "maxHeight": {"type": "integer", "optional": true, "description": ""},  
+              "minWidth": {"type": "integer", "optional": true, "description": ""},  
+              "minHeight": {"type": "integer", "optional": true, "description": ""},  
               "left": {"type": "integer", "optional": true, "description": "The number of pixels to position the new window from the left edge of the screen. If not specified, the new window is offset naturally from the last focused window. This value is ignored for panels."},
               "top": {"type": "integer", "optional": true, "description": "The number of pixels to position the new window from the top edge of the screen. If not specified, the new window is offset naturally from the last focused window. This value is ignored for panels."},
               "width": {"type": "integer", "minimum": 0, "optional": true, "description": "The width in pixels of the new window, including the frame. If not specified, defaults to a natural width."},
               "height": {"type": "integer", "minimum": 0, "optional": true, "description": "The height in pixels of the new window, including the frame. If not specified, defaults to a natural height."},
               "focused": {"type": "boolean", "optional": true, "description": "If <code>true</code>, opens an active window. If <code>false</code>, opens an inactive window."},
+              "hidden": {"type": "boolean", "optional": true, "description": ""},
+              "frameless": {"type": "boolean", "optional": true, "description": ""},
+              "alphaEnabled": {"type": "boolean", "optional": true, "description": ""},
+              "new_instance": {"type": "boolean", "optional": true, "description": ""},
+              "inject_js_start": {"type":"string", "optional": true, "description": ""},
+              "inject_js_end": {"type":"string", "optional": true, "description": ""},
+              "alwaysOnTop": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
+              "showInTaskbar": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
+              "allVisible": {"type": "boolean", "optional": true, "description": "Whether the window is visible on all workspaces"},
+              "resizable": {"type": "boolean", "optional": true, "description": "Whether the window is resizable"},
+              "title":{"type":"string", "optional": true, "description": ""},
+              "icon":{"type":"string", "optional": true, "description": ""},
+              "position":{"type":"string", "optional": true, "description": ""},
               "incognito": {"type": "boolean", "optional": true, "description": "Whether the new window should be an incognito window."},
               "type": {
                 "$ref": "CreateType",
@@ -275,11 +302,20 @@
             "type": "object",
             "name": "updateInfo",
             "properties": {
+              "resizable": {"type": "boolean", "optional": true, "description": "Whether the window is resizable"},
+              "allVisible": {"type": "boolean", "optional": true, "description": "Whether the window is visible on all workspaces"},
+              "alwaysOnTop": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
+              "showInTaskbar": {"type": "boolean", "optional": true, "description": "Whether the window is set to be always on top."},
+              "maxWidth": {"type": "integer", "optional": true, "description": ""},  
+              "maxHeight": {"type": "integer", "optional": true, "description": ""},  
+              "minWidth": {"type": "integer", "optional": true, "description": ""},  
+              "minHeight": {"type": "integer", "optional": true, "description": ""},  
               "left": {"type": "integer", "optional": true, "description": "The offset from the left edge of the screen to move the window to in pixels. This value is ignored for panels."},
               "top": {"type": "integer", "optional": true, "description": "The offset from the top edge of the screen to move the window to in pixels. This value is ignored for panels."},
               "width": {"type": "integer", "minimum": 0, "optional": true, "description": "The width to resize the window to in pixels. This value is ignored for panels."},
               "height": {"type": "integer", "minimum": 0, "optional": true, "description": "The height to resize the window to in pixels. This value is ignored for panels."},
               "focused": {"type": "boolean", "optional": true, "description": "If <code>true</code>, brings the window to the front; cannot be combined with the state 'minimized'. If <code>false</code>, brings the next window in the z-order to the front; cannot be combined with the state 'fullscreen' or 'maximized'."},
+              "position": {"type":"string", "optional": true, "description": ""},  
               "drawAttention": {"type": "boolean", "optional": true, "description": "If <code>true</code>, causes the window to be displayed in a manner that draws the user's attention to the window, without changing the focused window. The effect lasts until the user changes focus to the window. This option has no effect if the window already has focus. Set to <code>false</code> to cancel a previous <code>drawAttention</code> request."},
               "state": {
                 "$ref": "WindowState",
@@ -312,6 +348,46 @@
     ],
     "events": [
       {
+        "name": "onMove",
+        "type": "function",
+        "description": "Fired when a window is moving.",
+        "filters": [
+          {
+            "name": "windowTypes",
+            "type": "array",
+            "items": { "$ref": "WindowType" },
+            "description": "Conditions that the window's type being created must satisfy. By default it satisfies <code>['normal', 'popup']</code>."
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "Window",
+            "name": "window",
+            "description": "Details of the created window."
+          }
+        ]
+      },
+      {
+        "name": "onWindowChanged",
+        "type": "function",
+        "description": "Fired when a window is changed.",
+        "filters": [
+          {
+            "name": "windowTypes",
+            "type": "array",
+            "items": { "$ref": "WindowType" },
+            "description": "Conditions that the window's type being created must satisfy. By default it satisfies <code>['normal', 'popup']</code>."
+          }
+        ],
+        "parameters": [
+          {
+            "$ref": "Window",
+            "name": "window",
+            "description": "Details of the created window."
+          }
+        ]
+      },
+      {
         "name": "onCreated",
         "type": "function",
         "description": "Fired when a window is created.",
@@ -329,6 +405,23 @@
             "name": "window",
             "description": "Details of the created window."
           }
+        ]
+      },
+      {
+        "name": "onRemoving",
+        "type": "function",
+        "description": "Fired when a window wants to be closed.",
+        "filters": [
+          {
+            "name": "windowTypes",
+            "type": "array",
+            "items": { "$ref": "WindowType" },
+            "description": "Conditions that the window's type being removed must satisfy. By default it satisfies <code>['normal', 'popup']</code>."
+          }
+        ],
+        "parameters": [
+          {"type": "integer", "name": "windowId", "minimum": 0, "description": "ID of the removed window."},
+          {"type": "string", "optional": true, "name": "flag", "description": ""}
         ]
       },
       {
