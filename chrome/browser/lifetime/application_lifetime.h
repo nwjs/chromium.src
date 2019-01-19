@@ -56,13 +56,13 @@ bool IsAttemptingShutdown();
 
 #if !defined(OS_ANDROID)
 // Closes all browsers and if successful, quits.
-void CloseAllBrowsersAndQuit(bool force = false);
+void CloseAllBrowsersAndQuit(bool force = false, bool user_force = false);
 
 // Closes all browsers. If the session is ending the windows are closed
 // directly. Otherwise the windows are closed by way of posting a WM_CLOSE
 // message. This will quit the application if there is nothing other than
 // browser windows keeping it alive or the application is quitting.
-void CloseAllBrowsers(bool force = false);
+void CloseAllBrowsers(bool force = false, bool user_force = false);
 
 // If there are no browsers open and we aren't already shutting down,
 // initiate a shutdown.

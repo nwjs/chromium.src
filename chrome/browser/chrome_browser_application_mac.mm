@@ -5,6 +5,9 @@
 #import "chrome/browser/chrome_browser_application_mac.h"
 
 #include "chrome/browser/apps/platform_apps/app_window_registry_util.h"
+#include "chrome/browser/lifetime/browser_close_manager.h"
+#include "chrome/browser/lifetime/application_lifetime.h"
+#include "content/public/common/content_features.h"
 
 #include "base/auto_reset.h"
 #include "base/command_line.h"
@@ -239,6 +242,10 @@ std::string DescriptionForNSEvent(NSEvent* event) {
 // before exiting.
 
 - (void)closeAllWindowsQuit:(id)sender {
+  if (base::FeatureList::IsEnabled(::features::kNWNewWin)) {
+    chrome::CloseAllBrowsers(false, true);
+    return;
+  }
   AppWindowRegistryUtil::CloseAllAppWindows(true);
 }
 

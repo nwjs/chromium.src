@@ -640,8 +640,6 @@ bool Browser::NWCanClose(bool user_force) {
     args->AppendInteger(session_id().id());
     if (user_force)
       args->AppendString("quit");
-    else
-      args->AppendString("");
     auto event =
       std::make_unique<extensions::Event>(extensions::events::UNKNOWN,
                                           extensions::api::windows::OnRemoving::kEventName,

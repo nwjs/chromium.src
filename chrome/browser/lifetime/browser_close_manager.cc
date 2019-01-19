@@ -4,6 +4,8 @@
 
 #include "chrome/browser/lifetime/browser_close_manager.h"
 
+#include "chrome/browser/ui/views/frame/browser_view.h"
+
 #include <iterator>
 #include <vector>
 
@@ -41,7 +43,7 @@ void ShowInProgressDownloads(Profile* profile) {
 
 }  // namespace
 
-BrowserCloseManager::BrowserCloseManager(bool force) : current_browser_(nullptr), force_(force) {
+BrowserCloseManager::BrowserCloseManager(bool force, bool user_force) : current_browser_(nullptr), force_(force), user_force_(user_force) {
 }
 
 BrowserCloseManager::~BrowserCloseManager() {
@@ -169,8 +171,8 @@ void BrowserCloseManager::CloseBrowsers() {
   for (auto* browser : browser_list_copy) {
     if (force_)
       browser->window()->ForceClose();
-    else
-      browser->window()->Close();
+    else if (BrowserView::GetBrowserViewForBrowser(browser)->NWCanClose(user_force_))
+      browser->window()->ForceClose();
     if (session_ending) {
       // This path is hit during logoff/power-down. In this case we won't get
       // a final message and so we force the browser to be deleted.
