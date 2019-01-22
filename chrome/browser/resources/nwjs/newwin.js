@@ -2,6 +2,7 @@
 var manifest = chrome.runtime.getManifest();
 var options = { 'url' : manifest.main, 'type': 'popup' };
 var title = null;
+console.log("NEWWIN MODE");
 if (manifest.window) {
   //if (manifest.window.id)
     //options.tabId = manifest.window.id;

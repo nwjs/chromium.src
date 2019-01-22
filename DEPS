@@ -118,7 +118,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': '54dc9b0b690e21d8d1c6670cc47f61abb41b9702',
+  'v8_revision': '27509dd4369493c01c534b3d3c5093ed5fd6d71b',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -907,7 +907,7 @@ deps = {
   },
 
   'src/third_party/libvpx/source/libvpx':
-    Var('chromium_git') + '/webm/libvpx.git' + '@' +  'be3c1ee28aeb699c508b02cfcccf7f13feaed3eb',
+    Var('chromium_git') + '/webm/libvpx.git' + '@' +  'cbd7580ae8a84abb719e9fa5d143f349150ffafc',
 
   'src/third_party/libwebm/source':
     Var('chromium_git') + '/webm/libwebm.git' + '@' + 'e4931ebc0a816458c18a6734e91a4d1b5acd5c56',
@@ -1207,7 +1207,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@0d1916211eb9c9d8e5b75922836c37d251992df4',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@370de65154132e1ec69caf5176497e14659a627a',
     'condition': 'checkout_src_internal',
   },
 
