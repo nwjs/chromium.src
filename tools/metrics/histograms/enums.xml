@@ -38632,6 +38632,11 @@ Called by update_net_trust_anchors.py.-->
   </int>
 </enum>
 
+<enum name="OSXFastUserSwitchEvent">
+  <int value="0" label="User Became Active"/>
+  <int value="1" label="User Became Inactive"/>
+</enum>
+
 <enum name="OSXFilesystem">
   <int value="0" label="Unknown"/>
   <int value="1" label="Other"/>
@@ -38773,6 +38778,15 @@ Called by update_net_trust_anchors.py.-->
   <int value="1" label="MACH">
     The shared memory region is backed by a Mach memory object.
   </int>
+</enum>
+
+<enum name="OSXStagingDirectoryStep">
+  <int value="0" label="failure"/>
+  <int value="1" label="NSItemReplacementDirectory"/>
+  <int value="2" label="Sibling directory"/>
+  <int value="3" label="NSTemporaryDirectory"/>
+  <int value="4" label="TMPDIR"/>
+  <int value="5" label="/tmp"/>
 </enum>
 
 <enum name="OtherPossibleUsernamesUsage">
