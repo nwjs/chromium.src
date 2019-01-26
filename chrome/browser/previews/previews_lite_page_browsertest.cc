@@ -252,7 +252,8 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
     return GetWebContents()->GetController().GetVisibleEntry()->GetURL();
   }
 
-  void VerifyInfoStatus(previews::ServerLitePageStatus status) {
+  void VerifyInfoStatus(base::HistogramTester* histogram_tester,
+                        previews::ServerLitePageStatus status) {
     PreviewsUITabHelper* ui_tab_helper =
         PreviewsUITabHelper::FromWebContents(GetWebContents());
     previews::PreviewsUserData* previews_data =
@@ -260,6 +261,16 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
 
     EXPECT_TRUE(previews_data->server_lite_page_info());
     EXPECT_EQ(previews_data->server_lite_page_info()->status, status);
+
+    // This UMA is not recorded for an unknown or control group status
+    if (status == previews::ServerLitePageStatus::kUnknown ||
+        status == previews::ServerLitePageStatus::kControl) {
+      return;
+    }
+    histogram_tester->ExpectTotalCount(
+        "Previews.ServerLitePage.Penalty." +
+            previews::ServerLitePageStatusToString(status),
+        1);
   }
 
   void VerifyPreviewLoaded() const {
@@ -685,7 +696,8 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
     VerifyPreviewLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kSuccess);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kSuccess);
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
   }
@@ -846,13 +858,22 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
   base::test::ScopedFeatureList scoped_feature_list;
   scoped_feature_list.InitWithFeatures(
       {}, {previews::features::kPreviewsDisallowedOnReloads});
-  ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
-  VerifyPreviewLoaded();
-  VerifyInfoStatus(previews::ServerLitePageStatus::kSuccess);
+  {
+    base::HistogramTester histogram_tester;
+    ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
+    VerifyPreviewLoaded();
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kSuccess);
+  }
 
-  GetWebContents()->GetController().Reload(content::ReloadType::NORMAL, false);
-  VerifyPreviewLoaded();
-  VerifyInfoStatus(previews::ServerLitePageStatus::kSuccess);
+  {
+    base::HistogramTester histogram_tester;
+    GetWebContents()->GetController().Reload(content::ReloadType::NORMAL,
+                                             false);
+    VerifyPreviewLoaded();
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kSuccess);
+  }
 }
 
 IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
@@ -870,9 +891,10 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
 
 IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
                        DISABLE_ON_WIN_MAC(LitePagePreviewsLoadOriginal)) {
+  base::HistogramTester histogram_tester;
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewLoaded();
-  VerifyInfoStatus(previews::ServerLitePageStatus::kSuccess);
+  VerifyInfoStatus(&histogram_tester, previews::ServerLitePageStatus::kSuccess);
 
   PreviewsUITabHelper::FromWebContents(GetWebContents())
       ->ReloadWithoutPreviews();
@@ -886,7 +908,8 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), http_to_https_redirect_url());
     VerifyPreviewLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kSuccess);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kSuccess);
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
   }
@@ -896,7 +919,8 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), https_to_https_redirect_url());
     VerifyPreviewLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kSuccess);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kSuccess);
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
   }
@@ -908,7 +932,8 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     ui_test_utils::NavigateToURL(browser(),
                                  HttpsLitePageURL(kRedirectNonPreview));
     VerifyPreviewNotLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kRedirect);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kRedirect);
     ClearDeciderState();
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
@@ -923,7 +948,8 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kRedirectPreview));
     VerifyPreviewLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kSuccess);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kSuccess);
     ClearDeciderState();
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 2);
@@ -944,12 +970,11 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kBypass));
     VerifyPreviewNotLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kBypass);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kBypass);
     ClearDeciderState();
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
-    histogram_tester.ExpectTotalCount(
-        "Previews.ServerLitePage.HttpOnlyFallbackPenalty", 1);
     histogram_tester.ExpectBucketCount(
         "Previews.ServerLitePage.ServerResponse",
         PreviewsLitePageNavigationThrottle::ServerResponse::kPreviewUnavailable,
@@ -964,12 +989,11 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kHostBlacklist));
     VerifyPreviewNotLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kBypass);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kBypass);
 
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
-    histogram_tester.ExpectTotalCount(
-        "Previews.ServerLitePage.HttpOnlyFallbackPenalty", 1);
     histogram_tester.ExpectBucketCount(
         "Previews.ServerLitePage.ServerResponse",
         PreviewsLitePageNavigationThrottle::ServerResponse::kPreviewUnavailable,
@@ -995,12 +1019,11 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kAuthFailure));
     VerifyPreviewNotLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kFailure);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kFailure);
     ClearDeciderState();
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
-    histogram_tester.ExpectTotalCount(
-        "Previews.ServerLitePage.HttpOnlyFallbackPenalty", 1);
     histogram_tester.ExpectBucketCount(
         "Previews.ServerLitePage.ServerResponse",
         PreviewsLitePageNavigationThrottle::ServerResponse::kAuthFailure, 1);
@@ -1011,12 +1034,11 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kLoadshed));
     VerifyPreviewNotLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kFailure);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kFailure);
     ClearDeciderState();
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
                                        true, 1);
-    histogram_tester.ExpectTotalCount(
-        "Previews.ServerLitePage.HttpOnlyFallbackPenalty", 1);
     histogram_tester.ExpectBucketCount(
         "Previews.ServerLitePage.ServerResponse",
         PreviewsLitePageNavigationThrottle::ServerResponse::kServiceUnavailable,
@@ -1214,7 +1236,8 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerTimeoutBrowserTest,
     ui_test_utils::NavigateToURL(browser(),
                                  HttpsLitePageURL(kSuccess, nullptr, -1));
     VerifyPreviewNotLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kFailure);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kFailure);
     ClearDeciderState();
     histogram_tester.ExpectBucketCount(
         "Previews.ServerLitePage.ServerResponse",
@@ -1258,7 +1281,8 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBadServerBrowserTest,
     base::HistogramTester histogram_tester;
     ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
     VerifyPreviewNotLoaded();
-    VerifyInfoStatus(previews::ServerLitePageStatus::kFailure);
+    VerifyInfoStatus(&histogram_tester,
+                     previews::ServerLitePageStatus::kFailure);
     ClearDeciderState();
 
     histogram_tester.ExpectBucketCount("Previews.ServerLitePage.Triggered",
@@ -1443,9 +1467,10 @@ class PreviewsLitePageControlBrowserTest
 
 IN_PROC_BROWSER_TEST_F(PreviewsLitePageControlBrowserTest,
                        DISABLE_ON_WIN_MAC(LitePagePreviewsControlGroup)) {
+  base::HistogramTester histogram_tester;
   ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kSuccess));
   VerifyPreviewNotLoaded();
-  VerifyInfoStatus(previews::ServerLitePageStatus::kControl);
+  VerifyInfoStatus(&histogram_tester, previews::ServerLitePageStatus::kControl);
   ClearDeciderState();
 }
 
