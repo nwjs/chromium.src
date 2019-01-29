@@ -112,6 +112,11 @@ class AppListPresenterDelegateTest : public AshTestBase,
     app_list::AppListView::SetShortAnimationForTesting(true);
     AshTestBase::SetUp();
 
+    // Zeros state changes expected UI behavior. Most test cases in this suite
+    // are the expected UI behavior with zero state being disabled.
+    // TODO(jennyz): Add new test cases for zero state, crbug.com/925195.
+    scoped_feature_list_.InitAndDisableFeature(
+        app_list_features::kEnableZeroStateSuggestions);
     // Make the display big enough to hold the app list.
     UpdateDisplay("1024x768");
   }
@@ -140,6 +145,8 @@ class AppListPresenterDelegateTest : public AshTestBase,
   }
 
  private:
+  base::test::ScopedFeatureList scoped_feature_list_;
+
   DISALLOW_COPY_AND_ASSIGN(AppListPresenterDelegateTest);
 };
 
