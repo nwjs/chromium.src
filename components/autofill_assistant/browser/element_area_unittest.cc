@@ -5,12 +5,14 @@
 #include "components/autofill_assistant/browser/element_area.h"
 
 #include <algorithm>
+#include <map>
 
 #include "base/strings/stringprintf.h"
 #include "base/test/mock_callback.h"
 #include "base/test/scoped_task_environment.h"
 #include "components/autofill_assistant/browser/mock_run_once_callback.h"
 #include "components/autofill_assistant/browser/mock_web_controller.h"
+#include "components/autofill_assistant/browser/script_executor_delegate.h"
 #include "testing/gmock/include/gmock/gmock.h"
 
 using ::testing::_;
@@ -38,17 +40,47 @@ MATCHER_P4(MatchingRectF,
 
 ACTION(DoNothing) {}
 
-class ElementAreaTest : public testing::Test {
+class ElementAreaTest : public testing::Test, public ScriptExecutorDelegate {
  protected:
   ElementAreaTest()
       : scoped_task_environment_(
             base::test::ScopedTaskEnvironment::MainThreadType::MOCK_TIME),
-        element_area_(&mock_web_controller_) {
+        element_area_(this) {
     ON_CALL(mock_web_controller_, OnGetElementPosition(_, _))
         .WillByDefault(RunOnceCallback<1>(false, RectF()));
     element_area_.SetOnUpdate(base::BindRepeating(&ElementAreaTest::OnUpdate,
                                                   base::Unretained(this)));
   }
+
+  // Overrides ScriptTrackerDelegate
+  Service* GetService() override { return nullptr; }
+
+  UiController* GetUiController() override { return nullptr; }
+
+  WebController* GetWebController() override { return &mock_web_controller_; }
+
+  ClientMemory* GetClientMemory() override { return nullptr; }
+
+  void EnterState(AutofillAssistantState state) override {}
+
+  const std::map<std::string, std::string>& GetParameters() override {
+    return parameters_;
+  }
+
+  autofill::PersonalDataManager* GetPersonalDataManager() override {
+    return nullptr;
+  }
+
+  content::WebContents* GetWebContents() override { return nullptr; }
+
+  void SetTouchableElementArea(const ElementAreaProto& element_area) override {}
+
+  void SetStatusMessage(const std::string& status_message) override {}
+  std::string GetStatusMessage() const override { return std::string(); }
+
+  void SetDetails(const Details& details) override {}
+
+  void ClearDetails() override {}
 
   void SetElement(const std::string& selector) {
     ElementAreaProto area;
@@ -65,6 +97,7 @@ class ElementAreaTest : public testing::Test {
   base::test::ScopedTaskEnvironment scoped_task_environment_;
 
   MockWebController mock_web_controller_;
+  std::map<std::string, std::string> parameters_;
   ElementArea element_area_;
   std::vector<RectF> highlighted_area_;
 };
