@@ -37,7 +37,7 @@ gclient_gn_args = [
 
 
 vars = {
-  "buildspec_platforms": "win, ios, linux64, chromeos, win64, android, mac64",
+  "buildspec_platforms": "win, linux64, mac64, win64",
   # Variable that can be used to support multiple build scenarios, like having
   # Chromium specific targets in a client project's GN file or sync dependencies
   # conditionally etc.
@@ -118,7 +118,7 @@ vars = {
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling V8
   # and whatever else without interference from each other.
-  'v8_revision': 'b3e92a585850996acba23c3bf9494724252707da',
+  'v8_revision': '4d72a9931a125d21901d25d67896f0e40105bd16',
   # Three lines of non-changing comments so that
   # the commit queue can handle CLs rolling swarming_client
   # and whatever else without interference from each other.
@@ -1176,7 +1176,7 @@ deps = {
     Var('chromium_git') + '/external/khronosgroup/webgl.git' + '@' + '5b6cbd789b9b91b4e46dde883c9f2ecb31eddade',
 
   'src/third_party/webrtc':
-    Var('webrtc_git') + '/src.git' + '@' + '787bfad256594bd7e835155bd9aa1fa78287878d',
+    Var('webrtc_git') + '/src.git' + '@' + '784fccbd71c0130b32345d81459b5d0cb07ff6e5',
 
   'src/third_party/xdg-utils': {
       'url': Var('chromium_git') + '/chromium/deps/xdg-utils.git' + '@' + 'd80274d5869b17b8c9067a1022e4416ee7ed5e0d',
@@ -1207,7 +1207,7 @@ deps = {
   #  Var('chromium_git') + '/v8/v8.git' + '@' +  Var('v8_revision'),
 
   'src-internal': {
-    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@a1b681e6d1616f027f3b16a47806e741ee84e610',
+    'url': 'https://chrome-internal.googlesource.com/chrome/src-internal.git@7291fc0eda0433bf9bd755dfa710819e15824430',
     'condition': 'checkout_src_internal',
   },
 
