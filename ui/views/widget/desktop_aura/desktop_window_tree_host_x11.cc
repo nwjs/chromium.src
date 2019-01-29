@@ -517,7 +517,7 @@ void DesktopWindowTreeHostX11::Show(ui::WindowShowState show_state,
   if (compositor())
     SetVisible(true);
 
-  if (!IsVisible())
+  if (!window_mapped_in_client_ || IsMinimized())
     MapWindow(show_state);
 
   switch (show_state) {
@@ -546,7 +546,10 @@ void DesktopWindowTreeHostX11::Show(ui::WindowShowState show_state,
 }
 
 bool DesktopWindowTreeHostX11::IsVisible() const {
-  return window_mapped_in_client_ && !IsMinimized();
+  // On Windows, IsVisible() returns true for minimized windows.  On X11, a
+  // minimized window is not mapped, so an explicit IsMinimized() check is
+  // necessary.
+  return window_mapped_in_client_ || IsMinimized();
 }
 
 void DesktopWindowTreeHostX11::SetSize(const gfx::Size& requested_size) {
@@ -761,7 +764,6 @@ void DesktopWindowTreeHostX11::Activate() {
     // after an Activate(), so just set this state now.
     has_pointer_focus_ = false;
     has_window_focus_ = true;
-    // window_mapped_in_client_ == true based on the IsVisible() check above.
     window_mapped_in_server_ = true;
     XSetErrorHandler(old_error_handler);
   }
@@ -815,7 +817,7 @@ void DesktopWindowTreeHostX11::Maximize() {
 
   // Some WMs do not respect maximization hints on unmapped windows, so we
   // save this one for later too.
-  should_maximize_after_map_ = !IsVisible();
+  should_maximize_after_map_ = !window_mapped_in_client_;
 
   // When we are in the process of requesting to maximize a window, we can
   // accurately keep track of our restored bounds instead of relying on the
