@@ -644,12 +644,6 @@ void Shell::SetIsBrowserProcessWithMash() {
   g_is_browser_process_with_mash = true;
 }
 
-void Shell::NotifyAppListVisibilityChanged(bool visible,
-                                           aura::Window* root_window) {
-  for (auto& observer : shell_observers_)
-    observer.OnAppListVisibilityChanged(visible, root_window);
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 // Shell, private:
 
