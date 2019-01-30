@@ -4529,6 +4529,8 @@ NSString* const kBrowserViewControllerSnackbarCategory =
 - (void)tabModel:(TabModel*)model
     didRemoveTab:(Tab*)tab
          atIndex:(NSUInteger)index {
+  tab.webState->WasHidden();
+
   [self uninstallDelegatesForTab:tab];
 
   // Cancel dialogs for |tab|'s WebState.
