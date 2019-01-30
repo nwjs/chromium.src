@@ -53,6 +53,7 @@
 #include "third_party/blink/renderer/core/layout/layout_image.h"
 #include "third_party/blink/renderer/core/layout/layout_video.h"
 #include "third_party/blink/renderer/core/layout/layout_view.h"
+#include "third_party/blink/renderer/core/origin_trials/origin_trials.h"
 #include "third_party/blink/renderer/platform/graphics/canvas_resource_provider.h"
 #include "third_party/blink/renderer/platform/graphics/gpu/extensions_3d_util.h"
 #include "third_party/blink/renderer/platform/graphics/graphics_context.h"
@@ -237,7 +238,8 @@ void HTMLVideoElement::ParseAttribute(
         GetLayoutObject()->IsVideo())
       ToLayoutVideo(GetLayoutObject())->IntrinsicSizeChanged();
   } else if (params.name == kAutopictureinpictureAttr &&
-             RuntimeEnabledFeatures::AutoPictureInPictureEnabled()) {
+             origin_trials::AutoPictureInPictureEnabled(
+                 GetExecutionContext())) {
     if (!params.new_value.IsNull()) {
       PictureInPictureController::From(GetDocument())
           .AddToAutoPictureInPictureElementsList(this);
