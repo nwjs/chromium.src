@@ -60,6 +60,9 @@ BLINK_COMMON_EXPORT extern const char
 BLINK_COMMON_EXPORT extern const base::Feature kDecodeLossyWebPImagesToYUV;
 BLINK_COMMON_EXPORT extern const base::Feature kAlwaysAccelerateCanvas;
 
+BLINK_COMMON_EXPORT extern const base::Feature
+    kWebFontsCacheAwareTimeoutAdaption;
+
 }  // namespace features
 }  // namespace blink
 

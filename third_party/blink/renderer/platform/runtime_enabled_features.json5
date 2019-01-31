@@ -1396,10 +1396,6 @@
       status: "test",
     },
     {
-      name: "WebFontsCacheAwareTimeoutAdaptation",
-      status: "experimental",
-    },
-    {
       name: "WebGL2ComputeContext",
       status: "experimental",
     },
