@@ -791,7 +791,7 @@
           Se esta definição estiver desativada e as ligações UDP de saída forem filtradas pela firewall, esta máquina apenas permitirá ligações de máquinas cliente dentro da rede local.
 
           Se deixar esta política por definir, a definição será ativada.</translation>
-<translation id="2813281962735757923">Esta política controla os intervalos de tempo durante os quais o dispositivo <ph name="PRODUCT_OS_NAME" /> não está autorizado a realizar verificações automáticas de atualizações
+<translation id="2813281962735757923">Esta política controla os intervalos de tempo durante os quais o dispositivo <ph name="PRODUCT_OS_NAME" /> não está autorizado a realizar verificações automáticas de atualizações.
       Quando esta política estiver definida para uma lista não vazia de intervalos de tempo:
       Os dispositivos não poderão realizar verificações automáticas de atualizações durante os intervalos de tempo especificados. Os dispositivos que requerem uma reversão ou que sejam anteriores à versão mínima do <ph name="PRODUCT_OS_NAME" /> não serão afetados por esta política devido a possíveis problemas de segurança. Além disso, esta política não bloqueia as verificações de atualizações solicitadas pelos utilizadores ou administradores.
       Quando esta política não estiver definida ou não contiver quaisquer intervalos de tempo:

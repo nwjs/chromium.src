@@ -790,7 +790,7 @@ Ak je toto nastavenie zakázané alebo nie je nakonfigurované, nebudú môcť p
       Keď v rámci neho nastavíte zoznam časových intervalov, ktorý nie je prázdna hodnota:
       zariadenia nebudú môcť počas určených časových období automaticky kontrolovať dostupnosť aktualizácií. Toto pravidlo neovplyvní z dôvodu potenciálnych bezpečnostných problémov zariadenia vyžadujúce prechod na predchádzajúcu verziu ani také, ktoré sú staršie ako minimálna verzia <ph name="PRODUCT_OS_NAME" />. Navyše nezablokuje kontroly dostupnosti aktualizácií vyžiadané používateľmi alebo správcami.
       Keď toto pravidlo nenastavíte alebo nebude obsahovať žiadne časové obdobia:
-      nebude blokovať žiadne automatické kontroly dostupnosti aktualizácií, ktoré však môžu blokovať iné pravidlá. Táto funkcia je povolená iba v zariadeniach Chrome nakonfigurovaných ako automaticky sa spúšťajúce terminály. Iné zariadenia nebudú týmto pravidlo obmedzované.</translation>
+      nebude blokovať žiadne automatické kontroly dostupnosti aktualizácií, ktoré však môžu blokovať iné pravidlá. Táto funkcia je povolená iba v zariadeniach Chrome nakonfigurovaných ako automaticky sa spúšťajúce terminály. Iné zariadenia nebudú týmto pravidlom obmedzované.</translation>
 <translation id="2823870601012066791">Umiestnenie v registri systému Windows pre klienty <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Povoliť režim inkognito</translation>
 <translation id="2838830882081735096">Zakázať migráciu dát a ARC</translation>

@@ -808,8 +808,8 @@ Khi chính sách này được đặt thành false hoặc không được địn
 
           Nếu không đặt chính sách này, cài đặt này sẽ được bật.</translation>
 <translation id="2813281962735757923">Chính sách này kiểm soát khung thời gian mà thiết bị <ph name="PRODUCT_OS_NAME" /> không được phép tự động kiểm tra bản cập nhật.
-      Khi bạn đặt chính sách này thành một danh sách chứa các khoảng thời gian (tức là không trống), thì:
-      Thiết bị sẽ không thể tự động kiểm tra bản cập nhật trong khoảng thời gian chỉ định. Chính sách này sẽ không ảnh hưởng đến các thiết bị yêu cầu hạ cấp hệ điều hành hoặc thiết bị chạy phiên bản <ph name="PRODUCT_OS_NAME" /> tối thiểu trở xuống do các vấn đề bảo mật tiềm ẩn. Ngoài ra, chính sách này sẽ không chặn hoạt động kiểm tra bản cập nhật do người dùng hoặc quản trị viên yêu cầu.
+      Khi bạn đặt chính sách này thành một danh sách không còn trống có chứa các khoảng thời gian, thì:
+      Thiết bị sẽ không thể tự động kiểm tra bản cập nhật trong khoảng thời gian chỉ định. Chính sách này sẽ không ảnh hưởng đến các thiết bị yêu cầu hạ cấp hệ điều hành hoặc thiết bị chạy phiên bản <ph name="PRODUCT_OS_NAME" /> thấp hơn phiên bản tối thiểu do các vấn đề bảo mật tiềm ẩn. Ngoài ra, chính sách này sẽ không chặn hoạt động kiểm tra bản cập nhật do người dùng hoặc quản trị viên yêu cầu.
       Khi chính sách này không được đặt hoặc không chứa khoảng thời gian nào, thì:
       Chính sách này sẽ không chặn hoạt động kiểm tra bản cập nhật tự động, nhưng các chính sách khác vẫn có thể chặn hoạt động này. Tính năng này chỉ được hỗ trợ trên thiết bị Chrome đã định cấu hình thành kiosk tự động chạy. Chính sách này sẽ không hạn chế các thiết bị khác.</translation>
 <translation id="2823870601012066791">Vị trí sổ đăng ký Windows cho các ứng dụng <ph name="PRODUCT_OS_NAME" />:</translation>
@@ -1296,13 +1296,13 @@ Khi chính sách này được đặt thành false hoặc không được địn
 <translation id="3965339130942650562">Thời gian chờ cho tới khi đăng xuất của người dùng không hoạt động được thực thi</translation>
 <translation id="3973371701361892765">Không bao giờ tự động ẩn giá</translation>
 <translation id="3984028218719007910">Xác định liệu <ph name="PRODUCT_OS_NAME" /> có lưu dữ liệu tài khoản trên máy sau khi đăng xuất hay không. Nếu được đặt thành đúng, không có tài khoản lâu dài nào được <ph name="PRODUCT_OS_NAME" /> lưu và tất cả các dữ liệu từ phiên của người dùng sẽ bị hủy bỏ sau khi đăng xuất. Nếu chính sách này được đặt thành sai hoặc không được định cấu hình, thiết bị có thể lưu lại dữ liệu người dùng trên máy (được mã hóa).</translation>
-<translation id="398475542699441679">Chính sách này kiểm soát việc có nên bật tính năng Hỗ trợ trình duyệt cũ hay không.
+<translation id="398475542699441679">Chính sách này kiểm soát việc có bật tính năng Hỗ trợ trình duyệt cũ hay không.
 
-      Khi bạn không đặt chính sách này hoặc đặt thành false, thì Chrome sẽ không tìm cách khởi chạy các URL đã chỉ định trong một trình duyệt thay thế.
+      Khi bạn không đặt chính sách này hoặc đặt thành false, thì Chrome sẽ không tìm cách chạy các URL đã chỉ định trong một trình duyệt thay thế.
 
-      Khi bạn đặt chính sách này thành true, thì Chrome sẽ tìm cách khởi chạy một số URL trong trình duyệt thay thế (chẳng hạn như Internet Explorer). Tính năng này được định cấu hình bằng các chính sách trong nhóm <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
+      Khi bạn đặt chính sách này thành true, thì Chrome sẽ tìm cách chạy một số URL trong trình duyệt thay thế (chẳng hạn như Internet Explorer). Tính năng này được định cấu hình bằng các chính sách trong nhóm <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
 
-      Tính năng này thay thế cho tiện ích <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. Mặc dù cấu hình từ tiện ích sẽ được chuyển sang tính năng này, chúng tôi đặc biệt khuyên bạn nên sử dụng các chính sách của Chrome. Điều này đảm bảo khả năng tương thích cao hơn trong tương lai.</translation>
+      Tính năng này thay thế cho tiện ích <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. Mặc dù cấu hình từ tiện ích sẽ được chuyển sang tính năng này, nhưng thay vào đó bạn nên sử dụng các chính sách của Chrome. Điều này đảm bảo khả năng tương thích cao hơn trong tương lai.</translation>
 <translation id="3997519162482760140">URL sẽ được cấp quyền truy cập thiết bị quay video trên các trang đăng nhập SAML</translation>
 <translation id="4001275826058808087">Quản trị viên CNTT của thiết bị doanh nghiệp có thể sử dụng cờ này để kiểm soát xem có cho phép người dùng đổi phiếu mua hàng thông qua Đăng ký Chrome OS hay không.
 

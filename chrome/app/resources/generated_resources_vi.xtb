@@ -940,7 +940,7 @@
 <translation id="2379281330731083556">In bằng hộp thoại hệ thống... <ph name="SHORTCUT_KEY" /></translation>
 <translation id="2381756643783702095">Hỏi trước khi gửi (được đề xuất)</translation>
 <translation id="2384436799579181135">Đã xảy ra lỗi. Vui lòng kiểm tra máy in của bạn và thử lại.</translation>
-<translation id="2386926718981642523">Nói "Ok Google" bất cứ lúc nào để sử dụng Trợ lý</translation>
+<translation id="2386926718981642523">Nói "Ok Google" bất cứ lúc nào bạn muốn sử dụng Trợ lý</translation>
 <translation id="2387458720915042159">Loại kết nối proxy</translation>
 <translation id="2391419135980381625">Phông chữ tiêu chuẩn</translation>
 <translation id="2391762656119864333">Thu hồi</translation>
@@ -5210,7 +5210,7 @@ Giữ tệp khóa của bạn ở nơi an toàn. Bạn sẽ cần tệp khóa đ
 <translation id="8883847527783433352">Đồng bộ hóa với một tài khoản khác</translation>
 <translation id="8885197664446363138">Smart Lock không khả dụng</translation>
 <translation id="88870264962436283">Sử dụng Touch ID cho <ph name="APP_NAME" /></translation>
-<translation id="8888253246822647887">Ứng dụng của bạn sẽ mở khi nâng cấp xong. Quá trình nâng cấp có thể mất vài phút.</translation>
+<translation id="8888253246822647887">Ứng dụng sẽ mở khi nâng cấp xong. Quá trình nâng cấp có thể mất vài phút.</translation>
 <translation id="8888432776533519951">Màu:</translation>
 <translation id="8890516388109605451">Nguồn</translation>
 <translation id="8892168913673237979">Đã hoàn tất!</translation>

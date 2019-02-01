@@ -1259,9 +1259,9 @@ Dacă politica nu este setată, se va folosi comportamentul prestabilit de a nu 
 <translation id="3965339130942650562">Timp limită până când este executată deconectarea utilizatorului inactiv</translation>
 <translation id="3973371701361892765">Nu ascundeți niciodată automat raftul</translation>
 <translation id="3984028218719007910">Această politică stabilește dacă <ph name="PRODUCT_OS_NAME" /> păstrează datele contului local după deconectare. Dacă politica este activată, <ph name="PRODUCT_OS_NAME" /> nu va păstra conturi persistente, iar toate datele din sesiunea utilizatorului vor fi eliminate după deconectare. Dacă această politică nu este activată sau nu este configurată, dispozitivul poate păstra (criptate) datele locale ale utilizatorului.</translation>
-<translation id="398475542699441679">Această politică stabilește dacă să activeze Compatibilitatea pentru browsere vechi.
+<translation id="398475542699441679">Această politică stabilește dacă este necesar să activeze Compatibilitatea pentru browsere vechi.
 
-      Când politica nu este configurată sau nu este activată, Chrome nu va încerca să lanseze adresele URL într-un browser secundar.
+      Când politica nu este configurată sau nu este activată, Chrome nu va încerca să lanseze adresele URL indicate într-un browser secundar.
 
       Când politica este activată, Chrome va încerca să lanseze unele adrese URL într-un browser secundar (cum ar fi Internet Explorer). Această funcție este configurată folosind politicile din grupul <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
 

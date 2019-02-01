@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">button ng menu</translation>
 <translation id="4446524499724042288">sanggunian sa glosaryo</translation>
 <translation id="4522570452068850558">Mga Detalye</translation>
+<translation id="4542388879936266156">natitirang oras: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">form</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">Hindi dapat naglalaman ng simbolong '<ph name="INVALIDCHARACTER" />' ang bahagi pagkatapos ng '<ph name="ATSIGN" />.'</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405">yyyy</translation>
 <translation id="8284326494547611709">Mga Caption</translation>
 <translation id="835897206747267392">Di-wastong halaga.</translation>
+<translation id="8403857369060869934">lumipas na oras: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">bahagi</translation>
 <translation id="8433900881053900389">toolbar</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> mga file</translation>

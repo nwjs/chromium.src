@@ -1265,7 +1265,7 @@ Esta política no se aplica a las aplicaciones de kiosko; estas se migran de for
 
       Si se configura como verdadera, Chrome intentará iniciar algunas URL en un navegador alternativo (como Internet Explorer). Esta función está configurada conforme a las políticas del grupo <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />
 
-      y reemplaza la extensión <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. Adoptará la configuración de la extensión, pero te recomendamos encarecidamente que en su lugar uses las políticas de Chrome. De esta manera, podremos garantizar una mejor compatibilidad en el futuro.</translation>
+      y reemplaza la extensión <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. Adoptará la configuración de la extensión, pero te recomendamos encarecidamente que, en su lugar, uses las políticas de Chrome. De esta manera, podremos garantizar una mejor compatibilidad en el futuro.</translation>
 <translation id="3997519162482760140">URL a las que se les concede acceso a los dispositivos de captura de video en las páginas de acceso de SAML</translation>
 <translation id="4001275826058808087">Los administradores TI de dispositivos empresariales pueden usar esta marca para controlar si permiten a los usuarios canjear ofertas a través del registro del Sistema operativo de Chrome.
 
@@ -2502,7 +2502,7 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
       Si esta política se establece en False, se inhabilita el modo en segundo plano, y el usuario no puede controlarlo en la configuración del navegador.
 
       Si esta política no se establece, el modo en segundo plano se inhabilita inicialmente, y el usuario puede controlarlo en la configuración del navegador.</translation>
-<translation id="7123266440503901785"><ph name="PRODUCT_NAME" /> garantiza que la instalación y actualización de extensiones sean seguras. Sin embargo, es posible que el contenido de algunas extensiones alojadas fuera de Chrome Web Store solo cuente con la protección de algoritmos de autenticación (hash) y acceso no seguros, como SHA1. Si se inhabilita esta política, Chrome no permitirá la instalación ni la actualización de esas extensiones (hasta que los desarrolladores vuelvan a diseñar la extensión con algoritmos más seguros). Si se habilita, Chrome permitirá la instalación y actualización de las extensiones.
+<translation id="7123266440503901785"><ph name="PRODUCT_NAME" /> garantiza que la instalación y actualización de extensiones sean seguras. Sin embargo, es posible que el contenido de algunas extensiones alojadas fuera de Chrome Web Store solo cuente con la protección de algoritmos de hash y acceso no seguros, como SHA1. Si se inhabilita esta política, Chrome no permitirá la instalación ni la actualización de esas extensiones (hasta que los desarrolladores vuelvan a diseñar la extensión con algoritmos más seguros). Si se habilita, Chrome permitirá la instalación y actualización de las extensiones.
 
           Si no se establece, se considerará habilitada.
           A partir de <ph name="PRODUCT_NAME" /> 75, la configuración predeterminada se comportará como si estuviera inhabilitada.

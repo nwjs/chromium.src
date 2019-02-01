@@ -776,10 +776,10 @@
 
           Se esta política não for definida, a configuração será ativada.</translation>
 <translation id="2813281962735757923">Essa política controla os períodos durante os quais o dispositivo <ph name="PRODUCT_OS_NAME" /> não tem permissão para procurar atualizações automaticamente.
-      Quando ela é definida como uma lista não vazia de intervalos de tempo,
-      os dispositivos não podem procurar atualizações automaticamente durante os intervalos especificados. Os dispositivos que precisam de uma reversão ou que são anteriores à versão mínima do <ph name="PRODUCT_OS_NAME" /> não são afetados por essa política para evitar possíveis problemas de segurança. Além disso, a política não bloqueia verificações de atualização solicitadas por usuários ou administradores.
-      Se a política não for definida ou não tiver nenhum intervalo de tempo,
-      nenhuma verificação automática de atualização será bloqueada por ela, mas as verificações poderão ser bloqueadas por outras políticas. Esse recurso só é ativado em dispositivos Chrome configurados como quiosques de início automático. Outros dispositivos não serão restringidos por essa política.</translation>
+      Veja o que acontece quando ela é definida como uma lista não vazia de intervalos de tempo:
+      Os dispositivos não podem procurar atualizações automaticamente durante os intervalos especificados. Os dispositivos que precisam de uma reversão ou que são anteriores à versão mínima do <ph name="PRODUCT_OS_NAME" /> não são afetados por essa política para evitar possíveis problemas de segurança. Além disso, a política não bloqueia verificações de atualização solicitadas por usuários ou administradores.
+      Veja o que acontece quando a política não é definida ou não tem nenhum intervalo de tempo:
+      Nenhuma verificação automática de atualização será bloqueada por ela, mas as verificações poderão ser bloqueadas por outras políticas. Esse recurso só é ativado em dispositivos Chrome configurados como quiosques de início automático. Outros dispositivos não serão restringidos por essa política.</translation>
 <translation id="2823870601012066791">Local de registro do Windows para clientes do <ph name="PRODUCT_OS_NAME" />:</translation>
 <translation id="2824715612115726353">Ativar o modo de navegação anônima</translation>
 <translation id="2838830882081735096">Bloquear migração de dados e ARC</translation>
@@ -1069,7 +1069,7 @@
 <translation id="3547954654003013442">Configurações de proxy</translation>
 <translation id="355118380775352753">Sites que serão abertos no navegador alternativo</translation>
 <translation id="3577251398714997599">Configurações de anúncios para sites com anúncios invasivos</translation>
-<translation id="3591527072193107424">Ativa o recurso Suporte a navegadores legados.</translation>
+<translation id="3591527072193107424">Ativa o recurso "Suporte a navegadores legados".</translation>
 <translation id="3591584750136265240">Configura o comportamento de autenticação de login</translation>
 <translation id="3624171042292187668">
       Recomendamos que você consulte a configuração da política IsolateOrigins para ter isolamento e limitar o impacto aos usuários, usando IsolateOrigins com uma lista dos sites que você quer isolar. Essa configuração, SitePerProcess, isola todos os sites.
@@ -1256,7 +1256,7 @@
 <translation id="3965339130942650562">Tempo limite até que a saída do usuário ocioso seja executada</translation>
 <translation id="3973371701361892765">Nunca ocultar automaticamente a estante</translation>
 <translation id="3984028218719007910">Determina se o <ph name="PRODUCT_OS_NAME" /> deve manter os dados locais da conta após a saída. Se for configurada como true, nenhuma conta persistente será mantida pelo <ph name="PRODUCT_OS_NAME" /> e todos os dados da sessão do usuário serão descartados após a saída. Se esta política for configurada como false ou não for configurada, o dispositivo poderá manter os dados locais do usuário (criptografados).</translation>
-<translation id="398475542699441679">Essa política controla a ativação e a desativação do Suporte a navegadores legados.
+<translation id="398475542699441679">Essa política controla a ativação e a desativação do "Suporte a navegadores legados".
 
       Quando ela é definida como falsa ou não é definida, o Chrome não tenta abrir os URLs designados em um navegador alternativo.
 

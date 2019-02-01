@@ -1253,7 +1253,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
       Si aquesta política s'estableix en "true", Chrome provarà d'iniciar alguns URL en un altre navegador (com ara Internet Explorer). Aquesta funció està configurada mitjançant les polítiques del grup <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
 
-      Aquesta funció substitueix l'extensió <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. La configuració de l'extensió inclou aquesta funció, però et recomanem que utilitzis les polítiques de Chrome en lloc seu. Això garantirà una millor compatibilitat en el futur.</translation>
+      Aquesta funció substitueix l'extensió <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. La configuració de l'extensió s'aplicarà a aquesta funció, però et recomanem que utilitzis les polítiques de Chrome en lloc seu. Això garantirà una millor compatibilitat en el futur.</translation>
 <translation id="3997519162482760140">URL que obtindran permís per accedir a dispositius de captura de vídeo en pàgines d'inici de sessió amb SAML</translation>
 <translation id="4001275826058808087">Els administradors de TI de dispositius empresarials poden utilitzar aquesta marca per controlar si es permet als usuaris bescanviar ofertes mitjançant el registre de Chrome OS.
 
@@ -1496,7 +1496,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
 
           Per veure patrons d'exemple, consulteu l'enllaç https://www.chromium.org/developers/how-tos/chrome-frame-getting-started.</translation>
 <translation id="467449052039111439">Obre una llista d'URL</translation>
-<translation id="4674871290487541952">Permet els algoritmes insegurs en comprovar la integritat de les instal·lacions i actualitzacions de l'extensió</translation>
+<translation id="4674871290487541952">Permet els algoritmes insegurs en comprovar la integritat de les instal·lacions i actualitzacions d'extensions</translation>
 <translation id="4680936297850947973">Aquesta política es considera obsoleta a M68. Substitueix-la per DefaultPopupsSetting.
 
       Per veure l'explicació completa, consulta https://www.chromestatus.com/features/5675755719622656.
