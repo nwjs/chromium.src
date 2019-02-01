@@ -24,6 +24,7 @@
 #include "components/autofill/core/browser/autofill_profile.h"
 #include "components/autofill/core/browser/credit_card.h"
 #include "components/autofill_assistant/browser/controller.h"
+#include "components/autofill_assistant/browser/metrics.h"
 #include "components/autofill_assistant/browser/rectf.h"
 #include "components/signin/core/browser/account_info.h"
 #include "components/strings/grit/components_strings.h"
@@ -177,8 +178,10 @@ void UiControllerAndroid::ExpandBottomSheet() {
 }
 
 void UiControllerAndroid::ShutdownGracefully() {
+  DCHECK(ui_delegate_->GetDropOutReason() != Metrics::AA_START);
   Java_AutofillAssistantUiController_onShutdownGracefully(
-      AttachCurrentThread(), java_autofill_assistant_ui_controller_);
+      AttachCurrentThread(), java_autofill_assistant_ui_controller_,
+      ui_delegate_->GetDropOutReason());
 }
 
 void UiControllerAndroid::SetProgressPulsingEnabled(bool enabled) {
@@ -200,7 +203,8 @@ void UiControllerAndroid::OnCloseButtonClicked() {
   Java_AutofillAssistantUiController_dismissAndShowSnackbar(
       env, java_autofill_assistant_ui_controller_,
       base::android::ConvertUTF8ToJavaString(
-          env, l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_STOPPED)));
+          env, l10n_util::GetStringUTF8(IDS_AUTOFILL_ASSISTANT_STOPPED)),
+      Metrics::SHEET_CLOSED);
 }
 
 std::string UiControllerAndroid::GetDebugContext() {
@@ -260,9 +264,9 @@ void UiControllerAndroid::ShowOnboarding(
       env, java_autofill_assistant_ui_controller_, on_accept);
 }
 
-void UiControllerAndroid::Shutdown() {
+void UiControllerAndroid::Shutdown(Metrics::DropOutReason reason) {
   Java_AutofillAssistantUiController_onShutdown(
-      AttachCurrentThread(), java_autofill_assistant_ui_controller_);
+      AttachCurrentThread(), java_autofill_assistant_ui_controller_, reason);
 }
 
 void UiControllerAndroid::Close() {
