@@ -2265,6 +2265,11 @@ void AddGoogleAssistantStrings(content::WebUIDataSource* html_source) {
 
   html_source->AddBoolean("hotwordDspAvailable",
                           chromeos::IsHotwordDspAvailable());
+
+  html_source->AddBoolean(
+      "voiceMatchEnabled",
+      base::FeatureList::IsEnabled(
+          chromeos::assistant::features::kAssistantVoiceMatch));
 }
 #endif
 
