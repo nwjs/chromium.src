@@ -43,20 +43,6 @@ bool IsDocumentCrossOrigin(const Document& document) {
   return frame && frame->IsCrossOriginSubframe();
 }
 
-// Returns whether |document| is whitelisted for autoplay. If true, the user
-// gesture lock will be initilized as false, indicating that the element is
-// allowed to autoplay unmuted without user gesture.
-bool IsDocumentWhitelisted(const Document& document) {
-  DCHECK(document.GetSettings());
-
-  const String& web_app_scope = document.GetSettings()->GetWebAppScope();
-  if (web_app_scope.IsNull() || web_app_scope.IsEmpty())
-    return false;
-
-  DCHECK_EQ(KURL(web_app_scope).GetString(), web_app_scope);
-  return document.Url().GetString().StartsWith(web_app_scope);
-}
-
 // Return true if and only if the document settings specifies media playback
 // requires user gesture on the element.
 bool ComputeLockPendingUserGestureRequired(const Document& document) {
@@ -86,7 +72,7 @@ AutoplayPolicy::Type AutoplayPolicy::GetAutoplayPolicyForDocument(
   if (!document.GetSettings())
     return Type::kNoUserGestureRequired;
 
-  if (IsDocumentWhitelisted(document))
+  if (document.IsInWebAppScope())
     return Type::kNoUserGestureRequired;
 
   if (DocumentHasUserExceptionFlag(document))
