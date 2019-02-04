@@ -193,7 +193,7 @@ const char kSearchResultDistanceFromOrigin[] =
     "Apps.AppListSearchResultDistanceFromOrigin";
 
 // The height of tiles in search result.
-const int kSearchTileHeight = 90;
+const int kSearchTileHeight = 92;
 
 gfx::ShadowValue GetShadowForZHeight(int z_height) {
   if (z_height <= 0)
