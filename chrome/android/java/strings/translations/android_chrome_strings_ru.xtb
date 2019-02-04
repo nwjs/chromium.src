@@ -143,7 +143,7 @@
 <translation id="2017836877785168846">Удаление истории и вариантов автозаполнения в адресной строке</translation>
 <translation id="2021896219286479412">Настройки полноэкранного режима</translation>
 <translation id="2038563949887743358">Включить полную версию сайта</translation>
-<translation id="204321170514947529">Приложение "<ph name="APP_NAME" />" также хранит свои данные в Chrome</translation>
+<translation id="204321170514947529">У приложения "<ph name="APP_NAME" />" также есть данные в Chrome</translation>
 <translation id="2045104531052923016">Другие приложения: <ph name="GIGABYTES" /> ГБ</translation>
 <translation id="2049574241039454490"><ph name="DESCRIPTION" /> <ph name="SEPARATOR" /> <ph name="FILE_SIZE_OF_TOTAL" /></translation>
 <translation id="2063713494490388661">Нажмите для поиска</translation>
@@ -926,7 +926,7 @@
 <translation id="784934925303690534">Временной диапазон</translation>
 <translation id="7851858861565204677">Другие устройства</translation>
 <translation id="7854964836418414587">Закрыть панель "Показать похожие страницы"</translation>
-<translation id="7871791972254842204">Прочитать и принять Условия использования (<ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />) позже.</translation>
+<translation id="7871791972254842204">Прочитать и принять Условия использования <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" /> позже.</translation>
 <translation id="7875915731392087153">Написать письмо</translation>
 <translation id="7876243839304621966">Удалить все</translation>
 <translation id="7882131421121961860">История не найдена</translation>
@@ -1044,7 +1044,7 @@
 <translation id="868929229000858085">Поиск контактов</translation>
 <translation id="869891660844655955">Срок действия</translation>
 <translation id="8719023831149562936">Не удалось передать текущую вкладку</translation>
-<translation id="8723954843026426558">Я соглашаюсь с Условиями использования и Политикой конфиденциальности сайта <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />, а также понимаю, что у меня есть право на отзыв данного согласия.</translation>
+<translation id="8723954843026426558">Я соглашаюсь с Условиями использования и Политикой конфиденциальности сайта <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />, а также осознаю, что у меня есть право на отзыв данного согласия.</translation>
 <translation id="8725066075913043281">Повторить попытку</translation>
 <translation id="8728487861892616501">Используя это приложение, вы соглашаетесь с <ph name="BEGIN_LINK1" />Условиями использования<ph name="END_LINK1" /> и <ph name="BEGIN_LINK2" />Примечанием о конфиденциальности<ph name="END_LINK2" /> Chrome, а также с <ph name="BEGIN_LINK3" />Примечанием о конфиденциальности для аккаунтов Google, управляемых с помощью Family Link<ph name="END_LINK3" />.</translation>
 <translation id="8730621377337864115">Готово</translation>

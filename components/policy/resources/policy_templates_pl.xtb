@@ -2502,12 +2502,12 @@ W przypadku nieskonfigurowania tej zasady użytkownik będzie mógł wybrać, cz
       Jeśli wyłączysz tę zasadę, tryb działania w tle nie będzie dostępny i użytkownik nie będzie mógł zmienić tej opcji w ustawieniach przeglądarki.
 
       Jeśli nie skonfigurujesz tej zasady, tryb działania w tle będzie początkowo niedostępny, ale użytkownik będzie mógł zmienić tę opcję w ustawieniach przeglądarki.</translation>
-<translation id="7123266440503901785"><ph name="PRODUCT_NAME" /> dba o bezpieczne aktualizowanie i instalowanie rozszerzeń. Zawartość niektórych rozszerzeń pochodzących spoza sklepu Chrome Web Store może być jednak chroniona tylko przy użyciu niezabezpieczonego podpisu lub algorytmów haszujących, takich jak SHA1. Kiedy ta zasada jest wyłączona, nowe instalacje takich rozszerzeń oraz ich aktualizacje są niedozwolone w Chrome (dopóki twórca rozszerzenia nie przebuduje go przy użyciu silniejszych algorytmów). Kiedy ta zasada jest włączona, instalowanie i aktualizowanie takich rozszerzeń jest dozwolone.
+<translation id="7123266440503901785"><ph name="PRODUCT_NAME" /> dba o bezpieczne aktualizowanie i instalowanie rozszerzeń. Zawartość niektórych rozszerzeń pochodzących spoza sklepu Chrome Web Store może być jednak chroniona tylko przy użyciu niezabezpieczonego podpisu lub algorytmów haszujących, takich jak SHA1. Kiedy ta zasada jest wyłączona, świeże instalacje takich rozszerzeń oraz ich aktualizacje są niedozwolone w Chrome (dopóki twórca rozszerzenia nie przebuduje go przy użyciu silniejszych algorytmów). Kiedy ta zasada jest włączona, instalowanie i aktualizowanie takich rozszerzeń jest dozwolone.
 
           Nieskonfigurowanie tej zasady jest równoznaczne z jej domyślnym włączeniem.
-          Od wersji 75 przeglądarki <ph name="PRODUCT_NAME" /> domyślnie zasada ta będzie wyłączona, jeśli nie zostanie skonfigurowana.
+          Od <ph name="PRODUCT_NAME" /> 75 domyślnie zasada ta będzie wyłączona, jeśli nie zostanie skonfigurowana.
 
-          Od wersji 77 przeglądarki <ph name="PRODUCT_NAME" /> zasada ta będzie ignorowana i traktowana jako wyłączona.</translation>
+          Od <ph name="PRODUCT_NAME" /> 77 zasada ta będzie ignorowana i traktowana jako wyłączona.</translation>
 <translation id="7126716959063786004">Zezwalaj na kończenie procesów w Menedżerze zadań</translation>
 <translation id="7127892035367404455">Cofnij do wersji docelowej</translation>
 <translation id="7128918109610518786">Lista identyfikatorów aplikacji pokazywanych przez <ph name="PRODUCT_OS_NAME" /> jako aplikacje przypięte na pasku programu uruchamiającego.

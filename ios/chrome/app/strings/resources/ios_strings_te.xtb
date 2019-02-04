@@ -41,7 +41,7 @@
 <translation id="1545749641540134597">QR కోడ్‌ను స్కాన్ చేయండి</translation>
 <translation id="1558704936695638228">మరిన్ని ట్యాబ్ ఎంపికల కోసం నొక్కి, పట్టుకోండి</translation>
 <translation id="1580783302095112590">మెయిల్ పంపబడింది.</translation>
-<translation id="1582732959743469162">ఇది మీ ప్రస్తుత డౌన్‌లోడ్ యొక్క మొత్తం ప్రోగ్రెస్‌ను ఆపివేస్తుంది.</translation>
+<translation id="1582732959743469162">ఇది మీ ప్రస్తుత డౌన్‌లోడ్ యొక్క మొత్తం ప్రోగ్రెస్‌ని ఆపివేస్తుంది.</translation>
 <translation id="1605658421715042784">చిత్రాన్ని కాపీ చేయి</translation>
 <translation id="1612730193129642006">ట్యాబ్ గ్రిడ్‌ను చూపించండి</translation>
 <translation id="1644574205037202324">చరిత్ర</translation>
@@ -71,7 +71,7 @@
 <translation id="2015722694326466240">పాస్‌వర్డ్‌లను చూడటానికి, మీరు ముందుగా తప్పక మీ పరికరంలో పాస్‌కోడ్‌ని సెట్ చేయాలి.</translation>
 <translation id="2068952045031577364">గత వారం</translation>
 <translation id="2079545284768500474">చర్య రద్దు</translation>
-<translation id="209018056901015185">డెస్క్‌టాప్ సైట్ అభ్య‌ర్థ‌న‌</translation>
+<translation id="209018056901015185">డెస్క్‌టాప్ సైట్‌ను అభ్యర్థించు</translation>
 <translation id="2096012225669085171">అన్ని పరికరాలలో సింక్ చేయండి మరియు వ్యక్తిగతీకరించండి</translation>
 <translation id="2103075008456228677">history.google.com తెరువు</translation>
 <translation id="2116625576999540962"><ph name="NUMBER_OF_SELECTED_BOOKMARKS" /> అంశాలు తరలించబడ్డాయి</translation>
@@ -117,7 +117,7 @@
 <translation id="2834956026595107950"><ph name="TITLE" />, <ph name="STATE" />, <ph name="URL" /></translation>
 <translation id="2843803966603263712">అనువాద సెట్టింగ్‌లను రీసెట్ చేయి</translation>
 <translation id="2858204748079866344">మీ గోప్యతను సంరక్షించడానికి, Chrome ఈ ఫీల్డ్‌లో మీ పాస్‌వర్డ్‌ను ఆటోమేటిక్‌గా పూరించదు.</translation>
-<translation id="285960592395650245">రీట్రై డౌన్‌లోడ్‌</translation>
+<translation id="285960592395650245">డౌన్‌. మళ్లీ ప్రయత్నించు</translation>
 <translation id="2870560284913253234">సైట్</translation>
 <translation id="2871695793448672541">దాచబడింది, పాస్‌వర్డ్</translation>
 <translation id="288655811176831528">ట్యాబ్‌ని మూసివేయి</translation>
@@ -195,7 +195,7 @@
 <translation id="4049507953662678203">మీ ఇంట‌ర్నెట్ ప‌ని చేస్తోందో లేదో చెక్ చేసుకుని మళ్లీ ప్రయత్నించండి.</translation>
 <translation id="408404951701638773">ఇప్పుడు శోధన పట్టీకి మరింత సులభంగా చేరుకోవచ్చు</translation>
 <translation id="4084682180776658562">బుక్‌మార్క్ చేయి</translation>
-<translation id="411254640334432676">డౌన్‌లోడ్ విఫలమైంది.</translation>
+<translation id="411254640334432676">డౌన్‌లోడ్ చేయడం విఫలమైంది.</translation>
 <translation id="4112644173421521737">శోధన</translation>
 <translation id="4121993058175073134">నికర ఎగుమతి డేటాను పంపడానికి, దయచేసి సెట్టింగ్‌ల యాప్‌లో మీ ఇమెయిల్ ఖాతాను కాన్ఫిగర్ చేయండి.</translation>
 <translation id="4124987746317609294">సమయ పరిధి</translation>
@@ -328,7 +328,7 @@
 <translation id="633809752005859102">వాస్తవంగా ఏదో తప్పు జరిగింది. మేము దానిపై పని చేస్తాము.</translation>
 <translation id="6342069812937806050">ఇప్పుడే</translation>
 <translation id="6344783595350022745">వచనాన్ని క్లియర్ చేయి</translation>
-<translation id="6346549652287021269">కొత్త డౌన్‌లోడ్‌ ఆరంభించాలా?</translation>
+<translation id="6346549652287021269">కొత్త డౌన్‌లోడ్‌ని ప్రారంభించాలా?</translation>
 <translation id="6362362396625799311">అజ్ఞాత ట్యాబ్‌లు ఏవీ తెరిచి లేవు</translation>
 <translation id="6363526231572697780">వినియోగదారు పేరు లేదు</translation>
 <translation id="6374469231428023295">మళ్లీ ప్రయత్నించు</translation>
@@ -417,7 +417,7 @@
 <translation id="778855399387580014">కొత్త Chrome ట్యాబ్‌లో శోధనను ప్రారంభించండి.</translation>
 <translation id="780301667611848630">వద్దు , ధన్యవాదాలు</translation>
 <translation id="7840771868269352570">మీరు ఎంచుకున్న అంశాలు తీసివేయబడతాయి.</translation>
-<translation id="7856733331829174190">డౌన్‌లోడ్ సాధ్యపడలేదు</translation>
+<translation id="7856733331829174190">డౌన్‌లోడ్ చేయడం సాధ్యపడలేదు</translation>
 <translation id="7859704718976024901">బ్రౌజింగ్ చరిత్ర</translation>
 <translation id="7887198238286927132">మీ గోప్యతను సంరక్షించడానికి, Chrome ఈ ఫీల్డ్‌ను ఆటోమేటిక్‌గా పూరించదు.</translation>
 <translation id="7918293828610777738">మీ చదవాల్సిన జాబితా ఆఫ్‌లైన్‌లో అందుబాటులో ఉంది. మీ చదవాల్సిన జాబితాకు పేజీని జోడించడానికి, <ph name="SHARE_OPENING_ICON" />ని నొక్కి తర్వాత <ph name="READ_LATER_TEXT" /> ఎంపికను నొక్కండి.</translation>

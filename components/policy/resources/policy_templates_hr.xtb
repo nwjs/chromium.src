@@ -2502,9 +2502,9 @@ onemogućene. Korisnici će još uvijek moći ručno omogućiti SitePerProcess.
 <translation id="7123266440503901785"><ph name="PRODUCT_NAME" /> pruža sigurno ažuriranje i instaliranje proširenja. No sadržaj nekih proširenja hostiranih izvan Chrome web-trgovine možda je zaštićen samo nesigurnim algoritmima za potpisivanje ili hashiranje kao što je SHA1. Kad se to pravilo onemogući, Chrome neće dopuštati instaliranja i ažuriranja takvih proširenja (dok razvojni programeri ponovo ne razviju to proširenje sa snažnijim algoritmima). Kad se to pravilo omogući, instaliranja i ažuriranja takvih proširenja bit će dopuštena.
 
           Ako se ne postavi, zadano će ponašanje biti da je značajka omogućena.
-          Za <ph name="PRODUCT_NAME" /> 75 i novije verzije zadano će ponašanje biti da je značajka omogućena ako se ne postavi.
+          Za <ph name="PRODUCT_NAME" /> 75 i daljnje verzije zadano će ponašanje biti da je značajka omogućena ako se ne postavi.
 
-          Za <ph name="PRODUCT_NAME" /> 77 i novije verzije to će se pravilo zanemariti i tretirat će se kao onemogućeno.</translation>
+          Za <ph name="PRODUCT_NAME" /> 77 i daljnje verzije to će se pravilo zanemariti i tretirat će se kao onemogućeno.</translation>
 <translation id="7126716959063786004">Omogući završavanje postupaka u Upravitelju zadataka</translation>
 <translation id="7127892035367404455">Vraćanje na ciljnu verziju</translation>
 <translation id="7128918109610518786">Navodi identifikatore aplikacija koje sustav <ph name="PRODUCT_OS_NAME" /> prikazuje kao prikvačene aplikacije u traci pokretača.

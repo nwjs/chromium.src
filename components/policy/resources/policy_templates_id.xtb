@@ -771,7 +771,7 @@ Jika kebijakan ini tidak disetel, setelan kebijakan berarti diaktifkan, lihat de
           Jika kebijakan ini dibiarkan tidak disetel, setelan tersebut akan diaktifkan.</translation>
 <translation id="2813281962735757923">Kebijakan ini mengontrol rentang waktu kapan perangkat <ph name="PRODUCT_OS_NAME" /> tidak diizinkan untuk memeriksa update secara otomatis.
       Jika kebijakan ini ditetapkan ke sebuah daftar tidak kosong yang memuat interval waktu:
-      Perangkat tidak akan dapat memeriksa ketersediaan update secara otomatis selama interval waktu yang ditentukan. Perangkat yang memerlukan rollback atau menjalankan <ph name="PRODUCT_OS_NAME" /> versi di bawah minimum tidak akan terpengaruh oleh kebijakan ini karena potensi masalah keamanan. Selain itu, kebijakan ini tidak akan memblokir pemeriksaan update yang diminta oleh pengguna atau administrator.
+      Perangkat tidak akan dapat memeriksa ketersediaan update secara otomatis selama interval waktu yang ditentukan. Perangkat yang memerlukan rollback atau menjalankan <ph name="PRODUCT_OS_NAME" /> versi minimum tidak akan terpengaruh oleh kebijakan ini karena adanya potensi masalah keamanan. Selain itu, kebijakan ini tidak akan memblokir pemeriksaan update yang diminta oleh pengguna atau administrator.
       Jika kebijakan ini tidak ditetapkan atau tidak memuat interval waktu:
       Pemeriksaan update otomatis tidak akan diblokir oleh kebijakan ini, tetapi dapat diblokir oleh kebijakan lain. Fitur ini hanya diaktifkan di perangkat Chrome yang dikonfigurasi sebagai kios dengan peluncuran otomatis. Perangkat lain tidak akan dibatasi oleh kebijakan ini.</translation>
 <translation id="2823870601012066791">Lokasi registry Windows untuk klien <ph name="PRODUCT_OS_NAME" />:</translation>
@@ -1249,9 +1249,9 @@ Jika kebijakan ini tidak disetel, setelan default-nya tidak diizinkan bagi pengg
 <translation id="3984028218719007910">Menentukan apakah <ph name="PRODUCT_OS_NAME" /> menyimpan data akun lokal setelah keluar. Jika disetel ke true, maka tidak ada akun yang terus menerus disimpan oleh <ph name="PRODUCT_OS_NAME" /> dan semua data dari sesi pengguna akan dihapus setelah keluar. Jika kebijakan ini disetel ke false atau tidak dikonfigurasi, perangkat dapat menyimpan data pengguna lokal (yang dienkripsi).</translation>
 <translation id="398475542699441679">Kebijakan ini mengontrol apakah Dukungan Browser Lama diaktifkan atau tidak.
 
-      Jika kebijakan ini tidak ditetapkan, atau ditetapkan ke false, Chrome tidak akan mencoba membuka URL yang ditetapkan pada browser alternatif.
+      Jika kebijakan ini tidak ditetapkan, atau ditetapkan ke false, Chrome tidak akan mencoba meluncurkan URL yang ditetapkan pada browser alternatif.
 
-      Jika kebijakan ini ditetapkan ke true, Chrome akan mencoba membuka beberapa URL pada browser alternatif (seperti Internet Explorer). Fitur ini dikonfigurasi menggunakan kebijakan dalam grup <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
+      Jika kebijakan ini ditetapkan ke true, Chrome akan mencoba meluncurkan beberapa URL pada browser alternatif (seperti Internet Explorer). Fitur ini dikonfigurasi menggunakan kebijakan dalam grup <ph name="LEGACY_BROWSER_SUPPORT_POLICY_GROUP" />.
 
       Fitur ini adalah pengganti untuk ekstensi <ph name="LEGACY_BROWSER_SUPPORT_EXTENSION_NAME" />. Konfigurasi dari ekstensi tersebut akan diterapkan pada fitur ini, tetapi sangat disarankan untuk menggunakan kebijakan Chrome saja. Hal ini memastikan kompatibilitas yang lebih baik di waktu mendatang.</translation>
 <translation id="3997519162482760140">URL yang akan diberi akses ke perangkat perekam video di halaman masuk SAML</translation>

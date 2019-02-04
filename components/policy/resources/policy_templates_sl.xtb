@@ -809,8 +809,8 @@ napravi konfiguriran tako, da pri samodejni prijavi ni zakasnitve, naprava pa ni
 
           Če ta pravilnik ni nastavljen, bo nastavitev omogočena.</translation>
 <translation id="2813281962735757923">Ta pravilnik nadzira obdobja, med katerimi napravi s sistemom <ph name="PRODUCT_OS_NAME" /> ni samodejno dovoljeno preverjati, ali so na voljo posodobitve.
-      Če je ta pravilnik nastavljen na seznam časovnih intervalov, ki ni prazen:
-      Naprave med določenimi časovnimi intervali ne bodo mogle samodejno preveriti, ali so na voljo posodobitve. Na naprave, ki jih je treba povrniti v prejšnje stanje ali ki uporabljajo nižjo različico operacijskega sistema <ph name="PRODUCT_OS_NAME" /> od najnižje zahtevane, zaradi morebitnih varnostnih težav ta pravilnik ne bo vplival. Poleg tega ta pravilnik ne bo blokiral zahtev za preverjanje, ali so na voljo posodobitve, ki jih izvedejo uporabniki ali skrbniki.
+      Če je ta pravilnik na seznam časovnih intervalov, ki ni prazen:
+      Naprave med določenimi časovnimi intervali ne bodo mogle samodejno preveriti, ali so na voljo posodobitve. Na naprave, ki jih je treba povrniti v prejšnje stanje, ali uporabljajo nižjo različico operacijskega sistema <ph name="PRODUCT_OS_NAME" /> od najnižje zahtevane, zaradi morebitnih varnostnih težav ta pravilnik ne bo vplival. Poleg tega ta pravilnik ne bo blokiral zahtev za preverjanje, ali so na voljo posodobitve, ki jih izvedejo uporabniki ali skrbniki.
       Če ta pravilnik ni nastavljen ali ne vsebuje časovnih intervalov:
       Ta pravilnik ne bo blokiral samodejnih preverjanj, ali so na voljo posodobitve, vendar jih bodo morda blokirali drugi pravilniki. Ta funkcija je omogočena samo v napravah Chrome, ki so konfigurirane kot kioski s samodejnim zagonom. Drugih naprav ta pravilnik ne bo omejeval.</translation>
 <translation id="2823870601012066791">Lokacija registra sistema Windows za odjemalce s sistemom <ph name="PRODUCT_OS_NAME" />:</translation>
@@ -2605,7 +2605,7 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
       Če je ta pravilnik onemogočen, je način izvajanja v ozadju onemogočen in ga uporabnik ne more upravljati v nastavitvah brskalnika.
 
       Če ta pravilnik ni nastavljen, je način izvajanja v ozadju na začetku onemogočen in ga uporabnik lahko upravlja v nastavitvah brskalnika.</translation>
-<translation id="7123266440503901785"><ph name="PRODUCT_NAME" /> zagotavlja varno posodabljanje in nameščanje razširitev. Kljub temu lahko vsebino nekaterih razširitev, ki gostujejo zunaj Spletne trgovine Chrome, ščitijo samo algoritmi za podpisovanje ali zgoščevanje, ki niso varni, na primer SHA1. Če je ta pravilnik onemogočen, Chrome ne bo dovolil sveže namestitve takšnih razširitev in njihovih posodobitev (dokler razvijalci razširitve ne predelajo z močnejšimi algoritmi). Če je ta pravilnik omogočen, bodo namestitev in posodobitve takšnih razširitev dovoljene.
+<translation id="7123266440503901785"><ph name="PRODUCT_NAME" /> zagotavlja varno posodabljanje in nameščanje razširitev. Kljub temu lahko vsebino nekaterih razširitev, ki gostujejo zunaj Spletne trgovine Chrome, ščitijo samo algoritmi za podpisovanje ali zgoščevanje, ki niso varni, na primer SHA1. Če je ta pravilnik onemogočen, Chrome ne bo dovolil sveže namestitve takšnih razširitev in njihovih posodobitev (dokler razvijalci razširitve ne predelajo z močnejšimi algoritmi). Če se je ta pravilnik omogočen, bodo namestitev in posodobitve takšnih razširitev dovoljene.
 
           Če pravilnik ni nastavljen, je privzeto omogočeno delovanje.
           Od brskalnika <ph name="PRODUCT_NAME" /> različice 75 bo privzeto omogočeno delovanje, če pravilnik ne bo nastavljen.
