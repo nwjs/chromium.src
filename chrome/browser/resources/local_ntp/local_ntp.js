@@ -1161,7 +1161,7 @@ function createIframes() {
   args.push('removeTooltip=' +
       encodeURIComponent(configData.translatedStrings.removeThumbnailTooltip));
 
-  if (configData.isDarkModeEnabled) {
+  if (isDarkModeEnabled) {
     args.push('enableDarkMode=1');
   }
 
@@ -1199,7 +1199,7 @@ function createIframes() {
       clArgs.push('rtl=1');
     }
 
-    if (configData.isDarkModeEnabled) {
+    if (isDarkModeEnabled) {
       clArgs.push('enableDarkMode=1');
     }
 
