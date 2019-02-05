@@ -339,13 +339,19 @@ bool SyncerProtoUtil::PostAndProcessHeaders(ServerConnectionManager* scm,
                             msg.message_contents(),
                             ClientToServerMessage::Contents_MAX + 1);
 
-  for (const sync_pb::DataTypeProgressMarker& progress_marker :
-       msg.get_updates().from_progress_marker()) {
-    UMA_HISTOGRAM_ENUMERATION(
-        "Sync.PostedDataTypeGetUpdatesRequest",
-        ModelTypeToHistogramInt(GetModelTypeFromSpecificsFieldNumber(
-            progress_marker.data_type_id())),
-        static_cast<int>(MODEL_TYPE_COUNT));
+  if (msg.has_get_updates()) {
+    UMA_HISTOGRAM_ENUMERATION("Sync.PostedGetUpdatesOrigin",
+                              msg.get_updates().get_updates_origin(),
+                              sync_pb::SyncEnums::GetUpdatesOrigin_ARRAYSIZE);
+
+    for (const sync_pb::DataTypeProgressMarker& progress_marker :
+         msg.get_updates().from_progress_marker()) {
+      UMA_HISTOGRAM_ENUMERATION(
+          "Sync.PostedDataTypeGetUpdatesRequest",
+          ModelTypeToHistogramInt(GetModelTypeFromSpecificsFieldNumber(
+              progress_marker.data_type_id())),
+          static_cast<int>(MODEL_TYPE_COUNT));
+    }
   }
 
   const base::Time start_time = base::Time::Now();
