@@ -644,7 +644,7 @@
     },
     {
       name: "IntersectionObserverV2",
-      status: "stable",
+      status: "experimental",
     },
     {
       name: "InvisibleDOM",
