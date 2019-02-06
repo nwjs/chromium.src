@@ -455,13 +455,8 @@ std::unique_ptr<SoftwareOutputDevice> CreateSoftwareOutputDeviceWinGpu(
     return std::make_unique<SoftwareOutputDeviceWinProxy>(
         hwnd, std::move(layered_window_updater));
   } else {
-    auto software_output_device =
-        SoftwareOutputDeviceWinDirectChild::Create(backing);
-
-    // The child HWND needs to be parented to the browser HWND to be visible.
-    *out_child_hwnd = software_output_device->hwnd();
-
-    return software_output_device;
+    *out_child_hwnd = nullptr;
+    return std::make_unique<SoftwareOutputDeviceWinDirect>(hwnd, backing);
   }
 }
 
