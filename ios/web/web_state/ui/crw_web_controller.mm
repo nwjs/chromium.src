@@ -1704,6 +1704,12 @@ registerLoadRequestForURL:(const GURL&)requestURL
   if (_webUIManager)
     return;
 
+  if (!self.currentNavItem) {
+    // TODO(crbug.com/925304): Pending item (which stores the holder) should be
+    // owned by NavigationContext object. Pending item should never be null.
+    return;
+  }
+
   web::WKBackForwardListItemHolder* holder =
       [self currentBackForwardListItemHolder];
 
@@ -2903,7 +2909,10 @@ registerLoadRequestForURL:(const GURL&)requestURL
   // keep it since it will have a more accurate URL and policy than what can
   // be extracted from the landing page.)
   web::NavigationItem* currentItem = self.currentNavItem;
-  if (!currentItem->GetReferrer().url.is_valid()) {
+
+  // TODO(crbug.com/925304): Pending item (which should be used here) should be
+  // owned by NavigationContext object. Pending item should never be null.
+  if (currentItem && !currentItem->GetReferrer().url.is_valid()) {
     currentItem->SetReferrer(referrer);
   }
 
@@ -4823,20 +4832,43 @@ registerLoadRequestForURL:(const GURL&)requestURL
   // |context| will be nil if this navigation has been already committed and
   // finished.
   if (context) {
-    context->SetHasCommitted(true);
+    web::NavigationManager* navigationManager =
+        _webStateImpl->GetNavigationManager();
+    if ((navigationManager->GetPendingItem()) ||
+        (context->IsLoadingHtmlString()) ||
+        (!web::GetWebClient()->IsSlimNavigationManagerEnabled() &&
+         ui::PageTransitionCoreTypeIs(context->GetPageTransition(),
+                                      ui::PAGE_TRANSITION_RELOAD) &&
+         navigationManager->GetLastCommittedItem())) {
+      // Commit navigation if at least one of these is true:
+      //  - Navigation has pending item (this should always be true, but
+      //    pending item may not exist due to crbug.com/925304).
+      //  - Navigation is loadHTMLString:baseURL: navigation, which does not
+      //    create a pending item, but modifies committed item instead.
+      //  - Transition type is reload with Legacy Navigation Manager (Legacy
+      //    Navigation Manager does not create pending item for reload due to
+      //    crbug.com/676129)
+      context->SetHasCommitted(true);
+    }
     context->SetResponseHeaders(_webStateImpl->GetHttpResponseHeaders());
   }
 
   [self commitPendingNavigationInfo];
-  if ([self currentBackForwardListItemHolder]->navigation_type() ==
-      WKNavigationTypeBackForward) {
-    // A fast back/forward won't call decidePolicyForNavigationResponse, so
-    // the MIME type needs to be updated explicitly.
-    NSString* storedMIMEType =
-        [self currentBackForwardListItemHolder]->mime_type();
-    if (storedMIMEType) {
-      self.webStateImpl->SetContentsMimeType(
-          base::SysNSStringToUTF8(storedMIMEType));
+
+  // TODO(crbug.com/925304): Pending item (which is stores
+  // currentBackForwardListItemHolder) should be owned by NavigationContext.
+  // Pending item should never be null.
+  if (self.currentNavItem) {
+    if ([self currentBackForwardListItemHolder]
+        -> navigation_type() == WKNavigationTypeBackForward) {
+      // A fast back/forward won't call decidePolicyForNavigationResponse, so
+      // the MIME type needs to be updated explicitly.
+      NSString* storedMIMEType =
+          [self currentBackForwardListItemHolder] -> mime_type();
+      if (storedMIMEType) {
+        self.webStateImpl->SetContentsMimeType(
+            base::SysNSStringToUTF8(storedMIMEType));
+      }
     }
   }
 
