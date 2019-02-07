@@ -16,6 +16,7 @@
 #include "content/browser/media/session/media_session_controller.h"
 #include "content/browser/media/session/media_session_player_observer.h"
 #include "content/browser/media/session/media_session_service_impl.h"
+#include "content/browser/picture_in_picture/picture_in_picture_window_controller_impl.h"
 #include "content/browser/web_contents/web_contents_impl.h"
 #include "content/public/browser/media_session.h"
 #include "content/public/browser/media_session_observer.h"
@@ -1084,6 +1085,14 @@ void MediaSessionImpl::RebuildAndNotifyActionsChanged() {
   std::set<media_session::mojom::MediaSessionAction> actions =
       routed_service_ ? routed_service_->actions()
                       : std::set<media_session::mojom::MediaSessionAction>();
+
+  // Picture-in-Picture window controller needs to know only actions that are
+  // handled by the website.
+  if (auto* pip_window_controller_ =
+          PictureInPictureWindowControllerImpl::FromWebContents(
+              web_contents())) {
+    pip_window_controller_->MediaSessionActionsChanged(actions);
+  }
 
   // If we are controllable then we should always add these actions as we can
   // support them by directly interacting with the players underneath.
