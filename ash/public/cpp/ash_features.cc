@@ -17,7 +17,7 @@ const base::Feature kDragTabsInTabletMode{"DragTabsInTabletMode",
                                           base::FEATURE_ENABLED_BY_DEFAULT};
 
 const base::Feature kLockScreenNotifications{"LockScreenNotifications",
-                                             base::FEATURE_ENABLED_BY_DEFAULT};
+                                             base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kLockScreenInlineReply{"LockScreenInlineReply",
                                            base::FEATURE_DISABLED_BY_DEFAULT};
