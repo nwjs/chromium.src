@@ -578,7 +578,7 @@ base::Optional<EventResponseDelta> WebRequestCancelAction::CreateDelta(
   CHECK(request_data.stage & stages());
   EventResponseDelta result(extension_id, extension_install_time);
   result.cancel = true;
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -613,7 +613,7 @@ base::Optional<EventResponseDelta> WebRequestRedirectAction::CreateDelta(
     return base::nullopt;
   EventResponseDelta result(extension_id, extension_install_time);
   result.new_url = redirect_url_;
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -642,7 +642,7 @@ WebRequestRedirectToTransparentImageAction::CreateDelta(
   CHECK(request_data.stage & stages());
   EventResponseDelta result(extension_id, extension_install_time);
   result.new_url = GURL(kTransparentImageUrl);
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -671,7 +671,7 @@ WebRequestRedirectToEmptyDocumentAction::CreateDelta(
   CHECK(request_data.stage & stages());
   EventResponseDelta result(extension_id, extension_install_time);
   result.new_url = GURL(kEmptyDocumentUrl);
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -773,7 +773,7 @@ base::Optional<EventResponseDelta> WebRequestRedirectByRegExAction::CreateDelta(
 
   EventResponseDelta result(extension_id, extension_install_time);
   result.new_url = GURL(new_url);
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -813,7 +813,7 @@ WebRequestSetRequestHeaderAction::CreateDelta(
   CHECK(request_data.stage & stages());
   EventResponseDelta result(extension_id, extension_install_time);
   result.modified_request_headers.SetHeader(name_, value_);
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -851,7 +851,7 @@ WebRequestRemoveRequestHeaderAction::CreateDelta(
   CHECK(request_data.stage & stages());
   EventResponseDelta result(extension_id, extension_install_time);
   result.deleted_request_headers.push_back(name_);
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -900,7 +900,7 @@ WebRequestAddResponseHeaderAction::CreateDelta(
 
   EventResponseDelta result(extension_id, extension_install_time);
   result.added_response_headers.push_back(make_pair(name_, value_));
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -954,7 +954,7 @@ WebRequestRemoveResponseHeaderAction::CreateDelta(
       continue;
     result.deleted_response_headers.push_back(make_pair(name_, current_value));
   }
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -1039,7 +1039,7 @@ base::Optional<EventResponseDelta> WebRequestRequestCookieAction::CreateDelta(
   EventResponseDelta result(extension_id, extension_install_time);
   result.request_cookie_modifications.push_back(
       request_cookie_modification_.Clone());
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -1087,7 +1087,7 @@ base::Optional<EventResponseDelta> WebRequestResponseCookieAction::CreateDelta(
   EventResponseDelta result(extension_id, extension_install_time);
   result.response_cookie_modifications.push_back(
       response_cookie_modification_.Clone());
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 //
@@ -1127,7 +1127,7 @@ WebRequestSendMessageToExtensionAction::CreateDelta(
   CHECK(request_data.stage & stages());
   EventResponseDelta result(extension_id, extension_install_time);
   result.messages_to_extension.insert(message_);
-  return result;
+  return base::make_optional(std::move(result));
 }
 
 }  // namespace extensions
