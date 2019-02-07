@@ -55,7 +55,7 @@
 #endif
 
 #if defined(OS_WIN)
-#include "base/win/win_util.h"
+#include "base/enterprise_util.h"
 #elif defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #endif  // #if defined(OS_WIN)
@@ -345,7 +345,7 @@ bool ConfigSingleton::IsEnterpriseManaged() const {
   }
 
 #if defined(OS_WIN)
-  if (base::win::IsEnterpriseManaged()) {
+  if (base::IsMachineExternallyManaged()) {
     return true;
   }
 #elif defined(OS_CHROMEOS)

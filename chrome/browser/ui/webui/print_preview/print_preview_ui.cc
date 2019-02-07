@@ -62,7 +62,7 @@
 #if defined(OS_CHROMEOS)
 #include "chrome/browser/chromeos/policy/browser_policy_connector_chromeos.h"
 #elif defined(OS_WIN)
-#include "base/win/win_util.h"
+#include "base/enterprise_util.h"
 #endif
 
 using content::WebContents;
@@ -306,7 +306,7 @@ void AddPrintPreviewFlags(content::WebUIDataSource* source, Profile* profile) {
       g_browser_process->platform_part()->browser_policy_connector_chromeos();
   enterprise_managed = connector->IsEnterpriseManaged();
 #elif defined(OS_WIN)
-  enterprise_managed = base::win::IsEnterpriseManaged();
+  enterprise_managed = base::IsMachineExternallyManaged();
 #endif
   source->AddBoolean("isEnterpriseManaged", enterprise_managed);
 
