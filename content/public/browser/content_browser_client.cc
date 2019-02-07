@@ -917,4 +917,10 @@ bool ContentBrowserClient::IsBuiltinComponent(BrowserContext* browser_context,
   return false;
 }
 
+bool ContentBrowserClient::IsRendererDebugURLBlacklisted(
+    const GURL& url,
+    BrowserContext* context) {
+  return false;
+}
+
 }  // namespace content
