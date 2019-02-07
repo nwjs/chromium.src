@@ -115,6 +115,10 @@ void PerformanceObserver::observe(const PerformanceObserverInit* observer_init,
     return;
   }
   filter_options_ = entry_types;
+  if (filter_options_ & PerformanceEntry::kLayoutJank) {
+    UseCounter::Count(GetExecutionContext(),
+                      WebFeature::kLayoutJankExplicitlyRequested);
+  }
   if (is_registered_)
     performance_->UpdatePerformanceObserverFilterOptions();
   else
