@@ -167,9 +167,6 @@ class InspectorOverlayAgent::InspectorPageOverlayDelegate final
 
     if (RuntimeEnabledFeatures::CompositeAfterPaintEnabled()) {
       layer_->SetBounds(gfx::Size(frame_overlay.Size()));
-      overlay_->OverlayMainFrame()
-          ->View()
-          ->SetPaintArtifactCompositorNeedsUpdate();
       RecordForeignLayer(graphics_context,
                          DisplayItem::kForeignLayerDevToolsOverlay, layer_,
                          PropertyTreeState::Root());
@@ -590,6 +587,8 @@ void InspectorOverlayAgent::Invalidate() {
   }
 
   frame_overlay_->Update();
+  if (auto* frame_view = frame_impl_->GetFrameView())
+    frame_view->SetPaintArtifactCompositorNeedsUpdate();
 }
 
 void InspectorOverlayAgent::UpdateAllOverlayLifecyclePhases() {
@@ -819,6 +818,8 @@ void InspectorOverlayAgent::ScheduleUpdate() {
       frame_overlay_.reset();
       client.SetCursorOverridden(false);
       client.SetCursor(PointerCursor(), frame_impl_->GetFrame());
+      if (auto* frame_view = frame_impl_->GetFrameView())
+        frame_view->SetPaintArtifactCompositorNeedsUpdate();
     }
     return;
   }
