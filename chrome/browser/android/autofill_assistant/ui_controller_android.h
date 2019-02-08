@@ -17,6 +17,7 @@
 #include "components/autofill_assistant/browser/client.h"
 #include "components/autofill_assistant/browser/details.h"
 #include "components/autofill_assistant/browser/metrics.h"
+#include "components/autofill_assistant/browser/overlay_state.h"
 #include "components/autofill_assistant/browser/ui_controller.h"
 
 namespace autofill_assistant {
@@ -52,8 +53,7 @@ class UiControllerAndroid : public UiController {
   void OnDetailsChanged(const Details* details) override;
   void ShowProgressBar(int progress) override;
   void HideProgressBar() override;
-  void UpdateTouchableArea(bool enabled,
-                           const std::vector<RectF>& areas) override;
+  void SetTouchableArea(const std::vector<RectF>& areas) override;
 
   // Called by AssistantOverlayDelegate:
   void OnUnexpectedTaps();
@@ -96,8 +96,7 @@ class UiControllerAndroid : public UiController {
   base::android::ScopedJavaLocalRef<jobject> GetDetailsModel();
   base::android::ScopedJavaLocalRef<jobject> GetCarouselModel();
 
-  void ShowOverlay();
-  void HideOverlay();
+  void SetOverlayState(OverlayState state);
   void AllowShowingSoftKeyboard(bool enabled);
   void ExpandBottomSheet();
   void ShutdownGracefully();
