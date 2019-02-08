@@ -123,17 +123,23 @@ void AvatarToolbarButton::UpdateText() {
 
   const SyncState sync_state = GetSyncState();
 
+  if (IsIncognito() && GetThemeProvider()) {
+    color = GetThemeProvider()->GetColor(
+        ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
+    // TODO(pbos): Remove this once the incognito chip is always enabled and
+    // triggers a menu.
+    SetTextColor(STATE_DISABLED, *color);
+  }
+
   if (IsIncognitoCounterActive()) {
     const int incognito_window_count =
         BrowserList::GetIncognitoSessionsActiveForProfile(profile_);
     if (incognito_window_count > 1) {
       text = base::IntToString16(incognito_window_count);
       SetHorizontalAlignment(gfx::ALIGN_LEFT);
-      if (GetThemeProvider()) {
-        color = GetThemeProvider()->GetColor(
-            ThemeProperties::COLOR_TOOLBAR_BUTTON_ICON);
-      }
     }
+  } else if (IsIncognito()) {
+    text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_INCOGNITO);
   } else if (sync_state == SyncState::kError) {
     color = gfx::kGoogleRed600;
     text = l10n_util::GetStringUTF16(IDS_AVATAR_BUTTON_SYNC_ERROR);
