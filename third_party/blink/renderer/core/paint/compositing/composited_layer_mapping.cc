@@ -3465,14 +3465,11 @@ bool CompositedLayerMapping::IsScrollableAreaLayer(
 }
 
 bool CompositedLayerMapping::ShouldThrottleRendering() const {
-  return GetLayoutObject().View()->GetFrame()->ShouldThrottleRendering();
+  return GetLayoutObject().GetFrame()->ShouldThrottleRendering();
 }
 
 bool CompositedLayerMapping::IsTrackingRasterInvalidations() const {
-  return GetLayoutObject()
-      .View()
-      ->GetFrameView()
-      ->IsTrackingPaintInvalidations();
+  return GetLayoutObject().GetFrameView()->IsTrackingPaintInvalidations();
 }
 
 void CompositedLayerMapping::SetOverlayScrollbarsHidden(bool hidden) {
@@ -3481,7 +3478,7 @@ void CompositedLayerMapping::SetOverlayScrollbarsHidden(bool hidden) {
 }
 
 void CompositedLayerMapping::SetPaintArtifactCompositorNeedsUpdate() const {
-  LocalFrameView* frame_view = GetLayoutObject().View()->GetFrameView();
+  LocalFrameView* frame_view = GetLayoutObject().GetFrameView();
   DCHECK(frame_view);
   frame_view->SetPaintArtifactCompositorNeedsUpdate();
 }
