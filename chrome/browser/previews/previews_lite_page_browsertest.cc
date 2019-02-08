@@ -71,6 +71,7 @@
 
 namespace {
 const int kTimeoutMs = 250;
+const int kRedirectLoopCount = 3;
 }
 
 class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
@@ -107,6 +108,9 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
 
     // Previews server will respond with HTTP 307 to a preview page.
     kRedirectPreview = 7,
+
+    // Previews server will put Chrome into a redirect loop.
+    kRedirectLoop = 8,
   };
 
   void SetUpCommandLine(base::CommandLine* cmd) override {
@@ -149,6 +153,10 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
         https_server_->GetURL("/previews/to_https_redirect.html");
     ASSERT_TRUE(https_to_https_redirect_url_.SchemeIs(url::kHttpsScheme));
 
+    https_redirect_loop_url_ =
+        https_server_->GetURL("/previews/redirect_loop.html");
+    ASSERT_TRUE(https_redirect_loop_url_.SchemeIs(url::kHttpsScheme));
+
     base_https_lite_page_url_ =
         https_server_->GetURL("/previews/lite_page_test.html");
     ASSERT_TRUE(base_https_lite_page_url_.SchemeIs(url::kHttpsScheme));
@@ -179,6 +187,10 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
         http_server_->GetURL("/previews/to_https_redirect.html");
     ASSERT_TRUE(http_to_https_redirect_url_.SchemeIs(url::kHttpScheme));
 
+    http_redirect_loop_url_ =
+        http_server_->GetURL("/previews/redirect_loop.html");
+    ASSERT_TRUE(http_redirect_loop_url_.SchemeIs(url::kHttpScheme));
+
     client_redirect_url_ =
         http_server_->GetURL("/previews/client_redirect.html");
     ASSERT_TRUE(client_redirect_url_.SchemeIs(url::kHttpScheme));
@@ -203,8 +215,9 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
         {"previews_host", previews_server().spec()},
         {"blacklisted_path_suffixes", ".mp4,.jpg"},
         {"trigger_on_localhost", "true"},
+        {"max_navigation_restart", base::NumberToString(kRedirectLoopCount)},
         {"navigation_timeout_milliseconds",
-         use_timeout ? base::IntToString(kTimeoutMs) : "0"},
+         use_timeout ? base::NumberToString(kTimeoutMs) : "60000"},
         {"control_group", is_control ? "true" : "false"}};
 
     scoped_parameterized_feature_list_.InitAndEnableFeatureWithParameters(
@@ -474,6 +487,10 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
   const GURL& https_to_https_redirect_url() const {
     return https_to_https_redirect_url_;
   }
+  const GURL& http_redirect_loop_url() const { return http_redirect_loop_url_; }
+  const GURL& https_redirect_loop_url() const {
+    return https_redirect_loop_url_;
+  }
   const GURL& client_redirect_url() const { return client_redirect_url_; }
   const GURL& subframe_url() const { return subframe_url_; }
   int subresources_requested() const { return subresources_requested_; }
@@ -500,6 +517,29 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
                             "\";</script></body></html>");
       return std::move(response);
     }
+
+    if (request.GetURL().spec().find("redirect_loop") != std::string::npos) {
+      std::unique_ptr<net::test_server::BasicHttpResponse> response =
+          std::make_unique<net::test_server::BasicHttpResponse>();
+      response->set_code(net::HTTP_TEMPORARY_REDIRECT);
+
+      if (request.GetURL().SchemeIsCryptographic()) {
+        response->AddCustomHeader("Location", http_redirect_loop_url().spec());
+      } else {
+        // Provide a way out. If this request wasn't forward by the previews
+        // server, end the loop.
+        if (request.GetURL().spec().find("from_previews_server") !=
+            std::string::npos) {
+          response->AddCustomHeader("Location",
+                                    https_redirect_loop_url().spec());
+        } else {
+          response->set_code(net::HttpStatusCode::HTTP_OK);
+        }
+      }
+
+      return std::move(response);
+    }
+
     return nullptr;
   }
 
@@ -555,6 +595,13 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
       return response;
     }
 
+    if (request.GetURL().spec().find("redirect_loop") != std::string::npos) {
+      response->set_code(net::HTTP_TEMPORARY_REDIRECT);
+      response->AddCustomHeader("Location", http_redirect_loop_url().spec() +
+                                                "?from_previews_server=true");
+      return std::move(response);
+    }
+
     std::string delay_query_param;
     int delay_ms = 0;
 
@@ -598,6 +645,10 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
         response->set_code(net::HTTP_TEMPORARY_REDIRECT);
         response->AddCustomHeader("Location",
                                   HttpsLitePageURL(kSuccess).spec());
+        break;
+      case kRedirectLoop:
+        response->set_code(net::HTTP_TEMPORARY_REDIRECT);
+        response->AddCustomHeader("Location", https_redirect_loop_url().spec());
         break;
       case kBypass:
         response->set_code(net::HTTP_TEMPORARY_REDIRECT);
@@ -654,6 +705,8 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
   GURL http_url_;
   GURL base_http_lite_page_url_;
   GURL http_to_https_redirect_url_;
+  GURL http_redirect_loop_url_;
+  GURL https_redirect_loop_url_;
   GURL https_to_https_redirect_url_;
   GURL client_redirect_url_;
   GURL subframe_url_;
@@ -850,6 +903,30 @@ IN_PROC_BROWSER_TEST_F(PreviewsLitePageServerBrowserTest,
     // Reset state for other tests.
     CookieSettingsFactory::GetForProfile(browser()->profile())
         ->SetDefaultCookieSetting(CONTENT_SETTING_ALLOW);
+  }
+
+  {
+    // Verify a preview is not shown for a redirect loop.
+    base::HistogramTester histogram_tester;
+    ui_test_utils::NavigateToURL(browser(), HttpsLitePageURL(kRedirectLoop));
+
+    // Make sure we're done with all the navigation restarts before running
+    // checks.
+    for (int i = 0; i < kRedirectLoopCount + 1; i++) {
+      base::RunLoop().RunUntilIdle();
+      content::WaitForLoadStop(GetWebContents());
+    }
+
+    VerifyPreviewNotLoaded();
+    ClearDeciderState();
+
+    // It takes a few redirects to reach the end case. Just make sure at least
+    // one sample has been recorded in the correct bucket.
+    histogram_tester.ExpectBucketCount(
+        "Previews.ServerLitePage.IneligibleReasons",
+        static_cast<int>(PreviewsLitePageNavigationThrottle::IneligibleReason::
+                             kExceededMaxNavigationRestarts),
+        1);
   }
 }
 
