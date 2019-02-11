@@ -132,6 +132,13 @@ jinja_template("trichrome_chrome_android_manifest") {
   variables = chrome_public_jinja_variables + trichrome_jinja_variables
 }
 
+generate_ui_locale_resources("ui_locale_string_resources") {
+  # NOTE: It is not possible to pass just |locales| here, otherwise
+  # the lint step will later complain that 3 strings in android_ui_strings.grd
+  # are not localized to the omitted locales!
+  ui_locales = locales - android_chrome_omitted_locales
+}
+
 android_resources("chrome_app_java_resources") {
   resource_dirs = [
     "java/res",
@@ -148,6 +155,7 @@ android_resources("chrome_app_java_resources") {
 
   deps = [
     ":chrome_strings_grd",
+    ":ui_locale_string_resources",
     "//chrome/android/webapk/libs/common:splash_resources",
     "//chrome/app:java_strings_grd",
     "//components/autofill/android:autofill_java_resources",
