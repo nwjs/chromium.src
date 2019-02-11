@@ -132,6 +132,20 @@ import java.util.concurrent.atomic.AtomicBoolean;
         // more details in {VrShellDelegate#maybeHandleVrIntentPreNative}.
         addBlackOverlayViewForActivity(activity);
         setSystemUiVisibilityForVr(activity);
+
+        // Flag whether enter VR flow is handled already.
+        AtomicBoolean enterVrHandled = new AtomicBoolean(false);
+
+        VrModuleProvider.installModule((success) -> {
+            if (enterVrHandled.getAndSet(true)) return;
+            onVrModuleInstallFinished(success);
+        });
+
+        ThreadUtils.postOnUiThreadDelayed(() -> {
+            if (enterVrHandled.getAndSet(true)) return;
+            assert !VrModuleProvider.isModuleInstalled();
+            onVrModuleInstallFailure(activity);
+        }, WAITING_FOR_MODULE_TIMEOUT_MS);
     }
 
     @Override
@@ -148,20 +162,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
             activity.finish();
             return;
         }
-
-        // Flag whether enter VR flow is handled already.
-        AtomicBoolean enterVrHandled = new AtomicBoolean(false);
-
-        VrModuleProvider.installModule((success) -> {
-            if (enterVrHandled.getAndSet(true)) return;
-            onVrModuleInstallFinished(success);
-        });
-
-        ThreadUtils.postOnUiThreadDelayed(() -> {
-            if (enterVrHandled.getAndSet(true)) return;
-            assert !VrModuleProvider.isModuleInstalled();
-            onVrModuleInstallFailure(activity);
-        }, WAITING_FOR_MODULE_TIMEOUT_MS);
     }
 
     @Override
