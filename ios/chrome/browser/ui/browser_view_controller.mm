@@ -2370,8 +2370,18 @@ NSString* const kBrowserViewControllerSnackbarCategory =
       // not be restored until LoadIfNecessary call. Remove when fixed.
       tab.webState->GetNavigationManager()->LoadIfNecessary();
 
+      // Always show the webState view under the NTP, to work around
+      // crbug.com/848789
+      if (base::FeatureList::IsEnabled(kBrowserContainerKeepsContentView)) {
+        if (self.browserContainerViewController.contentView == nil)
+          self.browserContainerViewController.contentView =
+              tab.webState->GetView();
+      } else {
+        self.browserContainerViewController.contentView = nil;
+      }
       self.browserContainerViewController.contentViewController =
           viewController;
+
     } else {
       self.browserContainerViewController.contentView = [self viewForTab:tab];
     }
