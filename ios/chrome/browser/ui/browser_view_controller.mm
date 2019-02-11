@@ -2373,9 +2373,12 @@ NSString* const kBrowserViewControllerSnackbarCategory =
       // Always show the webState view under the NTP, to work around
       // crbug.com/848789
       if (base::FeatureList::IsEnabled(kBrowserContainerKeepsContentView)) {
-        if (self.browserContainerViewController.contentView == nil)
+        if (self.browserContainerViewController.contentView == nil) {
           self.browserContainerViewController.contentView =
               tab.webState->GetView();
+        }
+        self.browserContainerViewController.contentView.frame =
+            self.contentArea.bounds;
       } else {
         self.browserContainerViewController.contentView = nil;
       }
