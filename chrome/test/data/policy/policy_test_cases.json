@@ -4187,6 +4187,10 @@
     "pref_mappings": [{ "pref": "child_user.parent_access_code.config" }]
   },
 
+  "ForceNetworkInProcess": {
+    "note": "This policy is used directly through the policy service instead of through a pref."
+  },
+
   "----- Chrome Frame policies -------------------------------------------": {},
 
   "ChromeFrameRendererSettings": {
