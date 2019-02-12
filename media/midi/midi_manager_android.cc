@@ -50,6 +50,8 @@ MidiManagerAndroid::MidiManagerAndroid(MidiService* service)
     : MidiManager(service) {}
 
 MidiManagerAndroid::~MidiManagerAndroid() {
+  JNIEnv* env = base::android::AttachCurrentThread();
+  Java_MidiManagerAndroid_stop(env, raw_manager_);
   bool result = service()->task_service()->UnbindInstance();
   CHECK(result);
 }
