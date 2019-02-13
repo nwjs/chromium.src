@@ -1906,8 +1906,8 @@ extern const char kCrostiniUsbSupportDescription[];
 extern const char kCryptAuthV2EnrollmentName[];
 extern const char kCryptAuthV2EnrollmentDescription[];
 
-extern const char kDisableExplicitDmaFencesName[];
-extern const char kDisableExplicitDmaFencesDescription[];
+extern const char kEnableExplicitDmaFencesName[];
+extern const char kEnableExplicitDmaFencesDescription[];
 
 extern const char kDisableSystemTimezoneAutomaticDetectionName[];
 extern const char kDisableSystemTimezoneAutomaticDetectionDescription[];
