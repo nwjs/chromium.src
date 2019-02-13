@@ -70,6 +70,7 @@
 <translation id="1430915738399379752">Друк</translation>
 <translation id="1445680696957526815">Компоненти Chrome несумісні одне з одним. Веб-переглядач може оновлюватися, спробуйте через декілька хвилин. Якщо проблема не зникне, видаліть Chrome і встановіть його знову.</translation>
 <translation id="1446450296470737166">Повний контроль пристроїв MIDI</translation>
+<translation id="1449080968331948513">Заощадження трафіку зараз працює в спрощеному режимі</translation>
 <translation id="145097072038377568">Вимкнено в налаштуваннях Android</translation>
 <translation id="1477626028522505441">Файл <ph name="FILE_NAME" /> не завантажено через проблеми із сервером.</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (+ ще 1)}one{ (+ і ще #)}few{ (+ і ще #)}many{ (+ і ще #)}other{ (+ і ще #)}}</translation>
@@ -131,6 +132,7 @@
 <translation id="1960290143419248813">Chrome більше не оновлюється в цій версії Android</translation>
 <translation id="1966710179511230534">Оновіть свої дані для входу.</translation>
 <translation id="1974060860693918893">Розширені</translation>
+<translation id="1984705450038014246">Синхронізуйте дані Chrome</translation>
 <translation id="1984937141057606926">Заборонено лише сторонні файли cookie</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" />, кнопка <ph name="LINK_NAME" /></translation>
 <translation id="1989112275319619282">Переглянути</translation>
@@ -357,7 +359,6 @@
 <translation id="3712575778697986964">Скинути дані Заощадження трафіку?</translation>
 <translation id="3714981814255182093">Відкрити рядок пошуку</translation>
 <translation id="3716182511346448902">Ця сторінка займає велику кількість пам’яті, тому Chrome призупинив її роботу.</translation>
-<translation id="3724958268700778519">Google Асистент заощаджує ваш час, прискорюючи оплату на веб-сайті.</translation>
 <translation id="3739899004075612870">Створено закладку в продукті <ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> МБ використовується іншими додатками</translation>
 <translation id="3744111561329211289">Фонова синхронізація</translation>
@@ -635,6 +636,7 @@
 Проте ви не можете сховати все. Навіть у режимі анонімного перегляду ваш роботодавець, постачальник послуг Інтернету чи адміністратори веб-сайтів, які ви відвідуєте, можуть бачити, що ви переглядаєте.</translation>
 <translation id="572328651809341494">Останні вкладки</translation>
 <translation id="5726692708398506830">Збільшити всі елементи на сторінці</translation>
+<translation id="5734520971562437809">Заощаджуйте до 60 відсотків трафіку та пришвидшіть завантаження веб-сторінок.</translation>
 <translation id="5748802427693696783">Ви перейшли на стандартні вкладки</translation>
 <translation id="5749068826913805084">Щоб завантажувати файли, Chrome потребує доступу до пам’яті.</translation>
 <translation id="5763382633136178763">Анонімні вкладки</translation>
@@ -689,7 +691,6 @@
 <translation id="6154478581116148741">Щоб експортувати паролі з цього пристрою, увімкніть блокування екрана</translation>
 <translation id="6159335304067198720">Заощадження даних: <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">Докладніше</translation>
-<translation id="6171019622954353983">Продовжуючи, ви дозволяєте Chrome надсилати дані Автозаповнення, а також URL-адресу та вміст сайту в Google.\n\nЩоб вимкнути Google Асистент і Автозаповнення в Chrome, перейдіть у налаштування веб-переглядача.  <ph name="BEGIN_LINK" />Докладніше<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">Заблоковано для поточної пошукової системи</translation>
 <translation id="6177390657002841081">Увімкнути Заощадження трафіку</translation>
 <translation id="6181444274883918285">Додати сайт у список винятків</translation>
@@ -808,6 +809,7 @@
 <translation id="6979737339423435258">Весь час</translation>
 <translation id="6981982820502123353">Доступність</translation>
 <translation id="6985347914332179298">Немає завантажень</translation>
+<translation id="6989267951144302301">Не вдалося завантажити</translation>
 <translation id="6990079615885386641">Завантажити додаток із магазину Google Play: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">Запитувати, перш ніж дозволити сайтам використовувати мікрофон (рекомендується)</translation>
 <translation id="7016516562562142042">Дозволено для поточної пошукової системи</translation>
@@ -1102,6 +1104,7 @@
 <translation id="9188680907066685419">Вийти з керованого облікового запису</translation>
 <translation id="9204836675896933765">Залишився 1 файл</translation>
 <translation id="9206873250291191720">A</translation>
+<translation id="9215534869786664672">Заощаджуйте до 60 відсотків трафіку та пришвидшіть завантаження веб-сторінок. Сервери Google оптимізують сторінки, які ви відвідуєте.</translation>
 <translation id="9219103736887031265">Зображення</translation>
 <translation id="932327136139879170">Домашня сторінка</translation>
 <translation id="932599481871055447">Заощаджуйте трафік і відкривайте веб-сторінки швидше</translation>

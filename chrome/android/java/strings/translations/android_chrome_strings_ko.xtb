@@ -2,7 +2,7 @@
 <!DOCTYPE translationbundle>
 <translationbundle lang="ko">
 <translation id="1006017844123154345">온라인 열기</translation>
-<translation id="1023450834687746199"><ph name="APP_NAME" /> 데이터를 삭제했습니다.</translation>
+<translation id="1023450834687746199"><ph name="APP_NAME" /> 데이터를 삭제했습니다</translation>
 <translation id="1036727731225946849"><ph name="WEBAPK_NAME" /> 추가 중...</translation>
 <translation id="1041308826830691739">웹사이트 알림</translation>
 <translation id="1049743911850919806">시크릿</translation>
@@ -70,6 +70,7 @@
 <translation id="1430915738399379752">인쇄</translation>
 <translation id="1445680696957526815">Chrome의 구성요소가 서로 호환되지 않습니다. Chrome이 업그레이드 중일 수 있으니 몇 분 후에 다시 시도하세요. 문제가 계속되면 Chrome을 제거하고 다시 설치해 보세요.</translation>
 <translation id="1446450296470737166">MIDI 기기의 전체 제어 허용</translation>
+<translation id="1449080968331948513">데이터 절약 모드가 이제 라이트 모드로 변경되었습니다.</translation>
 <translation id="145097072038377568">Android 설정에서 사용이 중지됨</translation>
 <translation id="1477626028522505441">서버 문제로 인해 <ph name="FILE_NAME" />을(를) 다운로드할 수 없습니다.</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (1개 더보기)}other{ (#개 더보기)}}</translation>
@@ -131,6 +132,7 @@
 <translation id="1960290143419248813">이 버전의 Android에서는 더 이상 Chrome 업데이트가 지원되지 않습니다.</translation>
 <translation id="1966710179511230534">로그인 세부정보를 업데이트하세요.</translation>
 <translation id="1974060860693918893">고급</translation>
+<translation id="1984705450038014246">Chrome 데이터 동기화</translation>
 <translation id="1984937141057606926">타사 쿠키만 제외하고 허용</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" /> 버튼</translation>
 <translation id="1989112275319619282">찾아보기</translation>
@@ -244,7 +246,7 @@
 <translation id="2779651927720337254">실패</translation>
 <translation id="2781151931089541271">1초 남음</translation>
 <translation id="2784212955220061919">Chrome의 라이트 모드를 사용하면 페이지가 더 빠르게 로드되고 데이터가 최대 60퍼센트 절약됩니다. Google의 클라우드 기술이 내가 방문하는 페이지를 최적화해 줍니다.</translation>
-<translation id="2785336755839207516"><ph name="APP_NAME" />을(를) 제거했습니다.</translation>
+<translation id="2785336755839207516"><ph name="APP_NAME" /> 앱을 제거했습니다</translation>
 <translation id="2803478378562657435">저장된 비밀번호 및 비밀번호 옵션 표시 중</translation>
 <translation id="2810645512293415242">페이지가 간소화되어 데이터가 절약되고 로드 속도가 빨라졌습니다.</translation>
 <translation id="281504910091592009"><ph name="BEGIN_LINK" />Google 계정<ph name="END_LINK" />에서 저장된 비밀번호 보기 및 관리</translation>
@@ -357,7 +359,6 @@
 <translation id="3712575778697986964">데이터 절약 모드를 초기화하시겠습니까?</translation>
 <translation id="3714981814255182093">찾기 창 열기</translation>
 <translation id="3716182511346448902">페이지에서 너무 많은 메모리를 사용하므로 Chrome에서 페이지를 일시중지했습니다.</translation>
-<translation id="3724958268700778519">Google 어시스턴트가 웹사이트 결제를 빠르게 처리하여 시간을 절약해 줍니다.</translation>
 <translation id="3739899004075612870"><ph name="PRODUCT_NAME" />에 북마크됨</translation>
 <translation id="3744111309925758534">기타 앱 <ph name="MEGABYTES" />MB</translation>
 <translation id="3744111561329211289">백그라운드 동기화</translation>
@@ -635,6 +636,7 @@
 하지만 완전한 비밀이 보장되는 것은 아닙니다. 시크릿 모드로 탐색해도 회사, 인터넷 서비스 제공업체(ISP), 방문한 웹사이트에 저장된 흔적까지 없앨 수는 없습니다.</translation>
 <translation id="572328651809341494">최근 탭</translation>
 <translation id="5726692708398506830">페이지의 모든 항목 확대</translation>
+<translation id="5734520971562437809">데이터 사용량을 최대 60퍼센트ㅍ까지 절약하고 웹 속도를 높이세요.</translation>
 <translation id="5748802427693696783">일반 탭으로 전환됨</translation>
 <translation id="5749068826913805084">Chrome에서 파일을 다운로드하려면 저장소 액세스 권한이 있어야 합니다.</translation>
 <translation id="5763382633136178763">시크릿 탭</translation>
@@ -689,7 +691,6 @@
 <translation id="6154478581116148741">이 기기에서 비밀번호를 내보내려면 설정에서 화면 잠금을 사용 설정하세요</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> 데이터 절약</translation>
 <translation id="6165508094623778733">자세히 알아보기</translation>
-<translation id="6171019622954353983">계속하면 Chrome에서 Chrome 자동 완성 데이터, 사이트의 URL, 콘텐츠를 Google에 전송하여 서비스를 제공하는 것에 동의하는 것으로 간주됩니다.\n\nChrome 및 Chrome 자동 완성에서 Google 어시스턴트를 사용 중지하려면 Chrome 설정으로 이동하세요.  <ph name="BEGIN_LINK" />자세히 알아보기<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">현재 검색 엔진에는 허용되지 않음</translation>
 <translation id="6177390657002841081">데이터 세이버 사용 설정</translation>
 <translation id="6181444274883918285">사이트 예외 추가</translation>
@@ -808,6 +809,7 @@
 <translation id="6979737339423435258">전체 기간</translation>
 <translation id="6981982820502123353">접근성</translation>
 <translation id="6985347914332179298">다운로드 항목 없음</translation>
+<translation id="6989267951144302301">다운로드할 수 없음</translation>
 <translation id="6990079615885386641">Google Play 스토어에서 앱 다운로드: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">사이트에서 마이크를 사용하기 전에 확인(권장)</translation>
 <translation id="7016516562562142042">현재 검색 엔진에 허용됨</translation>
@@ -926,7 +928,7 @@
 <translation id="784934925303690534">기간</translation>
 <translation id="7851858861565204677">다른 기기</translation>
 <translation id="7854964836418414587">'비슷한 항목 더보기' 닫기</translation>
-<translation id="7871791972254842204">나중에 <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />에서 이용약관을 읽고 동의하겠습니다.</translation>
+<translation id="7871791972254842204">나중에 <ph name="BEGIN_BOLD" /><ph name="DOMAIN" /><ph name="END_BOLD" />의 이용약관을 읽고 동의하겠습니다.</translation>
 <translation id="7875915731392087153">이메일 만들기</translation>
 <translation id="7876243839304621966">모두 삭제</translation>
 <translation id="7882131421121961860">방문 기록이 없습니다.</translation>
@@ -1102,6 +1104,7 @@
 <translation id="9188680907066685419">관리 계정에서 로그아웃</translation>
 <translation id="9204836675896933765">파일 1개가 남았습니다.</translation>
 <translation id="9206873250291191720">A</translation>
+<translation id="9215534869786664672">데이터 사용량을 최대 60퍼센트까지 절약하고 웹 속도를 높이세요. Google 서버에서 내가 방문하는 페이지를 최적화합니다.</translation>
 <translation id="9219103736887031265">이미지</translation>
 <translation id="932327136139879170">홈</translation>
 <translation id="932599481871055447">데이터 절약 모드</translation>

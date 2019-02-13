@@ -70,6 +70,7 @@ However, you aren’t invisible. Going private doesn’t hide your browsing from
 <translation id="1430915738399379752">Print</translation>
 <translation id="1445680696957526815">Chrome’s components are incompatible with one another. Chrome may be upgrading, please try again in a few minutes. If the problem continues, try uninstalling and re-installing Chrome.</translation>
 <translation id="1446450296470737166">Allow full control of MIDI devices</translation>
+<translation id="1449080968331948513">Data Saver is now Lite mode</translation>
 <translation id="145097072038377568">Turned off in Android Settings</translation>
 <translation id="1477626028522505441"><ph name="FILE_NAME" /> download failed due to server issues.</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (+ 1 more)}other{ (+ # more)}}</translation>
@@ -131,6 +132,7 @@ However, you aren’t invisible. Going private doesn’t hide your browsing from
 <translation id="1960290143419248813">Chrome updates are no longer supported for this version of Android</translation>
 <translation id="1966710179511230534">Please update your sign-in details.</translation>
 <translation id="1974060860693918893">Advanced</translation>
+<translation id="1984705450038014246">Sync your Chrome data</translation>
 <translation id="1984937141057606926">Allowed, except third-party</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" /> button</translation>
 <translation id="1989112275319619282">Browse</translation>
@@ -357,7 +359,6 @@ However, you aren’t invisible. Going private doesn’t hide your browsing from
 <translation id="3712575778697986964">Reset Data Saver?</translation>
 <translation id="3714981814255182093">Open the Find Bar</translation>
 <translation id="3716182511346448902">This page uses too much memory, so Chrome paused it.</translation>
-<translation id="3724958268700778519">The Google Assistant saves you time by speeding you through the website's checkout.</translation>
 <translation id="3739899004075612870">Bookmarked in <ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB other apps</translation>
 <translation id="3744111561329211289">Background sync</translation>
@@ -635,6 +636,7 @@ To change this setting, <ph name="BEGIN_LINK" />reset sync<ph name="END_LINK" />
 However, you aren’t invisible. Going incognito doesn’t hide your browsing from your employer, your Internet service provider or the websites you visit.</translation>
 <translation id="572328651809341494">Recent tabs</translation>
 <translation id="5726692708398506830">Make everything on the page bigger</translation>
+<translation id="5734520971562437809">Use up to 60 per cent less data and speed up the web.</translation>
 <translation id="5748802427693696783">Switched to standard tabs</translation>
 <translation id="5749068826913805084">Chrome needs storage access to download files.</translation>
 <translation id="5763382633136178763">Incognito tabs</translation>
@@ -689,7 +691,6 @@ However, you aren’t invisible. Going incognito doesn’t hide your browsing fr
 <translation id="6154478581116148741">Turn on screen lock in Settings to export your passwords from this device</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> data savings</translation>
 <translation id="6165508094623778733">Learn more</translation>
-<translation id="6171019622954353983">By continuing, you agree that Chrome will send data from Chrome Auto-fill, the site’s URL and its content to Google to provide this service.\n\nVisit Chrome settings to turn off Google Assistant in Chrome and Chrome Auto-fill.  <ph name="BEGIN_LINK" />Learn more<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">Blocked for current search engine</translation>
 <translation id="6177390657002841081">Turn on Data Saver</translation>
 <translation id="6181444274883918285">Add site exception</translation>
@@ -808,6 +809,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="6979737339423435258">All time</translation>
 <translation id="6981982820502123353">Accessibility</translation>
 <translation id="6985347914332179298">No downloads here</translation>
+<translation id="6989267951144302301">Couldn’t download</translation>
 <translation id="6990079615885386641">Get the app from the Google Play Store: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">Ask first before allowing sites to use your microphone (recommended)</translation>
 <translation id="7016516562562142042">Allowed for current search engine</translation>
@@ -1102,6 +1104,7 @@ For example, some websites may respond to this request by showing you ads that a
 <translation id="9188680907066685419">Sign out of managed account</translation>
 <translation id="9204836675896933765">1 file left</translation>
 <translation id="9206873250291191720">A</translation>
+<translation id="9215534869786664672">Use up to 60 per cent less data and speed up the web. Google servers will optimise the pages that you visit.</translation>
 <translation id="9219103736887031265">Images</translation>
 <translation id="932327136139879170">Home</translation>
 <translation id="932599481871055447">Save data and browse faster</translation>

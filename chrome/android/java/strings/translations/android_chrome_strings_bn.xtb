@@ -70,6 +70,7 @@
 <translation id="1430915738399379752">প্রিন্ট</translation>
 <translation id="1445680696957526815">Chrome এর উপাদানগুলি একে অপরের সাথে বেমানান৷ Chrome আপগ্রেড করা হতে পারে, অনুগ্রহ করে কয়েক মিনিটের মধ্যে আবার চেষ্টা করুন৷ সমস্যাটি থেকে গেলে, Chrome আনইনস্টল করে পুনরায় ইনস্টল করুন৷</translation>
 <translation id="1446450296470737166">MIDI ডিভাইসগুলির পূর্ণ নিয়ন্ত্রণের অনুমতি দিন</translation>
+<translation id="1449080968331948513">ডেটা সেভার এখন লাইট মোড হয়ে গেছে</translation>
 <translation id="145097072038377568">Android সেটিংসে বন্ধ করা অাছে</translation>
 <translation id="1477626028522505441">সার্ভার সমস্যার কারণে <ph name="FILE_NAME" /> ডাউনলোড ব্যর্থ হয়েছে।</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (+ আরও ১টি)}one{ (+ আরও #টি)}other{ (+ আরও #টি)}}</translation>
@@ -131,6 +132,7 @@
 <translation id="1960290143419248813">Android-এর এই ভার্সনে Chrome আপডেট করা আর সম্ভব নয়</translation>
 <translation id="1966710179511230534">দয়া করে আমার প্রবেশ করুন বিবরণ আপডেট করুন।</translation>
 <translation id="1974060860693918893">উন্নত</translation>
+<translation id="1984705450038014246">আপনার Chrome ডেটা সিঙ্ক করুন</translation>
 <translation id="1984937141057606926">মঞ্জুরিপ্রাপ্ত, তৃতীয় পক্ষ ব্যাতীত</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" /> বোতাম</translation>
 <translation id="1989112275319619282">ব্রাউজ করুন</translation>
@@ -357,7 +359,6 @@
 <translation id="3712575778697986964">ডেটা সেভার রিসেট করবেন?</translation>
 <translation id="3714981814255182093">খুঁজুন দণ্ডটি খুলুন</translation>
 <translation id="3716182511346448902">এই পৃষ্ঠাটি খুব বেশি মেমরি ব্যবহার করছে তাই Chrome এটি বিরত রেখেছে।</translation>
-<translation id="3724958268700778519">Google অ্যাসিস্ট্যান্ট আপনাকে দ্রুত ওয়েবসাইট থেকে চেক-আউট করিয়ে আপনার সময় বাঁচায়।</translation>
 <translation id="3739899004075612870"><ph name="PRODUCT_NAME" /> এ বুকমার্ক করা হয়েছে</translation>
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB অন্যান্য অ্যাপ্লিকেশান</translation>
 <translation id="3744111561329211289">পটভূমি সিঙ্ক</translation>
@@ -637,6 +638,7 @@
 আপনি অবশ্য অদৃশ্য থাকবেন না। ছদ্মবেশি মোডে গেলেও তা আপনার নিয়োগকর্তা, আপনার ইন্টারনেট পরিষেবা প্রদানকারী অথবা আপনার পরিদর্শন করা ওয়েবসাইট থেকে আপনার ব্রাউজিংকে আড়াল করবে না।</translation>
 <translation id="572328651809341494">সাম্প্রতিক ট্যাবগুলি</translation>
 <translation id="5726692708398506830">পৃষ্ঠাতে থাকা সবকিছুকে বড় করুন</translation>
+<translation id="5734520971562437809">৬০ শতাংশ পর্যন্ত কম ডেটা ব্যবহার করে এবং ওয়েবের গতি বৃদ্ধি করে।</translation>
 <translation id="5748802427693696783">স্ট্যান্ডার্ড ট্যাবে পাল্টানো হয়েছে</translation>
 <translation id="5749068826913805084">ফাইল ডাউনলোড করতে Chrome-এর জন্য স্টোরেজ অ্যাক্সেস প্রয়োজন।</translation>
 <translation id="5763382633136178763">ছদ্মবেশী ট্যাব</translation>
@@ -691,7 +693,6 @@
 <translation id="6154478581116148741">এই ডিভাইস থেকে আপনার পাসওয়ার্ড এক্সপোর্ট করতে সেটিংসে স্ক্রিন লক চালু করুন</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> ডেটা সঞ্চয়</translation>
 <translation id="6165508094623778733">আরও জানুন</translation>
-<translation id="6171019622954353983">চালিয়ে যাওয়ার অর্থ, আপনি সম্মতি দিচ্ছেন যে এই পরিষেবাটি প্রদান করতে Chrome অটোফিল, সাইটের ইউআরএল এবং সাইটের কন্টেন্টের তথ্য Chrome-এর তরফে Google-কে দেওয়া হবে।\n\nChrome এবং Chrome অটোফিলে Google অ্যাসিস্ট্যান্ট বন্ধ করতে Chrome-এর সেটিংসে যান।  <ph name="BEGIN_LINK" />আরও জানুন<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">বর্তমান সার্চ ইঞ্জিনের জন্য অবরুদ্ধ করা হয়েছে</translation>
 <translation id="6177390657002841081">ডেটা সেভার চালু করুন</translation>
 <translation id="6181444274883918285">সাইটের ব্যতিক্রম যোগ করুন</translation>
@@ -810,6 +811,7 @@
 <translation id="6979737339423435258">শুরু থেকে</translation>
 <translation id="6981982820502123353">অ্যাক্সেযোগ্যতা</translation>
 <translation id="6985347914332179298">এখানে কোনো ডাউনলোড নেই</translation>
+<translation id="6989267951144302301">ডাউনলোড করা যায়নি</translation>
 <translation id="6990079615885386641">Google Play Store-এর থেকে অ্যাপ্লিকেশানটি পান: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">সাইটগুলিকে আপনার মাইক্রোফোন ব্যবহার করতে দিতে মঞ্জুরি দেওয়ার আগে প্রথমে জিজ্ঞাসা করুন (প্রস্তাবিত)</translation>
 <translation id="7016516562562142042">বর্তমান সার্চ ইঞ্জিনের জন্য অনুমোদন দেওয়া হয়েছে</translation>
@@ -1104,6 +1106,7 @@
 <translation id="9188680907066685419">পরিচালিত অ্যাকাউন্ট থেকে প্রস্থান করুন</translation>
 <translation id="9204836675896933765">১টি ফাইল বাকি</translation>
 <translation id="9206873250291191720">আ</translation>
+<translation id="9215534869786664672">৬০ শতাংশ পর্যন্ত কম ডেটা ব্যবহার করে এবং ওয়েবের গতি বৃদ্ধি করে। আপনার দেখা পৃষ্ঠাগুলি Google সার্ভার অপ্টিমাইজ করে দেবে।</translation>
 <translation id="9219103736887031265">ছবিগুলি</translation>
 <translation id="932327136139879170">হোম</translation>
 <translation id="932599481871055447">ডেটা সেভ করুন এবং দ্রুত ব্রাউজ করুন</translation>

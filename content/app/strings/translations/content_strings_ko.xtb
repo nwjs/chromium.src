@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">메뉴 버튼</translation>
 <translation id="4446524499724042288">용어 참조</translation>
 <translation id="4522570452068850558">세부정보</translation>
+<translation id="4542388879936266156">남은 시간: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">양식</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' 다음 부분에 '<ph name="INVALIDCHARACTER" />' 기호가 포함되면 안됩니다.</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405">연도</translation>
 <translation id="8284326494547611709">자막</translation>
 <translation id="835897206747267392">값이 잘못되었습니다.</translation>
+<translation id="8403857369060869934">경과 시간: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">부</translation>
 <translation id="8433900881053900389">툴바</translation>
 <translation id="8444882422881193423">파일 <ph name="NUMBER_OF_FILES" />개</translation>

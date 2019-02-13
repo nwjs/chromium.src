@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">tombol menu</translation>
 <translation id="4446524499724042288">referensi glosarium</translation>
 <translation id="4522570452068850558">Detail</translation>
+<translation id="4542388879936266156">sisa waktu: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">formulir</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">Bagian setelah '<ph name="ATSIGN" />' tidak boleh berisi simbol '<ph name="INVALIDCHARACTER" />'.</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405">tttt</translation>
 <translation id="8284326494547611709">Teks</translation>
 <translation id="835897206747267392">Nilai tidak valid.</translation>
+<translation id="8403857369060869934">waktu berlalu: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">bagian</translation>
 <translation id="8433900881053900389">bilah alat</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> file</translation>

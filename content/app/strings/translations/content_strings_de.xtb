@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">Menüschaltfläche</translation>
 <translation id="4446524499724042288">Glossarreferenz</translation>
 <translation id="4522570452068850558">Details</translation>
+<translation id="4542388879936266156">verbleibende Zeit: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">Formular</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">Nach dem <ph name="ATSIGN" />-Zeichen darf das Zeichen "<ph name="INVALIDCHARACTER" />" nicht verwendet werden.</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405">jjjj</translation>
 <translation id="8284326494547611709">Untertitel</translation>
 <translation id="835897206747267392">Ungültiger Wert.</translation>
+<translation id="8403857369060869934">verstrichene Zeit: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">Teil</translation>
 <translation id="8433900881053900389">Symbolleiste</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> Dateien</translation>

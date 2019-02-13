@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">મેનૂ બટન</translation>
 <translation id="4446524499724042288">શબ્દાવલીનો સંદર્ભ</translation>
 <translation id="4522570452068850558">વિગતો</translation>
+<translation id="4542388879936266156">બાકીનો સમય: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">ફોર્મ</translation>
 <translation id="4661075872484491155">ટ્રી</translation>
 <translation id="4664250907885839816">'<ph name="ATSIGN" />' ને અનુસરી રહેલા ભાગમાં '<ph name="INVALIDCHARACTER" />' પ્રતીક શામેલ હોવું જોઈએ નહીં.</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405">yyyy</translation>
 <translation id="8284326494547611709">કૅપ્શન્સ</translation>
 <translation id="835897206747267392">અમાન્ય મૂલ્ય.</translation>
+<translation id="8403857369060869934">વીતેલો સમય: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">ભાગ</translation>
 <translation id="8433900881053900389">ટુલબાર</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> ફાઇલો</translation>

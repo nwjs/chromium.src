@@ -70,6 +70,7 @@
 <translation id="1430915738399379752">הדפס</translation>
 <translation id="1445680696957526815">‏הרכיבים של Chrome אינם תואמים זה לזה. ייתכן ש-Chrome מבצע שדרוג, נסה שוב בעוד כמה דקות. אם הבעיה נמשכת, נסה להסיר את Chrome ולהתקין אותו מחדש.</translation>
 <translation id="1446450296470737166">‏התר שליטה מלאה על מכשירי MIDI</translation>
+<translation id="1449080968331948513">‏Data Saver נקרא עכשיו 'מצב טעינה מהירה'</translation>
 <translation id="145097072038377568">‏כבוי בהגדרות Android</translation>
 <translation id="1477626028522505441">הורדת <ph name="FILE_NAME" /> נכשלה עקב בעיות בשרת.</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (ועוד 1)}two{ (ועוד #)}many{ (ועוד #)}other{ (ועוד #)}}</translation>
@@ -131,6 +132,7 @@
 <translation id="1960290143419248813">‏עדכוני Chrome לא נתמכים יותר בגרסה הזו של Android</translation>
 <translation id="1966710179511230534">עדכן את פרטי הכניסה שלך.</translation>
 <translation id="1974060860693918893">מתקדם</translation>
+<translation id="1984705450038014246">‏סנכרון הנתונים מ-Chrome</translation>
 <translation id="1984937141057606926">מותר, מלבד צד שלישי</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> לחצן <ph name="LINK_NAME" /></translation>
 <translation id="1989112275319619282">דפדף</translation>
@@ -357,7 +359,6 @@
 <translation id="3712575778697986964">‏לאפס את Data Saver?</translation>
 <translation id="3714981814255182093">פתח את סרגל החיפוש</translation>
 <translation id="3716182511346448902">‏הדף הזה מנצל יותר מדי זיכרון, כך שהוא הושהה על-ידי Chrome.</translation>
-<translation id="3724958268700778519">‏כדי לחסוך זמן, Google Assistant מאפשר להשלים במהירות את שלב הקופה באתר.</translation>
 <translation id="3739899004075612870">נוסף לסימניות ב-<ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111309925758534">‏‎<ph name="MEGABYTES" /> MB ליישומים אחרים</translation>
 <translation id="3744111561329211289">סינכרון ברקע</translation>
@@ -635,6 +636,7 @@
 עם זאת, אינך בלתי נראה. מעבר למצב גלישה בסתר אינו מסתיר את הגלישה שלך מהמעסיק, ספק שירות האינטרנט או האתרים שבהם אתה מבקר.</translation>
 <translation id="572328651809341494">כרטיסיות אחרונות</translation>
 <translation id="5726692708398506830">הגדל את כל מה שמופיע בדף</translation>
+<translation id="5734520971562437809">צריכת הנתונים מצטמצמת בשיעור של עד 60 אחוזים והגלישה באינטרנט מהירה יותר.</translation>
 <translation id="5748802427693696783">הוחלף לכרטיסיות רגילות</translation>
 <translation id="5749068826913805084">‏לצורך הורדת קבצים, Chrome זקוק לגישה לאחסון.</translation>
 <translation id="5763382633136178763">כרטיסיות גלישה בסתר</translation>
@@ -689,7 +691,6 @@
 <translation id="6154478581116148741">יש להפעיל נעילת מסך ב'הגדרות' כדי לייצא את הסיסמאות מהמכשיר הזה</translation>
 <translation id="6159335304067198720">חיסכון בצריכת נתונים בשיעור של <ph name="PERCENT" /></translation>
 <translation id="6165508094623778733">למידע נוסף</translation>
-<translation id="6171019622954353983">‏המשך מבטא את הסכמתך לכך שכדי לספק את השירות הזה, Chrome ישלח ל-Google נתונים מהמילוי האוטומטי של Chrome, את כתובת ה-URL של האתר ואת התוכן שלו.\n\nדרך הגדרות Chrome אפשר להשבית את Google Assistant ב-Chrome ובמילוי האוטומטי של Chrome.  <ph name="BEGIN_LINK" />מידע נוסף<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">חסוּם למנוע החיפוש הנוכחי</translation>
 <translation id="6177390657002841081">‏הפעלת Data Saver</translation>
 <translation id="6181444274883918285">הוסף חריג של אתר</translation>
@@ -808,6 +809,7 @@
 <translation id="6979737339423435258">משחר ההיסטוריה</translation>
 <translation id="6981982820502123353">נגישות</translation>
 <translation id="6985347914332179298">אין כאן הורדות</translation>
+<translation id="6989267951144302301">ההורדה נכשלה</translation>
 <translation id="6990079615885386641">‏קבל את האפליקציה מחנות Google Play‏: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">שאל לפני שתאפשר לאתרים להשתמש במיקרופון (מומלץ)</translation>
 <translation id="7016516562562142042">מופעל למנוע החיפוש הנוכחי</translation>
@@ -1102,6 +1104,7 @@
 <translation id="9188680907066685419">צא מהחשבון המנוהל</translation>
 <translation id="9204836675896933765">נותר קובץ אחד</translation>
 <translation id="9206873250291191720">א</translation>
+<translation id="9215534869786664672">‏צריכת הנתונים מצטמצמת בשיעור של עד 60 אחוזים והגלישה באינטרנט מהירה יותר. כשנכנסים לדפים הם עוברים אופטימיזציה על-ידי השרתים של Google.</translation>
 <translation id="9219103736887031265">תמונות</translation>
 <translation id="932327136139879170">בית</translation>
 <translation id="932599481871055447">חיסכון בנתונים שמוביל לגלישה מהירה יותר</translation>

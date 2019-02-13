@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">menijski gumb</translation>
 <translation id="4446524499724042288">vnos v glosarju</translation>
 <translation id="4522570452068850558">Podrobnosti</translation>
+<translation id="4542388879936266156">preostali čas: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">obrazec</translation>
 <translation id="4661075872484491155">drevo</translation>
 <translation id="4664250907885839816">Del po »<ph name="ATSIGN" />« ne sme vsebovati znaka »<ph name="INVALIDCHARACTER" />«.</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405">llll</translation>
 <translation id="8284326494547611709">Napisi</translation>
 <translation id="835897206747267392">Neveljavna vrednost.</translation>
+<translation id="8403857369060869934">pretečeni čas: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">del</translation>
 <translation id="8433900881053900389">orodna vrstica</translation>
 <translation id="8444882422881193423">Število datotek: <ph name="NUMBER_OF_FILES" /></translation>

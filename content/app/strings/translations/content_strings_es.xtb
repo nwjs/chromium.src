@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">botón de menú</translation>
 <translation id="4446524499724042288">referencia de glosario</translation>
 <translation id="4522570452068850558">Detalles</translation>
+<translation id="4542388879936266156">tiempo restante: <ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">formulario</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">El texto detrás del signo "<ph name="ATSIGN" />" no debe incluir el símbolo "<ph name="INVALIDCHARACTER" />".</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405">aaaa</translation>
 <translation id="8284326494547611709">Subtítulos</translation>
 <translation id="835897206747267392">Valor no válido</translation>
+<translation id="8403857369060869934">tiempo transcurrido: <ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">parte</translation>
 <translation id="8433900881053900389">barra de herramientas</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> archivos</translation>

@@ -70,6 +70,7 @@ Namun begitu, anda tidak halimunan. Menggunakan mod peribadi tidak menyembunyika
 <translation id="1430915738399379752">Cetak</translation>
 <translation id="1445680696957526815">Komponen Chrome tidak serasi antara satu sama lain. Chrome mungkin menaik taraf, sila cuba lagi dalam beberapa minit. Jika masalah ini berterusan, cuba menyahpasang dan memasang semula Chrome.</translation>
 <translation id="1446450296470737166">Benarkan kawalan penuh peranti MIDI</translation>
+<translation id="1449080968331948513">Penjimat Data kini tersedia dalam Mod Ringkas</translation>
 <translation id="145097072038377568">Dimatikan dalam Tetapan Android</translation>
 <translation id="1477626028522505441">Muat turun <ph name="FILE_NAME" /> gagal disebabkan oleh masalah pelayan.</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{(+1 lagi)}other{(+ # lagi)}}</translation>
@@ -131,6 +132,7 @@ Namun begitu, anda tidak halimunan. Menggunakan mod peribadi tidak menyembunyika
 <translation id="1960290143419248813">Kemas kini Chrome tidak disokong untuk versi Android ini lagi</translation>
 <translation id="1966710179511230534">Sila kemas kini butiran log masuk anda.</translation>
 <translation id="1974060860693918893">Lanjutan</translation>
+<translation id="1984705450038014246">Segerakkan data Chrome anda</translation>
 <translation id="1984937141057606926">Dibenarkan, kecuali pihak ketiga</translation>
 <translation id="1987739130650180037">Butang <ph name="LINK_NAME" /> <ph name="MESSAGE" /></translation>
 <translation id="1989112275319619282">Semak Imbas</translation>
@@ -357,7 +359,6 @@ Namun begitu, anda tidak halimunan. Menggunakan mod peribadi tidak menyembunyika
 <translation id="3712575778697986964">Tetapkan semula Penjimat Data?</translation>
 <translation id="3714981814255182093">Buka Bar Cari</translation>
 <translation id="3716182511346448902">Halaman ini menggunakan terlalu banyak memori, jadi Chrome menjeda halaman ini.</translation>
-<translation id="3724958268700778519">Google Assistant menjimatkan masa anda dengan memproses daftar keluar tapak web dengan cukup pantas.</translation>
 <translation id="3739899004075612870">Ditandai halaman dalam <ph name="PRODUCT_NAME" /></translation>
 <translation id="3744111309925758534">Apl lain <ph name="MEGABYTES" /> MB</translation>
 <translation id="3744111561329211289">Penyegerakan latar belakang</translation>
@@ -635,6 +636,7 @@ Untuk menukar tetapan ini, <ph name="BEGIN_LINK" />tetapkan semula penyegerakan<
 Namun begitu, anda boleh dilihat. Menggunakan mod inkognoti tidak menyembunyikan penyemakan imbas anda daripada majikan anda, penyedia perkhidmatan Internet anda atau tapak web yang anda lawati.</translation>
 <translation id="572328651809341494">Tab terbaharu</translation>
 <translation id="5726692708398506830">Jadikan semua yang ada pada halaman lebih besar</translation>
+<translation id="5734520971562437809">Menggunakan sehingga 60 peratus lebih sedikit data dan mempercepat web.</translation>
 <translation id="5748802427693696783">Beralih ke tab standard</translation>
 <translation id="5749068826913805084">Chrome memerlukan akses storan untuk memuat turun fail.</translation>
 <translation id="5763382633136178763">Tab inkognito</translation>
@@ -689,7 +691,6 @@ Namun begitu, anda boleh dilihat. Menggunakan mod inkognoti tidak menyembunyikan
 <translation id="6154478581116148741">Hidupkan kunci skrin dalam Tetapan untuk mengeksport kata laluan anda daripada peranti ini</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> penjimatan data</translation>
 <translation id="6165508094623778733">Ketahui lebih lanjut</translation>
-<translation id="6171019622954353983">Dengan meneruskan, anda bersetuju bahawa Chrome akan menghantar data daripada Autolengkap Chrome, URL tapak dan kandungannya kepada Google untuk menyediakan perkhidmatan ini .\n\nLawati tetapan Chrome untuk mematikan Google Assistant dalam Chrome dan Autolengkap Chrome.  <ph name="BEGIN_LINK" />Ketahui lebih lanjut<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">Disekat untuk enjin carian semasa</translation>
 <translation id="6177390657002841081">Hidupkan Penjimat Data</translation>
 <translation id="6181444274883918285">Tambah pengecualian tapak</translation>
@@ -808,6 +809,7 @@ Sebagai contoh, sesetengah tapak web mungkin memberi respons kepada permintaan i
 <translation id="6979737339423435258">Sepanjang masa</translation>
 <translation id="6981982820502123353">Kebolehcapaian</translation>
 <translation id="6985347914332179298">Tiada muat turun di sini</translation>
+<translation id="6989267951144302301">Tidak dapat memuat turun</translation>
 <translation id="6990079615885386641">Dapatkan apl daripada Gedung Play Google: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">Tanya dahulu sebelum membenarkan tapak menggunakan mikrofon anda (disyorkan)</translation>
 <translation id="7016516562562142042">Dibenarkan untuk enjin carian semasa</translation>
@@ -1102,6 +1104,7 @@ Sebagai contoh, sesetengah tapak web mungkin memberi respons kepada permintaan i
 <translation id="9188680907066685419">Log keluar daripada akaun terurus</translation>
 <translation id="9204836675896933765">1 fail lagi</translation>
 <translation id="9206873250291191720">A</translation>
+<translation id="9215534869786664672">Menggunakan sehingga 60 peratus lebih sedikit data dan mempercepat web. Pelayan Google akan mengoptimumkan halaman yang anda lawati.</translation>
 <translation id="9219103736887031265">Imej</translation>
 <translation id="932327136139879170">Laman Utama</translation>
 <translation id="932599481871055447">Jimatkan data dan semak imbas dengan lebih pantas</translation>

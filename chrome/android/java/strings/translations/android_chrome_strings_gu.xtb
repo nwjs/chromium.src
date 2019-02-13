@@ -70,6 +70,7 @@
 <translation id="1430915738399379752">પ્રિન્ટ</translation>
 <translation id="1445680696957526815">Chrome ના ઘટકો એકબીજાની સાથે અસંગત છે. Chrome અપગ્રેડ થઈ રહ્યું હોઈ શકે છે, કૃપા કરીને થોડીવારમાં ફરી પ્રયાસ કરો. જો સમસ્યા ચાલુ રહે છે, તો Chrome ને અનઇન્સ્ટોલ કરીને ફરીથી ઇન્સ્ટોલ કરવાનો પ્રયાસ કરો.</translation>
 <translation id="1446450296470737166">MIDI ઉપકરણોના પૂર્ણ નિયંત્રણની મંજૂરી આપો</translation>
+<translation id="1449080968331948513">ડેટા સેવર હવે લાઇટ મોડ છે</translation>
 <translation id="145097072038377568">Android સેટિંગ્સમાં બંધ કરી</translation>
 <translation id="1477626028522505441">સર્વર સમસ્યાઓને કારણે <ph name="FILE_NAME" /> ડાઉનલોડ નિષ્ફળ થયું.</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (+ 1 વધુ)}one{ (+ # વધુ)}other{ (+ # વધુ)}}</translation>
@@ -131,6 +132,7 @@
 <translation id="1960290143419248813">Androidના આ વર્ઝન માટે Chrome અપડેટ હવે સમર્થિત નથી</translation>
 <translation id="1966710179511230534">કૃપા કરીને તમારી સાઇન-ઇન વિગતો અપડેટ કરો.</translation>
 <translation id="1974060860693918893">વિગતવાર</translation>
+<translation id="1984705450038014246">તમારા Chromeના ડેટાને સિંક કરો</translation>
 <translation id="1984937141057606926">મંજૂર, તૃતીય-પક્ષ સિવાય</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" /> બટન</translation>
 <translation id="1989112275319619282">બ્રાઉઝ કરો</translation>
@@ -357,7 +359,6 @@
 <translation id="3712575778697986964">ડેટા સેવર રીસેટ કરીએ?</translation>
 <translation id="3714981814255182093">શોધો બાર ખોલો</translation>
 <translation id="3716182511346448902">આ પેજ ઘણી વધુ મેમરીનો ઉપયોગ કરે છે, તેથી Chromeએ તેને થોભાવ્યું છે.</translation>
-<translation id="3724958268700778519">Google આસિસ્ટંટ, વેબસાઇટના ચેકઆઉટ પર તમને ઝડપથી લઈ જઈને તમારો સમય બચાવે છે.</translation>
 <translation id="3739899004075612870"><ph name="PRODUCT_NAME" /> માં બુકમાર્ક કર્યું</translation>
 <translation id="3744111309925758534">અન્ય અ‍ૅપ્લિકેશનો દ્વારા <ph name="MEGABYTES" /> MB</translation>
 <translation id="3744111561329211289">પૃષ્ઠભૂમિ સમન્વયન</translation>
@@ -635,6 +636,7 @@
 જો કે, તમે અદૃશ્ય હોતા નથી. છૂપા થવું તમારા બ્રાઉઝિંગને તમારી કંપની, તમારા ઇન્ટરનેટ સેવા આપનાર કંપની અથવા તમે મુલાકાત લો છો એ વેબસાઇટથી છૂપાવતું નથી.</translation>
 <translation id="572328651809341494">તાજેતરના ટેબ્સ</translation>
 <translation id="5726692708398506830">પૃષ્ઠ પરની તમામ સામગ્રીને મોટી કરો</translation>
+<translation id="5734520971562437809">60 ટકા જેટલા ઓછા ડેટાનો ઉપયોગ કરો અને વેબની ઝડપ વધારો.</translation>
 <translation id="5748802427693696783">માનક ટૅબ્સ પર સ્વિચ કરેલ છે</translation>
 <translation id="5749068826913805084">ફાઇલો ડાઉનલોડ કરવા માટે Chrome ને સ્ટોરેજ ઍક્સેસની જરૂર છે.</translation>
 <translation id="5763382633136178763">છૂપા ટેબ્સ</translation>
@@ -689,7 +691,6 @@
 <translation id="6154478581116148741">આ ઉપકરણ પરથી તમારા બધા પાસવર્ડને નિકાસ કરવા માટે સેટિંગમાંથી સ્ક્રીન લૉક ચાલુ કરો</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> ડેટા બચત</translation>
 <translation id="6165508094623778733">વધુ જાણો</translation>
-<translation id="6171019622954353983">આગળ વધીને, તમે સંમત થાઓ છો કે આ સેવા પૂરી પાડવા માટે, Chromeનો સ્વતઃભરણનો ડેટા, સાઇટની URL અને તેનું કન્ટેન્ટ Chrome, Googleને મોકલશે.\n\nChrome અને Chromeની સ્વતઃભરણની સુવિધામાં Google આસિસ્ટંટને બંધ કરવા માટે Chrome સેટિંગની મુલાકાત લો.  <ph name="BEGIN_LINK" />વધુ જાણો<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">હાલનાં શોધ એંજિન માટે અવરોધિત</translation>
 <translation id="6177390657002841081">ડેટા સેવર ચાલુ કરો</translation>
 <translation id="6181444274883918285">સાઇટ અપવાદ ઉમેરો</translation>
@@ -808,6 +809,7 @@
 <translation id="6979737339423435258">હંમેશાં</translation>
 <translation id="6981982820502123353">ઍક્સેસિબિલિટી</translation>
 <translation id="6985347914332179298">અહીં કોઈ ડાઉનલોડ્સ નથી</translation>
+<translation id="6989267951144302301">ડાઉનલોડ ન કરી શક્યા</translation>
 <translation id="6990079615885386641">Google Play Store માંથી ઍપ્લિકેશન મેળવો: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">સાઇટ્સને તમારા માઇક્રોફોનનો ઉપયોગ કરવાની મંજૂરી આપતાં પહેલા પૂછો (ભલામણ કરેલ)</translation>
 <translation id="7016516562562142042">હાલનાં શોધ એંજિન માટે મંજૂર</translation>
@@ -1102,6 +1104,7 @@
 <translation id="9188680907066685419">સંચાલિત એકાઉન્ટમાંથી સાઇન આઉટ કરો</translation>
 <translation id="9204836675896933765">1 ફાઇલ બાકી છે</translation>
 <translation id="9206873250291191720">A</translation>
+<translation id="9215534869786664672">60 ટકા જેટલા ઓછા ડેટાનો ઉપયોગ કરો અને વેબની ઝડપ વધારો. Google સર્વર, તમે મુલાકાત લો છો તે પેજને ઑપ્ટિમાઇઝ કરશે.</translation>
 <translation id="9219103736887031265">છબીઓ</translation>
 <translation id="932327136139879170">હોમ</translation>
 <translation id="932599481871055447">ડેટા બચાવો અને વધુ ઝડપથી બ્રાઉઝ કરો</translation>

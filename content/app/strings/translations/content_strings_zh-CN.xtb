@@ -97,6 +97,7 @@
 <translation id="4413860115965805769">菜单按钮</translation>
 <translation id="4446524499724042288">词汇表参考资料</translation>
 <translation id="4522570452068850558">详细信息</translation>
+<translation id="4542388879936266156">剩余时间：<ph name="REMAINING_TIME" /></translation>
 <translation id="4597532268155981612">表单</translation>
 <translation id="4661075872484491155">tree</translation>
 <translation id="4664250907885839816">“<ph name="ATSIGN" />”后面的内容不应包含符号“<ph name="INVALIDCHARACTER" />”。</translation>
@@ -200,6 +201,7 @@
 <translation id="8199524924445686405"> 年 </translation>
 <translation id="8284326494547611709">字幕</translation>
 <translation id="835897206747267392">值无效。</translation>
+<translation id="8403857369060869934">已播放时间：<ph name="ELAPSED_TIME" /></translation>
 <translation id="8415319359811155763">部分</translation>
 <translation id="8433900881053900389">工具栏</translation>
 <translation id="8444882422881193423"><ph name="NUMBER_OF_FILES" /> 个文件</translation>

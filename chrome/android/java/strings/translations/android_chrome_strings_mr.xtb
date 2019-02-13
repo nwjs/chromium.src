@@ -70,6 +70,7 @@
 <translation id="1430915738399379752">प्रिंट</translation>
 <translation id="1445680696957526815">Chrome चे घटक एकमेकांशी विसंगत आहेत. Chrome श्रेणीसुधारित होत असावे, कृपया काही मिनिटांमध्ये पुन्हा प्रयत्न करा. समस्या सुरु राहिल्यास, Chrome अनइंस्टॉल करून पहा आणि पुन्हा इंस्टॉल करून पहा.</translation>
 <translation id="1446450296470737166">MIDI डिव्हाइसेसच्या पूर्ण नियंत्रणास अनुमती द्या</translation>
+<translation id="1449080968331948513">डेटा सेव्हर आता लाइट मोडमध्ये आहे</translation>
 <translation id="145097072038377568">Android सेटिंग्ज मध्‍ये बंद करा</translation>
 <translation id="1477626028522505441">सर्व्हर समस्यांमुळे <ph name="FILE_NAME" /> डाउनलोड अयशस्वी झाले.</translation>
 <translation id="1497775360237967938">{DETAIL_COUNT,plural, =1{ (+ आणखी १)}one{ (+ आणखी #)}other{ (+ आणखी #)}}</translation>
@@ -131,6 +132,7 @@
 <translation id="1960290143419248813">Android च्या या आवृत्तीसाठी Chrome अपडेटना सपोर्ट नाही</translation>
 <translation id="1966710179511230534">कृपया साइन इन तपशील अपडेट करा.</translation>
 <translation id="1974060860693918893">प्रगत</translation>
+<translation id="1984705450038014246">तुमचा Chrome डेटा सिंक करा</translation>
 <translation id="1984937141057606926">तृतीय-पक्षाशिवाय, अनुमती असलेले</translation>
 <translation id="1987739130650180037"><ph name="MESSAGE" /> <ph name="LINK_NAME" /> बटण</translation>
 <translation id="1989112275319619282">ब्राउझ करा</translation>
@@ -357,7 +359,6 @@
 <translation id="3712575778697986964">डेटा बचतकर्ता रीसेट करायचा का?</translation>
 <translation id="3714981814255182093">शोध बार उघडा</translation>
 <translation id="3716182511346448902">हे पेज खूपच जास्त मेमरी वापरत असल्यामुळे Chrome ने ते थांबवून ठेवलेले आहे.</translation>
-<translation id="3724958268700778519">तुम्हाला वेबसाइटच्या चेकआउटमधून जलद नेऊन Google असिस्टंट तुमचा वेळ वाचवतो.</translation>
 <translation id="3739899004075612870"><ph name="PRODUCT_NAME" /> मध्ये बुकमार्क केले</translation>
 <translation id="3744111309925758534"><ph name="MEGABYTES" /> MB अन्य अ‍ॅप्स</translation>
 <translation id="3744111561329211289">पार्श्वभूमी संकालन</translation>
@@ -635,6 +636,7 @@
 तरीही, तुम्ही अदृश्य नसता. गुप्त होणे तुम्हाला एम्लॉयरपासून, तुम्हाला इंटरनेट सेवा पुरवठादारापासून किंवा तुम्ही भेट देता त्या वेबसाइटपासून तुमचे ब्राउझिंग लपवित नाही.</translation>
 <translation id="572328651809341494">अलीकडील टॅब</translation>
 <translation id="5726692708398506830">पृष्ठावरील प्रत्येकगोष्ट आणखी मोठी करा</translation>
+<translation id="5734520971562437809">६० टक्क्यांपर्यंत कमी डेटा वापरा आणि वेबचा वेग वाढवा.</translation>
 <translation id="5748802427693696783">मानक टॅबवर स्विच केले</translation>
 <translation id="5749068826913805084">Chrome ला फायली डाउनलोड करण्यासाठी स्टोरेज प्रवेश आवश्यक आहे.</translation>
 <translation id="5763382633136178763">गुप्त टॅब</translation>
@@ -689,7 +691,6 @@
 <translation id="6154478581116148741">तुमचे पासवर्ड या डिव्हाइसवरून एक्सपोर्ट करण्यासाठी सेटिंग्जमधील लॉक स्क्रीन चालू करा</translation>
 <translation id="6159335304067198720"><ph name="PERCENT" /> डेटा बचत</translation>
 <translation id="6165508094623778733">अधिक जाणून घ्या</translation>
-<translation id="6171019622954353983">सुरू ठेऊन, तुम्ही सहमती दर्शवता की, Chrome ही सेवा देण्यासाठी Chrome ऑटोफिल, साइटची URL आणि त्याच्या Google वरील आशयावरून डेटा पाठवेल.\n\nChrome आणि Chrome ऑटोफिलमधील Google असिस्टंट बंद करण्यासाठी Chrome सेटिंग्जला भेट द्या.  <ph name="BEGIN_LINK" />अधिक जाणून घ्या<ph name="END_LINK" /></translation>
 <translation id="6177111841848151710">वर्तमान शोध इंजिनसाठी अवरोधित केले</translation>
 <translation id="6177390657002841081">डेटा बचतकर्ता चालू करा</translation>
 <translation id="6181444274883918285">साइट एक्सेप्शन जोडा</translation>
@@ -808,6 +809,7 @@
 <translation id="6979737339423435258">पूर्णवेळ</translation>
 <translation id="6981982820502123353">प्रवेशयोग्यता</translation>
 <translation id="6985347914332179298">येथे डाउनलोड नाहीत</translation>
+<translation id="6989267951144302301">डाउनलोड करता आले नाही</translation>
 <translation id="6990079615885386641">Google Play Store मधून ॲप मिळवा: <ph name="APP_ACTION" /></translation>
 <translation id="6992289844737586249">साइटना तुमचा मायक्रोफोन वापरण्याची अनुमती देण्यापूर्वी प्रथम विचारा (शिफारस केलेले)</translation>
 <translation id="7016516562562142042">वर्तमान शोध इंजिनसाठी अनुमती दिली</translation>
@@ -1102,6 +1104,7 @@
 <translation id="9188680907066685419">व्यवस्थापित केलेल्या खात्यामधून साइन आउट करा</translation>
 <translation id="9204836675896933765">1 फाइल शिल्लक</translation>
 <translation id="9206873250291191720">A</translation>
+<translation id="9215534869786664672">६० टक्क्यांपर्यंत कमी डेटा वापरा आणि वेबचा वेग वाढवा. Google सर्व्हर तुम्ही भेट देत असलेली पेज ऑप्टिमाइझ करतील.</translation>
 <translation id="9219103736887031265">इमेज</translation>
 <translation id="932327136139879170">घर</translation>
 <translation id="932599481871055447">डेटा सेव्ह करा आणि अधिक जलद ब्राउझ करा</translation>
