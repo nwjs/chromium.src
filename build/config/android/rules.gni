@@ -2643,21 +2643,22 @@ if (enable_java_templates) {
                                [ _native_libs_file_arg_dep ]
     }
 
-    # Generate .apk.jar.info files if needed.
-    if (defined(invoker.name)) {
-      _apk_jar_info_target = "${target_name}__apk_jar_info"
-      create_apk_jar_info(_apk_jar_info_target) {
-        output = "$root_build_dir/size-info/${invoker.name}.apk.jar.info"
-        apk_build_config = _build_config
-        deps = [
-          ":$_build_config_target",
-          ":$_java_target",
-        ]
-      }
-      _deps += [ ":$_apk_jar_info_target" ]
-    }
-
     if (!_is_bundle_module) {
+      # Generate size-info/*.jar.info files.
+      if (defined(invoker.name) && _proguard_enabled) {
+        _jar_info_target = "${target_name}__jar_size_info"
+        create_final_jar_info(_jar_info_target) {
+          is_bundle = false
+          output = "$root_build_dir/size-info/${invoker.name}.apk.jar.info"
+          build_config = _build_config
+          deps = [
+            ":$_build_config_target",
+            ":$_java_target",
+          ]
+        }
+        _final_deps += [ ":$_jar_info_target" ]
+      }
+
       _keystore_path = android_keystore_path
       _keystore_name = android_keystore_name
       _keystore_password = android_keystore_password
@@ -3922,10 +3923,8 @@ if (enable_java_templates) {
 
     # Make build config, which is required for synchronized proguarding.
     _module_targets = []
-    _module_build_config_targets = []
     foreach(_module, _all_modules) {
       _module_targets += [ _module.module_target ]
-      _module_build_config_targets += [ _module.build_config_target ]
     }
     _build_config = "$target_gen_dir/${target_name}.build_config"
     _rebased_build_config = rebase_path(_build_config, root_build_dir)
@@ -3939,6 +3938,7 @@ if (enable_java_templates) {
       type = "android_app_bundle"
       possible_config_deps = _module_targets + [ proguard_android_sdk_dep_ ]
       build_config = _build_config
+      proguard_enabled = _proguard_enabled
     }
 
     if (_proguard_enabled) {
@@ -3953,8 +3953,7 @@ if (enable_java_templates) {
         forward_variables_from(invoker, [ "proguard_jar_path" ])
         build_config = _build_config
 
-        deps = _module_targets + _module_build_config_targets +
-               [ ":$_build_config_target" ]
+        deps = _module_targets + [ ":$_build_config_target" ]
         output = _unsplit_dex_zip
       }
 
@@ -3966,6 +3965,14 @@ if (enable_java_templates) {
         deps = [
           ":${_unsplit_dex_target}",
         ]
+      }
+
+      _jar_info_target = "${target_name}__jar_size_info"
+      create_final_jar_info(_jar_info_target) {
+        is_bundle = true
+        output = "$root_build_dir/size-info/$_bundle_name.aab.jar.info"
+        build_config = _build_config
+        deps = _module_targets + [ ":$_build_config_target" ]
       }
     }
 
@@ -4148,6 +4155,9 @@ if (enable_java_templates) {
         ":${target_name}__bundle",
         ":${target_name}__wrapper_script",
       ]
+      if (defined(_jar_info_target)) {
+        public_deps += [ ":$_jar_info_target" ]
+      }
     }
   }
 
