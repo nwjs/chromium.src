@@ -1902,6 +1902,16 @@ android_app_bundle("chrome_modern_public_bundle") {
   }
 }
 
+if (is_official_build) {
+  # Used for binary size monitoring.
+  create_app_bundle_minimal_apks("chrome_modern_public_minimal_apks") {
+    deps = [
+      ":chrome_modern_public_bundle",
+    ]
+    bundle_path = "$root_build_dir/apks/ChromeModernPublic.aab"
+  }
+}
+
 android_app_bundle("monochrome_public_bundle") {
   bundle_name = "MonochromePublic"
   base_module_target = ":monochrome_public_base_bundle_module"
@@ -1927,5 +1937,15 @@ android_app_bundle("monochrome_public_bundle") {
         module_target = ":vr_monochrome_public_bundle_module"
       },
     ]
+  }
+}
+
+if (is_official_build) {
+  # Used for binary size monitoring.
+  create_app_bundle_minimal_apks("monochrome_public_minimal_apks") {
+    deps = [
+      ":monochrome_public_bundle",
+    ]
+    bundle_path = "$root_build_dir/apks/MonochromePublic.aab"
   }
 }
