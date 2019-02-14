@@ -547,12 +547,14 @@ class FileChooserImpl : public blink::mojom::FileChooser,
     // Do not allow messages with absolute paths in them as this can permit a
     // renderer to coerce the browser to perform I/O on a renderer controlled
     // path.
+    #if 0
     if (params->default_file_name != params->default_file_name.BaseName()) {
       mojo::ReportBadMessage(
           "FileChooser: The default file name should not be an absolute path.");
       listener->FileSelectionCanceled();
       return;
     }
+    #endif
     render_frame_host_->delegate()->RunFileChooser(
         render_frame_host_, std::move(listener), *params);
   }

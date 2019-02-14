@@ -479,9 +479,9 @@ void FileSelectHelper::RunFileChooser(
          params->mode == FileChooserParams::Mode::kSave)
       << "The default_file_name parameter should only be specified for Save "
          "file choosers";
-#endif
   DCHECK(params->default_file_name == params->default_file_name.BaseName())
       << "The default_file_name parameter should not contain path separators";
+#endif
 
   render_frame_host_ = render_frame_host;
   web_contents_ = WebContents::FromRenderFrameHost(render_frame_host);

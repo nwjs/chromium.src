@@ -514,7 +514,9 @@ int WebViewGuest::GetTaskPrefix() const {
 }
 
 void WebViewGuest::GuestDestroyed() {
-  RemoveWebViewStateFromIOThread(web_contents());
+  WebViewRendererState::GetInstance()->RemoveGuest(
+      web_contents()->GetRenderViewHost()->GetProcess()->GetID(),
+      web_contents()->GetRenderViewHost()->GetRoutingID());
 }
 
 void WebViewGuest::GuestReady() {
@@ -1033,36 +1035,9 @@ void WebViewGuest::PushWebViewStateToIOThread() {
   web_view_info.content_script_ids = manager->GetContentScriptIDSet(
       web_view_info.embedder_process_id, web_view_info.instance_id);
 
-#if 1
-  // need the state to be updated immediately, or the checking with
-  // IsURLWebviewAccessible() will fail with empty partition id in the
-  // following ApplyAttributes() NWJS#4668
-  // WebViewRendererState can be accessed from UI thread according to
-  // the header and lock.
   WebViewRendererState::GetInstance()->AddGuest(
-                 web_contents()->GetRenderViewHost()->GetProcess()->GetID(),
-                 web_contents()->GetRenderViewHost()->GetRoutingID(),
-                 web_view_info);
-#else
-  base::PostTaskWithTraits(
-      FROM_HERE, {content::BrowserThread::IO},
-      base::Bind(&WebViewRendererState::AddGuest,
-                 base::Unretained(WebViewRendererState::GetInstance()),
-                 web_contents()->GetRenderViewHost()->GetProcess()->GetID(),
-                 web_contents()->GetRenderViewHost()->GetRoutingID(),
-                 web_view_info));
-#endif
-}
-
-// static
-void WebViewGuest::RemoveWebViewStateFromIOThread(
-    WebContents* web_contents) {
-  base::PostTaskWithTraits(
-      FROM_HERE, {content::BrowserThread::IO},
-      base::Bind(&WebViewRendererState::RemoveGuest,
-                 base::Unretained(WebViewRendererState::GetInstance()),
-                 web_contents->GetRenderViewHost()->GetProcess()->GetID(),
-                 web_contents->GetRenderViewHost()->GetRoutingID()));
+      web_contents()->GetRenderViewHost()->GetProcess()->GetID(),
+      web_contents()->GetRenderViewHost()->GetRoutingID(), web_view_info);
 }
 
 void WebViewGuest::RequestMediaAccessPermission(
