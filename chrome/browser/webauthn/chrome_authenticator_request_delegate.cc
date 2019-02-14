@@ -118,10 +118,12 @@ content::BrowserContext* ChromeAuthenticatorRequestDelegate::browser_context()
       ->GetBrowserContext();
 }
 
-void ChromeAuthenticatorRequestDelegate::DidFailWithInterestingReason(
+bool ChromeAuthenticatorRequestDelegate::DoesBlockRequestOnFailure(
     InterestingFailureReason reason) {
+  if (!IsWebAuthnUIEnabled())
+    return false;
   if (!weak_dialog_model_)
-    return;
+    return false;
 
   switch (reason) {
     case InterestingFailureReason::kTimeout:
@@ -134,6 +136,7 @@ void ChromeAuthenticatorRequestDelegate::DidFailWithInterestingReason(
       weak_dialog_model_->OnActivatedKeyAlreadyRegistered();
       break;
   }
+  return true;
 }
 
 void ChromeAuthenticatorRequestDelegate::RegisterActionCallbacks(
@@ -285,6 +288,17 @@ void ChromeAuthenticatorRequestDelegate::UpdateLastTransportUsed(
   }
 }
 
+void ChromeAuthenticatorRequestDelegate::DisableUI() {
+  disable_ui_ = true;
+}
+
+bool ChromeAuthenticatorRequestDelegate::IsWebAuthnUIEnabled() {
+  // UI can be disabled via flag or by the request handler for certain
+  // requests (e.g. on Windows, where the native API renders its own UI).
+  return base::FeatureList::IsEnabled(features::kWebAuthenticationUI) &&
+         !disable_ui_;
+}
+
 void ChromeAuthenticatorRequestDelegate::OnTransportAvailabilityEnumerated(
     device::FidoRequestHandlerBase::TransportAvailabilityInfo data) {
 #if !defined(OS_ANDROID)
@@ -293,7 +307,7 @@ void ChromeAuthenticatorRequestDelegate::OnTransportAvailabilityEnumerated(
     return;
   }
 
-  if (!IsWebAuthnUiEnabled())
+  if (!IsWebAuthnUIEnabled())
     return;
 
   DCHECK(weak_dialog_model_);
@@ -309,7 +323,7 @@ void ChromeAuthenticatorRequestDelegate::OnTransportAvailabilityEnumerated(
 
 bool ChromeAuthenticatorRequestDelegate::EmbedderControlsAuthenticatorDispatch(
     const device::FidoAuthenticator& authenticator) {
-  if (!IsWebAuthnUiEnabled())
+  if (!IsWebAuthnUIEnabled())
     return false;
   // On macOS, a native dialog is shown for the Touch ID authenticator
   // immediately after dispatch to that authenticator. This dialog must not
@@ -325,7 +339,7 @@ bool ChromeAuthenticatorRequestDelegate::EmbedderControlsAuthenticatorDispatch(
 
 void ChromeAuthenticatorRequestDelegate::FidoAuthenticatorAdded(
     const device::FidoAuthenticator& authenticator) {
-  if (!IsWebAuthnUiEnabled())
+  if (!IsWebAuthnUIEnabled())
     return;
 
   if (!weak_dialog_model_)
@@ -336,7 +350,7 @@ void ChromeAuthenticatorRequestDelegate::FidoAuthenticatorAdded(
 
 void ChromeAuthenticatorRequestDelegate::FidoAuthenticatorRemoved(
     base::StringPiece authenticator_id) {
-  if (!IsWebAuthnUiEnabled())
+  if (!IsWebAuthnUIEnabled())
     return;
 
   if (!weak_dialog_model_)
@@ -416,11 +430,4 @@ ChromeAuthenticatorRequestDelegate::GetPreviouslyPairedFidoBleDeviceIds()
   PrefService* prefs =
       Profile::FromBrowserContext(browser_context())->GetPrefs();
   return prefs->GetList(kWebAuthnBlePairedMacAddressesPrefName);
-}
-
-bool ChromeAuthenticatorRequestDelegate::IsWebAuthnUiEnabled() const {
-  // UI can be disabled via flag or by the request handler for certain
-  // requests (e.g. on Windows, where the native API renders its own UI).
-  return base::FeatureList::IsEnabled(features::kWebAuthenticationUI) &&
-         !disable_ui_;
 }
