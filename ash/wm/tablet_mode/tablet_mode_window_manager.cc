@@ -84,8 +84,14 @@ void TabletModeWindowManager::WindowStateDestroyed(aura::Window* window) {
 }
 
 void TabletModeWindowManager::OnOverviewModeStarting() {
-  for (auto& pair : window_state_map_)
-    SetDeferBoundsUpdates(pair.first, /*defer_bounds_updates=*/true);
+  aura::Window* default_snapped_window =
+      Shell::Get()->split_view_controller()->GetDefaultSnappedWindow();
+  for (auto& pair : window_state_map_) {
+    aura::Window* window = pair.first;
+    if (window == default_snapped_window)
+      continue;
+    SetDeferBoundsUpdates(window, /*defer_bounds_updates=*/true);
+  }
 }
 
 void TabletModeWindowManager::OnOverviewModeEnding(
