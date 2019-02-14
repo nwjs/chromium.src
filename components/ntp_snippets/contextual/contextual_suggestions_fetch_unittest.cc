@@ -94,7 +94,7 @@ TEST(ContextualSuggestionsFetch, MakeResourceRequest_VariationsHeader) {
             variations::VariationsHttpHeaderProvider::GetInstance()
                 ->ForceVariationIds({"12345"}, ""));
 
-  ContextualSuggestionsFetch fetch(GURL("http://test.com"), "en-US", false);
+  ContextualSuggestionsFetch fetch(GURL("http://test.com"), "en-US");
   std::unique_ptr<network::ResourceRequest> resource_request =
       fetch.MakeResourceRequestForTesting();
 
@@ -114,7 +114,7 @@ TEST(ContextualSuggestionsFetch,
             variations::VariationsHttpHeaderProvider::GetInstance()
                 ->ForceVariationIds({"12345"}, ""));
 
-  ContextualSuggestionsFetch fetch(GURL("http://test.com"), "en-US", false);
+  ContextualSuggestionsFetch fetch(GURL("http://test.com"), "en-US");
   std::unique_ptr<network::ResourceRequest> resource_request =
       fetch.MakeResourceRequestForTesting();
 
