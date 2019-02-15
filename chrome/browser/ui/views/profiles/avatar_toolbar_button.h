@@ -41,6 +41,7 @@ class AvatarToolbarButton : public ToolbarButton,
   // ToolbarButton:
   void NotifyClick(const ui::Event& event) override;
   void OnThemeChanged() override;
+  void AddedToWidget() override;
 
   // AvatarButtonErrorControllerDelegate:
   void OnAvatarErrorChanged() override;
