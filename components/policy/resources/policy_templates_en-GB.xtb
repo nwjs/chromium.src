@@ -176,6 +176,13 @@
 
       If this policy is set to false, <ph name="PRODUCT_NAME" /> will not allow guest profiles to be started.</translation>
 <translation id="1363275621236827384">Enable queries to Quirks Server for hardware profiles</translation>
+<translation id="1383493480903114193">This policy forces networking code to run in the browser process.
+
+      This policy is disabled by default, and if enabled, leaves users open to the security issues once the networking process is sandboxed.
+
+      This policy is intended to give enterprises a chance to migrate to third-party software that does not depend on hooking the networking APIs. Proxy servers are recommended over LSPs and Win32 API patching.
+
+      If this policy is not set, networking code may run out of the browser process depending on field trials of the Network Service experiment.</translation>
 <translation id="1384459581748403878">Reference: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Whether to enable trust in Symantec Corporation's Legacy PKI Infrastructure</translation>
 <translation id="1393485621820363363">Enabled enterprise device printers</translation>
@@ -2795,6 +2802,7 @@ The contents of the list 'URLs to open at start-up' are ignored unless you selec
       For Active Directory managed devices this policy supports expansion of <ph name="MACHINE_NAME_VARIABLE" /> to the Active Directory machine name or a substring of it. For example, if the machine name is <ph name="MACHINE_NAME_EXAMPLE" />, then <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> would be replaced by the 4 characters starting after the 6th position, i.e. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Note that the position is zero-based.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (lowercase) is deprecated in M71 and will be removed in M72.
       </translation>
+<translation id="7339315111520512972">Force networking code to run in the browser process</translation>
 <translation id="7340034977315324840">Report device activity times</translation>
 <translation id="7343497214039883642">Enterprise printer configuration file for devices</translation>
 <translation id="7349338075015720646">Specifies a list of websites that are installed silently, without user interaction, and which cannot be uninstalled or disabled by the user.
