@@ -104,8 +104,8 @@ URLLoadResult LoadURL(const ChromeLoadParams& chrome_params,
   }
 
   web::WebState* current_web_state = web_state_list->GetActiveWebState();
-  DCHECK(current_web_state);
-  if (params.transition_type & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR) {
+  if (current_web_state &&
+      (params.transition_type & ui::PAGE_TRANSITION_FROM_ADDRESS_BAR)) {
     bool isExpectingVoiceSearch =
         VoiceSearchNavigationTabHelper::FromWebState(current_web_state)
             ->IsExpectingVoiceSearch();
