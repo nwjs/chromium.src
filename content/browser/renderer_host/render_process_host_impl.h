@@ -420,6 +420,9 @@ class CONTENT_EXPORT RenderProcessHostImpl
   void OnMediaStreamRemoved() override;
   int get_media_stream_count_for_testing() const { return media_stream_count_; }
 
+  void OnForegroundServiceWorkerAdded() override;
+  void OnForegroundServiceWorkerRemoved() override;
+
   // Sets the global factory used to create new RenderProcessHosts in unit
   // tests.  It may be nullptr, in which case the default RenderProcessHost will
   // be created (this is the behavior if you don't call this function).  The
@@ -894,6 +897,11 @@ class CONTENT_EXPORT RenderProcessHostImpl
   // Tracks active audio and video streams within the render process; used to
   // determine if if a process should be backgrounded.
   int media_stream_count_ = 0;
+
+  // Tracks service workers that may need to respond to events from other
+  // processes in a timely manner.  Used to determine if a process should
+  // not be backgrounded.
+  int foreground_service_worker_count_ = 0;
 
   resource_coordinator::ProcessResourceCoordinator
       process_resource_coordinator_;
