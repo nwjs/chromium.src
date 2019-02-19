@@ -141,4 +141,8 @@ mojom("mojom") {
   if (is_linux && !is_chromeos) {
     enabled_features += [ "needs_crypt_config" ]
   }
+
+  if (is_android || is_chromeos) {
+    enabled_features += [ "network_change_notifier_in_browser" ]
+  }
 }
