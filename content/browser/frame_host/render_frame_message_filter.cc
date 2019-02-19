@@ -620,10 +620,14 @@ void RenderFrameMessageFilter::SetCookie(int32_t render_frame_id,
     return;
   }
 
+  // |callback| needs to be fired even if network process crashes as it's for
+  // sync IPC.
   net::CookieStore::SetCookiesCallback net_callback =
-      base::BindOnce([](SetCookieCallback callback,
-                        bool success) { std::move(callback).Run(); },
-                     std::move(callback));
+      mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+          base::BindOnce([](SetCookieCallback callback,
+                            bool success) { std::move(callback).Run(); },
+                         std::move(callback)),
+          false);
   (*GetCookieManager())
       ->SetCanonicalCookie(*cookie, url.SchemeIsCryptographic(),
                            !options.exclude_httponly(),
@@ -689,9 +693,11 @@ void RenderFrameMessageFilter::GetCookies(int render_frame_id,
   (*GetCookieManager())
       ->GetCookieList(
           url, options,
-          base::BindOnce(&RenderFrameMessageFilter::CheckPolicyForCookies, this,
-                         render_frame_id, url, site_for_cookies,
-                         std::move(callback)));
+          mojo::WrapCallbackWithDefaultInvokeIfNotRun(
+              base::BindOnce(&RenderFrameMessageFilter::CheckPolicyForCookies,
+                             this, render_frame_id, url, site_for_cookies,
+                             std::move(callback)),
+              net::CookieList()));
 }
 
 #if BUILDFLAG(ENABLE_PLUGINS)
