@@ -136,6 +136,8 @@ class MediaSessionImpl : public MediaSession,
   void WebContentsDestroyed() override;
   void RenderFrameDeleted(RenderFrameHost* rfh) override;
   void DidFinishNavigation(NavigationHandle* navigation_handle) override;
+  void OnWebContentsFocused(RenderWidgetHost*) override;
+  void OnWebContentsLostFocus(RenderWidgetHost*) override;
 
   // MediaSessionService-related methods
 
@@ -389,6 +391,9 @@ class MediaSessionImpl : public MediaSession,
   base::CallbackList<void(State)> media_session_state_listeners_;
 
   base::ObserverList<MediaSessionObserver>::Unchecked observers_;
+
+  // True if the WebContents associated with this MediaSessionImpl is focused.
+  bool focused_ = false;
 
 #if defined(OS_ANDROID)
   std::unique_ptr<MediaSessionAndroid> session_android_;
