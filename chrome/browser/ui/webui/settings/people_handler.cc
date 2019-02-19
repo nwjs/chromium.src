@@ -12,6 +12,8 @@
 #include "base/i18n/time_formatting.h"
 #include "base/json/json_reader.h"
 #include "base/metrics/histogram_macros.h"
+#include "base/metrics/user_metrics.h"
+#include "base/strings/utf_string_conversions.h"
 #include "base/values.h"
 #include "build/build_config.h"
 #include "chrome/browser/lifetime/application_lifetime.h"
@@ -621,6 +623,9 @@ void PeopleHandler::HandleShowSetupUI(const base::ListValue* args) {
 
     GetLoginUIService()->SetLoginUI(this);
 
+    // Observe the web contents for a before unload event.
+    Observe(web_ui()->GetWebContents());
+
     PushSyncPrefs();
     // Always let the page open when unified consent is enabled.
     return;
@@ -837,6 +842,9 @@ void PeopleHandler::CloseSyncSetup() {
   sync_blocker_.reset();
 
   configuring_sync_ = false;
+
+  // Stop observing the web contents.
+  Observe(nullptr);
 }
 
 void PeopleHandler::InitializeSyncBlocker() {
@@ -879,6 +887,16 @@ void PeopleHandler::OnStateChanged(syncer::SyncService* sync) {
   // When the SyncService changes its state, we should also push the updated
   // sync preferences.
   PushSyncPrefs();
+}
+
+void PeopleHandler::BeforeUnloadDialogCancelled() {
+  // The before unload dialog is only shown during the first sync setup.
+  DCHECK(IdentityManagerFactory::GetForProfile(profile_)->HasPrimaryAccount());
+  syncer::SyncService* service = GetSyncService();
+  DCHECK(service && service->IsFirstSetupInProgress());
+
+  base::RecordAction(
+      base::UserMetricsAction("Signin_Signin_CancelAbortAdvancedSyncSettings"));
 }
 
 std::unique_ptr<base::DictionaryValue>
