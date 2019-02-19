@@ -873,9 +873,6 @@ void DesktopWindowTreeHostWin::HandleWindowMinimizedOrRestored(bool restored) {
     window()->Show();
   else
     window()->Hide();
-
-  if (compositor())
-    compositor()->SetVisible(restored);
 }
 
 void DesktopWindowTreeHostWin::HandleClientSizeChanged(
