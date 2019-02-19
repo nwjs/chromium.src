@@ -15172,4 +15172,36 @@ IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
   EXPECT_FALSE(did_start_navigation_observer.observed());
 }
 
+// One frame navigates using window.open while it is pending deletion. The two
+// frames lives in different processes.
+// See https://crbug.com/932087.
+IN_PROC_BROWSER_TEST_F(SitePerProcessBrowserTest,
+                       OpenUrlToRemoteFramePendingDeletion) {
+  GURL url_ab(embedded_test_server()->GetURL(
+      "a.com", "/cross_site_iframe_factory.html?a(b)"));
+  GURL url_c(embedded_test_server()->GetURL("c.com", "/title1.html"));
+
+  EXPECT_TRUE(NavigateToURL(shell(), url_ab));
+  RenderFrameHostImpl* rfh_a = web_contents()->GetMainFrame();
+  RenderFrameHostImpl* rfh_b = rfh_a->child_at(0)->current_frame_host();
+
+  // Frame B has a unload handler. The browser process needs to wait before
+  // deleting it.
+  EXPECT_TRUE(ExecJs(rfh_b, "onunload=function(){}"));
+  RenderFrameDeletedObserver deleted_observer(rfh_b);
+
+  // window.open from A in B to url_c.
+  DidStartNavigationObserver did_start_navigation_observer(web_contents());
+  EXPECT_TRUE(ExecuteScript(rfh_b, "window.name = 'name';"));
+  ExecuteScriptAsync(rfh_a, JsReplace("window.open($1, 'name');", url_c));
+
+  // Simulate A deleting C.
+  // It starts before receiving the navigation. The detach ACK is
+  // received after.
+  rfh_b->DetachFromProxy();
+  deleted_observer.WaitUntilDeleted();
+
+  EXPECT_FALSE(did_start_navigation_observer.observed());
+}
+
 }  // namespace content
