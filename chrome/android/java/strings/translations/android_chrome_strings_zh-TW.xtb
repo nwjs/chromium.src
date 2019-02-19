@@ -293,6 +293,7 @@
 <translation id="3166827708714933426">分頁與視窗快速鍵</translation>
 <translation id="3190152372525844641">請在 <ph name="BEGIN_LINK" />Android 設定<ph name="END_LINK" />中為 Chrome 啟用這些權限。</translation>
 <translation id="3198916472715691905">儲存了 <ph name="STORAGE_AMOUNT" /> 的資料</translation>
+<translation id="3205824638308738187">即將大功告成！</translation>
 <translation id="3207960819495026254">已加入書籤</translation>
 <translation id="3211426585530211793">已刪除「<ph name="ITEM_TITLE" />」</translation>
 <translation id="321773570071367578">如果您忘記通關密語，或是想變更這項設定，請<ph name="BEGIN_LINK" />重設同步功能<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@
 <translation id="3744111561329211289">背景同步處理</translation>
 <translation id="3745176700485982507">這個頁面列出了你的常用網站連結</translation>
 <translation id="3751110998481776724">快速預覽<ph name="BEGIN_NEW" />新功能<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">無法下載更新</translation>
 <translation id="3773755127849930740">如要允許配對，請<ph name="BEGIN_LINK" />開啟藍牙功能<ph name="END_LINK" /></translation>
 <translation id="3778956594442850293">已新增至主畫面</translation>
 <translation id="3781011235031427080">「更多類似內容」已開啟，顯示在畫面下半部</translation>
@@ -536,6 +538,7 @@
 <translation id="497421865427891073">往前</translation>
 <translation id="4988210275050210843">正在下載檔案 (<ph name="MEGABYTES" /> MB)。</translation>
 <translation id="4988526792673242964">頁數</translation>
+<translation id="4994033804516042629">找不到任何聯絡人</translation>
 <translation id="4996978546172906250">分享方式：</translation>
 <translation id="5004416275253351869">Google 活動控制項</translation>
 <translation id="5005498671520578047">複製密碼</translation>
@@ -938,6 +941,7 @@
 <translation id="7929962904089429003">開啟選單</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> 版本過舊。</translation>
 <translation id="7947953824732555851">接受並登入</translation>
+<translation id="7960977077911686065">選擇繼續即表示您同意 Chrome 將 Chrome 自動填入功能取得的資料、網站的網址及內容傳送給 Google，讓 Google 為您提供這項服務。您也同意 Chrome 將您所選的個人資料透過 Chrome 自動填入功能傳送給該網站。\n\n如要關閉 Chrome 版 Google 助理和 Chrome 自動填入功能，請前往 Chrome 設定。<ph name="BEGIN_LINK" />瞭解詳情<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">供應商：</translation>
 <translation id="7981313251711023384">預先載入網頁，以加快瀏覽及搜尋速度</translation>
 <translation id="79859296434321399">如要查看擴增實境內容，請安裝 ARCore</translation>
@@ -1098,6 +1102,7 @@
 <translation id="9100610230175265781">請提供通關密語</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">顯示原文</translation>
+<translation id="9138504265731110181">Google 助理可幫助你完成網站上的結帳流程，為你省下寶貴時間</translation>
 <translation id="9139068048179869749">允許網站傳送通知前，必須先詢問您 (建議)</translation>
 <translation id="9139318394846604261">購物</translation>
 <translation id="9155898266292537608">快速輕觸字詞也可以展開搜尋</translation>

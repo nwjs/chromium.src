@@ -174,6 +174,13 @@
 
       Jos tämän käytännön arvoksi asetetaan Epätosi, <ph name="PRODUCT_NAME" /> ei salli kirjautumista vierasprofiililla.</translation>
 <translation id="1363275621236827384">Salli laiteprofiilien lähettää kyselyitä Quirks Serverille</translation>
+<translation id="1383493480903114193">Käytäntö pakottaa verkostokoodin suorittamisen selainprosessin osana.
+
+      Käytäntö on oletuksena pois käytöstä. Jos se on käytössä, käyttäjät voivat altistua tietoturvaongelmille, kun verkkoprosessi tapahtuu hiekkalaatikossa.
+
+      Käytännön tarkoitus on antaa yrityksille mahdollisuus siirtyä kolmannen osapuolen ohjelmistoihin, jotka eivät edellytä verkkosovellusliittymien liittämistä. Välityspalvelimia suositellaan LSP- ja Win 32 API ‑virheenkorjaukseen.
+
+      Jos tätä käytäntöä ei ole määritetty, verkkokoodia voidaan suorittaa selainprosessin ulkopuolella riippuen NetworkService-kokeilun testaamisen tilasta.</translation>
 <translation id="1384459581748403878">Viite: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Luotetaanko Symantec Corporationin vanhaan PKI-infrastruktuuriin vai ei</translation>
 <translation id="1393485621820363363">Käytössä olevat yrityslaitteiden tulostimet</translation>
@@ -2698,6 +2705,7 @@ Jos tätä käytäntöä ei ole määritetty, käytetään oletusarvoa (32).</tr
       Jos laitetta hallinnoidaan Active Directoryn avulla, tämä käytäntö sallii, että <ph name="MACHINE_NAME_VARIABLE" /> liitetään Active Directory ‑koneen nimeen tai sen alimerkkijonoon. Jos koneen nimi on esimerkiksi <ph name="MACHINE_NAME_EXAMPLE" />, <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> korvattaisiin kuudennetta kohtaa seuraavilla neljällä merkillä: <ph name="MACHINE_NAME_PART_EXAMPLE" />. Huomaa, että kohtien laskeminen aloitetaan nollasta.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (pienet kirjaimet) poistuu käytöstä versiossa M71 ja poistuu kokonaan versiossa M72.
       </translation>
+<translation id="7339315111520512972">Pakota verkostokoodin suorittaminen selainprosessissa</translation>
 <translation id="7340034977315324840">Ilmoita laitteen käyttöajat</translation>
 <translation id="7343497214039883642">Yritystulostimen määritystiedosto laitteille</translation>
 <translation id="7349338075015720646">Määrittää listan verkkosivustoja, jotka asennetaan hiljaisesti, ilman käyttäjän toimia, ja joita käyttäjä ei voi poistaa käytöstä eikä poistaa kokonaan.

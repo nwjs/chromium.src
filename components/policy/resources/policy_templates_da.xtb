@@ -163,6 +163,13 @@ Hvis denne politik ikke er angivet, benyttes standardreglen, hvor ingen HTTP/2-f
 
       Hvis denne politik er angivet til falsk, tillader <ph name="PRODUCT_NAME" /> ikke, at der startes gæsteprofiler.</translation>
 <translation id="1363275621236827384">Aktivér forespørgsler til Quirks Server om hardwareprofiler</translation>
+<translation id="1383493480903114193">Denne politik tvinger netværkskoden til at køre i browserprocessen.
+
+      Denne politik er som standard deaktiveret. Hvis den aktiveres, kan brugerne blive udsat for sikkerhedsproblemer, når der anvendes en sandboxløsning til netværksprocessen.
+
+      Denne politik har til formål at give virksomhederne mulighed for at migrere til tredjepartssoftware, der ikke er afhængig af at bruge hooking til netværks-API'er. Det anbefales at bruge proxyservere i stedet for LSP'er og Win32 API-programrettelser.
+
+      Hvis denne politik ikke er konfigureret, kan netværkskoden køre ud af browserprocessen afhængigt af brugstest i NetworkService-eksperimentet.</translation>
 <translation id="1384459581748403878">Reference: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Angiver, om der skal aktiveres tillid til Symantec Corporations forældede PKI-infrastruktur</translation>
 <translation id="1393485621820363363">Aktiverede virksomhedsprintere for enheder</translation>
@@ -2692,6 +2699,7 @@ Hvis denne politik er angivet som sand eller ikke angives, aktiveres den smarte 
       For enheder, der administreres med Active Directory, understøtter denne politik udvidelse af <ph name="MACHINE_NAME_VARIABLE" /> til Active Directory-enhedsnavnet eller en af dets understrenge. Hvis enhedsnavnet f.eks. er <ph name="MACHINE_NAME_EXAMPLE" />, erstattes <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> af de fire tegn, der kommer efter den sjette position, dvs. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Bemærk, at positionen er nulbaseret.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (små bogstaver) er udfaset i M71 og fjernes i M72.
       </translation>
+<translation id="7339315111520512972">Tving netværkskoden til at køre i browserprocessen</translation>
 <translation id="7340034977315324840">Rapportér tidspunkter for aktiviteter på enheden</translation>
 <translation id="7343497214039883642">Fil til konfiguration af virksomhedsprintere for enheder</translation>
 <translation id="7349338075015720646">Angiver en liste over websites, som installeres uovervåget uden brugerinteraktion, og som ikke kan afinstalleres af brugeren.

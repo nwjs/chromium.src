@@ -814,6 +814,8 @@
 <translation id="220792432208469595">傳送使用狀況與診斷資料。這個裝置目前會自動將診斷資料以及裝置和應用程式的使用狀況資料傳送給 Google。這些資料將有助於系統和應用程式提高穩定性及做出其他改善。部分匯總資料還能夠為 Google 應用程式和合作夥伴 (例如 Android 開發人員) 提供幫助。這項設定是由裝置擁有者執行。如果你的「其他網路和應用程式活動」設定為開啟，系統可能會將這些資料儲存到你的 Google 帳戶。<ph name="BEGIN_LINK1" />瞭解詳情<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">Zip 封存</translation>
 <translation id="220858061631308971">請在「<ph name="DEVICE_NAME" />」上輸入以下 PIN 碼：</translation>
+<translation id="2213140827792212876">移除共用設定</translation>
+<translation id="2214018885812055163">共用資料夾</translation>
 <translation id="2214884991347062907">密碼錯誤，請再試一次</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;還有 1 行未顯示&gt;}other{&lt;還有 <ph name="NUMBER_OF_LINES" /> 行未顯示&gt;}}</translation>
 <translation id="2217501013957346740">建立名稱 -</translation>
@@ -2871,6 +2873,7 @@
 <translation id="5374359983950678924">變更圖片</translation>
 <translation id="5376169624176189338">按一下回上一頁，按住可查看記錄</translation>
 <translation id="5376931455988532197">檔案過大</translation>
+<translation id="5377594097385838788">無痕模式</translation>
 <translation id="537813040452600081">你在這個視窗瀏覽的網頁不會顯示在瀏覽器記錄中，而且在你登出之後，電腦也不會留下 Cookie 等其他記錄。此外，系統不會保留你下載的檔案和建立的書籤。</translation>
 <translation id="5379140238605961210">繼續封鎖存取麥克風</translation>
 <translation id="5379268888377976432">復原刪除</translation>
@@ -4378,6 +4381,7 @@
 <translation id="7663719505383602579">接收端：<ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">不支援的藍牙裝置：「<ph name="DEVICE_NAME" />」。</translation>
 <translation id="7665369617277396874">新增帳戶</translation>
+<translation id="7667248760110172428">外部儲存空間</translation>
 <translation id="7671130400130574146">使用系統標題列及邊界</translation>
 <translation id="7672520070349703697"><ph name="HUNG_IFRAME_URL" /> (在「<ph name="PAGE_TITLE" />」中)。</translation>
 <translation id="7676867886086876795">將你的語音資料傳送給 Google，讓你在任何文字欄位中使用語音輸入功能。</translation>
@@ -4581,6 +4585,7 @@
 <translation id="7930294771522048157">已儲存的付款方式會顯示在這裡</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> 正在共用您的畫面和音訊。</translation>
 <translation id="7931318309563332511">不明</translation>
+<translation id="7932969338829957666">在 Linux 中，你可以前往 <ph name="BASE_DIR" /> 存取共用資料夾。</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{開啟網站音訊}other{開啟多個網站的音訊}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> 要求播放受保護的內容。Google 會驗證你裝置的識別資訊。</translation>
 <translation id="793531125873261495">下載虛擬機器時發生錯誤，請再試一次。</translation>

@@ -293,6 +293,7 @@ Sie sind aber dennoch nicht unsichtbar. Durch den privaten Modus wird die Tatsac
 <translation id="3166827708714933426">Tastenkombinationen für Tabs und Fenster</translation>
 <translation id="3190152372525844641">Berechtigungen für Chrome in den <ph name="BEGIN_LINK" />Android-Einstellungen<ph name="END_LINK" /> aktivieren</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> gespeicherte Daten</translation>
+<translation id="3205824638308738187">Fast fertig.</translation>
 <translation id="3207960819495026254">Mit einem Lesezeichen versehen</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> gelöscht</translation>
 <translation id="321773570071367578">Wenn Sie Ihre Passphrase vergessen oder diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie die Synchronisierung zurück<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@ Sie sind aber dennoch nicht unsichtbar. Durch den privaten Modus wird die Tatsac
 <translation id="3744111561329211289">Hintergrundsync</translation>
 <translation id="3745176700485982507">Auf dieser Seite finden Sie Links zu Ihren meistbesuchten Websites</translation>
 <translation id="3751110998481776724">Schnellvorschau <ph name="BEGIN_NEW" />Neu<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Update konnte nicht heruntergeladen werden</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Aktivieren Sie Bluetooth<ph name="END_LINK" />, um die Kopplung zu ermöglichen</translation>
 <translation id="3778956594442850293">Zum Startbildschirm hinzugefügt</translation>
 <translation id="3781011235031427080">"Weitere ähnliche" halb geöffnet</translation>
@@ -536,6 +538,7 @@ Wenn Sie diese Einstellung ändern möchten, <ph name="BEGIN_LINK" />setzen Sie 
 <translation id="497421865427891073">Weiter</translation>
 <translation id="4988210275050210843">Datei wird heruntergeladen (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Seiten</translation>
+<translation id="4994033804516042629">Keine Kontakte gefunden</translation>
 <translation id="4996978546172906250">Teilen über</translation>
 <translation id="5004416275253351869">Google-Aktivitätseinstellungen</translation>
 <translation id="5005498671520578047">Passwort kopieren</translation>
@@ -938,6 +941,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7929962904089429003">Menü öffnen</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> ist veraltet.</translation>
 <translation id="7947953824732555851">Akzeptieren und anmelden</translation>
+<translation id="7960977077911686065">Wenn Sie fortfahren, erklären Sie sich damit einverstanden, dass Chrome Daten von AutoFill sowie die URL und die Inhalte der Website an Google sendet, um diesen Dienst anbieten zu können. Sie erklären sich außerdem damit einverstanden, dass Chrome personenbezogene Daten, die Sie ausgewählt haben, über AutoFill an die Website sendet. In den Chrome-Einstellungen können Sie Google Assistant für Chrome und AutoFill deaktivieren.  <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Anbieter:</translation>
 <translation id="7981313251711023384">Seiten vorab laden, um das Surfen und die Suche zu beschleunigen</translation>
 <translation id="79859296434321399">ARCore installieren, um Augmented-Reality-Inhalte zu sehen</translation>
@@ -1098,6 +1102,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="9100610230175265781">Passphrase erforderlich</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Original anzeigen</translation>
+<translation id="9138504265731110181">Mit Google Assistant sparen Sie Zeit, wenn Sie im Web Käufe abschließen</translation>
 <translation id="9139068048179869749">Nachfragen, bevor Websites Benachrichtigungen senden dürfen (empfohlen)</translation>
 <translation id="9139318394846604261">Shopping</translation>
 <translation id="9155898266292537608">Sie können auch kurz auf ein Wort tippen, um eine Suche zu starten</translation>

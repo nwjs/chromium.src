@@ -293,6 +293,7 @@ Tuy nhiên, bạn vẫn có trạng thái hiển thị. Việc chuyển sang ch�
 <translation id="3166827708714933426">Phím tắt dành cho tab và cửa sổ</translation>
 <translation id="3190152372525844641">Bật quyền cho Chrome trong <ph name="BEGIN_LINK" />Cài đặt Android<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> dữ liệu được lưu trữ</translation>
+<translation id="3205824638308738187">Sắp hoàn tất!</translation>
 <translation id="3207960819495026254">Đã được đánh dấu trang</translation>
 <translation id="3211426585530211793">Đã xóa <ph name="ITEM_TITLE" /></translation>
 <translation id="321773570071367578">Nếu bạn quên cụm mật khẩu hoặc muốn thay đổi cài đặt này, hãy <ph name="BEGIN_LINK" />đặt lại đồng bộ hóa<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@ Tuy nhiên, bạn vẫn có trạng thái hiển thị. Việc chuyển sang ch�
 <translation id="3744111561329211289">Đồng bộ hóa dưới nền</translation>
 <translation id="3745176700485982507">Trang này chứa các đường dẫn liên kết đến trang web yêu thích của bạn</translation>
 <translation id="3751110998481776724">Xem trước <ph name="BEGIN_NEW" />Mới<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Không thể tải bản cập nhật xuống</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Bật Bluetooth<ph name="END_LINK" /> để cho phép ghép nối</translation>
 <translation id="3778956594442850293">Đã thêm vào màn hình chính</translation>
 <translation id="3781011235031427080">Nội dung tương tự đã mở ở nửa dưới của màn hình</translation>
@@ -536,6 +538,7 @@ Tài khoản Google của bạn có thể có các dạng lịch sử duyệt we
 <translation id="497421865427891073">Đi về phía trước</translation>
 <translation id="4988210275050210843">Đang tải tệp xuống (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Trang</translation>
+<translation id="4994033804516042629">Không tìm thấy người liên hệ nào</translation>
 <translation id="4996978546172906250">Chia sẻ qua</translation>
 <translation id="5004416275253351869">Kiểm soát hoạt động trên Google</translation>
 <translation id="5005498671520578047">Sao chép mật khẩu</translation>
@@ -938,6 +941,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="7929962904089429003">Mở menu</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> đã lỗi thời.</translation>
 <translation id="7947953824732555851">Chấp nhận &amp; đăng nhập</translation>
+<translation id="7960977077911686065">Bằng việc tiếp tục, bạn đồng ý cho phép Chrome gửi dữ liệu từ tính năng Tự động điền trên Chrome, URL và nội dung của trang web tới Google để cung cấp dịch vụ này. Bạn cũng đồng ý cho phép Chrome gửi dữ liệu cá nhân do bạn chọn tới trang web thông qua tính năng Tự động điền trên Chrome. \n\nHãy truy cập vào mục Cài đặt Chrome để tắt Trợ lý Google trong Chrome và tính năng Tự động điền trên Chrome.  <ph name="BEGIN_LINK" />Tìm hiểu thêm<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Nhà cung cấp:</translation>
 <translation id="7981313251711023384">Tải trước các trang để tìm kiếm và duyệt web nhanh hơn</translation>
 <translation id="79859296434321399">Để xem nội dung thực tế tăng cường, hãy cài đặt bộ công cụ ARCore</translation>
@@ -1098,6 +1102,7 @@ Ví dụ: một số trang web có thể phản hồi yêu cầu này bằng cá
 <translation id="9100610230175265781">Yêu cầu cụm mật khẩu</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Hiển thị văn bản gốc</translation>
+<translation id="9138504265731110181">Trợ lý Google tiết kiệm thời gian cho bạn bằng cách giúp bạn thanh toán trên web</translation>
 <translation id="9139068048179869749">Hỏi trước khi cho phép trang web gửi thông báo (được đề xuất)</translation>
 <translation id="9139318394846604261">Mua sắm</translation>
 <translation id="9155898266292537608">Bạn cũng có thể tìm kiếm bằng cách nhấn nhanh vào một từ</translation>

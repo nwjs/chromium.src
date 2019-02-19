@@ -176,6 +176,13 @@
 
       Om principen är inställd på falskt tillåts ingen användning av gästprofiler i <ph name="PRODUCT_NAME" />.</translation>
 <translation id="1363275621236827384">Aktivera frågor till Quirks-servern (servern för maskinvaruspecifik information) om maskinvaruprofiler</translation>
+<translation id="1383493480903114193">Principen tvingar nätverkskod att köras i webbläsarprocessen.
+
+      Principen är inaktiverad som standard, och när den är aktiverad utsätts användarna för säkerhetsproblemen när nätverksprocessen körs i en sandlåda.
+
+      Syftet med principen är att ge företag en möjlighet att migrera till programvara från tredje part som inte är beroende av att kunna anropa nätverks-API:erna. Proxyservrar rekommenderas framför LSP och korrigeringar av Win32 API.
+
+      Om principen inte har ställts in kan nätverkskod köras utanför webbläsarprocessen, beroende på vilka experiment med NetworkService som körs.</translation>
 <translation id="1384459581748403878">Referens: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Om Symantec Corporations äldre PKI-infrastruktur ska vara betrodd eller inte</translation>
 <translation id="1393485621820363363">Aktiverade skrivare för företagsenheter</translation>
@@ -2799,6 +2806,7 @@
       På enheter som hanteras via Active Directory har principen stöd för att utöka <ph name="MACHINE_NAME_VARIABLE" /> till datornamnet i Active Directory eller en delsträng av det. Med datornamnet <ph name="MACHINE_NAME_EXAMPLE" /> skulle till exempel <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> ersättas av de fyra tecknen från och med position nummer sex, d.v.s. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Observera att positionerna räknas från och med noll.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (gemener) fasas ut med M71 och tas bort i M72.
       </translation>
+<translation id="7339315111520512972">Tvinga nätverkskod att köras i webbläsarprocessen</translation>
 <translation id="7340034977315324840">Rapportera aktivitetstider för enhet</translation>
 <translation id="7343497214039883642">Skivarkonfigurationsfil för företagsenheter</translation>
 <translation id="7349338075015720646">Anger en lista över webbplatser som installeras obemärkt utan att användaren gör något och som användaren inte kan avinstallera eller inaktivera.

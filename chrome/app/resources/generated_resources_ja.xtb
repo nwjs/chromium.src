@@ -814,6 +814,8 @@
 <translation id="220792432208469595">使用状況データや診断データを送信します。このデバイスは現在、診断データやデバイスとアプリの使用状況データを Google に自動送信するように設定されています。この情報は、システムとアプリの安定性の向上やその他の機能の改善に役立てられます。また、Google のアプリやパートナー（Android デベロッパーなど）も、集計データとしてこの情報を活用します。この設定は所有者によって管理されています。[その他のウェブとアプリのアクティビティ] の設定がオンになっている場合、このデータは Google アカウントに保存されます。<ph name="BEGIN_LINK1" />詳細<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">Zip アーカイブ</translation>
 <translation id="220858061631308971">「<ph name="DEVICE_NAME" />」の PIN コードを入力してください:</translation>
+<translation id="2213140827792212876">共有を解除します</translation>
+<translation id="2214018885812055163">共有フォルダ</translation>
 <translation id="2214884991347062907">パスワードが正しくありません。もう一度お試しください</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;1 行が非表示です&gt;}other{&lt;<ph name="NUMBER_OF_LINES" /> 行が非表示です&gt;}}</translation>
 <translation id="2217501013957346740">名前を作成 -</translation>
@@ -2873,6 +2875,7 @@
 <translation id="5374359983950678924">画像を変更</translation>
 <translation id="5376169624176189338">クリックすると前に戻ります。押したまま待つと履歴が表示されます。</translation>
 <translation id="5376931455988532197">ファイル サイズが大きすぎます</translation>
+<translation id="5377594097385838788">シークレット</translation>
 <translation id="537813040452600081">このウィンドウで開いたページはブラウザ履歴には記録されません。Cookie などの記録も、ログアウトするとパソコンから消去されます。ダウンロードしたファイルや追加したブックマークは保持されません。</translation>
 <translation id="5379140238605961210">マイクへのアクセスを引き続きブロックする</translation>
 <translation id="5379268888377976432">削除を取り消す</translation>
@@ -4386,6 +4389,7 @@
 <translation id="7663719505383602579">レシーバー: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">サポートされていない Bluetooth デバイス: 「<ph name="DEVICE_NAME" />」</translation>
 <translation id="7665369617277396874">アカウントを追加</translation>
+<translation id="7667248760110172428">外部ストレージ</translation>
 <translation id="7671130400130574146">システム タイトル バーと枠線の使用</translation>
 <translation id="7672520070349703697"><ph name="PAGE_TITLE" /> 内の <ph name="HUNG_IFRAME_URL" /> が停止しています。</translation>
 <translation id="7676867886086876795">テキスト欄で音声入力できるように Google に音声を送信します。</translation>
@@ -4589,6 +4593,7 @@
 <translation id="7930294771522048157">保存したお支払い方法がここに表示されます</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> が画面と音声を共有しています。</translation>
 <translation id="7931318309563332511">不明</translation>
+<translation id="7932969338829957666">共有フォルダは Linux では <ph name="BASE_DIR" /> にあります。</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{サイトのミュートを解除}other{サイトのミュートを解除}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> から、保護されたコンテンツの再生許可を求められています。デバイスの識別情報が Google により確認されます。</translation>
 <translation id="793531125873261495">仮想マシンのダウンロード中にエラーが発生しました。もう一度お試しください。</translation>

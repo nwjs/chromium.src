@@ -178,6 +178,13 @@
 
       Kui selle reegli väärtuseks määratakse Väär, ei luba teenus <ph name="PRODUCT_NAME" /> külaliste profiile käivitada.</translation>
 <translation id="1363275621236827384">Lubatakse riistvaraprofiilide päringud Quirks Serverist</translation>
+<translation id="1383493480903114193">Selle reegli tõttu käitatakse võrgustiku koode brauseri protsessis.
+
+      See reegel on vaikimisi keelatud. Kui see lubatakse, võib kasutajatel esineda turvalisuse probleeme, kui võrgustiku protsessi liivakast on piisav.
+
+      See reegel on loodud selleks, et anda ettevõtetele võimalus minna üle kolmanda osapoole tarkvarale, mis ei sõltu võrgustiku APIdest. Puhverservereid soovitatakse rohkem kui LSP-sid ja Win32 API paiku.
+
+      Kui see reegel on määramata, võib võrgustiku kood käivituda väljaspool brauseri protsesse, olenevalt teenuse NetworkService katsejärgust.</translation>
 <translation id="1384459581748403878">Viide: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Määrab, kas usaldada Symantec Corporationi PKI pärandtaristut</translation>
 <translation id="1393485621820363363">Ettevõtte seadmete jaoks lubatud printerid</translation>
@@ -2792,6 +2799,7 @@ IsolateOrigins ja SitePerProcess funktsioonid. Kasutajad saavad reegli IsolateOr
       Active Directory hallatavate seadmete puhul toetab see reegel seadme <ph name="MACHINE_NAME_VARIABLE" /> laiendamist Active Directory seadme nimele või selle alamstringile. Näiteks kui seadme nimi on <ph name="MACHINE_NAME_EXAMPLE" />, asendatakse <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> nelja tähemärgiga pärast kuuendat märki. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Pange tähele, et loendamist alustatakse nullist.
       Funktsiooni <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (väiketähtedega) tugi on versioonis M71 katkestatud ja funktsioon eemaldatakse versioonist M72.
       </translation>
+<translation id="7339315111520512972">Brauseri protsessis võrgustiku koodi käitamise sundimine</translation>
 <translation id="7340034977315324840">Saada teavet seadme aktiivsuse aja kohta</translation>
 <translation id="7343497214039883642">Ettevõtte printerite konfiguratsioonifail seadmetele</translation>
 <translation id="7349338075015720646">Määrab loendi veebisaitidest, mis installitakse märkamatult, ilma et kasutaja peaks sekkuma.

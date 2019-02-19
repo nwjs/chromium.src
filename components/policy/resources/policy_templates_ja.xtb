@@ -175,6 +175,13 @@
 
 このポリシーが false に設定されている場合、ゲストモードのプロフィールで <ph name="PRODUCT_NAME" /> を使用することはできません。</translation>
 <translation id="1363275621236827384">ハードウェア プロファイルを Quirks サーバーに問い合わせられるようにする</translation>
+<translation id="1383493480903114193">このポリシーでは、ネットワーク用のコードがブラウザ プロセスで実行されます。
+
+      デフォルトでは、このポリシーは無効です。有効にした場合、ネットワーク プロセスがサンドボックス化されると、ユーザーはセキュリティの問題から保護されなくなります。
+
+      このポリシーは、企業がネットワーク API のフックに依存しないサードパーティのソフトウェアに移行できるようにすることを目的としたものです。LSP や Win32 API のパッチ適用にはプロキシ サーバーをおすすめします。
+
+      このポリシーが未設定の場合、ネットワーク用のコードは、NetworkService のフィールド テストに応じて、ブラウザ プロセス以外でも実行されます。</translation>
 <translation id="1384459581748403878">参考: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Symantec Corporation の古い PKI インフラストラクチャを信頼するかどうか</translation>
 <translation id="1393485621820363363">有効な企業デバイス プリンタ</translation>
@@ -2694,6 +2701,7 @@
       Active Directory の管理下にあるデバイスの場合、このポリシーでは、<ph name="MACHINE_NAME_VARIABLE" /> から Active Directory のマシン名またはその部分文字列への展開がサポートされます。たとえばマシン名が <ph name="MACHINE_NAME_EXAMPLE" /> の場合、<ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> は 6 文字目以降の 4 文字、つまり <ph name="MACHINE_NAME_PART_EXAMPLE" /> に置き換えられます（先頭をゼロ文字目として数えます）。
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" />（小文字）は M71 でサポートされなくなり、M72 で削除されます。
       </translation>
+<translation id="7339315111520512972">ネットワーク用のコードをブラウザ プロセスで実行します</translation>
 <translation id="7340034977315324840">デバイス操作時間を報告する</translation>
 <translation id="7343497214039883642">デバイスの企業プリンタ設定ファイル</translation>
 <translation id="7349338075015720646">ユーザーに操作を求めずに自動インストールするウェブサイトのリストを指定します。ユーザーはここで指定されたウェブサイトをアンインストールすることも無効化することもできません。

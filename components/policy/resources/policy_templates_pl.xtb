@@ -172,6 +172,13 @@
 
       Jeśli zasada jest wyłączona, <ph name="PRODUCT_NAME" /> nie zezwala na uruchamianie sesji gościa.</translation>
 <translation id="1363275621236827384">Włącz wysyłanie zapytań o profile sprzętowe do Quirks Server</translation>
+<translation id="1383493480903114193">Ta zasada wymusza działanie kodu obsługi sieci w procesie przeglądarki.
+
+      Ta zasada jest domyślnie wyłączona. Jej włączenie naraża bezpieczeństwo użytkowników po przeniesieniu procesu obsługi sieci do piaskownicy.
+
+      Tę zasadę wprowadzono, by umożliwić firmom przejście na oprogramowanie innych firm, które nie wymaga łączenia z interfejsami API obsługi sieci. Zamiast używania LSP i stosowania poprawek do interfejsu API Win32 zalecane jest używanie serwerów proxy.
+
+      Jeśli ta zasada jest nieskonfigurowana, kod obsługi sieci może działać poza procesem przeglądarki w zależności od wersji eksperymentu NetworkService.</translation>
 <translation id="1384459581748403878">Odniesienie: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Czy włączyć zaufanie w starszej infrastrukturze klucza publicznego Symantec Corporation</translation>
 <translation id="1393485621820363363">Włączone drukarki firmowe powiązane z urządzeniami</translation>
@@ -2692,6 +2699,7 @@ W przypadku nieskonfigurowania tej zasady użytkownik będzie mógł wybrać, cz
       W przypadku urządzeń zarządzanych przez Active Directory ta zasada obsługuje rozwijanie ciągu <ph name="MACHINE_NAME_VARIABLE" /> do nazwy komputera w Active Directory lub części tej nazwy. Jeśli na przykład nazwą komputera jest <ph name="MACHINE_NAME_EXAMPLE" />, to ciąg <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> zostanie zastąpiony przez cztery znaki po 6. miejscu, czyli <ph name="MACHINE_NAME_PART_EXAMPLE" />. Miejsca liczymy od zera.
       Obsługa ciągu <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (małe litery) została wycofana w wersji M71 i zostanie usunięta w M72.
       </translation>
+<translation id="7339315111520512972">Wymuś działanie kodu obsługi sieci wewnątrz procesu przeglądarki</translation>
 <translation id="7340034977315324840">Zgłoś godziny aktywności urządzenia</translation>
 <translation id="7343497214039883642">Plik konfiguracji drukarek firmowych dla urządzeń</translation>
 <translation id="7349338075015720646">Określa listę witryn internetowych instalowanych dyskretnie, bez interakcji z użytkownikiem, których użytkownik nie może odinstalować ani wyłączyć.

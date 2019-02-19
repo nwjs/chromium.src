@@ -293,6 +293,7 @@
 <translation id="3166827708714933426">ટૅબ અને વિંડો શૉર્ટકટ્સ</translation>
 <translation id="3190152372525844641"><ph name="BEGIN_LINK" />Android સેટિંગ્સ<ph name="END_LINK" />માં Chrome માટે પરવાનગીઓ ચાલુ કરો.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> સંગ્રહિત ડેટા</translation>
+<translation id="3205824638308738187">લગભગ સમાપ્ત થયું!</translation>
 <translation id="3207960819495026254">બુકમાર્ક કરેલ</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> કાઢી નાખી</translation>
 <translation id="321773570071367578">જો તમે તમારો પાસફ્રેઝ ભૂલી ગયાં હોવ અથવા આ સેટિંગ બદલવા માંગતા હોવ, તો <ph name="BEGIN_LINK" />સમન્વયનને ફરીથી સેટ કરો<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@
 <translation id="3744111561329211289">પૃષ્ઠભૂમિ સમન્વયન</translation>
 <translation id="3745176700485982507">તમારી મનપસંદ વેબસાઇટની લિંક આ પેજ પર મળી શકે છે</translation>
 <translation id="3751110998481776724">એક ઝલક <ph name="BEGIN_NEW" />નવું<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">અપડેટ ડાઉનલોડ કરી શકાઈ નથી</translation>
 <translation id="3773755127849930740">જોડી કરવાની મંજૂરી આપવા માટે <ph name="BEGIN_LINK" />Bluetooth ચાલુ કરો<ph name="END_LINK" /></translation>
 <translation id="3778956594442850293">હોમ સ્ક્રીન પર ઉમેર્યું</translation>
 <translation id="3781011235031427080">"આના જેવી વધુ" શીટ અડધી ઊંચાઈએ ખુલી</translation>
@@ -536,6 +538,7 @@
 <translation id="497421865427891073">આગળ જાઓ</translation>
 <translation id="4988210275050210843">(<ph name="MEGABYTES" />)ની ફાઇલ ડાઉનલોડ કરી રહ્યાં છીએ.</translation>
 <translation id="4988526792673242964">પૃષ્ઠો</translation>
+<translation id="4994033804516042629">કોઈ સંપર્કો મળ્યા નથી</translation>
 <translation id="4996978546172906250">આનાથી શેર કરો</translation>
 <translation id="5004416275253351869">Google પ્રવૃત્તિ નિયંત્રણો</translation>
 <translation id="5005498671520578047">પાસવર્ડની કૉપિ કરો</translation>
@@ -938,6 +941,7 @@
 <translation id="7929962904089429003">મેનૂ ખોલો</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> જૂનું થઈ ગયું છે.</translation>
 <translation id="7947953824732555851">સ્વીકારો અને સાઇન ઇન કરો</translation>
+<translation id="7960977077911686065">આગળ વધીને, તમે સંમત થાઓ છો કે આ સેવા પૂરી પાડવા માટે, Chromeનો ઑટોમૅટિક રીતે ભરવાનો ડેટા, સાઇટની URL અને તેનું કન્ટેન્ટ Chrome, Googleને મોકલશે. તમે એ બાબત સાથે પણ સંમત થાઓ છો કે Chrome તમે પસંદ કરેલો વ્યક્તિગત ડેટા Chromeની ઑટોમૅટિક રીતે ભરવાની સુવિધા મારફતે વેબસાઇટને મોકલશે. \n\nChrome અને Chromeની ઑટોમૅટિક રીતે ભરવાની સુવિધામાં Google આસિસ્ટંટને બંધ કરવા માટે Chrome સેટિંગની મુલાકાત લો.  <ph name="BEGIN_LINK" />વધુ જાણો<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">વિક્રેતા:</translation>
 <translation id="7981313251711023384">ઝડપી બ્રાઉઝિંગ અને શોધ માટે પેજને પહેલેથી લોડ કરો</translation>
 <translation id="79859296434321399">ઑગ્મેન્ટેડ રિયાલિટી કન્ટેન્ટ જોવા માટે, ARCore ઇન્સ્ટૉલ કરો</translation>
@@ -1098,6 +1102,7 @@
 <translation id="9100610230175265781">પાસફ્રેઝ આવશ્યક છે</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">મૂળ બતાવો</translation>
+<translation id="9138504265731110181">Google આસિસ્ટંટ વેબસાઇટના ચેકઆઉટમાં તમારી સહાય કરીને તમારો સમય બચાવે છે</translation>
 <translation id="9139068048179869749">સાઇટ્સને સૂચનાઓ મોકલતાં પહેલાં પૂછો (ભલામણ કરેલ)</translation>
 <translation id="9139318394846604261">ખરીદી</translation>
 <translation id="9155898266292537608">તમે કોઈએક શબ્દ પર ટૅપ કરીને પણ ઝડપથી શોધી શકો છો</translation>

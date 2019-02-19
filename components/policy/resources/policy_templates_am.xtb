@@ -162,6 +162,13 @@
 
       ይህ መመሪያ ወደ ሐሰት ከተዋቀረ <ph name="PRODUCT_NAME" /> የእንግዳ መገለጫዎች እንዲጀምሩ አይፈቅድም።</translation>
 <translation id="1363275621236827384">የሃርድዌር መገለጫዎች መጠይቆች ለQuirks Server እንዲደረጉ ያንቁ</translation>
+<translation id="1383493480903114193">ይህ መመሪያ የአውታረ መረብ ኮዱ በአሳሽ ሂደቱ ላይ እንዲያሄድ ያስገድደዋል።
+
+      ይህ መመሪያ በነባሪነት ይሰናከላል፣ እና ከነቃ አንዴ የአውታረ መረብ ሂደቱ ከታጠረ በኋላ ተጠቃሚዎችን ለደህንነት ችግሮቹ ክፍት ይተዋቸዋል።
+
+      ይህ መመሪያ ድርጅቶች የአውታረ መረብ ኤፒአዮችን በመያዝ ላይ የማይወሰኑ የ3ኛ ወገን ሶፍትዌርን እንዲያዛውሩ ዕድል ለመስጠት የታሰበ ነው። ከLSPs እና Win32 ኤፒአይ መጠገን ይልቅ ተኪ አገልጋዮች ይመከራሉ።
+
+      ይህ መመሪያ ካልተዋቀረ በNetworkService ሙከራው የሙከራ መስኮች ላይ የሚወሰን ሆኖ የአውታረ መረብ ኮድ የአሳሽ ሂደት ሊያልቅበት ይችላል።</translation>
 <translation id="1384459581748403878">ዋቢ፦ <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">በSymantec Corporation የLegacy PKI Infrastructure ውስጥ እምነትን ማንቃት ወይም አለማንቃት</translation>
 <translation id="1393485621820363363">የድርጅት መሣሪያ አታሚዎች አንቅቷል</translation>
@@ -2772,6 +2779,7 @@
       በገቢር ማውጫ ለሚተዳደሩ መሣሪያዎች ይህ መመሪያ ወደ <ph name="MACHINE_NAME_VARIABLE" /> የገቢር ማውጫ ማሽን ስም ወይም ወደ የእሱ ንዑስ ሕብረቁምፊ ማስፋፋትን ይደግፋል። ለምሳሌ፣ የማሽኑ ስም <ph name="MACHINE_NAME_EXAMPLE" /> ከሆነ <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> ከ6ኛው ቦታ በሚጀምሩ 4 ሕብረቁምፊዎች ይተካል፤ ማለትም ለምሳሌ <ph name="MACHINE_NAME_PART_EXAMPLE" />። ቦታው በዜሮ ላይ የተመሠረተ እንደሆነ ልብ ይበሉ።
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (ንዑስ ሆሄ) በM71 ውስጥ ተቋርጧል እና በM72 ውስጥ ይወገዳል።
       </translation>
+<translation id="7339315111520512972">የአውታረ መረብ ኮድ በአሳሽ ሂደቱ ላይ እንዲያሄድ አስገድድ</translation>
 <translation id="7340034977315324840">የመሣሪያ እንቅስቃሴዎች ብዛት ሪፖርት ያድርጉ</translation>
 <translation id="7343497214039883642">የድርጅት አታሚ ውቅረት ፋይል ለመሣሪያዎች</translation>
 <translation id="7349338075015720646">ያለተጠቃሚ መስተጋብር ያለተጠቃሚው ተሳትፎ በጸጥታ የተጫኑ እና ሊራገፉ የማይችሉ ወይም በተጠቃሚው ሊሰናከሉ የማይችሉ የድር ጣቢያዎችን ዝርዝር ይጠቅሳል።

@@ -293,6 +293,7 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="3166827708714933426">Sekme ve pencere kısayolları</translation>
 <translation id="3190152372525844641"><ph name="BEGIN_LINK" />Android Ayarları<ph name="END_LINK" />'nda Chrome için izinleri açın.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> depolanmış veri</translation>
+<translation id="3205824638308738187">Çok az kaldı!</translation>
 <translation id="3207960819495026254">Yer işareti koyuldu</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> silindi</translation>
 <translation id="321773570071367578">Parolanızı unuttuysanız veya bu ayarı değiştirmek istiyorsanız <ph name="BEGIN_LINK" />senkronizasyonu sıfırlayın<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="3744111561329211289">Arka plan senkronizasyonu</translation>
 <translation id="3745176700485982507">Bu sayfada favori web sitelerinize bağlantılar bulabilirsiniz</translation>
 <translation id="3751110998481776724">Hızlı göz at <ph name="BEGIN_NEW" />Yeni<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Güncelleme indirilemedi</translation>
 <translation id="3773755127849930740">Eşleşmeye izin vermek için <ph name="BEGIN_LINK" />Bluetooth'u açın<ph name="END_LINK" /></translation>
 <translation id="3778956594442850293">Ana ekrana eklendi</translation>
 <translation id="3781011235031427080">Yarım yükseklikte açılan, bunun gibi daha fazlası sayfası</translation>
@@ -536,6 +538,7 @@ Bu ayarı değiştirmek için <ph name="BEGIN_LINK" />senkronizasyonu sıfırlay
 <translation id="497421865427891073">İlerle</translation>
 <translation id="4988210275050210843">Dosya indiriliyor (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Sayfalar</translation>
+<translation id="4994033804516042629">Kişi bulunamadı</translation>
 <translation id="4996978546172906250">Paylaşım yöntemi:</translation>
 <translation id="5004416275253351869">Google etkinlik kontrolleri</translation>
 <translation id="5005498671520578047">Şifreyi kopyalayın</translation>
@@ -938,6 +941,7 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="7929962904089429003">Menüyü açar</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> güncel değil.</translation>
 <translation id="7947953824732555851">Kabul et ve oturum aç</translation>
+<translation id="7960977077911686065">Devam ederek, Chrome'un, bu hizmeti sağlamak amacıyla Chrome Otomatik Doldurma özelliğinden verileri, sitenin URL'sini ve içeriğini Google'a göndermesini kabul etmiş olursunuz. Ayrıca Chrome'un, seçtiğiniz kişisel verileri Chrome Otomatik Doldurma özelliği üzerinden web sitesine göndermesini de kabul etmiş olursunuz. \n\nChrome'da ve Chrome Otomatik Doldurma özelliğinde Google Asistan'ı kapatmak için Chrome ayarlarına gidin.  <ph name="BEGIN_LINK" />Daha fazla bilgi<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Firma:</translation>
 <translation id="7981313251711023384">Daha hızlı göz atmak ve arama yapmak için sayfaları önceden yükle</translation>
 <translation id="79859296434321399">Artırılmış gerçeklik içeriğini görüntülemek için ARCore'u yükleyin</translation>
@@ -1098,6 +1102,7 @@ Yine de, görünmez olmazsınız. Gizli moda geçmeniz web'de yaptıklarınızı
 <translation id="9100610230175265781">Parola gerekli</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Orijinali göster</translation>
+<translation id="9138504265731110181">Google Asistan, internette ödeme yapmanıza yardımcı olarak size zaman kazandırır.</translation>
 <translation id="9139068048179869749">Sitelerin bildirim göndermesine izin vermeden önce size sorulsun (önerilir)</translation>
 <translation id="9139318394846604261">Alışveriş</translation>
 <translation id="9155898266292537608">Bir kelimeye hızlıca dokunarak da arama yapabilirsiniz</translation>

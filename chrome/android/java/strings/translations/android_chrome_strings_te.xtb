@@ -293,6 +293,7 @@
 <translation id="3166827708714933426">ట్యాబ్ మరియు విండో షార్ట్‌క‌ట్‌లు</translation>
 <translation id="3190152372525844641"><ph name="BEGIN_LINK" />Android సెట్టింగ్‌లు<ph name="END_LINK" />లో Chrome కోసం అనుమతులను ఆన్ చేయండి.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> నిల్వ డేటా</translation>
+<translation id="3205824638308738187">దాదాపు పూర్తయింది!</translation>
 <translation id="3207960819495026254">బుక్‌మార్క్ చేయబడింది</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> తొలగించబడింది</translation>
 <translation id="321773570071367578">మీరు మీ రహస్య పదబంధాన్ని మర్చిపోతే లేదా ఈ సెట్టింగ్‌ను మార్చాలనుకుంటే, <ph name="BEGIN_LINK" />సింక్‌ను రీసెట్ చేయండి<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@
 <translation id="3744111561329211289">నేపథ్య సమకాలీకరణ</translation>
 <translation id="3745176700485982507">మీ ఇష్టమైన వెబ్‌సైట్‌ల లింక్‌లను ఈ పేజీలో పొందవచ్చు</translation>
 <translation id="3751110998481776724">ప్రివ్యూ చూపు <ph name="BEGIN_NEW" />కొత్తది<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">అప్‌డేట్‌ను డౌన్‌లోడ్ చేయడం సాధ్యపడలేదు</translation>
 <translation id="3773755127849930740">జత చేయడాన్ని అనుమతించడానికి <ph name="BEGIN_LINK" />బ్లూటూత్‌ను ఆన్ చేయండి<ph name="END_LINK" /></translation>
 <translation id="3778956594442850293">హోమ్ స్క్రీన్‌కు జోడించబడింది</translation>
 <translation id="3781011235031427080">సగం ఎత్తులో ఇలాంటివి మరిన్ని షీట్ తెరవబడింది</translation>
@@ -536,6 +538,7 @@
 <translation id="497421865427891073">ముందుకు వెళ్ళు</translation>
 <translation id="4988210275050210843">ఫైల్‌ను డౌన్‌లోడ్ చేస్తోంది (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">పేజీలు</translation>
+<translation id="4994033804516042629">పరిచయాలు కనుగొనబడలేదు</translation>
 <translation id="4996978546172906250">దీని ద్వారా భాగస్వామ్యం చే.</translation>
 <translation id="5004416275253351869">Google కార్యకలాప నియంత్రణలు</translation>
 <translation id="5005498671520578047">పాస్‌వర్డ్ కాపీచేయడం</translation>
@@ -938,6 +941,7 @@
 <translation id="7929962904089429003">మెనూను తెరవండి</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> కాలం చెల్లినది.</translation>
 <translation id="7947953824732555851">ఆమోదించి, సైన్ ఇన్ చేయండి</translation>
+<translation id="7960977077911686065">కొనసాగించడం ద్వారా, Chrome ఈ సేవను అందించడానికి Chrome స్వీయ పూరింపు, సైట్ URL మరియు దాని కంటెంట్ నుండి డేటాను Googleకు పంపడానికి మీరు అంగీకరిస్తున్నారు. Chrome మీరు ఎంచుకున్న వ్యక్తిగత డేటాను Chrome స్వీయ పూరింపు ద్వారా వెబ్‌సైట్‌కు పంపేందుకు కూడా మీరు అంగీకరిస్తున్నారు. \n\nChrome మరియు Chrome స్వీయ పూరింపులో Google అసిస్టెంట్‌ను ఆఫ్ చేయడానికి Chrome సెట్టింగ్‌లను సందర్శించండి.  <ph name="BEGIN_LINK" />మరింత తెలుసుకోండి<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">విక్రేత:</translation>
 <translation id="7981313251711023384">వేగవంతమైన బ్రౌజింగ్ మరియు శోధన కోసం పేజీలను ముందస్తుగా లోడ్ చేస్తుంది</translation>
 <translation id="79859296434321399">మెరుగైన వాస్తవిక అనుభవ కంటెంట్‌ను చూడడానికి, ARCoreని ఇన్‌స్టాల్ చేయండి</translation>
@@ -1098,6 +1102,7 @@
 <translation id="9100610230175265781">రహస్య పదబంధం అవసరం</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">అసలును చూపించు</translation>
+<translation id="9138504265731110181">వెబ్‌లో తనిఖీ చేయడం ద్వారా Google అసిస్టెంట్ మీ సమయాన్ని ఆదా చేయడంలో మీకు సహాయపడుతుంది.</translation>
 <translation id="9139068048179869749">సైట్‌లను నోటిఫికేషన్‌లు పంపేందుకు అనుమతించడానికి ముందు మిమ్మల్ని అడుగుతుంది (సిఫార్సు చేయబడింది)</translation>
 <translation id="9139318394846604261">షాపింగ్</translation>
 <translation id="9155898266292537608">ఒక పదంపై నొక్కడం ద్వారా కూడా మీరు త్వరగా వెతకవచ్చు</translation>

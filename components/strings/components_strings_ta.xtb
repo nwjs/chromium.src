@@ -22,7 +22,7 @@
 <translation id="1103523840287552314">எப்போதும் இந்த மொழியை மொழிபெயர் <ph name="LANGUAGE" /></translation>
 <translation id="1107591249535594099">இது தேர்ந்தெடுக்கப்பட்டால், விரைவாக படிவங்களை நிரப்புவதற்காக, Chrome இந்த கார்டின் பிரதியை சாதனத்தில் சேமிக்கும்.</translation>
 <translation id="1110994991967754504"><ph name="PERMISSION_NAME" />க்கான அனுமதியைத் தேர்ந்தெடுக்கவும்</translation>
-<translation id="1111153019813902504">சமீபத்திய புத்தகக்குறிகள்</translation>
+<translation id="1111153019813902504">சமீபத்திய புக்மார்க்குகள்</translation>
 <translation id="1113869188872983271">&amp;மறுவரிசைப்படுத்தலைச் செயல்தவிர்</translation>
 <translation id="1125573121925420732">இணையதளங்கள் தங்கள் பாதுகாப்பைப் புதுப்பிக்கும் போது, எச்சரிக்கைகளைக் காண்பிப்பது வழக்கம் தான். இந்த நிலை விரைவில் மேம்படும்.</translation>
 <translation id="1126551341858583091">அகச் சேமிப்பகத்தில் <ph name="CRASH_SIZE" /> அளவு உள்ளது.</translation>
@@ -173,7 +173,7 @@
 <translation id="194030505837763158"><ph name="LINK" /> க்குச் செல்க</translation>
 <translation id="1945968466830820669">உங்கள் நிறுவனத்தின் கணக்கிற்கான அணுகலை நீங்கள் இழக்கக்கூடும் அல்லது அடையாளத் திருட்டை எதிர்கொள்ளக்கூடும். இப்போதே உங்கள் கடவுச்சொல்லை மாற்றும்படி Chromium பரிந்துரைக்கிறது.</translation>
 <translation id="1948773908305951926">ஏற்கப்படும் ப்ரீபெய்டு கார்டுகள்</translation>
-<translation id="1962204205936693436"><ph name="DOMAIN" /> புத்தகக்குறிகள்</translation>
+<translation id="1962204205936693436"><ph name="DOMAIN" /> புக்மார்க்குகள்</translation>
 <translation id="1973335181906896915">தொடராக்க பிழை</translation>
 <translation id="1974060860693918893">மேம்பட்டவை</translation>
 <translation id="1978555033938440688">நிலைப்பொருளின் பதிப்பு</translation>
@@ -391,7 +391,7 @@
 <translation id="337363190475750230">விடுவித்தது</translation>
 <translation id="3377188786107721145">கொள்கையை அலசுவதில் பிழை</translation>
 <translation id="3380365263193509176">அறியப்படாத பிழை</translation>
-<translation id="3380864720620200369">கிளையன்ட் ஐடி:</translation>
+<translation id="3380864720620200369">கிளையண்ட் ஐடி:</translation>
 <translation id="3387261909427947069">கட்டண முறைகள்</translation>
 <translation id="3391030046425686457">டெலிவரி முகவரி</translation>
 <translation id="3395827396354264108">பிக்அப் முறை</translation>
@@ -907,7 +907,7 @@
 <translation id="6886577214605505410"><ph name="LOCATION_TITLE" /> <ph name="SHORT_URL" /></translation>
 <translation id="6891596781022320156">கொள்கையின் நிலை ஆதரிக்கப்படவில்லை.</translation>
 <translation id="6895330447102777224">கார்டு உறுதிசெய்யப்பட்டது</translation>
-<translation id="6897140037006041989">பயனர் முகவர்</translation>
+<translation id="6897140037006041989">பயனர் ஏஜெண்ட்</translation>
 <translation id="6903319715792422884">Googleளுக்குச் சில <ph name="BEGIN_WHITEPAPER_LINK" />சாதனத் தகவல்களையும் பக்க உள்ளடக்கத்தையும்<ph name="END_WHITEPAPER_LINK" /> அனுப்புவதன் மூலம் பாதுகாப்பான உலாவலை மேம்படுத்த உதவுங்கள். <ph name="PRIVACY_PAGE_LINK" /></translation>
 <translation id="6915804003454593391">பயனர்:</translation>
 <translation id="6934672428414710184">இந்தப் பெயர் உங்கள் ‘Google கணக்கிலிருந்து’ பெறப்பட்டது</translation>
@@ -1168,10 +1168,10 @@
 <translation id="8363502534493474904">விமானப் பயன்முறையை முடக்குதல்</translation>
 <translation id="8364627913115013041">அமைக்கப்படவில்லை.</translation>
 <translation id="8368476060205742148">Google Play சேவைகள்</translation>
-<translation id="8371889962595521444">தனிப்பயன் முதன்மை சான்றிதழ்கள்</translation>
+<translation id="8371889962595521444">பிரத்தியேகமான முதன்மை சான்றிதழ்கள்</translation>
 <translation id="8380941800586852976">ஆபத்தானது</translation>
 <translation id="8381674639488873545">இந்தக் கட்டணங்கள் ஒருமுறை அல்லது தொடர்ந்து வசூலிக்கப்படலாம், அவை வெளிப்படையாகத் தெரிவிக்கப்படாமல் இருக்கலாம். <ph name="BEGIN_LINK" />எனினும் காண்பி<ph name="END_LINK" /></translation>
-<translation id="8382348898565613901">நீங்கள் சமீபத்தில் பார்வையிட்ட புத்தகக்குறிகள் இங்கே தோன்றும்</translation>
+<translation id="8382348898565613901">நீங்கள் சமீபத்தில் பார்வையிட்ட புக்மார்க்குகள் இங்கே தோன்றும்</translation>
 <translation id="8398259832188219207">சிதைவு அறிக்கை பதிவேற்றப்பட்ட தேதி: <ph name="UPLOAD_TIME" /></translation>
 <translation id="8412145213513410671">செயலிழப்புகள் (<ph name="CRASH_COUNT" />)</translation>
 <translation id="8412392972487953978">நீங்கள் கண்டிப்பாக ஒரே கடவுச்சொற்றொடரை இரு முறை உள்ளிட வேண்டும்.</translation>
@@ -1224,7 +1224,7 @@
 <translation id="8790007591277257123">&amp;நீக்குதலை மீண்டும் செய்</translation>
 <translation id="8792621596287649091"><ph name="ORG_NAME" /> கணக்கிற்கான அணுகலை நீங்கள் இழக்கக்கூடும் அல்லது அடையாளத் திருட்டை எதிர்கொள்ளக்கூடும். இப்போதே உங்கள் கடவுச்சொல்லை மாற்றும்படி Chromium பரிந்துரைக்கிறது.</translation>
 <translation id="8800988563907321413">உங்கள் அருகிலுள்ளவற்றுக்கான பரிந்துரைகள் இங்கே தோன்றும்</translation>
-<translation id="8820817407110198400">புத்தகக்குறிகள்</translation>
+<translation id="8820817407110198400">புக்மார்க்குகள்</translation>
 <translation id="883848425547221593">மற்ற புக்மார்க்குகள்</translation>
 <translation id="884264119367021077">ஷிப்பிங் முகவரி</translation>
 <translation id="884923133447025588">திரும்பப்பெறுதல் செயல்முறை காணப்படவில்லை.</translation>
@@ -1239,7 +1239,7 @@
 <translation id="8932102934695377596">உங்கள் கடிகாரம் மிகவும் பின்தங்கி இருக்கிறது</translation>
 <translation id="893332455753468063">பெயரைச் சேர்க்கவும்</translation>
 <translation id="8938939909778640821">ஏற்கப்படும் கிரெடிட் மற்றும் ப்ரீபெய்டு கார்டுகள்</translation>
-<translation id="894185898663964645">தனிப்பயன் முதன்மை சான்றிதழ்களை உங்கள் நிர்வாகி உள்ளமைத்துள்ளார், இதன் மூலம் நீங்கள் பார்வையிடும் இணையதளங்களின் உள்ளடக்கங்களை நிர்வாகியால் பார்க்க முடியும்.</translation>
+<translation id="894185898663964645">பிரத்தியேகமான முதன்மை சான்றிதழ்களை உங்கள் நிர்வாகி உள்ளமைத்துள்ளார், இதன் மூலம் நீங்கள் பார்வையிடும் இணையதளங்களின் உள்ளடக்கங்களை நிர்வாகியால் பார்க்க முடியும்.</translation>
 <translation id="8943282376843390568">சுண்ணாம்பு நிறம்</translation>
 <translation id="8957210676456822347">கேப்டிவ் போர்டல் அங்கீகாரம்</translation>
 <translation id="8968766641738584599">கார்டைச் சேமி</translation>

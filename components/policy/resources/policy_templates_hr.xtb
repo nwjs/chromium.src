@@ -163,6 +163,13 @@
 
       Ako se pravilo postavi na "False", <ph name="PRODUCT_NAME" /> neće dopustiti pokretanje profila gostiju.</translation>
 <translation id="1363275621236827384">Omogući slanje upita na Quirks Server za hardverske profile</translation>
+<translation id="1383493480903114193">To pravilo prisilno pokreće kôd za umrežavanje u procesu preglednika.
+
+      To je pravilo onemogućeno prema zadanim postavkama i ako se omogući, korisnici će biti izloženi sigurnosnim poteškoćama kada proces umrežavanja bude u testnom okruženju.
+
+      Tim se pravilom želi pružiti mogućnost organizacijama za prijelaz na softver treće strane koji ne ovisi o povezivanju API-ja za umrežavanje. Proxy poslužitelji preporučuju se putem LSP-ova i uz primjenu zakrpe API-ja Win32.
+
+      Ako se pravilo ne postavi, kôd za umrežavanje može ostati bez procesa preglednika ovisno o radnim verzijama eksperimenta NetworkService.</translation>
 <translation id="1384459581748403878">Referenca: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Odlučivanje o pouzdanosti naslijeđene infrastrukture javnog ključa tvrtke Symantec Corporation</translation>
 <translation id="1393485621820363363">Omogućeni pisači za uređaje tvrtke</translation>
@@ -2685,6 +2692,7 @@ onemogućene. Korisnici će još uvijek moći ručno omogućiti SitePerProcess.
       Za uređaje kojima upravlja Active Directory to pravilo podržava proširivanje naziva uređaja <ph name="MACHINE_NAME_VARIABLE" /> na naziv uređaja Active Directoryja ili njegov podniz. Na primjer, ako naziv uređaja glasi <ph name="MACHINE_NAME_EXAMPLE" />, <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> se zamjenjuje s četiri znaka počevši od šestog položaja, tj. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Položaj je utemeljen na nuli.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (mala slova) obustavlja se u verziji M71 i uklonit će se u verziji M72.
       </translation>
+<translation id="7339315111520512972">Nametni pokretanje koda za umrežavanje u procesu preglednika</translation>
 <translation id="7340034977315324840">Izvješće o vremenima aktivnosti uređaja</translation>
 <translation id="7343497214039883642">Datoteka za konfiguraciju pisača tvrtke za uređaje</translation>
 <translation id="7349338075015720646">Određuje popis web-lokacija koje su instalirane u pozadini, bez interakcije korisnika te se ne mogu deinstalirati niti ih korisnik može onemogućiti.

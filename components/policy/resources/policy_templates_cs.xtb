@@ -160,6 +160,13 @@ Hodnota prodloužení musí být 100 % nebo více.</translation>
 
 Pokud je tato zásada nastavena na hodnotu False, <ph name="PRODUCT_NAME" /> vytváření profilů hosta nepovolí.</translation>
 <translation id="1363275621236827384">Povolit dotazy na server Quirks pro hardwarové profily</translation>
+<translation id="1383493480903114193">Tato zásada vynucuje spuštění kódu pro sítě v procesu prohlížeče.
+
+      Tato zásada je ve výchozím nastavení vypnutá. Pokud ji zapnete, budou uživatelé po přesunutí procesu pro sítě do izolovaného prostoru vystaveni bezpečnostním rizikům.
+
+      Účelem této zásady je umožnit organizacím přejít na software třetích stran, který není závislý na propojení s rozhraními API pro sítě. Proxy servery se doporučují prostřednictvím LSP a oprav rozhraní Win32 API.
+
+      Pokud tato zásada není nastavená, kód pro sítě se může spouštět mimo proces prohlížeče v závislosti na zkouškách experimentu NetworkService.</translation>
 <translation id="1384459581748403878">Reference: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Zda důvěřovat starší infrastruktuře PKI od společnosti Symantec</translation>
 <translation id="1393485621820363363">Povolené podnikové tiskárny pro zařízení</translation>
@@ -2720,6 +2727,7 @@ Tato zásada nemá vliv na to, zda uživatelé mohou konfigurovat tiskárny na j
 U zařízení spravovaných pomocí služby Active Directory tato zásada podporuje rozšíření <ph name="MACHINE_NAME_VARIABLE" /> na název počítače ve službě Active Directory nebo jeho podřetězec. V případě názvu počítače <ph name="MACHINE_NAME_EXAMPLE" /> by byl řetězec <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> nahrazen čtyřmi znaky po šesté pozici, tj. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Pozice se počítají od nuly.
 Podpora proměnné <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" />(malá písmena) je ve verzi M71 ukončena ve verzi M72 bude odstraněna.
       </translation>
+<translation id="7339315111520512972">Vynutit spuštění kódu pro sítě v procesu prohlížeče</translation>
 <translation id="7340034977315324840">Hlásit časy aktivity zařízení</translation>
 <translation id="7343497214039883642">Konfigurační soubor podnikových tiskáren pro zařízení</translation>
 <translation id="7349338075015720646">Určuje seznam webových stránek, které se instalují na pozadí bez zásahu uživatele a které uživatel nemůže odinstalovat ani deaktivovat.

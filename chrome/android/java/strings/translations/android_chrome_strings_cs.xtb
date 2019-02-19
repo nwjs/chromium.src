@@ -293,6 +293,7 @@ Nejste však neviditelní. Soukromý režim neskryje vaši aktivitu před zaměs
 <translation id="3166827708714933426">Zkratky pro okna a karty</translation>
 <translation id="3190152372525844641">Oprávnění pro Chrome zapnete v <ph name="BEGIN_LINK" />Nastavení pro Android<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905">Uložená data: <ph name="STORAGE_AMOUNT" /></translation>
+<translation id="3205824638308738187">Skoro hotovo.</translation>
 <translation id="3207960819495026254">Přidáno do záložek</translation>
 <translation id="3211426585530211793">Položka <ph name="ITEM_TITLE" /> byla smazána</translation>
 <translation id="321773570071367578">Pokud jste heslovou frázi zapomněli nebo toto nastavení chcete změnit, <ph name="BEGIN_LINK" />resetujte synchronizaci<ph name="END_LINK" />.</translation>
@@ -364,6 +365,7 @@ Nejste však neviditelní. Soukromý režim neskryje vaši aktivitu před zaměs
 <translation id="3744111561329211289">Synchronizace na pozadí</translation>
 <translation id="3745176700485982507">Na této stránce najdete odkazy na své oblíbené weby</translation>
 <translation id="3751110998481776724">Kukátko <ph name="BEGIN_NEW" />Novinka<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Aktualizaci nelze stáhnout</translation>
 <translation id="3773755127849930740">Chcete-li povolit párování, <ph name="BEGIN_LINK" />zapněte Bluetooth<ph name="END_LINK" />.</translation>
 <translation id="3778956594442850293">Přidáno na domovskou obrazovku</translation>
 <translation id="3781011235031427080">Je otevřen list podobných na poloviční výšku</translation>
@@ -536,6 +538,7 @@ Chcete-toto nastavení změnit, <ph name="BEGIN_LINK" />resetujte synchronizaci<
 <translation id="497421865427891073">Vpřed</translation>
 <translation id="4988210275050210843">Stahování souboru (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Stránky</translation>
+<translation id="4994033804516042629">Nebyly nalezeny žádné kontakty</translation>
 <translation id="4996978546172906250">Sdílet prostřednictvím</translation>
 <translation id="5004416275253351869">Ovládací prvky aktivity Google</translation>
 <translation id="5005498671520578047">Kopírování hesla</translation>
@@ -938,6 +941,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="7929962904089429003">Otevřít nabídku</translation>
 <translation id="7942131818088350342">Aplikace <ph name="PRODUCT_NAME" /> je zastaralá.</translation>
 <translation id="7947953824732555851">Přijmout a přihlásit</translation>
+<translation id="7960977077911686065">Pokračováním vyjadřujete souhlas s tím, že Chrome kvůli poskytování této služby bude data z Automatického vyplňování Chrome, adresu URL webu a jeho obsah odesílat do Googlu. Také souhlasíte s tím, že Chrome data, která jste vybrali, prostřednictvím Automatického vyplňování odešle webu. \n\nChcete-li Asistenta Google v Chromu a automatické vyplňování Chrome vypnout, přejděte do nastavení Chromu.  <ph name="BEGIN_LINK" />Další informace<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Dodavatel:</translation>
 <translation id="7981313251711023384">Předběžně načítat stránky pro rychlejší procházení a vyhledávání</translation>
 <translation id="79859296434321399">Chcete-li zobrazit obsah pro rozšířenou realitu, nainstalujte ARCore</translation>
@@ -1098,6 +1102,7 @@ Některé weby mohou například na tento požadavek reagovat tak, že vám zobr
 <translation id="9100610230175265781">Je vyžadována heslová fráze</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Zobrazit originál</translation>
+<translation id="9138504265731110181">Google Assistant vám šetří čas tím, že vám pomáhá dokončovat nákupy na webu</translation>
 <translation id="9139068048179869749">Pokud web bude chtít odesílat oznámení, zobrazit dotaz (doporučeno)</translation>
 <translation id="9139318394846604261">Nákupy</translation>
 <translation id="9155898266292537608">Hledat můžete také rychlým klepnutím na slovo</translation>

@@ -811,6 +811,8 @@
 <translation id="220792432208469595">发送使用情况数据和诊断数据。目前，此设备会自动向 Google 发送诊断数据、设备数据和应用使用情况数据。这些数据会被用来帮助提高系统和应用的稳定性以及实现其他方面的改进。部分汇总数据也会对 Google 应用和合作伙伴（例如 Android 开发者）有所帮助。这项设置是由此设备的所有者强制指定的。如果您已开启“其他网络与应用活动记录”设置，这些数据可能会被保存到您的 Google 帐号中。<ph name="BEGIN_LINK1" />了解详情<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">Zip 归档</translation>
 <translation id="220858061631308971">请在“<ph name="DEVICE_NAME" />”上输入此 PIN 码：</translation>
+<translation id="2213140827792212876">停止共享</translation>
+<translation id="2214018885812055163">共享的文件夹</translation>
 <translation id="2214884991347062907">密码不正确，请重试</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;有 1 行代码未显示出来&gt;}other{&lt;有 <ph name="NUMBER_OF_LINES" /> 行代码未显示出来&gt;}}</translation>
 <translation id="2217501013957346740">新建用户名 -</translation>
@@ -2860,6 +2862,7 @@
 <translation id="5374359983950678924">更改照片</translation>
 <translation id="5376169624176189338">点击可后退，按住可查看历史记录</translation>
 <translation id="5376931455988532197">文件过大</translation>
+<translation id="5377594097385838788">无痕模式</translation>
 <translation id="537813040452600081">当您退出后，您在此窗口中浏览的网页将不会显示在浏览器历史记录中，也不会在计算机上留下其他痕迹（例如Cookie）。您下载的文件和创建的书签将不会保留。</translation>
 <translation id="5379140238605961210">继续禁止使用麦克风</translation>
 <translation id="5379268888377976432">撤消删除操作</translation>
@@ -4370,6 +4373,7 @@
 <translation id="7663719505383602579">接收器：<ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">不支持的蓝牙设备：“<ph name="DEVICE_NAME" />”。</translation>
 <translation id="7665369617277396874">添加帐号</translation>
+<translation id="7667248760110172428">外部存储空间</translation>
 <translation id="7671130400130574146">使用系统标题栏和边框</translation>
 <translation id="7672520070349703697"><ph name="HUNG_IFRAME_URL" />（在 <ph name="PAGE_TITLE" /> 中）。</translation>
 <translation id="7676867886086876795">将您的语音内容发送给 Google，以便能向任何文本字段输入语音内容。</translation>
@@ -4573,6 +4577,7 @@
 <translation id="7930294771522048157">已保存的付款方式会显示在这里</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> 正在共享您的屏幕和音频。</translation>
 <translation id="7931318309563332511">未知</translation>
+<translation id="7932969338829957666">共享的文件夹位于 Linux 中的 <ph name="BASE_DIR" /> 下。</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{将这个网站取消静音}other{将这些网站取消静音}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> 想播放受保护的内容。Google 将对您的设备进行身份验证。</translation>
 <translation id="793531125873261495">下载虚拟机时出错。请重试。</translation>

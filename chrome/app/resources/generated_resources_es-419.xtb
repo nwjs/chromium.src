@@ -811,6 +811,8 @@
 <translation id="220792432208469595">Envía datos de uso y diagnóstico. De forma automática, este dispositivo está enviando a Google datos de diagnóstico y sobre el uso del dispositivo y las apps. Esta información ayudará a lograr la estabilidad de las apps y el sistema, entre otras mejoras. Algunos datos agregados también ayudarán a las apps y los socios de Google, como los desarrolladores de Android. El propietario controla esta configuración. Si habilitaste la "Actividad de web y de aplicaciones adicional", es posible que se almacenen estos datos en tu Cuenta de Google. <ph name="BEGIN_LINK1" />Más información<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">Archivo Zip</translation>
 <translation id="220858061631308971">Ingresa este código PIN en "<ph name="DEVICE_NAME" />":</translation>
+<translation id="2213140827792212876">Dejar de compartir</translation>
+<translation id="2214018885812055163">Carpetas compartidas</translation>
 <translation id="2214884991347062907">La contraseña es incorrecta; vuelve a intentarlo</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;No se muestra una línea&gt;}other{&lt;No se muestran <ph name="NUMBER_OF_LINES" /> líneas&gt;}}</translation>
 <translation id="2217501013957346740">Crear un nombre:</translation>
@@ -2870,6 +2872,7 @@
 <translation id="5374359983950678924">Cambiar imagen</translation>
 <translation id="5376169624176189338">Haz clic para volver atrás o espera para ver el historial</translation>
 <translation id="5376931455988532197">Archivo demasiado grande</translation>
+<translation id="5377594097385838788">Incógnito</translation>
 <translation id="537813040452600081">Las páginas a las que accedas desde esta ventana no aparecerán en el historial del navegador ni dejarán rastros (por ejemplo, cookies) en la computadora una vez que salgas del navegador. Los archivos que descargues y los favoritos que crees no se guardarán.</translation>
 <translation id="5379140238605961210">Seguir bloqueando el acceso al micrófono</translation>
 <translation id="5379268888377976432">Deshacer eliminación</translation>
@@ -2904,7 +2907,7 @@
 <translation id="5427459444770871191">Girar &amp;a la derecha</translation>
 <translation id="542872847390508405">Estás navegando como invitado</translation>
 <translation id="5428850089342283580"><ph name="ACCNAME_APP" /> (actualización disponible)</translation>
-<translation id="5430931332414098647">Conexión instantánea mediante dispositivo portátil</translation>
+<translation id="5430931332414098647">Conexión instantánea mediante dispositivo móvil</translation>
 <translation id="5431318178759467895">Color</translation>
 <translation id="5431825016875453137">OpenVPN/L2TP</translation>
 <translation id="5432996274932278848">Realiza búsquedas en tu dispositivo, la Web y entre las apps. Usa las teclas de flecha para navegar por las apps.</translation>
@@ -4382,6 +4385,7 @@
 <translation id="7663719505383602579">Receptor: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">Dispositivo Bluetooth no compatible: "<ph name="DEVICE_NAME" />"</translation>
 <translation id="7665369617277396874">Agregar cuenta</translation>
+<translation id="7667248760110172428">Almacenamiento externo</translation>
 <translation id="7671130400130574146">Usar la barra de título y los bordes del sistema</translation>
 <translation id="7672520070349703697"><ph name="HUNG_IFRAME_URL" />, en <ph name="PAGE_TITLE" /></translation>
 <translation id="7676867886086876795">Envía tu voz a Google para habilitar el dictado en cualquier campo de texto.</translation>
@@ -4585,6 +4589,7 @@
 <translation id="7930294771522048157">Las formas de pago guardadas se mostrarán aquí</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> comparte tu pantalla y audio.</translation>
 <translation id="7931318309563332511">Desconocido</translation>
+<translation id="7932969338829957666">Las carpetas compartidas están disponibles en Linux, en <ph name="BASE_DIR" />.</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{Activar el sonido del sitio}other{Activar el sonido de los sitios}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> desea reproducir contenido protegido. Google verificará la identidad de tu dispositivo.</translation>
 <translation id="793531125873261495">Se produjo un error al descargar la máquina virtual. Vuelve a intentarlo.</translation>

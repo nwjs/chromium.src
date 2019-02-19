@@ -293,6 +293,7 @@ Kljub temu niste nevidni. Če uporabljate zasebni način, ne skrijete brskanja p
 <translation id="3166827708714933426">Bližnjice za zavihke in okna</translation>
 <translation id="3190152372525844641">V <ph name="BEGIN_LINK" />nastavitvah za Android<ph name="END_LINK" /> vklopite dovoljenja za Chrome.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> shranjenih podatkov</translation>
+<translation id="3205824638308738187">Skoraj končano!</translation>
 <translation id="3207960819495026254">Zaznamovano</translation>
 <translation id="3211426585530211793">Izbrisano: <ph name="ITEM_TITLE" /></translation>
 <translation id="321773570071367578">Če ste pozabili geslo ali želite spremeniti to nastavitev, <ph name="BEGIN_LINK" />ponastavite sinhronizacijo<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@ Kljub temu niste nevidni. Če uporabljate zasebni način, ne skrijete brskanja p
 <translation id="3744111561329211289">Sinhroniziranje v ozadju</translation>
 <translation id="3745176700485982507">Povezave do vaših priljubljenih spletnih mest so na voljo na tej strani</translation>
 <translation id="3751110998481776724">Predogled <ph name="BEGIN_NEW" />Novo<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Posodobitve ni bilo mogoče prenesti</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Vklopite Bluetooth<ph name="END_LINK" />, če želite dovoliti seznanjanje</translation>
 <translation id="3778956594442850293">Dodano na začetni zaslon</translation>
 <translation id="3781011235031427080">Več podobnega odprtega pri polovični višini</translation>
@@ -535,6 +537,7 @@ V Google Računu so morda druge vrste zgodovine brskanja, kot so iskanja in deja
 <translation id="497421865427891073">Pojdi naprej</translation>
 <translation id="4988210275050210843">Prenos datoteke (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Strani</translation>
+<translation id="4994033804516042629">Ni najdenih stikov</translation>
 <translation id="4996978546172906250">Skupna raba prek</translation>
 <translation id="5004416275253351869">Googlovi kontrolniki za dejavnost</translation>
 <translation id="5005498671520578047">Kopiranje gesla</translation>
@@ -937,6 +940,7 @@ Nekatera spletna mesta se lahko na primer na zahtevo odzovejo tako, da prikažej
 <translation id="7929962904089429003">Odpiranje menija</translation>
 <translation id="7942131818088350342">Izdelek <ph name="PRODUCT_NAME" /> je zastarel.</translation>
 <translation id="7947953824732555851">Sprejem in prijava</translation>
+<translation id="7960977077911686065">Če nadaljujete, se strinjate, da Chrome zaradi zagotavljanja te storitve Googlu pošilja podatke samodejnega izpolnjevanja v Chromu, URL spletnega mesta in njegovo vsebino. Strinjate se tudi s tem, da Chrome prek samodejnega izpolnjevanja v Chromu spletnemu mestu pošilja osebne podatke, ki ste jih izbrali. \n\nČe želite izklopiti Pomočnika Google v Chromu in samodejno izpolnjevanje za Chrome, lahko to storite v nastavitvah za Chrome.  <ph name="BEGIN_LINK" />Več o tem<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Ponudnik:</translation>
 <translation id="7981313251711023384">Vnaprejšnje nalaganje strani zaradi hitrejšega brskanja in iskanja</translation>
 <translation id="79859296434321399">Če si želite ogledati vsebino v razširjeni resničnosti, namestite ARCore</translation>
@@ -1097,6 +1101,7 @@ Nekatera spletna mesta se lahko na primer na zahtevo odzovejo tako, da prikažej
 <translation id="9100610230175265781">Zahtevano je geslo</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Pokaži izvirno besedilo</translation>
+<translation id="9138504265731110181">Pomočnik Google vam prihrani čas tako, da vam pomaga preveriti splet</translation>
 <translation id="9139068048179869749">Poziv, preden se spletnim mestom dovoli pošiljanje obvestil (priporočeno)</translation>
 <translation id="9139318394846604261">Nakupovanje</translation>
 <translation id="9155898266292537608">Prav tako lahko iščete, tako da se hitro dotaknete besede</translation>

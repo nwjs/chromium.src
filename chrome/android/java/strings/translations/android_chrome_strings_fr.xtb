@@ -293,6 +293,7 @@ Vous n'êtes cependant pas devenu invisible. L'utilisation du mode privé n'emp�
 <translation id="3166827708714933426">Raccourcis liés aux onglets et aux fenêtres</translation>
 <translation id="3190152372525844641">Activer les autorisations pour Chrome dans les <ph name="BEGIN_LINK" />paramètres Android<ph name="END_LINK" /></translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> de données stockées</translation>
+<translation id="3205824638308738187">C'est presque fini !</translation>
 <translation id="3207960819495026254">Favori</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> a été supprimé</translation>
 <translation id="321773570071367578">Si vous avez oublié votre phrase secrète, ou si vous souhaitez modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchronisation<ph name="END_LINK" />.</translation>
@@ -364,6 +365,7 @@ Vous n'êtes cependant pas devenu invisible. L'utilisation du mode privé n'emp�
 <translation id="3744111561329211289">Synchronisation en arrière-plan</translation>
 <translation id="3745176700485982507">Cette page inclut des liens vers vos sites Web préférés</translation>
 <translation id="3751110998481776724">Aperçu rapide <ph name="BEGIN_NEW" />Nouveau<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Impossible de télécharger la mise à jour</translation>
 <translation id="3773755127849930740">Pour permettre l'association, <ph name="BEGIN_LINK" />activez le Bluetooth<ph name="END_LINK" /></translation>
 <translation id="3778956594442850293">Ajouté à l'écran d'accueil</translation>
 <translation id="3781011235031427080">Panneau "Plus de suggestions similaires" ouvert à mi-hauteur</translation>
@@ -536,6 +538,7 @@ Pour modifier ce paramètre, <ph name="BEGIN_LINK" />réinitialisez la synchroni
 <translation id="497421865427891073">Avancer</translation>
 <translation id="4988210275050210843">Téléchargement du fichier (<ph name="MEGABYTES" />)…</translation>
 <translation id="4988526792673242964">Pages</translation>
+<translation id="4994033804516042629">Aucun contact trouvé</translation>
 <translation id="4996978546172906250">Partager via</translation>
 <translation id="5004416275253351869">Commandes Google relatives à l'activité</translation>
 <translation id="5005498671520578047">Copier mot de passe</translation>
@@ -938,6 +941,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="7929962904089429003">Ouvrir le menu</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> est obsolète.</translation>
 <translation id="7947953824732555851">Accepter/Se connecter</translation>
+<translation id="7960977077911686065">En continuant, vous acceptez que Chrome envoie à Google des données de la saisie automatique Chrome, l'URL du site et son contenu afin de proposer ce service. Vous acceptez également que Chrome envoie les données à caractère personnel sélectionnées par vos soins au site Web par le biais de la saisie automatique Chrome. \n\nAccédez aux paramètres Chrome pour désactiver l'Assistant Google et la saisie automatique dans le navigateur.  <ph name="BEGIN_LINK" />En savoir plus<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Fournisseur :</translation>
 <translation id="7981313251711023384">Précharger les pages pour accélérer la navigation et la recherche</translation>
 <translation id="79859296434321399">Pour afficher des contenus en réalité augmentée, installez ARCore</translation>
@@ -1098,6 +1102,7 @@ Par exemple, certains sites Web peuvent répondre à cette demande en diffusant 
 <translation id="9100610230175265781">Veuillez saisir la phrase secrète.</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Afficher l'original</translation>
+<translation id="9138504265731110181">L'Assistant Google vous permet de régler vos achats sur le Web et, ainsi, de gagner du temps</translation>
 <translation id="9139068048179869749">Demander avant d'autoriser des sites à envoyer des notifications (recommandé)</translation>
 <translation id="9139318394846604261">Achats</translation>
 <translation id="9155898266292537608">Vous pouvez également effectuer une recherche en appuyant brièvement sur un mot</translation>

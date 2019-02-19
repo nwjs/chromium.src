@@ -81,7 +81,7 @@
 <translation id="2871893339301912279">Chrome இல் உள்நுழைந்துள்ளீர்கள்!</translation>
 <translation id="2888126860611144412">Chrome அறிமுகம்</translation>
 <translation id="3037838751736561277">Google Chrome பின்புலப் பயன்முறையில் இயங்குகிறது.</translation>
-<translation id="3047079729301751317"><ph name="USERNAME" /> ஐத் துண்டிப்பது, இந்தச் சாதனத்தில் உள்ள உங்கள் வரலாறு, புத்தகக்குறிகள், அமைப்புகள் மற்றும் பிற Chrome தரவை அழிக்கும். உங்கள் Google கணக்கில் சேமிக்கப்பட்ட தரவு அழிக்கப்படாது, மேலும் <ph name="GOOGLE_DASHBOARD_LINK" />Google டாஷ்போர்டில்<ph name="END_GOOGLE_DASHBOARD_LINK" /> நிர்வகிக்கலாம்.</translation>
+<translation id="3047079729301751317"><ph name="USERNAME" /> ஐத் துண்டிப்பது, இந்தச் சாதனத்தில் உள்ள உங்கள் வரலாறு, புக்மார்க்குகள், அமைப்புகள் மற்றும் பிற Chrome தரவை அழிக்கும். உங்கள் Google கணக்கில் சேமிக்கப்பட்ட தரவு அழிக்கப்படாது, மேலும் <ph name="GOOGLE_DASHBOARD_LINK" />Google டாஷ்போர்டில்<ph name="END_GOOGLE_DASHBOARD_LINK" /> நிர்வகிக்கலாம்.</translation>
 <translation id="3065168410429928842">Chrome தாவல்</translation>
 <translation id="3080151273017101988">Google Chrome மூடப்பட்டிருக்கும்போது பின்புல பயன்பாடுகளை இயக்க அனுமதி</translation>
 <translation id="3089968997497233615">புதிய, இன்னும் பாதுகாப்பான Google Chrome பதிப்பு தற்போது கிடைக்கிறது.</translation>
@@ -169,7 +169,7 @@
 <translation id="556024056938947818">Google Chrome ஆனது கடவுச்சொற்களைக் காட்ட முயற்சிக்கிறது.</translation>
 <translation id="5566025111015594046">Google Chrome (mDNS-In)</translation>
 <translation id="565744775970812598"><ph name="FILE_NAME" /> ஆபத்தானதாக இருக்கலாம் என்பதால் Chrome அதைத் தடுத்துள்ளது.</translation>
-<translation id="5686916850681061684">Google Chromeமைத் தனிப்பயனாக்கும், கட்டுப்படுத்தும். சிலவற்றை நீங்கள் கவனிக்க வேண்டும் - விவரங்களுக்கு, கிளிக் செய்யவும்.</translation>
+<translation id="5686916850681061684">Google Chromeமைத் தேவைக்கேற்ப மாற்றி கட்டுப்படுத்தும். சிலவற்றை நீங்கள் கவனிக்க வேண்டும் - விவரங்களுக்கு, கிளிக் செய்யவும்.</translation>
 <translation id="5715063361988620182">{SECONDS,plural, =1{Google Chrome 1 வினாடியில் மீண்டும் தொடங்கும்}other{Google Chrome # வினாடிகளில் மீண்டும் தொடங்கும்}}</translation>
 <translation id="573759479754913123">Chrome OS அறிமுகம்</translation>
 <translation id="5774845247549698882">Chrome OS இந்த மொழியில் காட்டப்படுகிறது</translation>
@@ -178,7 +178,7 @@
 <translation id="5877064549588274448">சேனல் மாற்றப்பட்டது. மாற்றங்களைச் செயல்படுத்த உங்கள் சாதனத்தை மீண்டும் தொடங்கவும்.</translation>
 <translation id="5895138241574237353">மறுதொடக்கம்</translation>
 <translation id="5906655207909574370">கிட்டத்தட்ட புதுப்பிக்கப்பட்டது! புதுப்பிப்பதை முடிக்க, சாதனத்தை மறுதொடக்கம் செய்யவும்.</translation>
-<translation id="5940385492829620908">உங்களின் இணையம், புத்தகக்குறிகள் மற்றும் பிற Chrome உருப்படிகள் இங்கே உள்ளன.</translation>
+<translation id="5940385492829620908">உங்களின் இணையம், புக்மார்க்குகள் மற்றும் பிற Chrome உருப்படிகள் இங்கே உள்ளன.</translation>
 <translation id="5941830788786076944">Google Chrome ஐ இயல்புநிலை உலாவியாக அமை</translation>
 <translation id="6014844626092547096">தற்போது Chrome இல் உள்நுழைந்துள்ளீர்கள்! உங்கள் நிர்வாகியால் ஒத்திசைவு முடக்கப்பட்டுள்ளது.</translation>
 <translation id="6040143037577758943">மூடு</translation>
@@ -268,7 +268,7 @@
 <translation id="8540666473246803645">Google Chrome</translation>
 <translation id="8547799825197623713">Chrome பயன்பாட்டுத் துவக்கி Canary</translation>
 <translation id="8556340503434111824">Google Chrome இன் புதிய பதிப்பு கிடைக்கிறது, அது முன்னெப்போதையும் விட விரைவானது.</translation>
-<translation id="8568392309447938879">பயன்பாடுகளைப் பயன்படுத்துவதற்கு நீங்கள் Chrome இல் உள்நுழைந்திருக்க வேண்டும். இது எல்லா சாதனங்களிலும் உங்கள் பயன்பாடுகள், புத்தகக்குறிகள், வரலாறு, கடவுச்சொற்கள் மற்றும் பிற அமைப்புகள் ஆகியவற்றை ஒத்திசைக்க Chrome ஐ அனுமதிக்கிறது.</translation>
+<translation id="8568392309447938879">பயன்பாடுகளைப் பயன்படுத்துவதற்கு நீங்கள் Chrome இல் உள்நுழைந்திருக்க வேண்டும். இது எல்லா சாதனங்களிலும் உங்கள் பயன்பாடுகள், புக்மார்க்குகள், வரலாறு, கடவுச்சொற்கள் மற்றும் பிற அமைப்புகள் ஆகியவற்றை ஒத்திசைக்க Chrome ஐ அனுமதிக்கிறது.</translation>
 <translation id="8606668294522778825">உங்கள் உலாவல் அனுபவத்தை மேம்படுத்த இணைய சேவைகளை Google Chrome பயன்படுத்தலாம். விருப்பத்திற்கேற்ப இந்தச் சேவைகளை நீங்கள் முடக்கலாம். <ph name="BEGIN_LINK" />மேலும் அறிக<ph name="END_LINK" /></translation>
 <translation id="8614913330719544658">Google Chrome பதிலளிக்கவில்லை. இப்போது மீண்டும் தொடங்கவா?</translation>
 <translation id="8667808506758191620">உங்கள் <ph name="DEVICE_TYPE" /> புதுப்பித்த நிலையில் உள்ளது.</translation>

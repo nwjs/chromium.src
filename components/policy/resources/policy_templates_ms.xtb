@@ -175,6 +175,13 @@
 
       Jika dasar ini ditetapkan kepada palsu, <ph name="PRODUCT_NAME" /> tidak akan membenarkan profil tetamu dimulakan.</translation>
 <translation id="1363275621236827384">Dayakan pertanyaan ke Pelayan Quirks untuk mendapatkan profil perkakasan</translation>
+<translation id="1383493480903114193">Dasar ini memaksa kod rangkaian dijalankan dalam proses penyemak imbas.
+
+      Dasar ini dilumpuhkan secara lalai. Jika didayakan, dasar ini mendedahkan pengguna kepada isu keselamatan sebaik sahaja proses rangkaian memasuki mod kotak pasir.
+
+      Dasar ini bertujuan memberi perusahaan peluang untuk berhijrah kepada perisian pihak ke-3 yang tidak bergantung pada pengkaitan API rangkaian. Pelayan proksi lebih disyorkan berbanding LSP dan tampung API Win32.
+
+      Jika dasar ini tidak ditetapkan, kod rangkaian mungkin dijalankan di luar proses penyemak imbas bergantung pada ujian lapangan percubaan NetworkService.</translation>
 <translation id="1384459581748403878">Rujukan: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Sama ada hendak mendayakan kepercayaan dalam Infrastruktur PKI Lama Symantec Corporation</translation>
 <translation id="1393485621820363363">Pencetak peranti perusahaan didayakan</translation>
@@ -2790,6 +2797,7 @@ Jika dasar ini dibiarkan tidak ditetapkan, papan kekunci pada skrin dilumpuhkan 
       Untuk peranti diurus Active Directory, dasar ini menyokong pengembangan <ph name="MACHINE_NAME_VARIABLE" /> kepada nama mesin Active Directory atau subrentetannya. Sebagai contoh, jika nama mesin ialah <ph name="MACHINE_NAME_EXAMPLE" />, maka <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> akan digantikan oleh 4 aksara yang bermula selepas kedudukan ke-6, iaitu <ph name="MACHINE_NAME_PART_EXAMPLE" />. Sila ambil perhatian bahawa kedudukan adalah berasaskan sifar.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (huruf kecil) ditamatkan dalam M71 dan akan dialih keluar dalam M72.
       </translation>
+<translation id="7339315111520512972">Paksa kod rangkaian dijalankan dalam proses penyemak imbas</translation>
 <translation id="7340034977315324840">Laporkan masa aktiviti peranti</translation>
 <translation id="7343497214039883642">Fail konfigurasi pencetak perusahaan untuk peranti</translation>
 <translation id="7349338075015720646">Menyatakan senarai tapak web yang dipasang secara senyap, tanpa interaksi pengguna dan tidak boleh dinyahpasang mahupun dilumpuhkan oleh pengguna.

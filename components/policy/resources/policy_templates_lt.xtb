@@ -176,6 +176,13 @@
 
       Jei ši politika nustatyta į „false“, „<ph name="PRODUCT_NAME" />“ neleis pradėti svečio profilių.</translation>
 <translation id="1363275621236827384">Įgalinti užklausas į „Quirks Server“, skirtas aparatinės įrangos profiliams</translation>
+<translation id="1383493480903114193">Taikant šią politiką darbo tinkle kodas priverstinai vykdomas naršyklės procese.
+
+      Ši politika išjungta pagal numatytuosius nustatymus, o įgalinus naudotojui gali iškilti saugos problemų, jei darbo tinkle procesas įtraukiamas į smėlio dėžę.
+
+      Ši politika skirta suteikti įmonėms galimybę perkelti sistemą į trečiosios šalies programinę įrangą, nepriklausančią nuo darbo tinkle API gaudymo. Geriau naudoti tarpinius serverius nei LSP ir „Win32“ API pataisas.
+
+      Jei ši politika nenustatyta, darbo tinkle kodas gali būti vykdomas ne naršyklės procese, atsižvelgiant į „NetworkService“ eksperimento bandymus.</translation>
 <translation id="1384459581748403878">Nuoroda: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Nurodoma, ar įgalinti patikimumo nustatymus „Symantec Corporation“ pasenusioje PKI infrastruktūroje</translation>
 <translation id="1393485621820363363">Įgalinti įmonės įrenginių spausdintuvai</translation>
@@ -2793,6 +2800,7 @@
       Jei naudojami „Active Directory“ tvarkomi įrenginiai, ši politika palaiko „Active Directory“ įrenginio pavadinimo „<ph name="MACHINE_NAME_VARIABLE" />“ arba jo poeilučio plėtinį. Pavyzdžiui, jei įrenginio pavadinimas yra „<ph name="MACHINE_NAME_EXAMPLE" />“, tada „<ph name="MACHINE_NAME_VARIABLE_EXAMPLE" />“ turėtų būti pakeistas 4 simboliais nuo 6-osios pozicijos, pvz., „<ph name="MACHINE_NAME_PART_EXAMPLE" />“. Atminkite, kad pozicija nustatoma nuo nulio.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (mažosios raidės) ši politika nebenaudojama M71 ir bus pašalinta iš M72.
       </translation>
+<translation id="7339315111520512972">Priverstinis darbo tinkle kodo vykdymas naršyklės procese</translation>
 <translation id="7340034977315324840">Pranešti įrenginio veiklos laiką</translation>
 <translation id="7343497214039883642">Įrenginiams skirtas įmonės spausdintuvų konfigūracijos failas</translation>
 <translation id="7349338075015720646">Nurodomas svetainių, įdiegtų automatiškai, naudotojui neatliekant jokių veiksmų, sąrašas. Naudotojas negali jų nei išdiegti, nei išjungti.

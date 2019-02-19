@@ -814,6 +814,8 @@
 <translation id="220792432208469595">Enviar datos de uso y diagnóstico. Este dispositivo envía automáticamente a Google datos de diagnóstico, del dispositivo y del uso de las aplicaciones. Los datos servirán para aumentar la estabilidad de las aplicaciones y del sistema y realizar otras mejoras. Parte de los datos recogidos también ayudarán a las aplicaciones y los colaboradores de Google, como los desarrolladores de Android. El propietario ha aplicado este ajuste. Si la opción Actividad en la Web y en Aplicaciones Adicional está activada, es posible que estos datos se guarden en tu cuenta de Google. <ph name="BEGIN_LINK1" />Más información<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">Archivo zip</translation>
 <translation id="220858061631308971">Introduce este código PIN en "<ph name="DEVICE_NAME" />":</translation>
+<translation id="2213140827792212876">Dejar de compartir</translation>
+<translation id="2214018885812055163">Carpetas compartidas</translation>
 <translation id="2214884991347062907">La contraseña no es correcta; vuelve a intentarlo</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;no se muestra 1 línea&gt;}other{&lt;no se muestran <ph name="NUMBER_OF_LINES" /> líneas&gt;}}</translation>
 <translation id="2217501013957346740">Crea un nombre -</translation>
@@ -2870,6 +2872,7 @@ Si no cambias la configuración predeterminada, <ph name="USER_DISPLAY_NAME" /> 
 <translation id="5374359983950678924">Cambiar imagen</translation>
 <translation id="5376169624176189338">Haz clic para retroceder una página o pulsa unos segundos para ver el historial</translation>
 <translation id="5376931455988532197">El archivo es demasiado grande.</translation>
+<translation id="5377594097385838788">Incógnito</translation>
 <translation id="537813040452600081">Las páginas que aparezcan en esta ventana no se mostrarán en el historial del navegador y no dejarán otros rastros, como cookies, en el ordenador después de cerrar sesión. No se conservarán los archivos que descargues ni los marcadores que crees.</translation>
 <translation id="5379140238605961210">Seguir bloqueando el acceso al micrófono</translation>
 <translation id="5379268888377976432">Deshacer eliminación</translation>
@@ -4054,7 +4057,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7133578150266914903">Tu administrador va a instalar una versión anterior en este dispositivo (<ph name="PROGRESS_PERCENT" />)</translation>
 <translation id="7134098520442464001">Reducir el tamaño del texto</translation>
 <translation id="7135729336746831607">¿Activar Bluetooth?</translation>
-<translation id="7136694880210472378">Establecer como predeterminado</translation>
+<translation id="7136694880210472378">Elegir como predeterminado</translation>
 <translation id="7136984461011502314">Te damos la bienvenida a <ph name="PRODUCT_NAME" /></translation>
 <translation id="7136993520339022828">Se ha producido un error. Selecciona otras imágenes e inténtalo de nuevo.</translation>
 <translation id="7138678301420049075">Otro</translation>
@@ -4382,6 +4385,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7663719505383602579">Receptor: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">Dispositivo Bluetooth no compatible: <ph name="DEVICE_NAME" /></translation>
 <translation id="7665369617277396874">Añadir cuenta</translation>
+<translation id="7667248760110172428">Almacenamiento externo</translation>
 <translation id="7671130400130574146">Utilizar bordes y barra de título</translation>
 <translation id="7672520070349703697"><ph name="HUNG_IFRAME_URL" /> en <ph name="PAGE_TITLE" />.</translation>
 <translation id="7676867886086876795">Envía tu voz a Google para utilizar el dictado en cualquier campo de texto.</translation>
@@ -4585,6 +4589,7 @@ Exponente público (<ph name="PUBLIC_EXPONENT_NUM_BITS" /> bits):
 <translation id="7930294771522048157">Los métodos de pago guardados aparecerán aquí</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> está compartiendo la pantalla y el audio.</translation>
 <translation id="7931318309563332511">Desconocido</translation>
+<translation id="7932969338829957666">En Linux, las carpetas compartidas están disponibles en <ph name="BASE_DIR" />.</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{Activar sonido del sitio web}other{Activar sonido de los sitios web}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> quiere reproducir contenido protegido. Google verificará la identidad de tu dispositivo.</translation>
 <translation id="793531125873261495">No se ha podido descargar la máquina virtual Inténtalo de nuevo.</translation>
@@ -5421,7 +5426,7 @@ Guarda tu archivo de clave en un lugar seguro, ya que lo necesitarás para crear
 <translation id="9214520840402538427">¡Vaya! Se ha agotado el tiempo de la inicialización de los atributos de tiempo de instalación. Ponte en contacto con el representante del servicio de asistencia.</translation>
 <translation id="9214695392875603905">Cupcake</translation>
 <translation id="9215293857209265904">"<ph name="EXTENSION_NAME" />" añadida</translation>
-<translation id="9218430445555521422">Establecer como predeterminado</translation>
+<translation id="9218430445555521422">Elegir como predeterminado</translation>
 <translation id="9219103736887031265">Imágenes</translation>
 <translation id="9220525904950070496">Quitar cuenta</translation>
 <translation id="9220820413868316583">Levanta el dedo y vuelve a intentarlo.</translation>

@@ -293,6 +293,7 @@ Du är dock inte osynlig. Även om du surfar privat kan din arbetsgivare, din in
 <translation id="3166827708714933426">Kortkommandon för flikar och fönster</translation>
 <translation id="3190152372525844641">Aktivera behörigheter för Chrome i <ph name="BEGIN_LINK" />Android-inställningar<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> sparad data</translation>
+<translation id="3205824638308738187">Nästan klart!</translation>
 <translation id="3207960819495026254">Bokmärkt</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> raderades</translation>
 <translation id="321773570071367578">Om du har glömt lösenfrasen eller vill ändra inställningen <ph name="BEGIN_LINK" />återställer du synkroniseringen<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@ Du är dock inte osynlig. Även om du surfar privat kan din arbetsgivare, din in
 <translation id="3744111561329211289">Synkronisera i bakgrunden</translation>
 <translation id="3745176700485982507">På den här sidan finns länkar till dina favoritwebbplatser</translation>
 <translation id="3751110998481776724">Tjuvtitt <ph name="BEGIN_NEW" />Nyhet<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Det gick inte att ladda ned uppdateringen</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Aktivera Bluetooth<ph name="END_LINK" /> om du vill tillåta koppling</translation>
 <translation id="3778956594442850293">Tillagd på startskärmen</translation>
 <translation id="3781011235031427080">Fler liknande har öppnats och tar upp halva skärmen</translation>
@@ -536,6 +538,7 @@ Det kan finnas andra former av webbhistorik i Google-kontot på <ph name="BEGIN_
 <translation id="497421865427891073">Fortsätt</translation>
 <translation id="4988210275050210843">En fil laddas ned (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Sidor</translation>
+<translation id="4994033804516042629">Inga kontakter hittades</translation>
 <translation id="4996978546172906250">Dela via</translation>
 <translation id="5004416275253351869">Googles aktivitetsinställningar</translation>
 <translation id="5005498671520578047">Kopiera lösenord</translation>
@@ -938,6 +941,7 @@ Vissa webbplatser kan till exempel svara på begäran genom att visa annonser so
 <translation id="7929962904089429003">Öppna menyn</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> är inaktuell.</translation>
 <translation id="7947953824732555851">Godkänn och logga in</translation>
+<translation id="7960977077911686065">Genom att fortsätta godkänner du att Chrome skickar webbplatsens webbadress och innehåll samt data från Chrome Autofyll till Google för att tillhandahålla tjänsten. Du godkänner även att personlig data du valt skickas till webbplatsen via Chrome Autofyll. \n\nÖppna inställningarna för Chrome om du vill inaktivera Google-assistenten i Chrome och Chrome Autofyll.  <ph name="BEGIN_LINK" />Läs mer<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Leverantör:</translation>
 <translation id="7981313251711023384">Läs in sidor i förväg så att det går snabbare att surfa och söka</translation>
 <translation id="79859296434321399">Installera ARCore om du vill visa innehåll med förstärkt verklighet</translation>
@@ -1098,6 +1102,7 @@ Vissa webbplatser kan till exempel svara på begäran genom att visa annonser so
 <translation id="9100610230175265781">Lösenfras krävs</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Visa original</translation>
+<translation id="9138504265731110181">Med Google-assistentens hjälp kan du gå genom kassan snabbare på webben</translation>
 <translation id="9139068048179869749">Fråga innan webbplatser tillåts att skicka aviseringar (rekommenderas)</translation>
 <translation id="9139318394846604261">Shopping</translation>
 <translation id="9155898266292537608">Du kan även söka med ett snabbt tryck eller ett ord</translation>

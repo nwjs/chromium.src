@@ -164,6 +164,13 @@
 
       Si aquesta política s'estableix en "false", <ph name="PRODUCT_NAME" /> no permetrà que s'iniciïn els perfils de convidat.</translation>
 <translation id="1363275621236827384">Activa l'opció d'enviar consultes a Quirks Server per als perfils de maquinari</translation>
+<translation id="1383493480903114193">Aquesta política obliga a executar codi de xarxes socials al procés del navegador.
+
+      Aquesta política està desactivada de manera predeterminada. Si s'activa, deixa els usuaris exposats als problemes de seguretat quan el procés de xarxes socials entra a la zona de proves.
+
+      L'objectiu d'aquesta política és donar l'oportunitat a les empreses de migrar a programari de tercers que no depengui de connectar les API de xarxes socials. Es recomana utilitzar servidors intermediaris en comptes d'LSP o pedaços de l'API Win32.
+
+      Si aquesta política no s'estableix, és possible que el codi de xarxes socials surti del procés de navegador en funció de les proves de camps de l'experiment NetworkService.</translation>
 <translation id="1384459581748403878">Referència: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Determina si es confia en la infraestructura de PKI heretada de Symantec Corporation</translation>
 <translation id="1393485621820363363">Impressores activades per a dispositius d'empresa</translation>
@@ -2660,6 +2667,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
       En el cas dels dispositius gestionats d'Active Directory, aquesta política permet ampliar <ph name="MACHINE_NAME_VARIABLE" /> per incloure-hi el nom del dispositiu d'Active Directory o una subcadena d'aquest directori. Si, per exemple, el nom del dispositiu és <ph name="MACHINE_NAME_EXAMPLE" />, <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> se substituirà pels 4 caràcters posteriors a la sisena posició, és a dir, <ph name="MACHINE_NAME_PART_EXAMPLE" />. Fixa't que la posició es basa en zero.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (en minúscula) es considera obsoleta a M71 i se suprimirà a M72.
       </translation>
+<translation id="7339315111520512972">Obliga a executar el codi de xarxes socials al procés del navegador</translation>
 <translation id="7340034977315324840">Informa del temps d'activitat dels dispositius</translation>
 <translation id="7343497214039883642">Fitxer de configuració de la impressora d'empresa per a dispositius</translation>
 <translation id="7349338075015720646">Especifica una llista de llocs web que s'instal·len en segon pla, sense la interacció de l'usuari, i que l'usuari no pot desinstal·lar ni desactivar.

@@ -169,6 +169,13 @@
 
       Se esta política é definida como "false", o <ph name="PRODUCT_NAME" /> não permite que perfis de convidados sejam iniciados.</translation>
 <translation id="1363275621236827384">Permitir consultas no Servidor Quirks para perfis de hardware</translation>
+<translation id="1383493480903114193">Esta política força o código de rede a ser executado no processo do navegador.
+
+      A política está desativada por padrão e, se ativada, deixa usuários vulneráveis aos problemas de segurança quando o processo de rede estiver no sandbox.
+
+      Esta política tem como objetivo oferecer às empresas a oportunidade de migrar para um software de terceiros que não dependa de hook das APIs de rede. Recomendamos o uso de servidores proxy em vez da aplicação de patches de API Win32 e LSPs.
+
+      Se esta política não for definida, o código de rede pode sair do processo do navegador, dependendo de testes de campo do experimento do NetworkService.</translation>
 <translation id="1384459581748403878">Referência: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Se a confiança deve ou não ser ativada na Infraestrutura PKI de legado da Symantec Corporation</translation>
 <translation id="1393485621820363363">Impressoras empresariais ativadas</translation>
@@ -2686,6 +2693,7 @@
       Para dispositivos gerenciados pelo Active Directory, esta política permite a expansão de <ph name="MACHINE_NAME_VARIABLE" /> para o nome do computador com Active Directory ou uma substring correspondente. Por exemplo, se o nome do computador for <ph name="MACHINE_NAME_EXAMPLE" />, <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> será substituído pelos quatro caracteres que começam depois da 6ª posição, ou seja, <ph name="MACHINE_NAME_PART_EXAMPLE" />. A posição é baseada em zero.
       O uso de <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (letras minúsculas) foi suspenso no M71 e será removido no M72.
       </translation>
+<translation id="7339315111520512972">Força a execução do código de rede no processo do navegador</translation>
 <translation id="7340034977315324840">Informar horário das atividades do dispositivo</translation>
 <translation id="7343497214039883642">Arquivo de configuração de impressora empresarial para dispositivos</translation>
 <translation id="7349338075015720646">Especifica uma lista de sites instalados silenciosamente sem a interação do usuário e que não podem ser desinstalados nem desativados pelo usuário.

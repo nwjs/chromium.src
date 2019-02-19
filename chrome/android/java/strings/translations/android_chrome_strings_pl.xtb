@@ -293,6 +293,7 @@ To jednak nie oznacza, że Cię nie widać. Nawet gdy przejdziesz w tryb prywat
 <translation id="3166827708714933426">Skróty kart i okien</translation>
 <translation id="3190152372525844641">Przyznaj Chrome uprawnienia w <ph name="BEGIN_LINK" />ustawieniach Androida<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> zapisanych danych</translation>
+<translation id="3205824638308738187">Prawie gotowe!</translation>
 <translation id="3207960819495026254">Dodano do zakładek</translation>
 <translation id="3211426585530211793">Usunięto: <ph name="ITEM_TITLE" /></translation>
 <translation id="321773570071367578">Jeśli nie pamiętasz hasła lub chcesz zmienić to ustawienie, <ph name="BEGIN_LINK" />zresetuj synchronizację<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@ To jednak nie oznacza, że Cię nie widać. Nawet gdy przejdziesz w tryb prywat
 <translation id="3744111561329211289">Synchronizacja w tle</translation>
 <translation id="3745176700485982507">Tutaj znajdziesz linki do swoich ulubionych stron</translation>
 <translation id="3751110998481776724">Szybki podgląd <ph name="BEGIN_NEW" />Nowość<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Nie udało się pobrać aktualizacji</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Włącz Bluetooth<ph name="END_LINK" />, by umożliwić parowanie</translation>
 <translation id="3778956594442850293">Dodano do ekranu głównego</translation>
 <translation id="3781011235031427080">Karta Więcej podobnych otwarta do połowy wysokości</translation>
@@ -536,6 +538,7 @@ Aby zmienić to ustawienie, <ph name="BEGIN_LINK" />zresetuj synchronizację<ph 
 <translation id="497421865427891073">Dalej</translation>
 <translation id="4988210275050210843">Pobieram plik (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Strony</translation>
+<translation id="4994033804516042629">Nie znaleziono kontaktów</translation>
 <translation id="4996978546172906250">Udostępnij przez</translation>
 <translation id="5004416275253351869">Zarządzanie aktywnością w Google</translation>
 <translation id="5005498671520578047">Skopiuj hasło</translation>
@@ -938,6 +941,7 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="7929962904089429003">Otwórz menu</translation>
 <translation id="7942131818088350342">Przeglądarka <ph name="PRODUCT_NAME" /> jest nieaktualna.</translation>
 <translation id="7947953824732555851">Zaakceptuj i zaloguj się</translation>
+<translation id="7960977077911686065">Przechodząc dalej, zgadzasz się, by w ramach tej usługi przeglądarka Chrome wysyłała do Google dane z Autouzupełniania, a także URL i zawartość strony. Zgadzasz się także, by w ramach Autouzupełniania przeglądarka Chrome wysyłała do strony wybrane przez Ciebie dane osobowe. \n\nAutouzupełnianie i Asystenta Google możesz wyłączyć w ustawieniach Chrome.  <ph name="BEGIN_LINK" />Więcej informacji<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Dostawca:</translation>
 <translation id="7981313251711023384">Ładuj wstępnie strony, by przyspieszyć przeglądanie i wyszukiwanie</translation>
 <translation id="79859296434321399">Aby oglądać treści rzeczywistości rozszerzonej, zainstaluj ARCore</translation>
@@ -1098,6 +1102,7 @@ Na przykład niektóre strony mogą na nie zareagować, wyświetlając reklamy b
 <translation id="9100610230175265781">Wymagane jest hasło</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Pokaż tekst oryginalny</translation>
+<translation id="9138504265731110181">Asystent Google oszczędza Twój czas, pomagając Ci w płatnościach na stronach internetowych</translation>
 <translation id="9139068048179869749">Pytaj, zanim zezwolisz stronom na wysyłanie powiadomień (zalecane)</translation>
 <translation id="9139318394846604261">Zakupy</translation>
 <translation id="9155898266292537608">Możesz też wyszukiwać szybkim kliknięciem słowa</translation>

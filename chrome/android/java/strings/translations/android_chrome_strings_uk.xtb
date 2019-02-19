@@ -293,6 +293,7 @@
 <translation id="3166827708714933426">Комбінації клавіш для роботи з вкладками та вікнами</translation>
 <translation id="3190152372525844641">Увімкніть дозволи для Chrome у <ph name="BEGIN_LINK" />налаштуваннях Android<ph name="END_LINK" />.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> збережених даних</translation>
+<translation id="3205824638308738187">Майже готово.</translation>
 <translation id="3207960819495026254">Створено закладку</translation>
 <translation id="3211426585530211793">Елемент "<ph name="ITEM_TITLE" />" видалено</translation>
 <translation id="321773570071367578">Якщо ви забули парольну фразу або хочете змінити це налаштування, <ph name="BEGIN_LINK" />скиньте синхронізацію<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@
 <translation id="3744111561329211289">Фонова синхронізація</translation>
 <translation id="3745176700485982507">На цій сторінці можна знайти посилання на улюблені веб-сайти</translation>
 <translation id="3751110998481776724">Попередній перегляд <ph name="BEGIN_NEW" />Нове<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">Не вдалося завантажити оновлення</translation>
 <translation id="3773755127849930740"><ph name="BEGIN_LINK" />Увімкніть Bluetooth<ph name="END_LINK" />, щоб підключити</translation>
 <translation id="3778956594442850293">Додано на головний екран</translation>
 <translation id="3781011235031427080">Сторінку "Більше подібного" відкрито на половину висоти</translation>
@@ -536,6 +538,7 @@
 <translation id="497421865427891073">Перейти вперед</translation>
 <translation id="4988210275050210843">Завантажується файл (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">Сторінки</translation>
+<translation id="4994033804516042629">Немає контактів</translation>
 <translation id="4996978546172906250">Надіслати через</translation>
 <translation id="5004416275253351869">Керування активністю в Google</translation>
 <translation id="5005498671520578047">Копіювати пароль</translation>
@@ -938,6 +941,7 @@
 <translation id="7929962904089429003">Відкрити меню</translation>
 <translation id="7942131818088350342">Застаріла версія <ph name="PRODUCT_NAME" />.</translation>
 <translation id="7947953824732555851">Прийняти й увійти</translation>
+<translation id="7960977077911686065">Продовжуючи, ви дозволяєте Chrome надсилати дані Автозаповнення, а також URL-адресу та вміст сайту в Google. Ви також дозволяєте Chrome надсилати вибрані персональні дані на веб-сайт через Автозаповнення. \n\nЩоб вимкнути Google Асистент у Chrome і Автозаповненні, перейдіть у налаштування веб-переглядача.  <ph name="BEGIN_LINK" />Докладніше<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Постачальник:</translation>
 <translation id="7981313251711023384">Попередньо завантажувати сторінки, щоб швидше переглядати та шукати</translation>
 <translation id="79859296434321399">Щоб переглядати вміст у режимі доповненої реальності, установіть ARCore</translation>
@@ -1098,6 +1102,7 @@
 <translation id="9100610230175265781">Потрібно вказати парольну фразу</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">Показати оригінал</translation>
+<translation id="9138504265731110181">Google Асистент заощаджує ваш час, допомагаючи з оплатою в Інтернеті</translation>
 <translation id="9139068048179869749">Запитувати, перш ніж дозволити сайтам надсилати сповіщення (рекомендується)</translation>
 <translation id="9139318394846604261">Покупки</translation>
 <translation id="9155898266292537608">Можете також шукати, швидко торкнувшись слова</translation>

@@ -165,6 +165,13 @@
 
       如果將這項政策設為 False，<ph name="PRODUCT_NAME" /> 將會禁止啟動訪客設定檔。</translation>
 <translation id="1363275621236827384">允許在 Quirks Server 中查詢硬體設定檔</translation>
+<translation id="1383493480903114193">這項政策會強制網路程式碼在瀏覽器程序中執行。
+
+      這項政策預設為停用；如果你啟用政策，當網路程序受到沙箱保護時，使用者就可能會遇到安全性問題。
+
+      設置這項政策是為了讓企業能轉換到不需掛接網路 API 的第三方軟體。建議你在 LSP 和 Win32 API 修補程式使用 Proxy 伺服器。
+
+      如果不設定這項政策，網路程式碼可能會在瀏覽器程序外執行 (取決於 NetworkService 實驗的實測結果)。</translation>
 <translation id="1384459581748403878">參考頁面：<ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">是否信任 Symantec 公司的舊版 PKI 基礎架構</translation>
 <translation id="1393485621820363363">已啟用企業裝置印表機</translation>
@@ -2644,6 +2651,7 @@
       如果是受 Active Directory 管理的裝置，這項政策支援將 <ph name="MACHINE_NAME_VARIABLE" /> 擴充為 Active Directory 電腦名稱或其子字串。舉例來說，如果電腦名稱為 <ph name="MACHINE_NAME_EXAMPLE" />，<ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> 將被第 6 個位置後的 4 個字元取代，例如 <ph name="MACHINE_NAME_PART_EXAMPLE" />。請注意，位置序數從 0 起算。
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (小寫) 於 M71 淘汰，並將於 M72 移除。
       </translation>
+<translation id="7339315111520512972">強制網路程式碼在瀏覽器程序中執行</translation>
 <translation id="7340034977315324840">回報裝置活動時間</translation>
 <translation id="7343497214039883642">裝置專用企業印表機設定檔</translation>
 <translation id="7349338075015720646">指定以無訊息方式安裝 (使用者無需操作) 的網站清單 (使用者無法解除安裝或停用這些網站)。

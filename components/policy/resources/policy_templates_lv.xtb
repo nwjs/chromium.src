@@ -164,6 +164,13 @@
 
       Ja šai politikai ir iestatīta vērtība Nepatiesa, pārlūkā <ph name="PRODUCT_NAME" /> nevar izveidot viesu profilus.</translation>
 <translation id="1363275621236827384">Iespējot Quirks servera vaicājumus aparatūras profiliem</translation>
+<translation id="1383493480903114193">Šī politika liek tīkla kodam darboties pārlūka procesā.
+
+      Pēc noklusējuma šī politika ir atspējota, un, ja tā tiek iespējota, lietotāju drošība ir apdraudēta, tiklīdz tīkla process tiek iekļauts smilškastē.
+
+      Šī politika ir paredzēta, lai uzņēmumi varētu pāriet uz trešās puses programmatūru, kas nav atkarīga no tīkla API pievienošanas. Ieteicams izmantot starpniekserverus, nevis LSP un Win32 API ielāpus.
+
+      Ja šī politika nav iestatīta, tīkla kods var nedarboties pārlūka procesā atkarībā no NetworkService eksperimenta izmēģinājuma versijām.</translation>
 <translation id="1384459581748403878">Informācija: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Vai norādīt, ka Symantec Corporation mantotā PKI infrastruktūra ir uzticama</translation>
 <translation id="1393485621820363363">Iespējoti uzņēmuma ierīču printeri</translation>
@@ -2764,6 +2771,7 @@ Lietotāja fiziskās klātbūtnes noteikšanai tiek izmantota ierīces barošana
       Ierīcēm, kuru pārvaldībai tiek izmantots Active Directory, šī politika atbalsta “<ph name="MACHINE_NAME_VARIABLE" />” paplašināšanu uz Active Directory ierīces nosaukumu vai tā apakšvirkni. Piemēram, ja ierīces nosaukums ir “<ph name="MACHINE_NAME_EXAMPLE" />”, tad “<ph name="MACHINE_NAME_VARIABLE_EXAMPLE" />” tiktu aizstāts ar 4 rakstzīmēm pēc 6. pozīcijas, t.i., “<ph name="MACHINE_NAME_PART_EXAMPLE" />”. Ņemiet vērā, ka pozīcija ir balstīta uz nulli.
       “<ph name="MACHINE_NAME_VARIABLE_LOWERCASE" />” (ar mazajiem burtiem) vairs netiek izmantots versijā M71 un tiks noņemts versijā M72.
       </translation>
+<translation id="7339315111520512972">Piespiedu tīkla koda politika, lai darbotos pārlūka procesā</translation>
 <translation id="7340034977315324840">Ziņot par ierīces darbības laikiem</translation>
 <translation id="7343497214039883642">Uzņēmuma printeru konfigurācijas fails ierīcēm</translation>
 <translation id="7349338075015720646">Saraksts ar vietnēm, kas tika instalētas neuzraudzīti (bez lietotāja mijiedarbības) un ko lietotājs nevar atinstalēt vai atspējot.

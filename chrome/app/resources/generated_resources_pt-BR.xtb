@@ -814,6 +814,8 @@
 <translation id="220792432208469595">Envie dados de uso e diagnóstico. No momento, este dispositivo está enviando automaticamente ao Google dados de diagnóstico, de uso de apps e do dispositivo. Eles ajudarão a melhorar o sistema, a estabilidade de apps e muito mais. Alguns dados agregados também ajudarão os apps do Google e os nossos parceiros, como os desenvolvedores Android. Essa configuração é aplicada pelo proprietário. Se a configuração "Atividade na Web e de apps adicional" estiver ativada, esses dados poderão ser salvos na sua Conta do Google. <ph name="BEGIN_LINK1" />Saiba mais<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">Arquivo Zip</translation>
 <translation id="220858061631308971">Digite este código PIN em "<ph name="DEVICE_NAME" />":</translation>
+<translation id="2213140827792212876">Remover compartilhamento</translation>
+<translation id="2214018885812055163">Pastas compartilhadas</translation>
 <translation id="2214884991347062907">Senha incorreta. Tente novamente</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;1 linha não mostrada&gt;}one{&lt;<ph name="NUMBER_OF_LINES" /> linha não mostrada&gt;}other{&lt;<ph name="NUMBER_OF_LINES" /> linhas não mostradas&gt;}}</translation>
 <translation id="2217501013957346740">Criar um nome –</translation>
@@ -2873,6 +2875,7 @@
 <translation id="5374359983950678924">Alterar imagem</translation>
 <translation id="5376169624176189338">Clique para voltar, mantenha pressionado para ver o histórico</translation>
 <translation id="5376931455988532197">Arquivo muito grande</translation>
+<translation id="5377594097385838788">Anônimo</translation>
 <translation id="537813040452600081">As páginas que você visualiza nesta janela não aparecerão no histórico do navegador nem deixarão outros rastros, como cookies, no computador depois que você sair. Os downloads que você fizer e os favoritos que criar não serão preservados.</translation>
 <translation id="5379140238605961210">Continuar bloqueando o acesso ao microfone</translation>
 <translation id="5379268888377976432">Desfazer exclusão</translation>
@@ -4387,6 +4390,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7663719505383602579">Destinatário: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">Dispositivo Bluetooth não suportado: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="7665369617277396874">Adicionar conta</translation>
+<translation id="7667248760110172428">Armazenamento externo</translation>
 <translation id="7671130400130574146">Usar barra de título e bordas do sistema</translation>
 <translation id="7672520070349703697"><ph name="HUNG_IFRAME_URL" />, neste site: <ph name="PAGE_TITLE" />.</translation>
 <translation id="7676867886086876795">Envie sua voz para que o Google permita que o ditado seja usado em qualquer campo de texto.</translation>
@@ -4590,6 +4594,7 @@ permanentemente excluídos assim que esse usuário for removido. Os websites vis
 <translation id="7930294771522048157">As formas de pagamento salvas serão exibidas aqui</translation>
 <translation id="79312157130859720">O app <ph name="APP_NAME" /> está compartilhando sua tela e áudio.</translation>
 <translation id="7931318309563332511">Desconhecido</translation>
+<translation id="7932969338829957666">As pastas compartilhadas estão disponíveis no Linux em <ph name="BASE_DIR" />.</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{Ativar som do site}one{Ativar som do site}other{Ativar som dos sites}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> quer reproduzir conteúdo protegido. A identidade do seu dispositivo será verificada pelo Google.</translation>
 <translation id="793531125873261495">Erro ao fazer o download da máquina virtual. Tente novamente.</translation>

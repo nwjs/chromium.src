@@ -173,6 +173,13 @@
 
       Ha a házirend értéke hamis, a <ph name="PRODUCT_NAME" /> nem teszi lehetővé vendégprofilok indítását.</translation>
 <translation id="1363275621236827384">Lekérdezések engedélyezése a Quirks Server felé a hardverprofiloknál</translation>
+<translation id="1383493480903114193">Ez a házirend arra kényszeríti a hálózati kódot, hogy a böngészőfolyamatban fusson.
+
+      Ez a házirend alapértelmezés szerint le van tiltva, engedélyezése esetén pedig a felhasználók védtelenek maradnak a hálózati problémákkal szemben, amint a hálózati folyamat a sandboxba kerül.
+
+      A házirend a nagyvállalatoknak készült abból a célból, hogy át tudjanak állni olyan, harmadik féltől származó szoftverekre, amelyeket nem szükséges a hálózati API-khoz horgonyozni. Proxyszerverek használata ajánlott a réteges szolgáltatókkal (LSP-kkel) és a Win32 API javításával szemben.
+
+      Ha a házirend nincs beállítva, a hálózati kód – a NetworkService kísérlet üzemi tesztjeinek eredményeitől függően – futhat a böngészőfolyamaton kívül is.</translation>
 <translation id="1384459581748403878">Referencia: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">A Symantec Corporation régi PKI-infrastruktúrájának megbízhatóként való elfogadása</translation>
 <translation id="1393485621820363363">Eszközökhöz kötött engedélyezett vállalati nyomtatók</translation>
@@ -2697,6 +2704,7 @@ Ha az irányelv igaz értékre van beállítva, akkor a rendszer a beépített D
       Az Active Directory által felügyelt eszközök esetében a házirend támogatja a(z) <ph name="MACHINE_NAME_VARIABLE" /> kibővítését az Active Directory-gépnévre vagy annak egy részére. Ha a gépnév például <ph name="MACHINE_NAME_EXAMPLE" />, akkor a(z) <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> helyére a 6. pozíciótól kezdődő 4 karakter kerülne, tehát <ph name="MACHINE_NAME_PART_EXAMPLE" />. Fontos, hogy a pozíció 0-tól indul.
       A(z) <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (kisbetűkkel) elavul az M71 verzióban, és eltávolításra kerül az M72 verzióban.
       </translation>
+<translation id="7339315111520512972">A hálózati kód kényszerítése a böngészőfolyamatban történő futásra.</translation>
 <translation id="7340034977315324840">Az eszköz aktív idejének jelentése</translation>
 <translation id="7343497214039883642">Vállalati nyomtató eszközökre vonatkozó konfigurációs fájlja</translation>
 <translation id="7349338075015720646">Megadja a „csendesen”, felhasználói beavatkozás nélkül telepített webhelyek listáját. Ezeket a webhelyeket a felhasználó nem távolíthatja el és nem tilthatja le.

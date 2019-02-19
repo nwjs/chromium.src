@@ -293,6 +293,7 @@
 <translation id="3166827708714933426">ট্যাব এবং উইন্ডোর শর্টকাটগুলি</translation>
 <translation id="3190152372525844641"><ph name="BEGIN_LINK" />Android সেটিংসে<ph name="END_LINK" /> Chrome এর জন্য অনুমতিগুলি চালু করুন।</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> সংরক্ষিত ডেটা</translation>
+<translation id="3205824638308738187">প্রায় শেষ হয়ে গেছে!</translation>
 <translation id="3207960819495026254">বুকমার্ক করা হয়েছে</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> মুছে ফেলা হয়েছে</translation>
 <translation id="321773570071367578">আপনি যদি আপনার পাসফ্রেজ ভুলে যান বা এই সেটিং পরিবর্তন করতে চান, তাহলে <ph name="BEGIN_LINK" />সিঙ্ক পুনরায় সেট করুন<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@
 <translation id="3744111561329211289">পটভূমি সিঙ্ক</translation>
 <translation id="3745176700485982507">আপনার প্রিয় ওয়েবসাইটগুলির লিঙ্ক এই পৃষ্ঠায় পাওয়া যাবে</translation>
 <translation id="3751110998481776724">স্নিক পিক <ph name="BEGIN_NEW" />নতুন<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">আপডেট ডাউনলোড করা যায়নি</translation>
 <translation id="3773755127849930740">যুক্ত করার মঞ্জুরি দিতে <ph name="BEGIN_LINK" />ব্লুটুথ চালু করুন<ph name="END_LINK" /></translation>
 <translation id="3778956594442850293">হোম স্ক্রিনে যোগ করা হয়েছে</translation>
 <translation id="3781011235031427080">স্ক্রিনের নিচের অর্ধাংশে 'এর মত আরও' খোলা আছে</translation>
@@ -538,6 +540,7 @@
 <translation id="497421865427891073">অগ্রবর্তী করুন</translation>
 <translation id="4988210275050210843">ফাইল ডাউনলোড হচ্ছে (<ph name="MEGABYTES" />)।</translation>
 <translation id="4988526792673242964">পৃষ্ঠাসমূহ</translation>
+<translation id="4994033804516042629">কোনও পরিচিতি পাওয়া যায়নি</translation>
 <translation id="4996978546172906250">এর মাধ্যমে শেয়ার করুন</translation>
 <translation id="5004416275253351869">Google অ্যাক্টিভিটির নিয়ন্ত্রণ</translation>
 <translation id="5005498671520578047">পাসওয়ার্ড কপি করুন</translation>
@@ -940,6 +943,7 @@
 <translation id="7929962904089429003">মেনুটি খুলুন</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> পুরনো হয়ে গেছে।</translation>
 <translation id="7947953824732555851">স্বীকার করুন ও প্রবেশ করুন</translation>
+<translation id="7960977077911686065">চালিয়ে যাওয়ার মাধ্যমে আপনি সম্মতি দিচ্ছেন যে Chrome এই পরিষেবা প্রদান করতে Chrome অটোফিল, সাইটের ইউআরএল ও সেটির কন্টেন্ট থেকে ডেটা Google-কে পাঠাবে। Chrome অটোফিল-এর মাধ্যমে ওয়েবসাইট থেকে আপনার বেছে নেওয়া ব্যক্তিগত ডেটা পাঠানোর ব্যাপারেও আপনি Chrome-কে সম্মতি দিচ্ছেন। \n\nChrome ও Chrome অটোফিল-এর জন্য Google অ্যাসিস্ট্যান্ট বন্ধ করতে Chrome সেটিংসে যান।  <ph name="BEGIN_LINK" />আরও জানুন<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">বিক্রেতা:</translation>
 <translation id="7981313251711023384">আরও দ্রুত ব্রাউজ করা এবং খোঁজার জন্য পৃষ্ঠা আগে লোড করুন</translation>
 <translation id="79859296434321399">অগমেন্টেড রিয়েলিটি কন্টেন্ট দেখার জন্য ARCore ইনস্টল করুন</translation>
@@ -1100,6 +1104,7 @@
 <translation id="9100610230175265781">পাসফ্রেজের প্রয়োজন</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">প্রকৃত রূপ দেখান</translation>
+<translation id="9138504265731110181">Google অ্যাসিস্ট্যান্ট ওয়েবে চেক-আউট করতে সাহায্য করে আপনার সময় বাঁচায়</translation>
 <translation id="9139068048179869749">কোনও সাইটকে বিজ্ঞপ্তি পাঠানোর অনুমতি দেওয়ার আগে আমাকে জিজ্ঞেস করা হবে (প্রস্তাবিত)</translation>
 <translation id="9139318394846604261">কেনাকাটা</translation>
 <translation id="9155898266292537608">এছাড়াও কোনও শব্দের উপরে ট্যাপ করেও খুঁজতে পারেন</translation>

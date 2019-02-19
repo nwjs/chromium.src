@@ -293,6 +293,7 @@
 <translation id="3166827708714933426">タブとウィンドウのショートカット</translation>
 <translation id="3190152372525844641"><ph name="BEGIN_LINK" />Android の設定<ph name="END_LINK" />で Chrome の権限を有効にしてください。</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> の保存データ</translation>
+<translation id="3205824638308738187">あと少しで完了です</translation>
 <translation id="3207960819495026254">ブックマークしました</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> を削除しました</translation>
 <translation id="321773570071367578">パスフレーズを忘れた場合や、この設定を変更する場合は、<ph name="BEGIN_LINK" />同期をリセット<ph name="END_LINK" />します</translation>
@@ -364,6 +365,7 @@
 <translation id="3744111561329211289">バックグラウンド同期</translation>
 <translation id="3745176700485982507">お気に入りのウェブサイトのリンクはこのページでご覧いただけます</translation>
 <translation id="3751110998481776724">プレビュー <ph name="BEGIN_NEW" />新規<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">アップデートをダウンロードできませんでした</translation>
 <translation id="3773755127849930740">ペア設定するには <ph name="BEGIN_LINK" />Bluetooth をオン<ph name="END_LINK" />にしてください</translation>
 <translation id="3778956594442850293">ホーム画面に追加されました</translation>
 <translation id="3781011235031427080">類似するコンテンツが画面の下半分に開いています</translation>
@@ -536,6 +538,7 @@
 <translation id="497421865427891073">次に進む</translation>
 <translation id="4988210275050210843">ファイルをダウンロードしています（<ph name="MEGABYTES" />）。</translation>
 <translation id="4988526792673242964">ページ</translation>
+<translation id="4994033804516042629">連絡先が見つかりませんでした</translation>
 <translation id="4996978546172906250">共有方法</translation>
 <translation id="5004416275253351869">Google アクティビティ管理</translation>
 <translation id="5005498671520578047">パスワードのコピー</translation>
@@ -938,6 +941,7 @@
 <translation id="7929962904089429003">メニューを開く</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> は最新ではありません。</translation>
 <translation id="7947953824732555851">同意してログイン</translation>
+<translation id="7960977077911686065">続行すると、本サービスの提供にあたって Chrome の自動入力のデータ、サイトの URL、サイトのコンテンツを Google に送信することに同意したものとみなされます。また、ユーザーが選択した個人データが Chrome の自動入力機能を介してウェブサイトに送信されることについても、同意したものとみなされます。\n\nChrome と Chrome の自動入力機能をオフにするには、Chrome の設定にアクセスしてください。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">ベンダー:</translation>
 <translation id="7981313251711023384">ページをプリロードして閲覧と検索をすばやく行えるようにする</translation>
 <translation id="79859296434321399">拡張現実（AR）コンテンツを表示するには ARCore をインストールしてください</translation>
@@ -1098,6 +1102,7 @@
 <translation id="9100610230175265781">パスフレーズを入力してください</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" />（<ph name="ITEM_ID" />）</translation>
 <translation id="9137013805542155359">原文のページを表示</translation>
+<translation id="9138504265731110181">Google アシスタントを利用すれば、時間をかけず簡単にウェブでの購入手続きを完了できます</translation>
 <translation id="9139068048179869749">サイトに通知の送信を許可する前に確認する（推奨）</translation>
 <translation id="9139318394846604261">ショッピング</translation>
 <translation id="9155898266292537608">単語をタップするだけでも検索できます</translation>

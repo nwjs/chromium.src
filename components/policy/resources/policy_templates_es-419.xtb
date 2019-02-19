@@ -174,6 +174,13 @@
 
       Si esta política se establece en false, <ph name="PRODUCT_NAME" /> no permitirá que se inicien perfiles de invitado.</translation>
 <translation id="1363275621236827384">Habilitar las consultas a Quirks Server para perfiles de hardware</translation>
+<translation id="1383493480903114193">Esta política fuerza la ejecución del código de red en el proceso de navegación.
+
+      Está inhabilitada de forma predeterminada, pero, si se habilita, deja a los usuarios desprotegidos frente a problemas de seguridad una vez que el proceso de red se encuentre en la zona de pruebas.
+
+      Esta política permite que las empresas migren a software de terceros sin necesidad de modificar las API de red. Se recomiendan los servidores Proxy antes que los LSP y la aplicación de parches de API Win32.
+
+      Si no se establece esta política, es posible que el código de red se agote en el proceso del navegador en función de las pruebas de campo del experimento NetworkService.</translation>
 <translation id="1384459581748403878">Referencia: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Habilitar o inhabilitar la confianza en la infraestructura del PKI heredado de Symantec Corporation</translation>
 <translation id="1393485621820363363">Impresoras empresariales habilitadas asociadas a dispositivos</translation>
@@ -2694,6 +2701,7 @@ Si se selecciona "U2F_EXTENDED", el segundo factor integrado proporcionará func
       Para los dispositivos administrados con Active Directory, esta política es compatible con la expansión de <ph name="MACHINE_NAME_VARIABLE" /> al nombre de la máquina de Active Directory o un substring de él. Por ejemplo, si el nombre de la máquina es <ph name="MACHINE_NAME_EXAMPLE" />, entonces <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> se reemplazará con los 4 caracteres a partir de la sexta posición, es decir, <ph name="MACHINE_NAME_PART_EXAMPLE" />. Ten en cuenta que esta posición incluye el cero.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (en minúsculas) deja de estar disponible en M71 y se quitará en M72.
       </translation>
+<translation id="7339315111520512972">Forzar el código de red para que se ejecute en el proceso de navegación</translation>
 <translation id="7340034977315324840">Notificar tiempo de actividad del dispositivo</translation>
 <translation id="7343497214039883642">Archivo de configuración de las impresoras empresariales para los dispositivos</translation>
 <translation id="7349338075015720646">Especifica una lista de sitios web instalados de manera silenciosa, sin interacción del usuario y que este no puede desinstalar ni inhabilitar.

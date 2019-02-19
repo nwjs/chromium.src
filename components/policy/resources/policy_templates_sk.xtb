@@ -161,6 +161,13 @@ servera, pretože objekty GPO sa znova sťahujú pri každom načítaní pravidi
 
       Ak je toto pravidlo nastavené na možnosť False, prehliadač <ph name="PRODUCT_NAME" /> nepovolí spustenie profilov hostí.</translation>
 <translation id="1363275621236827384">Povoľte dopyty na serveri Quirks pre hardvérové profily</translation>
+<translation id="1383493480903114193">Toto pravidlo vynúti spustenie kódu siete v procese prehliadača.
+
+      Predvolene je zakázané. Ak ho povolíte, po presunutí procesu siete do karantény nebudú používatelia chránení proti bezpečnostným problémom.
+
+      Cieľom tohto pravidla je poskytnúť podnikom možnosť migrovať na softvér tretej strany, ktorý nie je závislý od prepojení s rozhraniami API siete. V prípade opráv protokolov LSP a rozhraní Win32 API odporúčame použiť proxy servery.
+
+      Ak toto pravidlo nenastavíte, kód siete môže byť spustený mimo procesu prehliadača. Závisí to od testov funkcií v rámci experimentu NetworkService.</translation>
 <translation id="1384459581748403878">Referenčná stránka: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Určuje, či sa má dôverovať starej infraštruktúre PKI spoločnosti Symantec Corporation</translation>
 <translation id="1393485621820363363">Povolené podnikové tlačiarne zariadenia</translation>
@@ -2765,6 +2772,7 @@ Ak toto pravidlo nastavíte na hodnotu True, vstavaný klient DNS sa použije (p
       V prípade spravovaných zariadení Active Directory toto pravidlo podporuje rozšírenie premennej <ph name="MACHINE_NAME_VARIABLE" /> na názov zariadenia Active Directory alebo jeho podradený reťazec. Ak je napríklad názov zariadenia <ph name="MACHINE_NAME_EXAMPLE" />, potom bude premenná <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> nahradená štyrmi znakmi nasledujúcimi po šiestom mieste, t. j. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Pozície sa počítajú od nuly.
       Podpora premennej <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (s malými písmenami) bola ukončená vo verzii M71 a vo verzii M72 bude odstránená.
       </translation>
+<translation id="7339315111520512972">Vynútiť spúšťanie kódu siete v procese prehliadača</translation>
 <translation id="7340034977315324840">Hlásiť časy aktivity zariadenia</translation>
 <translation id="7343497214039883642">Konfiguračný súbor podnikovej tlačiarne pre zariadenia</translation>
 <translation id="7349338075015720646">Určuje zoznam webov inštalovaných na pozadí, bez interakcie s používateľom a ktoré používateľ nemôže odinštalovať ani deaktivovať.

@@ -162,6 +162,13 @@ Dacă politica nu este setată, se va folosi comportamentul prestabilit de a nu 
 
       Dacă această politică este dezactivată, <ph name="PRODUCT_NAME" /> nu va permite crearea profilurilor pentru invitați.</translation>
 <translation id="1363275621236827384">Activează interogările către Quirks Server pentru profilurile hardware</translation>
+<translation id="1383493480903114193">Această politică forțează codul de rețea să ruleze în procesul browserului.
+
+      Această politică este dezactivată în mod prestabilit, iar dacă este activată, utilizatorii vor fi vulnerabili în fața problemelor de securitate odată ce procesului de rețea îi este limitat accesul.
+
+      Politica este concepută pentru a oferi companiilor ocazia de a migra la software oferit de terțe părți, care nu depinde de conectarea la API-urile de rețea. Se recomandă serverele proxy în schimbul LSP-urilor și corecțiilor API Win32.
+
+      Dacă politica nu este setată, codul de rețea poate epuiza procesul browserului, în funcție de testările limitate ale experimentului NetworkService.</translation>
 <translation id="1384459581748403878">Referință: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Dacă se acordă încredere infrastructurii PKI vechi a Symantec Corporation</translation>
 <translation id="1393485621820363363">Imprimantele activate asociate dispozitivelor companiei</translation>
@@ -2698,6 +2705,7 @@ nu poate fi stabilit de utilizator din setările browserului.
       Pentru dispozitivele gestionate cu Active Directory, această politică acceptă extinderea <ph name="MACHINE_NAME_VARIABLE" /> la numele computerului cu Active Directory sau la un subșir al acestuia. De exemplu, dacă numele computerului este <ph name="MACHINE_NAME_EXAMPLE" />, atunci <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> va fi înlocuit de cele patru caractere care urmează după cea de-a șasea poziție, adică <ph name="MACHINE_NAME_PART_EXAMPLE" />. Reține că poziția începe de la zero.
       Numele <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (litere mici) este învechit în M71 și va fi eliminat în M72.
       </translation>
+<translation id="7339315111520512972">Forțează codul de rețea să ruleze în procesul browserului</translation>
 <translation id="7340034977315324840">Raportați perioadele de activitate ale dispozitivului</translation>
 <translation id="7343497214039883642">Fișierul de configurare a imprimantelor companiei pentru dispozitive</translation>
 <translation id="7349338075015720646">Specifică o listă cu site-uri care sunt instalate silențios, fără intervenția utilizatorului și care nu pot fi dezinstalate sau dezactivate de utilizator.

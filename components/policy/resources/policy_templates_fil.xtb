@@ -176,6 +176,13 @@
 
       Kung itatakda ang patakarang ito sa false, hindi papayagan ng <ph name="PRODUCT_NAME" /> na magsimula ang mga profile ng bisita.</translation>
 <translation id="1363275621236827384">I-enable ang mga query sa Quirks Server para sa mga profile sa hardware</translation>
+<translation id="1383493480903114193">Sapilitang pinapagana ng patakarang ito ang networking code sa proseso ng browser.
+
+      Naka-disable bilang default ang patakarang ito, at kung ii-enable, maaaring makaranas ang mga user ng mga isyu sa seguridad kapag na-sandbox ang proseso ng networking.
+
+      Layunin ng patakarang ito na bigyan ang mga enterprise ng pagkakataong mag-migrate sa software ng 3rd party na hindi umaasa sa pag-hook ng mga networking API. Inirerekomenda ang mga proxy server kaysa sa mga LSP at pag-patch ng Win32 API.
+
+      Kung hindi itatakda ang patakarang ito, maaaring maalis sa proseso ng browser ang networking code depende sa mga trial ng field ng eksperimento ng NetworkService.</translation>
 <translation id="1384459581748403878">Reference: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Kung ie-enable ang pagtitiwala sa Legacy PKI Infrastructure ng Symantec Corporation</translation>
 <translation id="1393485621820363363">Mga naka-enable na printer ng device ng enterprise</translation>
@@ -2790,6 +2797,7 @@ lumagpas na sa partikular na haba ng panahon ang oras na hindi ito nagamit.
       Para sa mga device na pinapamahalaan ng Aktibong Directory, sinusuportahan ng patakarang ito ang pagpapalawak ng <ph name="MACHINE_NAME_VARIABLE" /> sa pangalan ng machine o substring ng Aktibong Directory nito. Halimbawa, kung <ph name="MACHINE_NAME_EXAMPLE" /> ang pangalan ng machine, papalitan ang <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> ng 4 na character na nagsisimula sa ika-6 na posisyon, ibig sabihin, <ph name="MACHINE_NAME_PART_EXAMPLE" />. Tandaang ang posisyon ay nakabatay sa zero.
       Ang <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (maliit na titik) ay hindi na ginagamit sa M71 at aalisin na sa M72.
       </translation>
+<translation id="7339315111520512972">Sapilitang paganahin ang networking code sa proseso ng browser</translation>
 <translation id="7340034977315324840">Iulat ang mga panahon ng aktibidad ng device</translation>
 <translation id="7343497214039883642">File ng configuration para sa mga device ng printer ng enterprise</translation>
 <translation id="7349338075015720646">Tumutukoy ng listahan ng mga website na na-install nang hindi napapansin, nang walang pakikipag-ugnayan ng user, at hindi maa-uninstall o madi-disable ng user.

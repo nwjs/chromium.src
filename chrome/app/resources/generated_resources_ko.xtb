@@ -814,6 +814,8 @@
 <translation id="220792432208469595">사용 및 진단 데이터를 보냅니다. 이 기기는 현재 진단, 기기 및 앱 사용 데이터를 Google에 자동으로 보내고 있습니다. 이 데이터는 시스템 및 앱 안정성 등을 개선하는 데 활용됩니다. 일부 수집 데이터는 Google 앱과 파트너(Android 개발자 등)에게도 도움을 줍니다. 이 설정은 소유자가 지정합니다. 추가 웹 및 앱 활동이 사용 설정되어 있다면 이 데이터가 Google 계정에 저장될 수 있습니다. <ph name="BEGIN_LINK1" />자세히 알아보기<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">Zip 아카이브</translation>
 <translation id="220858061631308971">'<ph name="DEVICE_NAME" />'의 PIN 코드를 입력하세요:</translation>
+<translation id="2213140827792212876">공유 폴더 삭제</translation>
+<translation id="2214018885812055163">공유 폴더</translation>
 <translation id="2214884991347062907">잘못된 비밀번호입니다. 다시 시도하세요.</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;1줄이 표시되지 않음&gt;}other{&lt;<ph name="NUMBER_OF_LINES" />줄이 표시되지 않음&gt;}}</translation>
 <translation id="2217501013957346740">이름 만들기 -</translation>
@@ -2871,6 +2873,7 @@
 <translation id="5374359983950678924">사진 변경</translation>
 <translation id="5376169624176189338">클릭하면 이전 페이지로 가고 누르고 있으면 방문 기록이 나타납니다.</translation>
 <translation id="5376931455988532197">파일이 너무 큼</translation>
+<translation id="5377594097385838788">시크릿 모드</translation>
 <translation id="537813040452600081">이 창에서 보는 페이지는 브라우저 기록에 나타나지 않으며 로그아웃한 후에도 컴퓨터에 쿠키와 같은 다른 흔적을 남기지 않습니다. 다운로드한 파일과 생성한 북마크는 보관되지 않습니다.</translation>
 <translation id="5379140238605961210">마이크 액세스 계속 차단</translation>
 <translation id="5379268888377976432">삭제 실행취소</translation>
@@ -4383,6 +4386,7 @@
 <translation id="7663719505383602579">수신기: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">지원되지 않는 블루투스 기기(<ph name="DEVICE_NAME" />)입니다.</translation>
 <translation id="7665369617277396874">계정 추가</translation>
+<translation id="7667248760110172428">외부 저장소</translation>
 <translation id="7671130400130574146">시스템 제목 표시줄 및 테두리 사용</translation>
 <translation id="7672520070349703697"><ph name="PAGE_TITLE" />에 포함된 <ph name="HUNG_IFRAME_URL" /></translation>
 <translation id="7676867886086876795">모든 텍스트 입력란에서 음성기록 기능을 지원하기 위해 Google에 음성이 전송됩니다.</translation>
@@ -4586,6 +4590,7 @@
 <translation id="7930294771522048157">저장한 결제 수단이 여기에 표시됩니다.</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" />에서 내 화면과 오디오를 공유하는 중입니다.</translation>
 <translation id="7931318309563332511">알 수 없음</translation>
+<translation id="7932969338829957666"><ph name="BASE_DIR" />에서 Linux의 공유 폴더를 사용할 수 있습니다.</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{사이트 숨기기 취소}other{사이트 숨기기 취소}}</translation>
 <translation id="7934414805353235750"><ph name="URL" />에서 보호된 콘텐츠를 재생하려고 합니다. Google에서 기기의 ID를 인증해야 합니다.</translation>
 <translation id="793531125873261495">가상 머신을 다운로드하는 중 문제가 발생했습니다. 다시 시도해 주세요.</translation>

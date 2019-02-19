@@ -161,6 +161,13 @@ For mer informasjon om sikkert innhold, se https://www.w3.org/TR/secure-contexts
 
       Hvis denne regelen settes til false (usann), tillater ikke <ph name="PRODUCT_NAME" /> at gjesteprofiler startes.</translation>
 <translation id="1363275621236827384">Slå på forespørsler til Quirks Server for maskinvareprofiler</translation>
+<translation id="1383493480903114193">Denne regelen tvinger nettverkskode til å kjøre i nettleserprosessen.
+
+      Som standard er denne regelen slått av. Hvis den slås på, kan brukere være utsatt for sikkerhetsproblemene når nettverksprosessen kjøres isolert.
+
+      Formålet med denne regelen er å gi bedrifter mulighet til å gå over til tredjepartsprogramvare som ikke er avhengig av å bruke nettverks-API-ene. Proxy-tjenere anbefales fremfor LSP-er og Win32 API-patching.
+
+      Hvis denne regelen ikke er angitt, kan nettverkskode kjøre utenfor nettleserprosessen, men dette avhenger av feltforsøkene i NetworkService-eksperimentet.</translation>
 <translation id="1384459581748403878">Referanse: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Angir om Symantec Corporations eldre PKI-infrastruktur skal klareres eller ikke</translation>
 <translation id="1393485621820363363">Aktiverte bedriftsskrivere</translation>
@@ -2746,6 +2753,7 @@ Minneinformasjon blir uansett rapportert til siden, uavhengig av verdien for alt
       For Active Directory-administrerte enheter støtter denne regelen utvidelse av <ph name="MACHINE_NAME_VARIABLE" /> til Active Directory-maskinnavnet eller en delstreng av det. Hvis maskinnavnet for eksempel er <ph name="MACHINE_NAME_EXAMPLE" />, erstattes <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> med de 4 tegnene etter 6. posisjon, dvs. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Merk at posisjonen er null-basert.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (små bokstaver) er avviklet i M71 og fjernes i M72.
       </translation>
+<translation id="7339315111520512972">Tving nettverkskode til å kjøre i nettleserprosessen</translation>
 <translation id="7340034977315324840">Rapportering av aktivitetstider for enhet</translation>
 <translation id="7343497214039883642">Konfigurasjonsfil for enheter på bedriftsskriver</translation>
 <translation id="7349338075015720646">Spesifiserer en liste over nettsteder som er installert gjennom bakgrunnsinstallasjon (uten brukerinteraksjon), og som brukere ikke kan avinstallere eller slå av.

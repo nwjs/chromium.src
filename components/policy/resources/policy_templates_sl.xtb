@@ -176,6 +176,13 @@ Vrednost prilagoditve mora biti 100 % ali več.</translation>
 
       Če je ta pravilnik onemogočen, <ph name="PRODUCT_NAME" /> ne dovoli profilov gosta.</translation>
 <translation id="1363275621236827384">Omogoči poizvedbe strežniku Quirks Server za profile strojne opreme.</translation>
+<translation id="1383493480903114193">Ta pravilnik vsili, da se omrežna koda izvaja v procesu brskalnika.
+
+      Ta pravilnik je privzeto onemogočen, če pa je omogočen, so uporabniki izpostavljeni varnostnim težavam, ko se omrežni proces izvaja v peskovniku.
+
+      Namen tega pravilnika je, da se velikim podjetjem omogoči selitev na programsko opremo drugih ponudnikov, ki ni odvisna od uporabe omrežnih API-jev. Priporočamo, da namesto LSP-jev in popravkov API-jev Win32 uporabite strežnike proxy.
+
+      Če ta pravilnik ni nastavljen, se lahko omrežna koda izvaja zunaj procesa brskalnika, kar je odvisno od terenskih preizkušanj preizkusa NetworkService.</translation>
 <translation id="1384459581748403878">Sklic: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Ali naj se omogoči zaupanje zastareli infrastrukturi PKI družbe Symantec Corporation</translation>
 <translation id="1393485621820363363">Omogočeni tiskalniki za naprave v podjetjih</translation>
@@ -2797,6 +2804,7 @@ URL-ji, ki uporabljajo sheme s tega seznama, se ne bodo naložili in dostop do n
       Za naprave, ki jih upravlja Active Directory, ta pravilnik podpira razširitev imena naprave <ph name="MACHINE_NAME_VARIABLE" /> na ime naprave za Active Directory ali njegov podniz. Če je ime naprave na primer <ph name="MACHINE_NAME_EXAMPLE" />, potem zamenjajo <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> 4 znaki po 6. mestu, tj. <ph name="MACHINE_NAME_PART_EXAMPLE" />. Položaj temelji na ničli.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (majhne črke) je zastarelo v različici M71 in bo odstranjeno v različici M72.
       </translation>
+<translation id="7339315111520512972">Vsili izvajanje omrežne kode v procesu brskalnika</translation>
 <translation id="7340034977315324840">Pošiljanje podatkov o času dejavnosti v napravi</translation>
 <translation id="7343497214039883642">Datoteka s konfiguracijami tiskalnikov v podjetjih za naprave</translation>
 <translation id="7349338075015720646">Določa seznam spletnih aplikacij, ki se namestijo brez obveščanja in brez poseganja uporabnika ter ki jih uporabnik ne more ne odstraniti ne onemogočiti.

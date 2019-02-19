@@ -161,6 +161,13 @@ Se questa norma non viene impostata, verrà applicato il comportamento predefini
 
       Se questa norma viene impostata su false, in <ph name="PRODUCT_NAME" /> non sarà possibile avviare profili ospite.</translation>
 <translation id="1363275621236827384">Attiva le query in Quirks Server per i profili hardware</translation>
+<translation id="1383493480903114193">Questa norma forza l'esecuzione del codice di networking nel processo del browser.
+
+      Questa norma è disattivata per impostazione predefinita e, se attivata, rende gli utenti vulnerabili ai problemi di sicurezza dopo che il processo di networking viene limitato tramite sandbox.
+
+      Questa norma è pensata per offrire alle aziende la possibilità di migrare a software di terze parti che non dipendono dalla combinazione delle API di networking. I server proxy sono consigliati negli LSP e nelle patching API di Win32.
+
+      Se questa norma non è impostata, il codice di networking potrebbe essere eseguito al di fuori del processo di browser, a seconda delle prove sul campo dell'esperimento NetworkService.</translation>
 <translation id="1384459581748403878">Riferimento: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Consente di stabilire se considerare attendibile o meno l'infrastruttura PKI precedente di Symantec Corporation</translation>
 <translation id="1393485621820363363">Stampanti aziendali associate ai dispositivi attive</translation>
@@ -2644,6 +2651,7 @@ Questa norma consente agli amministratori di fornire configurazioni delle stampa
       Per i dispositivi Active Directory gestiti, questa norma supporta l'espansione di <ph name="MACHINE_NAME_VARIABLE" /> al nome della macchina Active Directory oppure a una sua sottostringa. Ad esempio, se il nome della macchina è <ph name="MACHINE_NAME_EXAMPLE" />, allora la variabile <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> verrà sostituita dai quattro caratteri che iniziano dopo la sesta posizione, ad esempio <ph name="MACHINE_NAME_PART_EXAMPLE" />. Tieni presente che la posizione è in base zero.
       La variabile <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (minuscolo) è stata dichiarata obsoleta in M71 e sarà rimossa in M72.
       </translation>
+<translation id="7339315111520512972">Forza l'esecuzione del codice di networking nel processo di browser</translation>
 <translation id="7340034977315324840">Indicazione tempi di attività del dispositivo</translation>
 <translation id="7343497214039883642">File di configurazione delle stampanti aziendali per i dispositivi</translation>
 <translation id="7349338075015720646">Consente di specificare un elenco di app web installate automaticamente, senza interazione dell'utente e che non possono essere disinstallate o disattivate dall'utente

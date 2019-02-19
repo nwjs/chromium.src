@@ -814,6 +814,8 @@
 <translation id="220792432208469595">‏يمكنك إرسال بيانات الاستخدام والتشخيص. يرسل هذا الجهاز حاليًا بيانات استخدام التطبيق والجهاز والتشخيص تلقائيًا إلى Google. سيساعد ذلك في استقرار عمل النظام والتطبيقات، بالإضافة إلى التحسينات الأخرى. كما ستساعد بعض البيانات المجمّعة تطبيقات Google وشركائها، مثل مطوّري برامج نظام التشغيل Android. ويفرض المالك هذا الإعداد. في حال تفعيل إعداد "النشاط الإضافي على الويب وفي التطبيقات"، قد يتم حفظ هذه البيانات في حسابك على Google. <ph name="BEGIN_LINK1" />مزيد من المعلومات<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">‏أرشيف Zip</translation>
 <translation id="220858061631308971">يُرجى إدخال رمز رقم التعريف الشخصي هذا على "<ph name="DEVICE_NAME" />":</translation>
+<translation id="2213140827792212876">إزالة المشاركة</translation>
+<translation id="2214018885812055163">المجلدات التي تمت مشاركتها</translation>
 <translation id="2214884991347062907">كلمة المرور غير صحيحة، يُرجى إعادة المحاولة.</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;لم يتم عرض سطر واحد&gt;}zero{&lt;لم يتم عرض <ph name="NUMBER_OF_LINES" /> سطر&gt;}two{&lt;لم يتم عرض سطرين (<ph name="NUMBER_OF_LINES" />)&gt;}few{&lt;لم يتم عرض <ph name="NUMBER_OF_LINES" />) سطور&gt;}many{&lt;لم يتم عرض <ph name="NUMBER_OF_LINES" /> سطرًا&gt;}other{&lt;لم يتم عرض <ph name="NUMBER_OF_LINES" /> سطر&gt;}}</translation>
 <translation id="2217501013957346740">أنشئ اسمًا -</translation>
@@ -2868,6 +2870,7 @@
 <translation id="5374359983950678924">تغيير صورة</translation>
 <translation id="5376169624176189338">انقر للرجوع إلى الوراء واضغط لمشاهدة السجل</translation>
 <translation id="5376931455988532197">الملف كبير جدًا</translation>
+<translation id="5377594097385838788">التصفُّح المتخفي</translation>
 <translation id="537813040452600081">لن تظهر الصفحات التي تعرضها في هذه النافذة في سجل المتصفح، ولن تترك آثارًا أخرى، كملفات تعريف الارتباط، في الكمبيوتر بعد الخروج. كما لن يتم الحفاظ على الملفات التي تنزلها والإشارات المرجعية التي تنشئها.</translation>
 <translation id="5379140238605961210">متابعة حظر الدخول إلى الميكروفون</translation>
 <translation id="5379268888377976432">التراجع عن الحذف</translation>
@@ -4381,6 +4384,7 @@
 <translation id="7663719505383602579">المتلقي: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">جهاز بلوتوث غير متوافق: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="7665369617277396874">إضافة حساب</translation>
+<translation id="7667248760110172428">مساحة تخزين خارجية</translation>
 <translation id="7671130400130574146">استخدام شريط عناوين النظام والحدود</translation>
 <translation id="7672520070349703697"><ph name="HUNG_IFRAME_URL" />، في <ph name="PAGE_TITLE" />.</translation>
 <translation id="7676867886086876795">‏يمكنك إرسال صوتك إلى Google للسماح بالإملاء في أي حقل نصي.</translation>
@@ -4584,6 +4588,7 @@
 <translation id="7930294771522048157">ستظهر هنا طرق الدفع المحفوظة</translation>
 <translation id="79312157130859720">يشارك <ph name="APP_NAME" /> الشاشة والصوت.</translation>
 <translation id="7931318309563332511">غير معروف</translation>
+<translation id="7932969338829957666">‏تتوفَّر المجلدات المشتركة في Linux على <ph name="BASE_DIR" />.</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{إعادة صوت موقع ويب واحد}zero{إعادة صوت مواقع الويب}two{إعادة صوت موقعيِّ الويب}few{إعادة صوت مواقع الويب}many{إعادة صوت مواقع الويب}other{إعادة صوت مواقع الويب}}</translation>
 <translation id="7934414805353235750">‏يريد عنوان <ph name="URL" /> تشغيل محتوى محمٍ، لذلك ستتحقَّق Google من هوية جهازك.</translation>
 <translation id="793531125873261495">حدث خطأ أثناء تنزيل الآلة الافتراضية. يُرجى إعادة المحاولة.</translation>
