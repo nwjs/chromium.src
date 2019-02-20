@@ -117,6 +117,9 @@ jinja_template("monochrome_public_bundle_android_manifest") {
                 "target_sdk_version=$android_sdk_version",
                 "webview_library=libmonochrome${bundle_library_suffix}.so",
               ]
+
+  # Override include_arcore_manifest_flag to true for bundles.
+  variables += [ "include_arcore_manifest_flag=true" ]
 }
 
 jinja_template("trichrome_library_android_manifest") {
