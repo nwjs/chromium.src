@@ -6,6 +6,11 @@
 
 #include <algorithm>
 
+// TODO(crbug.com/636188): required to implement ViewHierarchyContainsWKWebView
+// for -drawViewHierarchyInRect:afterScreenUpdates:, remove once the workaround
+// is no longer needed.
+#import <WebKit/WebKit.h>
+
 #include "base/bind.h"
 #include "base/logging.h"
 #include "base/task/post_task.h"
@@ -26,6 +31,21 @@
 #if !defined(__has_feature) || !__has_feature(objc_arc)
 #error "This file requires ARC support."
 #endif
+
+namespace {
+
+// Returns YES if |view| or any view it contains is a WKWebView.
+BOOL ViewHierarchyContainsWKWebView(UIView* view) {
+  if ([view isKindOfClass:[WKWebView class]])
+    return YES;
+  for (UIView* subview in view.subviews) {
+    if (ViewHierarchyContainsWKWebView(subview))
+      return YES;
+  }
+  return NO;
+}
+
+}  // namespace
 
 @interface SnapshotGenerator ()<CRWWebStateObserver>
 
@@ -199,7 +219,16 @@
   CGContext* context = UIGraphicsGetCurrentContext();
   CGContextTranslateCTM(context, -frame.origin.x, -frame.origin.y);
   BOOL snapshotSuccess = YES;
-  if (base::FeatureList::IsEnabled(kSnapshotDrawView)) {
+  // TODO(crbug.com/636188): |-drawViewHierarchyInRect:afterScreenUpdates:| is
+  // buggy on iOS 8/9/10 (and state is unknown for iOS 11) causing GPU glitches,
+  // screen redraws during animations, broken pinch to dismiss on tablet, etc.
+  // Ensure iOS 11 is not affected by these issues before turning on
+  // |kSnapshotDrawView| experiment. On the other hand, |-renderInContext:| is
+  // buggy for WKWebView, which is used for some Chromium pages such as "No
+  // internet" or "Site can't be reached".
+  BOOL useDrawViewHierarchy = ViewHierarchyContainsWKWebView(view) ||
+                              base::FeatureList::IsEnabled(kSnapshotDrawView);
+  if (useDrawViewHierarchy) {
     snapshotSuccess =
         [view drawViewHierarchyInRect:view.bounds afterScreenUpdates:NO];
   } else {
