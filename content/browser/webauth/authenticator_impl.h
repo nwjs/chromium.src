@@ -15,7 +15,6 @@
 #include "base/macros.h"
 #include "base/optional.h"
 #include "content/common/content_export.h"
-#include "content/public/browser/authenticator_request_client_delegate.h"
 #include "content/public/browser/web_contents_observer.h"
 #include "crypto/sha2.h"
 #include "device/fido/authenticator_get_assertion_response.h"
@@ -50,6 +49,7 @@ class Origin;
 
 namespace content {
 
+class AuthenticatorRequestClientDelegate;
 class BrowserContext;
 class RenderFrameHost;
 
@@ -159,8 +159,7 @@ class CONTENT_EXPORT AuthenticatorImpl : public blink::mojom::Authenticator,
   // Decides whether or not UI is present that needs to block on user
   // acknowledgement before returning the error, and handles the error
   // appropriately.
-  void SignalFailureToRequestDelegate(
-      AuthenticatorRequestClientDelegate::InterestingFailureReason reason);
+  void HandleBlockingError(blink::mojom::AuthenticatorStatus status);
 
   void InvokeCallbackAndCleanup(
       MakeCredentialCallback callback,
