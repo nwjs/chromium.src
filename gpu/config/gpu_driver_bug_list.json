@@ -3067,6 +3067,25 @@
       "features": [
         "disable_direct_composition"
       ]
+    },
+    {
+      "id": 293,
+      "cr_bugs": [931527],
+      "description": "Frequent crashes in glClear on Android N with driver 12.0.04rel0",
+      "os": {
+        "type": "android",
+        "version": {
+          "op": "<",
+          "value": "8.0"
+        }
+      },
+      "driver_version": {
+        "op": "=",
+        "value": "12.0.04rel0"
+      },
+      "features": [
+        "gl_clear_broken"
+      ]
     }
   ]
 }
