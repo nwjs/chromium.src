@@ -393,8 +393,10 @@ void ShelfView::OnShelfAlignmentChanged() {
   if (app_list_button)
     app_list_button->SchedulePaint();
 
-  GetFocusManager()->set_arrow_key_traversal_enabled(
-      !shelf_->IsHorizontalAlignment());
+  if (GetFocusManager()) {
+    GetFocusManager()->set_arrow_key_traversal_enabled_for_widget(
+        !shelf_->IsHorizontalAlignment());
+  }
 }
 
 gfx::Rect ShelfView::GetIdealBoundsOfItemIcon(const ShelfID& id) {
