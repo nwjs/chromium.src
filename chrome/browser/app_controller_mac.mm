@@ -1629,6 +1629,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 }
 
 - (void)updateMenuItemKeyEquivalents {
+#if 0
   BOOL enableCloseTabShortcut = NO;
   id target = [NSApp targetForAction:@selector(performClose:)];
 
@@ -1650,6 +1651,7 @@ static base::mac::ScopedObjCClassSwizzler* g_swizzle_imk_input_session;
 
   [self adjustCloseWindowMenuItemKeyEquivalent:enableCloseTabShortcut];
   [self adjustCloseTabMenuItemKeyEquivalent:enableCloseTabShortcut];
+#endif
 }
 
 - (BOOL)application:(NSApplication*)application
