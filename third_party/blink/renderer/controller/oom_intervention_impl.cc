@@ -82,15 +82,12 @@ void OomInterventionImpl::Check(TimerBase*) {
   if (oom_detected) {
     if (navigate_ads_enabled_ || purge_v8_memory_enabled_) {
       for (const auto& page : Page::OrdinaryPages()) {
-        for (Frame* frame = page->MainFrame(); frame;
-             frame = frame->Tree().TraverseNext()) {
-          if (!frame->IsLocalFrame())
-            continue;
-          LocalFrame* local_frame = ToLocalFrame(frame);
+        if (page->MainFrame()->IsLocalFrame()) {
+          LocalFrame* frame = ToLocalFrame(page->MainFrame());
           if (navigate_ads_enabled_)
-            local_frame->GetDocument()->NavigateLocalAdsFrames();
+            frame->GetDocument()->NavigateLocalAdsFrames();
           if (purge_v8_memory_enabled_)
-            local_frame->ForciblyPurgeV8Memory();
+            frame->ForciblyPurgeV8Memory();
         }
       }
     }
