@@ -19,7 +19,10 @@ Polymer({
     },
 
     /** @type {!print_preview.Destination} */
-    destination: Object,
+    destination: {
+      type: Object,
+      observer: 'onDestinationSet_',
+    },
 
     /** @type {?print_preview.DestinationStore} */
     destinationStore: {
@@ -149,22 +152,26 @@ Polymer({
 
   /** @private */
   onCloudPrintStateChanged_: function() {
-    if (this.cloudPrintState !== print_preview.CloudPrintState.ENABLED &&
-        this.cloudPrintState !== print_preview.CloudPrintState.SIGNED_IN) {
+    if (this.cloudPrintState !== print_preview.CloudPrintState.SIGNED_IN) {
       return;
+    }
+
+    if (this.destination && this.destination.account !== '') {
+      this.updateDestination_();
     }
 
     this.loadDropdownCloudDestinations_();
-    if (this.cloudPrintState === print_preview.CloudPrintState.SIGNED_IN) {
-      return;
-    }
+  },
 
-    const destinationDialog = this.$$('print-preview-destination-dialog');
-    if (destinationDialog && destinationDialog.isOpen()) {
-      this.destinationStore.startLoadCloudDestinations();
-      if (this.activeUser) {
-        this.invitationStore.startLoadingInvitations(this.activeUser);
-      }
+  /** @private */
+  onDestinationSet_: function() {
+    if (this.cloudPrintState === print_preview.CloudPrintState.ENABLED) {
+      // Only try to load the docs destination for now. If this request
+      // succeeds, it will trigger a transition to SIGNED_IN, and we can
+      // load the remaining destinations. Otherwise, it will transition to
+      // NOT_SIGNED_IN, so we will not do this more than once.
+      this.destinationStore.startLoadCookieDestination(
+          print_preview.Destination.GooglePromotedId.DOCS);
     }
   },
 
@@ -204,6 +211,16 @@ Polymer({
     });
   },
 
+  /** @private */
+  onLoadingDestinationChange_: function() {
+    if (this.loadingDestination_ || this.noDestinationsFound ||
+        (this.cloudPrintState !== print_preview.CloudPrintState.SIGNED_IN &&
+         this.destination.account !== '')) {
+      return;
+    }
+    this.updateDestination_();
+  },
+
   /**
    * @param {!CustomEvent<string>} e Event containing the new selected value.
    * @private
@@ -223,20 +240,15 @@ Polymer({
 
   /** @private */
   onDialogClose_: function() {
-    // Reset the select value in case the user dismissed the dialog without
+    // Reset the select value if the user dismissed the dialog without
     // selecting a new destination.
     if (this.destination) {
-      this.$.destinationSelect.updateDestination();
+      this.updateDestination_();
     }
     this.$.destinationSelect.focus();
   },
 
-  /** @private */
-  onLoadingDestinationChange_: function() {
-    if (this.loadingDestination_) {
-      return;
-    }
-
+  updateDestination_: function() {
     // TODO (rbpotter): Remove this conditional when the Polymer 2 migration
     // is completed.
     if (Polymer.DomIf) {
