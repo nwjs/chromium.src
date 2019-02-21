@@ -322,16 +322,17 @@ TEST_F(AuthenticatorRequestDialogModelTest, NoAvailableTransports) {
   EXPECT_CALL(mock_observer, OnModelDestroyed());
 }
 
-TEST_F(AuthenticatorRequestDialogModelTest, AwaitingAcknowledgement) {
+TEST_F(AuthenticatorRequestDialogModelTest, PostMortems) {
   const struct {
     void (AuthenticatorRequestDialogModel::*event)();
-    Step expected_sheet;
+    Step expected_post_mortem_sheet;
   } kTestCases[] = {
-      {&AuthenticatorRequestDialogModel::OnRequestTimeout, Step::kTimedOut},
+      {&AuthenticatorRequestDialogModel::OnRequestTimeout,
+       Step::kPostMortemTimedOut},
       {&AuthenticatorRequestDialogModel::OnActivatedKeyNotRegistered,
-       Step::kKeyNotRegistered},
+       Step::kPostMortemKeyNotRegistered},
       {&AuthenticatorRequestDialogModel::OnActivatedKeyAlreadyRegistered,
-       Step::kKeyAlreadyRegistered},
+       Step::kPostMortemKeyAlreadyRegistered},
   };
 
   for (const auto& test_case : kTestCases) {
@@ -350,11 +351,11 @@ TEST_F(AuthenticatorRequestDialogModelTest, AwaitingAcknowledgement) {
 
     EXPECT_CALL(mock_observer, OnStepTransition());
     (model.*test_case.event)();
-    EXPECT_EQ(test_case.expected_sheet, model.current_step());
+    model.OnRequestComplete();
+    EXPECT_EQ(test_case.expected_post_mortem_sheet, model.current_step());
     testing::Mock::VerifyAndClearExpectations(&mock_observer);
 
     EXPECT_CALL(mock_observer, OnStepTransition());
-    EXPECT_CALL(mock_observer, OnCancelRequest());
     model.Cancel();
     EXPECT_EQ(Step::kClosed, model.current_step());
     testing::Mock::VerifyAndClearExpectations(&mock_observer);

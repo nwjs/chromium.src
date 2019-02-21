@@ -1990,10 +1990,9 @@ class MockAuthenticatorRequestDelegateObserver
         failure_reasons_callback_(std::move(failure_reasons_callback)) {}
   ~MockAuthenticatorRequestDelegateObserver() override = default;
 
-  bool DoesBlockRequestOnFailure(InterestingFailureReason reason) override {
-    CHECK(failure_reasons_callback_);
+  void DidFailWithInterestingReason(InterestingFailureReason reason) override {
+    ASSERT_TRUE(failure_reasons_callback_);
     std::move(failure_reasons_callback_).Run(reason);
-    return false;
   }
 
   MOCK_METHOD1(

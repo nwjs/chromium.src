@@ -45,16 +45,17 @@ class AuthenticatorDialogTest : public DialogBrowserTest {
       model->SetCurrentStep(
           AuthenticatorRequestDialogModel::Step::kUsbInsertAndActivate);
     } else if (name == "timeout") {
-      model->SetCurrentStep(AuthenticatorRequestDialogModel::Step::kTimedOut);
+      model->SetCurrentStep(
+          AuthenticatorRequestDialogModel::Step::kPostMortemTimedOut);
     } else if (name == "no_available_transports") {
       model->SetCurrentStep(
           AuthenticatorRequestDialogModel::Step::kErrorNoAvailableTransports);
     } else if (name == "key_not_registered") {
       model->SetCurrentStep(
-          AuthenticatorRequestDialogModel::Step::kKeyNotRegistered);
+          AuthenticatorRequestDialogModel::Step::kPostMortemKeyNotRegistered);
     } else if (name == "key_already_registered") {
-      model->SetCurrentStep(
-          AuthenticatorRequestDialogModel::Step::kKeyAlreadyRegistered);
+      model->SetCurrentStep(AuthenticatorRequestDialogModel::Step::
+                                kPostMortemKeyAlreadyRegistered);
     } else if (name == "ble_power_on_manual") {
       model->SetCurrentStep(
           AuthenticatorRequestDialogModel::Step::kBlePowerOnManual);
