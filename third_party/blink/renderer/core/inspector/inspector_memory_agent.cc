@@ -63,6 +63,21 @@ Response InspectorMemoryAgent::getDOMCounters(int* documents,
   return Response::OK();
 }
 
+Response InspectorMemoryAgent::forciblyPurgeJavaScriptMemory() {
+  for (const auto& page : Page::OrdinaryPages()) {
+    for (Frame* frame = page->MainFrame(); frame;
+         frame = frame->Tree().TraverseNext()) {
+      if (!frame->IsLocalFrame())
+        continue;
+      LocalFrame* local_frame = ToLocalFrame(frame);
+      local_frame->ForciblyPurgeV8Memory();
+    }
+  }
+  V8PerIsolateData::MainThreadIsolate()->MemoryPressureNotification(
+      v8::MemoryPressureLevel::kCritical);
+  return Response::OK();
+}
+
 void InspectorMemoryAgent::Trace(blink::Visitor* visitor) {
   visitor->Trace(frames_);
   InspectorBaseAgent::Trace(visitor);
