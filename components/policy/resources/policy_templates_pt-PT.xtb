@@ -181,9 +181,9 @@
 
       Esta política está desativada por predefinição e, se for ativada, deixa os utilizadores sujeitos aos problemas de segurança quando o processo de rede tiver isolamento de processos.
 
-      O objetivo desta política é dar às empresas a possibilidade de migrarem para software de terceiros que não dependa de criar hooks para as APIs de rede. Recomendam-se servidores proxy em detrimento de patches de LSPs e Win32 API.
+      O objetivo desta política é dar às empresas a possibilidade de migrarem para software de terceiros que não dependa de articulação com as APIs de rede. Recomendam-se servidores proxy em detrimento de patches de LSPs e Win32 API.
 
-      Se esta política não for definida, o código de rede poderá ser executado fora do processo do navegador, dependendo dos testes de campo da experiência NetworkService.</translation>
+      Se esta política não for definida, o código de rede poderá ser executado fora do processo do navegador, conforme os testes de campo da experiência NetworkService.</translation>
 <translation id="1384459581748403878">Referência: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Ativar ou não ativar confiança na Infraestrutura PKI antiga da Symantec Corporation.</translation>
 <translation id="1393485621820363363">Impressoras empresariais de dispositivos ativadas</translation>

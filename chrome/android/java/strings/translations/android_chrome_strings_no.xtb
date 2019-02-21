@@ -941,7 +941,7 @@ Noen nettsteder kan for eksempel svare på denne forespørselen ved å vise deg 
 <translation id="7929962904089429003">Åpne menyen</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> er utdatert.</translation>
 <translation id="7947953824732555851">Godta og logg på</translation>
-<translation id="7960977077911686065">Hvis du fortsetter, godtar du at Chrome sender nettstedets nettadresse og innhold samt data fra Chrome autofyll til Google, slik at vi kan levere denne tjenesten. Du godtar også at Chrome sender personopplysningene du valgte, til nettstedet via Chrome autofyll. \n\nÅpne Chrome-innstillingene for å slå av Google-assistenten i Chrome og Chrome autofyll.  <ph name="BEGIN_LINK" />Finn ut mer<ph name="END_LINK" /></translation>
+<translation id="7960977077911686065">Hvis du fortsetter, godtar du at Chrome sender nettstedets nettadresse og innhold samt data fra Chrome autofyll til Google, slik at vi kan levere denne tjenesten. Du godtar også at Chrome sender personopplysningene du har valgt, til nettstedet via Chrome autofyll. \n\nÅpne Chrome-innstillingene for å slå av Google-assistenten i Chrome og Chrome autofyll.  <ph name="BEGIN_LINK" />Finn ut mer<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Leverandør:</translation>
 <translation id="7981313251711023384">Last inn sider på forhånd for raskere nettlesing og søk</translation>
 <translation id="79859296434321399">Du må installere ARCore for å se innhold med utvidet virkelighet</translation>
