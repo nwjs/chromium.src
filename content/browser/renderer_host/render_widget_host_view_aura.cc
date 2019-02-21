@@ -721,7 +721,7 @@ void RenderWidgetHostViewAura::WasOccluded() {
 }
 
 bool RenderWidgetHostViewAura::ShouldShowStaleContentOnEviction() {
-  return host()->ShouldShowStaleContentOnEviction();
+  return host() && host()->ShouldShowStaleContentOnEviction();
 }
 
 gfx::Rect RenderWidgetHostViewAura::GetViewBounds() const {
