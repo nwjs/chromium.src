@@ -843,6 +843,9 @@ extern const char kOmniboxNewAnswerLayoutDescription[];
 extern const char kOmniboxSpareRendererName[];
 extern const char kOmniboxSpareRendererDescription[];
 
+extern const char kOmniboxUIBlueSearchLoopAndSearchQueryName[];
+extern const char kOmniboxUIBlueSearchLoopAndSearchQueryDescription[];
+
 extern const char kOmniboxUIHideSteadyStateUrlSchemeName[];
 extern const char kOmniboxUIHideSteadyStateUrlSchemeDescription[];
 
