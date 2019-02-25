@@ -1424,6 +1424,12 @@ const char kOmniboxUISwapTitleAndUrlDescription[] =
     "In the omnibox dropdown, shows titles before URLs when both are "
     "available.";
 
+const char kOmniboxUIUseGenericSearchEngineIconName[] =
+    "Omnibox UI Use Generic Search Engine Icon";
+const char kOmniboxUIUseGenericSearchEngineIconDescription[] =
+    "In the omnibox and NTP, shows a generic magnifying glass icon instead of  "
+    "the Search Provider favicon.";
+
 const char kOmniboxVoiceSearchAlwaysVisibleName[] =
     "Omnibox Voice Search Always Visible";
 const char kOmniboxVoiceSearchAlwaysVisibleDescription[] =

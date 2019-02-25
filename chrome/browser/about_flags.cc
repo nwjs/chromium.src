@@ -3163,6 +3163,12 @@ const FeatureEntry kFeatureEntries[] = {
      flag_descriptions::kOmniboxUISwapTitleAndUrlDescription, kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kUIExperimentSwapTitleAndUrl)},
 
+    {"omnibox-ui-use-generic-search-engine-icon",
+     flag_descriptions::kOmniboxUIUseGenericSearchEngineIconName,
+     flag_descriptions::kOmniboxUIUseGenericSearchEngineIconDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kUIExperimentUseGenericSearchEngineIcon)},
+
     {"use-suggestions-even-if-few",
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureName,
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureDescription, kOsAll,
