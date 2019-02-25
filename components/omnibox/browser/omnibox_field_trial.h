@@ -57,6 +57,7 @@ extern const base::Feature kUIExperimentShowSuffixOnAllSearchSuggestions;
 extern const base::Feature kUIExperimentBoldUserTextOnSearchSuggestions;
 extern const base::Feature kUIExperimentWhiteBackgroundOnBlur;
 extern const base::Feature kUIExperimentUseGenericSearchEngineIcon;
+extern const base::Feature kUIExperimentUnboldSuggestionText;
 extern const base::Feature kSpeculativeServiceWorkerStartOnQueryInput;
 extern const base::Feature kDocumentProvider;
 extern const base::Feature kDedupeGoogleDriveURLs;

@@ -279,6 +279,11 @@ const base::Feature kUIExperimentBoldUserTextOnSearchSuggestions{
     "OmniboxUIExperimentBoldUserTextOnSearchSuggestions",
     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Feature used to unbold suggestion text.
+const base::Feature kUIExperimentUnboldSuggestionText{
+    "OmniboxUIExperimentUnboldSuggestionText",
+    base::FEATURE_DISABLED_BY_DEFAULT};
+
 // Feature used to enable speculatively starting a service worker associated
 // with the destination of the default match when the user's input looks like a
 // query.
