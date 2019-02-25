@@ -201,6 +201,12 @@ const base::Feature kUIExperimentMaxAutocompleteMatches{
 const base::Feature kQueryInOmnibox{"QueryInOmnibox",
                                     base::FEATURE_DISABLED_BY_DEFAULT};
 
+// Feature used for showing the URL suggestion favicons as a UI experiment,
+// currently only used on desktop platforms.
+const base::Feature kUIExperimentShowSuggestionFavicons{
+    "OmniboxUIExperimentShowSuggestionFavicons",
+    base::FEATURE_ENABLED_BY_DEFAULT};
+
 // Feature used to always swap the title and URL.
 const base::Feature kUIExperimentSwapTitleAndUrl{
     "OmniboxUIExperimentSwapTitleAndUrl",
@@ -210,6 +216,11 @@ const base::Feature kUIExperimentSwapTitleAndUrl{
     base::FEATURE_ENABLED_BY_DEFAULT
 #endif
 };
+
+// Feature used for the vertical margin UI experiment, currently only used on
+// desktop platforms.
+const base::Feature kUIExperimentVerticalMargin{
+    "OmniboxUIExperimentVerticalMargin", base::FEATURE_DISABLED_BY_DEFAULT};
 
 // Feature used to enable speculatively starting a service worker associated
 // with the destination of the default match when the user's input looks like a
@@ -803,6 +814,14 @@ bool OmniboxFieldTrial::IsHideSteadyStateUrlTrivialSubdomainsEnabled() {
          base::FeatureList::IsEnabled(features::kExperimentalUi);
 }
 
+int OmniboxFieldTrial::GetSuggestionVerticalMargin() {
+  // When the vertical margin is set to 2dp, the suggestion height is the
+  // closest to the pre-Refresh height. In fact it's 1dp taller than the
+  // pre-Refresh height on Linux.
+  return base::GetFieldTrialParamByFeatureAsInt(
+      omnibox::kUIExperimentVerticalMargin, kUIVerticalMarginParam, 2);
+}
+
 bool OmniboxFieldTrial::IsExperimentalKeywordModeEnabled() {
   return base::FeatureList::IsEnabled(omnibox::kExperimentalKeywordMode);
 }
@@ -877,6 +896,7 @@ const char
 
 const char OmniboxFieldTrial::kUIMaxAutocompleteMatchesParam[] =
     "UIMaxAutocompleteMatches";
+const char OmniboxFieldTrial::kUIVerticalMarginParam[] = "UIVerticalMargin";
 const char OmniboxFieldTrial::kPedalSuggestionModeParam[] =
     "PedalSuggestionMode";
 
