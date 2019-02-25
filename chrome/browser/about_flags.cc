@@ -3169,6 +3169,13 @@ const FeatureEntry kFeatureEntries[] = {
      kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kUIExperimentUseGenericSearchEngineIcon)},
 
+    {"omnibox-ui-show-suffix-on-all-search-suggestions",
+     flag_descriptions::kOmniboxUIShowSuffixOnAllSearchSuggestionsName,
+     flag_descriptions::kOmniboxUIShowSuffixOnAllSearchSuggestionsDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(
+         omnibox::kUIExperimentShowSuffixOnAllSearchSuggestions)},
+
     {"use-suggestions-even-if-few",
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureName,
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureDescription, kOsAll,
