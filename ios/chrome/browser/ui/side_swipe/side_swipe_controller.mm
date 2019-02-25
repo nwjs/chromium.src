@@ -502,7 +502,6 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
 - (void)handleiPhoneTabSwipe:(SideSwipeGestureRecognizer*)gesture {
   if (gesture.state == UIGestureRecognizerStateBegan) {
     Tab* currentTab = [model_ currentTab];
-    DCHECK(currentTab.webState);
 
     inSwipe_ = YES;
 
@@ -511,10 +510,13 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
     // Add horizontal stack view controller.
     // TODO(crbug.com/904992): Do not use SnapshotGeneratorDelegate from
     // SideSwipeController.
-    CGFloat headerHeight =
-        [self.snapshotDelegate snapshotGenerator:nil
-                   snapshotEdgeInsetsForWebState:currentTab.webState]
-            .top;
+    CGFloat headerHeight = 0;
+    if (currentTab.webState) {
+      headerHeight =
+          [self.snapshotDelegate snapshotGenerator:nil
+                     snapshotEdgeInsetsForWebState:currentTab.webState]
+              .top;
+    }
 
     if (tabSideSwipeView_) {
       [tabSideSwipeView_ setFrame:frame];
@@ -535,8 +537,10 @@ const NSUInteger kIpadGreySwipeTabCount = 8;
     }
 
     // Ensure that there's an up-to-date snapshot of the current tab.
-    SnapshotTabHelper::FromWebState(currentTab.webState)
-        ->UpdateSnapshotWithCallback(nil);
+    if (currentTab.webState) {
+      SnapshotTabHelper::FromWebState(currentTab.webState)
+          ->UpdateSnapshotWithCallback(nil);
+    }
 
     // Hide the infobar after snapshot has been updated (see the previous line)
     // to avoid it obscuring the cards in the side swipe view.
