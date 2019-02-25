@@ -180,7 +180,7 @@
 
       Chính sách này được tắt theo mặc định. Nếu bạn bật chính sách này, người dùng sẽ dễ gặp phải các sự cố bảo mật sau khi quá trình nối mạng được chạy trong hộp cát.
 
-      Chính sách này nhằm mang đến cho doanh nghiệp cơ hội di chuyển sang phần mềm của bên thứ 3 không phụ thuộc vào việc hook các API nối mạng. Bạn nên sử dụng máy chủ proxy khi vá LSP và API Win32.
+      Chính sách này nhằm mang đến cho doanh nghiệp cơ hội di chuyển sang phần mềm của bên thứ 3 không phụ thuộc vào việc kết nối các API nối mạng. Thay vì vá API Win32 và LSP, bạn nên sử dụng máy chủ proxy.
 
       Nếu bạn không đặt chính sách này, mã nối mạng có thể chạy ngoài quá trình chạy trình duyệt tùy theo kết quả thử nghiệm thực tế của thử nghiệm NetworkService.</translation>
 <translation id="1384459581748403878">Tham khảo: <ph name="REFERENCE_URL" /></translation>

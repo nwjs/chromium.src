@@ -117,7 +117,7 @@
 <translation id="1868024384445905608">Chrome ఇప్పుడు ఫైల్‌లను మరింత వేగంగా డౌన్‌లోడ్ చేస్తుంది</translation>
 <translation id="1880072593381090678">Chrome నుండి జనాదరణ పొందిన పేజీలు</translation>
 <translation id="1883903952484604915">నా ఫైల్‌లు</translation>
-<translation id="1887786770086287077">ఈ పరికరానికి స్థానం యాక్సెస్ ఆఫ్ చేయబడింది. దీనిని <ph name="BEGIN_LINK" />Android సెట్టింగ్‌ల<ph name="END_LINK" />లో తిరిగి ఆన్ చేయండి.</translation>
+<translation id="1887786770086287077">ఈ పరికరానికి స్థానం యాక్సెస్ ఆఫ్ చేయబడింది. దీనిని <ph name="BEGIN_LINK" />Android సెట్టింగ్‌లు<ph name="END_LINK" />లో తిరిగి ఆన్ చేయండి.</translation>
 <translation id="1891331835972267886"><ph name="APP_NAME" />లో తెరవబడుతుంది. కొనసాగించడం ద్వారా మీరు Chrome <ph name="BEGIN_LINK1" />సేవా నిబంధనలు<ph name="END_LINK1" /> మరియు <ph name="BEGIN_LINK2" />గోప్యతా నోటీసు<ph name="END_LINK2" />కి అంగీకరిస్తున్నారు.</translation>
 <translation id="189172778771606813">నావిగేషన్ డ్రాయర్‌ను మూసివేయి</translation>
 <translation id="1919345977826869612">ప్రకటనలు</translation>
@@ -470,7 +470,7 @@
 మీ Google ఖాతా <ph name="BEGIN_LINK" />myactivity.google.com<ph name="END_LINK" />లో ఇతర Google సేవలకు సంబంధించిన శోధనలు, కార్యకలాపం వంటి ఇతర రకాల బ్రౌజింగ్ చరిత్రను కలిగి ఉండవచ్చు.</translation>
 <translation id="4532845899244822526">ఫోల్డర్‌ను ఎంచుకోండి</translation>
 <translation id="4538018662093857852">లైట్ మోడ్‌ని ఆన్ చేయండి</translation>
-<translation id="4550003330909367850">ఇక్కడ మీ పాస్‌వర్డ్‌ను వీక్షించడానికి లేదా కాపీ చేయడానికి, ఈ పరికరంలో స్క్రీన్ లాక్‌ను సెట్ చేయండి.</translation>
+<translation id="4550003330909367850">ఇక్కడ మీ పాస్‌వర్డ్‌ను చూడటానికి లేదా కాపీ చేయడానికి, ఈ డివైజ్‌లో స్క్రీన్ లాక్‌ను సెట్ చేయండి.</translation>
 <translation id="4558311620361989323">వెబ్‌పేజీ సత్వరమార్గాలు</translation>
 <translation id="4561979708150884304">కనెక్షన్ లేదు</translation>
 <translation id="4565377596337484307">పాస్‌వర్డ్‌ను దాచిపెట్టు</translation>
@@ -496,7 +496,7 @@
 <translation id="4719927025381752090">అనువదించమని ఆఫర్ చేయి</translation>
 <translation id="4720023427747327413"><ph name="PRODUCT_NAME" />లో తెరువు</translation>
 <translation id="4720982865791209136">Chromeను మెరుగుపరచడంలో సహాయపడండి. <ph name="BEGIN_LINK" />సర్వేలో పాల్గొనండి<ph name="END_LINK" /></translation>
-<translation id="4730876730346568982">మీరు సింక్ ఖాతాలను <ph name="ACCOUNT_EMAIL_OLD" /> నుండి <ph name="ACCOUNT_EMAIL_NEW" />కి మారుస్తున్నారు. ఇప్పటికే ఉన్న మీ Chrome డేటా <ph name="MANAGED_DOMAIN" /> నిర్వహణలో ఉంది. దీని వలన మీ డేటా ఈ పరికరం నుండి తొలగించబడుతుంది, కానీ మీ డేటా <ph name="ACCOUNT_EMAIL_OLD" />లో అలాగే ఉంటుంది.</translation>
+<translation id="4730876730346568982">మీరు సింక్ ఖాతాలను <ph name="ACCOUNT_EMAIL_OLD" /> నుండి <ph name="ACCOUNT_EMAIL_NEW" />కు మారుస్తున్నారు. ఇప్పటికే ఉన్న మీ Chrome డేటాను <ph name="MANAGED_DOMAIN" /> నిర్వహిస్తోంది. దీని వలన మీ డేటా ఈ పరికరం నుండి తొలగించబడుతుంది, కానీ మీ డేటా <ph name="ACCOUNT_EMAIL_OLD" />లో అలాగే ఉంటుంది.</translation>
 <translation id="473775607612524610">అప్‌డేట్‌</translation>
 <translation id="4738836084190194332">చివరిగా సమకాలీకరించినది: <ph name="WHEN" /></translation>
 <translation id="4749960740855309258">కొత్త ట్యాబ్‌ను తెరవండి</translation>
@@ -602,7 +602,7 @@
 <translation id="5494752089476963479">అనుచితమైన లేదా తప్పుదారి పట్టించే ప్రకటనలను చూపించే సైట్‌లలో ప్రకటనలను బ్లాక్ చేయి</translation>
 <translation id="550684401320795253">Chromeని నవీకరిస్తోంది...</translation>
 <translation id="5512137114520586844">ఈ ఖాతా <ph name="PARENT_NAME" /> నిర్వహణలో ఉంది.</translation>
-<translation id="5514904542973294328">ఈ పరికరం యొక్క నిర్వాహకుల ద్వారా నిలిపివేయబడింది</translation>
+<translation id="5514904542973294328">ఈ పరికర నిర్వాహకులు నిలిపివేశారు</translation>
 <translation id="5515439363601853141">మీ పాస్‌వర్డ్‌ను చూడడానికి అన్‌లాక్ చేయండి</translation>
 <translation id="5517095782334947753">మీరు <ph name="FROM_ACCOUNT" /> నుండి బుక్‌మార్క్‌లు, చరిత్ర, పాస్‌వర్డ్‌లు మరియు ఇతర సెట్టింగ్‌లను కలిగి ఉన్నారు.</translation>
 <translation id="5524843473235508879">మళ్లింపు బ్లాక్ చేయబడింది.</translation>

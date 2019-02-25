@@ -1667,7 +1667,7 @@
 <translation id="3518985090088779359">Acceptér og fortsæt</translation>
 <translation id="351952459507671940">Føj til ny gruppe</translation>
 <translation id="3523642406908660543">Spørg om tilladelse, når et website ønsker at anvende et plugin til at få adgang til din computer (anbefales)</translation>
-<translation id="3526034519184079374">Websitets data kan hverken læses eller ændres</translation>
+<translation id="3526034519184079374">Kan hverken læse eller ændre websitedata</translation>
 <translation id="3527085408025491307">Mappe</translation>
 <translation id="3527276236624876118">En administreret bruger ved navn <ph name="USER_DISPLAY_NAME" /> er blevet oprettet.</translation>
 <translation id="3528033729920178817">Denne side sporer din placering.</translation>
@@ -1678,7 +1678,7 @@
 <translation id="3534879087479077042">Hvad er en administreret bruger?</translation>
 <translation id="3538066758857505094">Der opstod en fejl under installationen af Linux. Prøv igen.</translation>
 <translation id="354060433403403521">Vekselstrømsadapter</translation>
-<translation id="354068948465830244">Den kan læse og ændre websitedata</translation>
+<translation id="354068948465830244">Udvidelsen kan læse og ændre websitedata</translation>
 <translation id="3543393733900874979">Opdateringen mislykkedes (fejl: <ph name="ERROR_NUMBER" />)</translation>
 <translation id="3543597750097719865">X9.62 ECDSA-signatur med SHA-512</translation>
 <translation id="3544879808695557954">Brugernavn (valgfrit)</translation>
@@ -4011,7 +4011,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="706626672220389329">Der opstod en fejl ved anvendelse af deling. Den angivne deling anvendes allerede.</translation>
 <translation id="7066944511817949584">Kunne ikke oprette forbindelse til "<ph name="DEVICE_NAME" />".</translation>
 <translation id="7067725467529581407">Vis aldrig dette igen.</translation>
-<translation id="7070484045139057854">Den kan læse og ændre websitedata</translation>
+<translation id="7070484045139057854">Udvidelsen kan læse og ændre websitedata</translation>
 <translation id="7072010813301522126">Navn på genvejen</translation>
 <translation id="707392107419594760">Vælg dit tastatur:</translation>
 <translation id="7075513071073410194">PKCS #1 MD5 med RSA-kryptering</translation>
@@ -4458,7 +4458,7 @@ slettes permanent, når den administrerede bruger fjernes. Besøgte websites og 
 <translation id="7782102568078991263">Ikke flere forslag fra Google</translation>
 <translation id="778330624322499012"><ph name="PLUGIN_NAME" /> kunne ikke indlæses</translation>
 <translation id="7784067724422331729">Sikkerhedsindstillingerne på din computer blokerede denne fil.</translation>
-<translation id="7784796923038949829">Websitets data kan hverken læses eller ændres</translation>
+<translation id="7784796923038949829">Kan hverken læse eller ændre websitedata</translation>
 <translation id="778480864305029524">Hvis du vil bruge Øjeblikkelig netdeling, skal du aktivere notifikationer om Google Play-tjenester.</translation>
 <translation id="7786207843293321886">Afslut gæstesession</translation>
 <translation id="7786889348652477777">&amp;Genindlæs app</translation>

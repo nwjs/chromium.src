@@ -89,7 +89,7 @@
 <translation id="1135264353752122851">Configura quines disposicions de teclat s'admeten per a les sessions d'usuari de <ph name="PRODUCT_OS_NAME" />.
 
       Si aquesta política s'estableix, l'usuari només pot seleccionar un dels mètodes d'entrada que especifica la política. Si aquesta política no s'estableix o s'estableix en una llista buida, l'usuari pot seleccionar tots els mètodes d'entrada admesos. Si aquesta política no admet el mètode d'entrada actual, el mètode d'entrada canviarà a la disposició de teclat del maquinari (si es permet) o a la primera entrada vàlida de la llista. S'ignoraran tots els mètodes d'entrada d'aquesta llista que no siguin vàlids o que no s'admetin.</translation>
-<translation id="1138294736309071213">Aquesta política només està activa en mode de venta.
+<translation id="1138294736309071213">Aquesta política només està activa en mode botiga.
 
       Determina la durada abans no es mostri l'estalvi de pantalla a la pantalla d'inici de sessió per als dispositius en mode de venta.
 
@@ -170,7 +170,7 @@
 
       L'objectiu d'aquesta política és donar l'oportunitat a les empreses de migrar a programari de tercers que no depengui de connectar les API de xarxes socials. Es recomana utilitzar servidors intermediaris en comptes d'LSP o pedaços de l'API Win32.
 
-      Si aquesta política no s'estableix, és possible que el codi de xarxes socials surti del procés de navegador en funció de les proves de camps de l'experiment NetworkService.</translation>
+      Si aquesta política no s'estableix, és possible que el codi de xarxa s'executi fora del procés de navegador en funció de les proves de camps de l'experiment NetworkService.</translation>
 <translation id="1384459581748403878">Referència: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Determina si es confia en la infraestructura de PKI heretada de Symantec Corporation</translation>
 <translation id="1393485621820363363">Impressores activades per a dispositius d'empresa</translation>
@@ -685,7 +685,7 @@ Deixar aquesta política sense establir és igual que activar l'opció, amb el f
 
       Si no configureu aquesta política, els usuaris podran triar si volen fer servir la funció del servidor intermediari de compressió de dades.</translation>
 <translation id="2587719089023392205">Estableix <ph name="PRODUCT_NAME" /> com a navegador predeterminat</translation>
-<translation id="2592091433672667839">La durada de la inactivitat abans no es mostri l'estalvi de pantalla es mostra a la pantalla d'inici de sessió en mode de venta</translation>
+<translation id="2592091433672667839">La durada de la inactivitat abans no es mostri l'estalvi de pantalla es mostra a la pantalla d'inici de sessió en mode botiga</translation>
 <translation id="2596260130957832043">Controla si l'autenticació NTLMv2 està activada.
 
           Totes les versions recents dels servidors de Samba i de Windows admeten NTLMv2. Aquesta política només s'ha de desactivar per permetre la compatibilitat amb versions anteriors i això redueix la seguretat de l'autenticació.
@@ -900,7 +900,7 @@ Cada entrada de la llista especifica un identificador, que s'utilitza internamen
       Si aquesta política s'estableix en "false", l'optimització WPAD es desactiva i <ph name="PRODUCT_NAME" /> ha d'esperar més temps els servidors WPAD basats en DNS. Si la política no s'estableix o està activada, l'optimització WPAD s'activa.
 
       Tant si la política s'estableix com si no, els usuaris no poden canviar la configuració de l'optimització WPAD.</translation>
-<translation id="3072045631333522102">Estalvi de pantalla per utilitzar a la pantalla d'inici de sessió en mode de venta</translation>
+<translation id="3072045631333522102">Estalvi de pantalla per utilitzar a la pantalla d'inici de sessió en mode botiga</translation>
 <translation id="3072847235228302527">Defineix els Termes i condicions d'un compte local del dispositiu</translation>
 <translation id="3077183141551274418">Activa o desactiva els cicles de vida de les pestanyes</translation>
 <translation id="3086995894968271156">Configura el receptor de Cast a <ph name="PRODUCT_NAME" />.</translation>
@@ -1220,7 +1220,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
           Aquesta política només es respecta si la política DefaultSearchProviderEnabled està activada.</translation>
 <translation id="3864129983143201415">Configura els idiomes permesos en una sessió d'usuari</translation>
 <translation id="3866249974567520381">Descripció</translation>
-<translation id="3868347814555911633">Aquesta política només està activa en mode de venda.
+<translation id="3868347814555911633">Aquesta política només està activa en mode botiga.
 
      Especifica les extensions que s'instal·len automàticament per a l'usuari de la demostració en els dispositius en mode de venda. Aquestes extensions es desen al dispositiu i es poden instal·lar fora de línia, després de la instal·lació.
 
@@ -1825,7 +1825,7 @@ Si es desactiva aquest paràmetre, els usuaris no podran activar el servidor int
       Si les regles es contradiuen, <ph name="PRODUCT_NAME" /> n'utilitza la més específica.</translation>
 <translation id="5475361623548884387">Activa la impressió</translation>
 <translation id="547601067149622666">No permetis els anuncis als llocs web amb anuncis intrusius</translation>
-<translation id="5499375345075963939">Aquesta política només està activa en mode de venda.
+<translation id="5499375345075963939">Aquesta política només està activa en mode botiga.
 
       Si s'estableix el valor d'aquesta política en un valor diferent a 0, la sessió de l'usuari de la demostració que tingui iniciada la sessió actualment es tancarà automàticament després d'un període d'inactivitat d'una durada determinada.
 
@@ -2402,7 +2402,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
       utilitzeu eines com ara Telemetry.</translation>
 <translation id="6894178810167845842">URL de la pàgina Pestanya nova</translation>
 <translation id="6899705656741990703">Configuració de la detecció automàtica de servidors intermediaris</translation>
-<translation id="6903814433019432303">Aquesta política només està activa al mode de venta.
+<translation id="6903814433019432303">Aquesta política només està activa al mode botiga.
 
       Determina el conjunt d'URL que es carrega quan s'inicia la sessió de demostració. Aquesta política substituirà qualsevol altre mecanisme d'establir l'URL inicial i, per tant, només es pot aplicar a una sessió que no estigui associada amb cap usuari en particular.</translation>
 <translation id="6908640907898649429">Configura el proveïdor de cerca predeterminat. Podeu especificar el proveïdor de cerca predeterminat que l'usuari farà servir o bé podeu desactivar la cerca predeterminada.</translation>
@@ -2667,7 +2667,7 @@ Si aquesta política no es defineix o no s'activa, les ordres d'impressió faran
       En el cas dels dispositius gestionats d'Active Directory, aquesta política permet ampliar <ph name="MACHINE_NAME_VARIABLE" /> per incloure-hi el nom del dispositiu d'Active Directory o una subcadena d'aquest directori. Si, per exemple, el nom del dispositiu és <ph name="MACHINE_NAME_EXAMPLE" />, <ph name="MACHINE_NAME_VARIABLE_EXAMPLE" /> se substituirà pels 4 caràcters posteriors a la sisena posició, és a dir, <ph name="MACHINE_NAME_PART_EXAMPLE" />. Fixa't que la posició es basa en zero.
       <ph name="MACHINE_NAME_VARIABLE_LOWERCASE" /> (en minúscula) es considera obsoleta a M71 i se suprimirà a M72.
       </translation>
-<translation id="7339315111520512972">Obliga a executar el codi de xarxes socials al procés del navegador</translation>
+<translation id="7339315111520512972">Obliga a executar el codi de xarxa cal procés del navegador</translation>
 <translation id="7340034977315324840">Informa del temps d'activitat dels dispositius</translation>
 <translation id="7343497214039883642">Fitxer de configuració de la impressora d'empresa per a dispositius</translation>
 <translation id="7349338075015720646">Especifica una llista de llocs web que s'instal·len en segon pla, sense la interacció de l'usuari, i que l'usuari no pot desinstal·lar ni desactivar.

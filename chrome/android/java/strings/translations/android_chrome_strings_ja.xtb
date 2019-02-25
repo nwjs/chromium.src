@@ -941,7 +941,7 @@
 <translation id="7929962904089429003">メニューを開く</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> は最新ではありません。</translation>
 <translation id="7947953824732555851">同意してログイン</translation>
-<translation id="7960977077911686065">続行すると、本サービスの提供にあたって Chrome の自動入力のデータ、サイトの URL、サイトのコンテンツを Google に送信することに同意したものとみなされます。また、ユーザーが選択した個人データが Chrome の自動入力機能を介してウェブサイトに送信されることについても、同意したものとみなされます。\n\nChrome と Chrome の自動入力機能をオフにするには、Chrome の設定にアクセスしてください。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
+<translation id="7960977077911686065">続行すると、本サービス提供のために自動入力のデータ、サイトの URL、サイトのコンテンツが Chrome から Google に送信されることに同意したものとみなされます。また、ユーザーが選択した個人データが Chrome の自動入力機能を介してウェブサイトに送信されることについても、同意したものとみなされます。\n\nChrome と Chrome の自動入力機能をオフにするには、Chrome の設定にアクセスしてください。<ph name="BEGIN_LINK" />詳細<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">ベンダー:</translation>
 <translation id="7981313251711023384">ページをプリロードして閲覧と検索をすばやく行えるようにする</translation>
 <translation id="79859296434321399">拡張現実（AR）コンテンツを表示するには ARCore をインストールしてください</translation>

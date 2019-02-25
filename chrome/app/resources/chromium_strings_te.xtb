@@ -143,7 +143,7 @@
 <translation id="5862307444128926510">Chromiumకు స్వాగతం</translation>
 <translation id="5877064549588274448">ఛానెల్ మార్చబడింది. మార్పులను వర్తింపజేయడానికి మీ పరికరాన్ని పునఃప్రారంభించండి.</translation>
 <translation id="5895138241574237353">మళ్ళీ ప్రారంభించు</translation>
-<translation id="5906655207909574370">దాదాపు నవీకృతంగా ఉంది! నవీకరణను పూర్తి చేయడానికి మీ పరికరాన్ని పునఃప్రారంభించండి.</translation>
+<translation id="5906655207909574370">దాదాపు తాజాగా ఉంది! అప్‌డేట్‌ను పూర్తి చేయడానికి మీ పరికరాన్ని పునఃప్రారంభించండి.</translation>
 <translation id="5987687638152509985">సింక్‌ను ప్రారంభించడానికి Chromiumను అప్‌డేట్ చేయండి</translation>
 <translation id="6013050204643758987"><ph name="BEGIN_LINK_LINUX_OSS" />Linux (బీటా) <ph name="END_LINK_LINUX_OSS" /> లాగానే, Chromium OS కూడా అదనపు <ph name="BEGIN_LINK_CROS_OSS" /> ఓపెన్ సోర్స్ సాఫ్ట్‌వేర్‌ <ph name="END_LINK_CROS_OSS" /> మూలంగానే సాధ్యమైంది.</translation>
 <translation id="6040143037577758943">మూసివేయి</translation>
@@ -184,7 +184,7 @@
 <translation id="6893813176749746474">Chromium నవీకరించబడింది, కానీ మీరు దీన్ని గత 30 రోజులుగా ఉపయోగించలేదు.</translation>
 <translation id="692832138936263906">Chromium మీరు చూసే పేజీలలోని ఫోటోలను Google సర్వర్‌లకు పంపడం ద్వారా ఆయా ఫోటోలలో ఉండే ఆకారాలు మరియు అక్షరాలను గుర్తించి, ఆ పేజీలలోని కంటెంట్‌ని మీకు మరింత అర్థవంతంగా తెలియజేయడానికి కృషి చేస్తుంది.</translation>
 <translation id="6964305034639999644">Chromium అజ్ఞా&amp;త విండోలో లింక్‌ని తెరువు</translation>
-<translation id="6970811910055250180">మీ పరికరాన్ని నవీకరిస్తోంది...</translation>
+<translation id="6970811910055250180">మీ పరికరాన్ని అప్‌డేట్ చేస్తోంది...</translation>
 <translation id="6990124437352146030">ఈ సైట్ కోసం మీ మైక్రోఫోన్‌ను యాక్సెస్ చేయడానికి Chromiumకు అనుమతి అవసరం</translation>
 <translation id="705851970750939768">Chromiumను అప్‌డేట్ చేయి</translation>
 <translation id="7066436765290594559">Chromium OS మీ డేటాను సింక్ చేయ‌లేక‌పోయింది. దయచేసి మీ సింక్‌ రహస్య పదబంధాన్ని అప్‌డేట్ చేయండి.</translation>
@@ -228,7 +228,7 @@
 <translation id="7975919845073681630">ఇది Chromium రెండవ ఇన‌స్ట‌లేష‌న్. దీన్ని మీ డిఫాల్ట్ బ్రౌజర్‌గా చేయడం సాధ్యపడదు.</translation>
 <translation id="7979877361127045932">Chromium మెనూలో దాచండి</translation>
 <translation id="8013436988911883588">ఓసారి Chromiumకి యాక్సెస్ లభించాక, ఆపై వెబ్‌సైట్‌లకు ఏమైనా యాక్సెస్‌ కావాలంటే అవి మిమ్మల్ని అడగవచ్చు.</translation>
-<translation id="8030318113982266900">మీ పరికరాన్ని <ph name="CHANNEL_NAME" /> ఛానెల్‌కి నవీకరిస్తోంది...</translation>
+<translation id="8030318113982266900">మీ పరికరాన్ని <ph name="CHANNEL_NAME" /> ఛానెల్‌కు అప్‌డేట్ చేస్తోంది...</translation>
 <translation id="8157153840442649507">Chromium ఈ భాషలో ప్రదర్శించబడుతోంది</translation>
 <translation id="81770708095080097">ఈ ఫైల్ అపాయకరమైనది, కాబట్టి Chromium దీన్ని బ్లాక్ చేసింది.</translation>
 <translation id="8222496066431494154">మీ ఫోన్‌లో Chromiumను ఇన్‌స్టాల్ చేయండి. మేము మీ ఖాతా పునరుద్ధరణ ఫోన్ నంబర్‌కు SMS పంపుతాము: <ph name="PHONE_NUMBER" /></translation>

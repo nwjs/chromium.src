@@ -179,7 +179,7 @@
 
       Cette règle est désactivée par défaut. Si elle est activée, elle expose les utilisateurs à des problèmes de sécurité une fois le processus de mise en réseau envoyé dans le bac à sable.
 
-      Cette règle est destinée à donner aux entreprises une chance de migrer vers un logiciel tiers qui ne dépend pas de la connexion des API de mise en réseau. Il est recommandé d'utiliser des serveurs proxy plutôt que des correctifs LSP et l'API Win32.
+      Cette règle est destinée à donner aux entreprises la possibilité de migrer vers un logiciel tiers qui ne dépend pas de la connexion des API de mise en réseau. Il est recommandé d'utiliser des serveurs proxy plutôt que des LSP ou des correctifs de l'API Win32.
 
       Si cette règle n'est pas définie, le code réseau peut ne pas suivre le processus du navigateur, en fonction des essais sur le terrain de l'expérience NetworkService.</translation>
 <translation id="1384459581748403878">Référence : <ph name="REFERENCE_URL" /></translation>

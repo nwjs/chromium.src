@@ -941,7 +941,7 @@ Einige Websites schalten möglicherweise Werbeanzeigen, deren Auswahl nicht dara
 <translation id="7929962904089429003">Menü öffnen</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> ist veraltet.</translation>
 <translation id="7947953824732555851">Akzeptieren und anmelden</translation>
-<translation id="7960977077911686065">Wenn Sie fortfahren, erklären Sie sich damit einverstanden, dass Chrome Daten von AutoFill sowie die URL und die Inhalte der Website an Google sendet, um diesen Dienst anbieten zu können. Sie erklären sich außerdem damit einverstanden, dass Chrome personenbezogene Daten, die Sie ausgewählt haben, über AutoFill an die Website sendet. In den Chrome-Einstellungen können Sie Google Assistant für Chrome und AutoFill deaktivieren.  <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
+<translation id="7960977077911686065">Wenn Sie fortfahren, erklären Sie sich damit einverstanden, dass Chrome Daten von AutoFill sowie die URL und die Inhalte der Website an Google sendet, um diesen Dienst anbieten zu können. Sie erklären sich außerdem damit einverstanden, dass Chrome personenbezogene Daten, die Sie ausgewählt haben, über AutoFill an die Website sendet. \n\nIn den Chrome-Einstellungen können Sie Google Assistant für Chrome und AutoFill deaktivieren.  <ph name="BEGIN_LINK" />Weitere Informationen<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">Anbieter:</translation>
 <translation id="7981313251711023384">Seiten vorab laden, um das Surfen und die Suche zu beschleunigen</translation>
 <translation id="79859296434321399">ARCore installieren, um Augmented-Reality-Inhalte zu sehen</translation>

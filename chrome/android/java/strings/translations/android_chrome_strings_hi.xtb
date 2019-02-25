@@ -293,6 +293,7 @@
 <translation id="3166827708714933426">टैब और विंडो शॉर्टकट</translation>
 <translation id="3190152372525844641"><ph name="BEGIN_LINK" />Android सेटिंग<ph name="END_LINK" /> में Chrome के लिए अनुमतियां चालू करें.</translation>
 <translation id="3198916472715691905"><ph name="STORAGE_AMOUNT" /> संग्रहित डेटा</translation>
+<translation id="3205824638308738187">करीब-करीब पूरा हो गया!</translation>
 <translation id="3207960819495026254">बुकमार्क किया गया</translation>
 <translation id="3211426585530211793"><ph name="ITEM_TITLE" /> मिटाया गया</translation>
 <translation id="321773570071367578">यदि आप अपना पासफ़्रेज़ भूल गए हैं या यह सेटिंग बदलना चाहते हैं, तो <ph name="BEGIN_LINK" />समन्वयन रीसेट करें<ph name="END_LINK" /></translation>
@@ -364,6 +365,7 @@
 <translation id="3744111561329211289">पृष्ठभूमि समन्वयन</translation>
 <translation id="3745176700485982507">इस पेज पर आपकी पसंदीदा वेबसाइटों की लिंक मिल सकते हैं</translation>
 <translation id="3751110998481776724">एक नज़र डालें <ph name="BEGIN_NEW" />नया<ph name="END_NEW" /></translation>
+<translation id="3771001275138982843">अपडेट डाउनलोड नहीं किया जा सका</translation>
 <translation id="3773755127849930740">युग्मन की अनुमति देने के लिए <ph name="BEGIN_LINK" />ब्लूटूथ चालू करें<ph name="END_LINK" /></translation>
 <translation id="3778956594442850293">होम स्‍क्रीन में जोड़ा गया</translation>
 <translation id="3781011235031427080">'इसी तरह के और भी' आधी स्क्रीन पर खुला है</translation>
@@ -536,6 +538,7 @@
 <translation id="497421865427891073">आगे जाएं</translation>
 <translation id="4988210275050210843">फ़ाइल डाउनलोड हो रही है (<ph name="MEGABYTES" />).</translation>
 <translation id="4988526792673242964">पेज</translation>
+<translation id="4994033804516042629">कोई संपर्क नहीं मिला</translation>
 <translation id="4996978546172906250">इसके द्वारा शेयर करें</translation>
 <translation id="5004416275253351869">Google गतिविधि नियंत्रण</translation>
 <translation id="5005498671520578047">पासवर्ड कॉपी करें</translation>
@@ -938,6 +941,7 @@
 <translation id="7929962904089429003">मेनू खोलें</translation>
 <translation id="7942131818088350342"><ph name="PRODUCT_NAME" /> पुराना है.</translation>
 <translation id="7947953824732555851">स्वीकार करें और साइन इन करें</translation>
+<translation id="7960977077911686065">अगर आप जारी रखते हैं, तो माना जाएगा कि आप Chrome को यह सेवा देने के लिए, Google को Chrome की अपने आप भरने की सुविधा (ऑटो-फ़िल) का इस्तेमाल करके सेव किया गया डेटा, साइट का यूआरएल और उसकी सामग्री की जानकारी भेजने की सहमति दे रहे हैं. आपको इस बात से भी सहमत माना जाएगा कि आपने जो निजी डेटा Chrome की अपने आप भरने की सुविधा (ऑटो-फ़िल) के ज़रिए वेबसाइट पर भरने के लिए चुना है, Chrome वह डेटा भी भेजेगा. \n\nChrome और उसकी अपने आप भरने की सुविधा (ऑटो फ़िल) में Google Assistant बंद करने के लिए, Chrome की सेटिंग पर जाएं.  <ph name="BEGIN_LINK" />ज़्यादा जानें<ph name="END_LINK" /></translation>
 <translation id="7963646190083259054">विक्रेता:</translation>
 <translation id="7981313251711023384">ज़्यादा तेज़ी से ब्राउज़ करने और खोजने के लिए पेज पहले से लोड करें</translation>
 <translation id="79859296434321399">'बढ़ी हुई वास्तविकता' की सामग्री देखने के लिए, ARCore इंस्टॉल करें</translation>
@@ -1098,6 +1102,7 @@
 <translation id="9100610230175265781">पासफ़्रेज़ आवश्यक</translation>
 <translation id="9133703968756164531"><ph name="ITEM_NAME" /> (<ph name="ITEM_ID" />)</translation>
 <translation id="9137013805542155359">मूल दिखाएं</translation>
+<translation id="9138504265731110181">वेबसाइट से चेकआउट की प्रक्रिया तेज़ी से पूरी करके, Google Assistant आपका समय बचाती है.</translation>
 <translation id="9139068048179869749">साइट को नोटिफ़िकेशन भेजने देने से पहले अनुमति लेना आवश्यक बनाएं (अनुशंसित)</translation>
 <translation id="9139318394846604261">शॉपिंग</translation>
 <translation id="9155898266292537608">आप किसी शब्द पर बस एक टैप करके भी खोज सकते हैं</translation>

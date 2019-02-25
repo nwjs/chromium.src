@@ -175,9 +175,9 @@ Bei verwalteten Geräten sind standardmäßig keine Modi für das schnelle Entsp
 
       Sie ist standardmäßig deaktiviert. Ist die Richtlinie aktiviert, so ist der Nutzer nicht mehr vor den Sicherheitsproblemen geschützt, sobald der Netzwerkprozess in einer Sandbox ausgeführt wird.
 
-      Diese Richtlinie soll Unternehmen ermöglichen, zu Drittanbietersoftware zu migrieren, die nicht auf Hooking von Netwerk-APIs angewiesen sind. Proxyserver werden anstelle von LSPs und Win32 API-Patching empfohlen.
+      Diese Richtlinie soll Unternehmen ermöglichen, zu Drittanbietersoftware zu migrieren, die nicht auf Hooking von Netzwerk-APIs angewiesen sind. Proxyserver werden anstelle von LSPs und Win32 API-Patching empfohlen.
 
-      Wenn die Richtlinie nicht konfiguriert ist, kann der Netzwerkcode – je nach Abhängigkeit der Feldtests des NetworkService-Tests – den Browserprozess überläufen.</translation>
+      Wenn die Richtlinie nicht konfiguriert ist, kann der Netzwerkcode – je nach Abhängigkeit der Feldtests des NetworkService-Tests – außerhalb des Browserprozesses ausgeführt werden.</translation>
 <translation id="1384459581748403878">Referenz: <ph name="REFERENCE_URL" /></translation>
 <translation id="1387596372902085462">Festlegen, ob der veralteten Symantec-PKI vertraut werden soll</translation>
 <translation id="1393485621820363363">Aktivierte, an Geräte gebundene Unternehmensdrucker</translation>

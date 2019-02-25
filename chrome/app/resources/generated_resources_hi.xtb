@@ -814,6 +814,8 @@
 <translation id="220792432208469595">इस्तेमाल और निदान से जुड़ा डेटा भेजें. यह डिवाइस फ़िलहाल Google को निदान, डिवाइस, और ऐप्लिकेशन के इस्तेमाल से जुड़ा डेटा अपने आप भेज रहा है. यह सिस्टम और ऐप्लिकेशन की स्थिरता और दूसरे सुधारों में मदद करेगा. कुछ एग्रीगेट डेटा Google ऐप्लिकेशन और पार्टनर, जैसे कि Android डेवलपरों की भी मदद करेगा. यह सेटिंग डिवाइस के मालिक ने लागू की है. अगर आपकी दूसरी 'वेब और ऐप्लिकेशन गतिविधि' सेटिंग चालू है, तो यह डेटा आपके Google खाते में सेव किया जा सकता है. <ph name="BEGIN_LINK1" />ज़्यादा जानें<ph name="END_LINK1" /></translation>
 <translation id="2208158072373999562">ज़िप संग्रह</translation>
 <translation id="220858061631308971">कृपया इस पिन कोड को "<ph name="DEVICE_NAME" />" पर दर्ज करें:</translation>
+<translation id="2213140827792212876">शेयर की गई फ़ाइलें हटाएं</translation>
+<translation id="2214018885812055163">शेयर किया गया फ़ोल्डर</translation>
 <translation id="2214884991347062907">पासवर्ड गलत है. फिर से कोशिश करें</translation>
 <translation id="2214893006758804920">{LINE_COUNT,plural, =1{&lt;1 पंक्ति नहीं दिखाई गई है&gt;}one{&lt;<ph name="NUMBER_OF_LINES" /> पंक्तियां नहीं दिखाई गई हैं&gt;}other{&lt;<ph name="NUMBER_OF_LINES" /> पंक्तियां नहीं दिखाई गई हैं&gt;}}</translation>
 <translation id="2217501013957346740">कोई नाम बनाएं -</translation>
@@ -2872,6 +2874,7 @@
 <translation id="5374359983950678924">चित्र बदलें</translation>
 <translation id="5376169624176189338">वापस जाने के लिए क्लिक करें, इतिहास देखने के लिए दबाए रखें</translation>
 <translation id="5376931455988532197">फ़ाइल बहुत बड़ी है</translation>
+<translation id="5377594097385838788">गुप्त</translation>
 <translation id="537813040452600081">प्रस्थान करने के बाद, आपके द्वारा देखे गए पेज ब्राउज़र इतिहास में दिखाई नहीं देंगे और वे कंप्यूटर पर कुकी जैसे अन्य चिह्न नहीं छोड़ेंगे. आपके द्वारा डाउनलोड की जाने वाली फ़ाइलें और आपके द्वारा बनाए जाने वाले बुकमार्क संरक्षित नहीं किए जाएंगे.</translation>
 <translation id="5379140238605961210">माइक्रोफ़ोन की एक्सेस अवरुद्ध करना जारी रखें</translation>
 <translation id="5379268888377976432">हटाना वापस लाएं</translation>
@@ -4384,6 +4387,7 @@
 <translation id="7663719505383602579">प्राप्तकर्ता: <ph name="ARC_PROCESS_NAME" /></translation>
 <translation id="7664620655576155379">असमर्थित ब्लूटूथ डिवाइस: "<ph name="DEVICE_NAME" />".</translation>
 <translation id="7665369617277396874">खाता जोड़ें</translation>
+<translation id="7667248760110172428">बाहरी मेमोरी</translation>
 <translation id="7671130400130574146">सिस्टम शीर्षक बार और बॉर्डर का उपयोग करें</translation>
 <translation id="7672520070349703697"><ph name="HUNG_IFRAME_URL" />, <ph name="PAGE_TITLE" /> में.</translation>
 <translation id="7676867886086876795">किसी भी लेख फ़ील्ड में बोलकर टाइप करने की सुविधा देने के लिए आपकी आवाज़ Google को भेजी जाती है.</translation>
@@ -4587,6 +4591,7 @@
 <translation id="7930294771522048157">सेव किए गए भुगतान के तरीके यहां दिखाई देंगे</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> आपकी स्क्रीन और ऑडियो को शेयर कर रहा है.</translation>
 <translation id="7931318309563332511">अज्ञात</translation>
+<translation id="7932969338829957666">शेयर किए गए फ़ोल्डर Linux में <ph name="BASE_DIR" /> पर उपलब्ध हैं.</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{साइट अनम्यूट करें}one{साइटें अनम्यूट करें}other{साइटें अनम्यूट करें}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> सुरक्षित सामग्री चलाना चाहता है. Google आपके डिवाइस की पहचान की पुष्टि करेगा.</translation>
 <translation id="793531125873261495">वर्चुअल मशीन डाउनलोड करने में गड़बड़ी हुई. कृपया फिर से कोशिश करें.</translation>

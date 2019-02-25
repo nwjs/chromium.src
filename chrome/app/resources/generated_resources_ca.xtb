@@ -4588,7 +4588,7 @@ Assegureu-vos que no es pugui accedir a informació sensible.</translation>
 <translation id="7930294771522048157">Les formes de pagament desades es mostraran aquí</translation>
 <translation id="79312157130859720"><ph name="APP_NAME" /> està compartint la pantalla i l'àudio.</translation>
 <translation id="7931318309563332511">Desconegut</translation>
-<translation id="7932969338829957666">Les carpetes compartides estan disponibles en Linux a <ph name="BASE_DIR" />.</translation>
+<translation id="7932969338829957666">Les carpetes compartides estan disponibles a Linux a <ph name="BASE_DIR" />.</translation>
 <translation id="7933314993013528982">{NUM_TABS,plural, =1{Activa el so del lloc web}other{Activa el so dels llocs web}}</translation>
 <translation id="7934414805353235750"><ph name="URL" /> vol reproduir contingut protegit. Google verificarà la identitat del teu dispositiu.</translation>
 <translation id="793531125873261495">S'ha produït un error en baixar la màquina virtual. Torna-ho a provar.</translation>
