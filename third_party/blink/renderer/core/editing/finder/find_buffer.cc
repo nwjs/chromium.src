@@ -225,8 +225,7 @@ void FindBuffer::CollectTextUntilBlockBoundary(Node& start_node) {
     if (ShouldIgnoreContents(*node)) {
       // Move the node so we wouldn't encounter this node or its descendants
       // later.
-      if (!IsHTMLWBRElement(ToHTMLElement(*node)))
-        buffer_.push_back(kObjectReplacementCharacter);
+      buffer_.push_back(kObjectReplacementCharacter);
       node = FlatTreeTraversal::NextSkippingChildren(*node);
       continue;
     }
