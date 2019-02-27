@@ -229,9 +229,6 @@ public class ChromeApplication extends Application {
         if (FeatureUtilities.isNightModeAvailable()) {
             // TODO(huayinz): Initialize default night mode based on settings.
             AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES);
-        } else {
-            // Force not to use night mode.
-            AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO);
         }
     }
 
