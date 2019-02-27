@@ -317,10 +317,12 @@ void ChromeAutofillClient::ConfirmAccountNameFixFlow(
               GetAccountHolderName(),
               /*upload_save_card_callback=*/std::move(callback));
 
-  card_name_fix_flow_view_android_ =
-      std::make_unique<CardNameFixFlowViewAndroid>(
+  // Destruction is handled by the fix flow dialog by explicitly calling delete
+  // when the prompt is dismissed.
+  CardNameFixFlowViewAndroid* card_name_fix_flow_view_android =
+      new CardNameFixFlowViewAndroid(
           std::move(card_name_fix_flow_view_delegate_mobile), web_contents());
-  card_name_fix_flow_view_android_->Show();
+  card_name_fix_flow_view_android->Show();
 }
 #endif
 
