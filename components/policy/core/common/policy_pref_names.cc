@@ -35,9 +35,5 @@ const char kUserPolicyRefreshRate[] = "policy.user_refresh_rate";
 const char kCloudManagementEnrollmentMandatory[] =
     "policy.cloud_management_enrollment_mandatory";
 
-// Boolean that specifies whether the cloud policy will override conflicting
-// machine policy.
-const char kCloudPolicyOverridesMachinePolicy[] = "policy.cloud_override";
-
 }  // namespace policy_prefs
 }  // namespace policy

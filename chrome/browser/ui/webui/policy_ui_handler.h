@@ -27,9 +27,10 @@
 #include "extensions/browser/extension_registry_observer.h"
 #endif
 
-namespace policy {
-struct PolicyStringMap;
-}  // namespace policy
+struct PolicyStringMap {
+  const char* key;
+  int string_id;
+};
 
 class PolicyStatusProvider;
 
@@ -45,8 +46,9 @@ class PolicyUIHandler : public content::WebUIMessageHandler,
   PolicyUIHandler();
   ~PolicyUIHandler() override;
 
+
   static void AddLocalizedPolicyStrings(content::WebUIDataSource* source,
-                                        const policy::PolicyStringMap* strings,
+                                        const PolicyStringMap* strings,
                                         size_t count);
 
   static void AddCommonLocalizedStringsToSource(

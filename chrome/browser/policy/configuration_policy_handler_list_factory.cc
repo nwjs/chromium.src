@@ -772,7 +772,7 @@ const PolicyToPreferenceMapEntry kSimplePolicyMap[] = {
     prefs::kPrintPreviewUseSystemDefaultPrinter,
     base::Value::Type::BOOLEAN },
   { key::kCloudPolicyOverridesMachinePolicy,
-    policy_prefs::kCloudPolicyOverridesMachinePolicy,
+    prefs::kCloudPolicyOverridesMachinePolicy,
     base::Value::Type::BOOLEAN },
   { key::kCloudReportingEnabled,
     prefs::kCloudReportingEnabled,

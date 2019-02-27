@@ -20,6 +20,7 @@
 #include "components/policy/core/common/policy_details.h"
 #include "components/policy/core/common/policy_namespace.h"
 #include "components/policy/core/common/policy_service.h"
+#include "components/policy/core/common/policy_types.h"
 #include "components/policy/core/common/schema.h"
 #include "components/policy/core/common/schema_map.h"
 #include "components/policy/policy_constants.h"
@@ -47,7 +48,21 @@ using base::Value;
 namespace em = enterprise_management;
 
 namespace policy {
+
 namespace {
+
+struct PolicyStringMap {
+  const char* key;
+  int string_id;
+};
+
+const PolicyStringMap kPolicySources[policy::POLICY_SOURCE_COUNT] = {
+    {"sourceEnterpriseDefault", IDS_POLICY_SOURCE_ENTERPRISE_DEFAULT},
+    {"sourceCloud", IDS_POLICY_SOURCE_CLOUD},
+    {"sourceActiveDirectory", IDS_POLICY_SOURCE_ACTIVE_DIRECTORY},
+    {"sourcePublicSessionOverride", IDS_POLICY_SOURCE_PUBLIC_SESSION_OVERRIDE},
+    {"sourcePlatform", IDS_POLICY_SOURCE_PLATFORM},
+};
 
 // Maps known policy names to their schema. If a policy is not present, it is
 // not known (either through policy_templates.json or through an extenion's
@@ -220,15 +235,6 @@ void GetChromePolicyValues(content::BrowserContext* context,
 }
 
 }  // namespace
-
-const PolicyStringMap kPolicySources[policy::POLICY_SOURCE_COUNT] = {
-    {"sourceEnterpriseDefault", IDS_POLICY_SOURCE_ENTERPRISE_DEFAULT},
-    {"sourceCloud", IDS_POLICY_SOURCE_CLOUD},
-    {"sourceActiveDirectory", IDS_POLICY_SOURCE_ACTIVE_DIRECTORY},
-    {"sourcePublicSessionOverride", IDS_POLICY_SOURCE_PUBLIC_SESSION_OVERRIDE},
-    {"sourcePlatform", IDS_POLICY_SOURCE_PLATFORM},
-    {"sourcePriorityCloud", IDS_POLICY_SOURCE_CLOUD},
-};
 
 Value GetAllPolicyValuesAsDictionary(content::BrowserContext* context,
                                      bool with_user_policies,
