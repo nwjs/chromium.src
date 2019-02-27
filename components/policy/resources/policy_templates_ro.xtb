@@ -164,7 +164,7 @@ Dacă politica nu este setată, se va folosi comportamentul prestabilit de a nu 
 <translation id="1363275621236827384">Activează interogările către Quirks Server pentru profilurile hardware</translation>
 <translation id="1383493480903114193">Această politică forțează codul de rețea să ruleze în procesul browserului.
 
-      Această politică este dezactivată în mod prestabilit, iar dacă este activată, utilizatorii vor fi vulnerabili în fața problemelor de securitate odată ce procesului de rețea îi este limitat accesul.
+      Această politică este dezactivată în mod prestabilit, iar dacă este activată, utilizatorii vor fi vulnerabili în fața problemelor de securitate odată ce procesul de rețea este integrat în mediul de testare securizat.
 
       Politica este concepută pentru a oferi companiilor ocazia de a migra la software oferit de terțe părți, care nu depinde de conectarea la API-urile de rețea. Se recomandă serverele proxy în schimbul LSP-urilor și corecțiilor API Win32.
 
