@@ -358,7 +358,7 @@ const base::Feature kInflateToolbarOnBackgroundThread{
 
 const base::Feature kIntentBlockExternalFormRedirectsNoGesture{
     "IntentBlockExternalFormRedirectsNoGesture",
-    base::FEATURE_ENABLED_BY_DEFAULT};
+    base::FEATURE_DISABLED_BY_DEFAULT};
 
 const base::Feature kJellyBeanSupported{"JellyBeanSupported",
                                         base::FEATURE_DISABLED_BY_DEFAULT};
