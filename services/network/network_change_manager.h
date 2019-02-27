@@ -41,7 +41,7 @@ class COMPONENT_EXPORT(NETWORK_SERVICE) NetworkChangeManager
   void RequestNotifications(
       mojom::NetworkChangeManagerClientPtr client_ptr) override;
 
-#if defined(OS_CHROMEOS) || defined(OS_ANDROID)
+#if defined(OS_CHROMEOS)
   void OnNetworkChanged(
       bool dns_changed,
       bool ip_address_changed,

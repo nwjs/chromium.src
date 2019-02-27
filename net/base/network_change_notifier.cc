@@ -34,7 +34,7 @@
 #elif defined(OS_MACOSX)
 #include "net/base/network_change_notifier_mac.h"
 #elif defined(OS_CHROMEOS)
-#include "net/base/network_change_notifier_posix.h"
+#include "net/base/network_change_notifier_chromeos.h"
 #elif defined(OS_FUCHSIA)
 #include "net/base/network_change_notifier_fuchsia.h"
 #endif
@@ -213,7 +213,7 @@ NetworkChangeNotifier* NetworkChangeNotifier::Create() {
   CHECK(false);
   return NULL;
 #elif defined(OS_CHROMEOS)
-  return new NetworkChangeNotifierPosix();
+  return new NetworkChangeNotifierChromeos();
 #elif defined(OS_LINUX)
   return new NetworkChangeNotifierLinux(std::unordered_set<std::string>());
 #elif defined(OS_MACOSX)

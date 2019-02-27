@@ -5,19 +5,14 @@
 #include <string>
 
 #include "base/bind.h"
-#include "build/build_config.h"
-#include "net/base/network_change_notifier_posix.h"
+#include "net/base/network_change_notifier_chromeos.h"
 #include "net/dns/dns_config_service_posix.h"
-
-#if defined(OS_ANDROID)
-#include "net/android/network_change_notifier_android.h"
-#endif
 
 namespace net {
 
-// DNS config services on Chrome OS and Android are signalled by the network
-// state handler rather than relying on watching files in /etc.
-class NetworkChangeNotifierPosix::DnsConfigService
+// DNS config services on Chrome OS are signalled by the network state handler
+// rather than relying on watching files in /etc.
+class NetworkChangeNotifierChromeos::DnsConfigService
     : public net::internal::DnsConfigServicePosix {
  public:
   DnsConfigService() = default;
@@ -37,21 +32,21 @@ class NetworkChangeNotifierPosix::DnsConfigService
   }
 };
 
-NetworkChangeNotifierPosix::NotifierThread::NotifierThread()
+NetworkChangeNotifierChromeos::NotifierThread::NotifierThread()
     : base::Thread("NetworkChangeNotifier") {
   DETACH_FROM_SEQUENCE(sequence_checker_);
 }
 
-NetworkChangeNotifierPosix::NotifierThread::~NotifierThread() {
+NetworkChangeNotifierChromeos::NotifierThread::~NotifierThread() {
   DCHECK(!Thread::IsRunning());
 }
 
-void NetworkChangeNotifierPosix::NotifierThread::OnNetworkChange() {
+void NetworkChangeNotifierChromeos::NotifierThread::OnNetworkChange() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   dns_config_service_->OnNetworkChange();
 }
 
-void NetworkChangeNotifierPosix::NotifierThread::Init() {
+void NetworkChangeNotifierChromeos::NotifierThread::Init() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   dns_config_service_.reset(new DnsConfigService());
   dns_config_service_->WatchConfig(
@@ -59,42 +54,42 @@ void NetworkChangeNotifierPosix::NotifierThread::Init() {
   dns_config_service_->OnNetworkChange();
 }
 
-void NetworkChangeNotifierPosix::NotifierThread::CleanUp() {
+void NetworkChangeNotifierChromeos::NotifierThread::CleanUp() {
   DCHECK_CALLED_ON_VALID_SEQUENCE(sequence_checker_);
   dns_config_service_.reset();
 }
 
-NetworkChangeNotifierPosix::NetworkChangeNotifierPosix()
-    : NetworkChangeNotifier(NetworkChangeCalculatorParamsPosix()),
-      connection_type_(CONNECTION_UNKNOWN),
+NetworkChangeNotifierChromeos::NetworkChangeNotifierChromeos()
+    : NetworkChangeNotifier(NetworkChangeCalculatorParamsChromeos()),
+      connection_type_(CONNECTION_NONE),
       max_bandwidth_mbps_(
           NetworkChangeNotifier::GetMaxBandwidthMbpsForConnectionSubtype(
-              SUBTYPE_UNKNOWN)) {
+              SUBTYPE_NONE)) {
   notifier_thread_.StartWithOptions(
       base::Thread::Options(base::MessageLoop::TYPE_IO, 0));
 }
 
-NetworkChangeNotifierPosix::~NetworkChangeNotifierPosix() {
+NetworkChangeNotifierChromeos::~NetworkChangeNotifierChromeos() {
   notifier_thread_.Stop();
 }
 
-void NetworkChangeNotifierPosix::OnDNSChanged() {
+void NetworkChangeNotifierChromeos::OnDNSChanged() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   // The Unretained thread pointer is ok here because if the thread gets
   // deleted, the callback won't be called.
   notifier_thread_.task_runner()->PostTask(
       FROM_HERE,
       base::BindOnce(
-          &NetworkChangeNotifierPosix::NotifierThread::OnNetworkChange,
+          &NetworkChangeNotifierChromeos::NotifierThread::OnNetworkChange,
           base::Unretained(&notifier_thread_)));
 }
 
-void NetworkChangeNotifierPosix::OnIPAddressChanged() {
+void NetworkChangeNotifierChromeos::OnIPAddressChanged() {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   NetworkChangeNotifier::NotifyObserversOfIPAddressChange();
 }
 
-void NetworkChangeNotifierPosix::OnConnectionChanged(
+void NetworkChangeNotifierChromeos::OnConnectionChanged(
     NetworkChangeNotifier::ConnectionType connection_type) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
   {
@@ -104,7 +99,7 @@ void NetworkChangeNotifierPosix::OnConnectionChanged(
   NetworkChangeNotifier::NotifyObserversOfConnectionTypeChange();
 }
 
-void NetworkChangeNotifierPosix::OnConnectionSubtypeChanged(
+void NetworkChangeNotifierChromeos::OnConnectionSubtypeChanged(
     NetworkChangeNotifier::ConnectionType connection_type,
     NetworkChangeNotifier::ConnectionSubtype connection_subtype) {
   DCHECK_CALLED_ON_VALID_THREAD(thread_checker_);
@@ -119,12 +114,12 @@ void NetworkChangeNotifierPosix::OnConnectionSubtypeChanged(
 }
 
 NetworkChangeNotifier::ConnectionType
-NetworkChangeNotifierPosix::GetCurrentConnectionType() const {
+NetworkChangeNotifierChromeos::GetCurrentConnectionType() const {
   base::AutoLock scoped_lock(lock_);
   return connection_type_;
 }
 
-void NetworkChangeNotifierPosix::GetCurrentMaxBandwidthAndConnectionType(
+void NetworkChangeNotifierChromeos::GetCurrentMaxBandwidthAndConnectionType(
     double* max_bandwidth_mbps,
     ConnectionType* connection_type) const {
   base::AutoLock scoped_lock(lock_);
@@ -134,9 +129,8 @@ void NetworkChangeNotifierPosix::GetCurrentMaxBandwidthAndConnectionType(
 
 // static
 NetworkChangeNotifier::NetworkChangeCalculatorParams
-NetworkChangeNotifierPosix::NetworkChangeCalculatorParamsPosix() {
+NetworkChangeNotifierChromeos::NetworkChangeCalculatorParamsChromeos() {
   NetworkChangeCalculatorParams params;
-#if defined(OS_CHROMEOS)
   // Delay values arrived at by simple experimentation and adjusted so as to
   // produce a single signal when switching between network connections.
   params.ip_address_offline_delay_ = base::TimeDelta::FromMilliseconds(4000);
@@ -144,12 +138,6 @@ NetworkChangeNotifierPosix::NetworkChangeCalculatorParamsPosix() {
   params.connection_type_offline_delay_ =
       base::TimeDelta::FromMilliseconds(500);
   params.connection_type_online_delay_ = base::TimeDelta::FromMilliseconds(500);
-#elif defined(OS_ANDROID)
-  params =
-      net::NetworkChangeNotifierAndroid::NetworkChangeCalculatorParamsAndroid();
-#else
-  NOTIMPLEMENTED();
-#endif
   return params;
 }
 

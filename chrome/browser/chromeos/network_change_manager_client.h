@@ -15,20 +15,20 @@
 #include "services/network/public/mojom/network_change_manager.mojom.h"
 
 namespace net {
-class NetworkChangeNotifierPosix;
+class NetworkChangeNotifierChromeos;
 }
 
 namespace chromeos {
 
 // This class listens to Shill for network change events and notifies both
-// the local NetworkChangeNotifierPosix, and the network service via
+// the local NetworkChangeNotifierChromeos, and the network service via
 // the NetworkChangeManager if the network service is enabled.
 class NetworkChangeManagerClient
     : public chromeos::PowerManagerClient::Observer,
       public chromeos::NetworkStateHandlerObserver {
  public:
   NetworkChangeManagerClient(
-      net::NetworkChangeNotifierPosix* network_change_notifier);
+      net::NetworkChangeNotifierChromeos* network_change_notifier);
   ~NetworkChangeManagerClient() override;
 
   // PowerManagerClient::Observer overrides.
@@ -84,7 +84,7 @@ class NetworkChangeManagerClient
   // Service path for the current default network.
   std::string service_path_;
 
-  net::NetworkChangeNotifierPosix* network_change_notifier_;
+  net::NetworkChangeNotifierChromeos* network_change_notifier_;
   network::mojom::NetworkChangeManagerPtr network_change_manager_;
 
   DISALLOW_COPY_AND_ASSIGN(NetworkChangeManagerClient);

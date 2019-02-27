@@ -22,7 +22,6 @@
 #include "mojo/public/cpp/bindings/type_converter.h"
 #include "net/base/logging_network_change_observer.h"
 #include "net/base/network_change_notifier.h"
-#include "net/base/network_change_notifier_posix.h"
 #include "net/base/port_util.h"
 #include "net/cert/cert_database.h"
 #include "net/cert/ct_log_response_parser.h"
@@ -90,8 +89,9 @@ CreateNetworkChangeNotifierIfNeeded() {
   // is running inside of the browser process.
   if (!net::NetworkChangeNotifier::HasNetworkChangeNotifier()) {
 #if defined(OS_ANDROID)
-    // On Android, network change events are synced from the browser process.
-    return std::make_unique<net::NetworkChangeNotifierPosix>();
+    // On Android, NetworkChangeNotifier objects are always set up in process
+    // before NetworkService is run.
+    return nullptr;
 #elif defined(OS_IOS) || defined(OS_FUCHSIA)
     // iOS doesn't embed //content. Fuchsia doesn't have an implementation yet.
     // TODO(xunjieli): Figure out what to do for these 2 platforms.
