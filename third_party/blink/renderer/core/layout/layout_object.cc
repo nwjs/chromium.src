@@ -1503,10 +1503,17 @@ bool LayoutObject::HasDistortingVisualEffects() const {
 }
 
 bool LayoutObject::HasNonZeroEffectiveOpacity() const {
-  PropertyTreeState paint_properties = EnclosingLayer()
-                                           ->GetLayoutObject()
-                                           .FirstFragment()
-                                           .LocalBorderBoxProperties();
+  const FragmentData& fragment =
+      EnclosingLayer()->GetLayoutObject().FirstFragment();
+
+  // This can happen for an iframe element which is outside the viewport and has
+  // therefore never been painted. In that case, we do the safe thing -- report
+  // it as having non-zero opacity -- since this method is used by
+  // IntersectionObserver to detect occlusion.
+  if (!fragment.HasLocalBorderBoxProperties())
+    return true;
+
+  PropertyTreeState paint_properties = fragment.LocalBorderBoxProperties();
 
   for (const auto* effect = SafeUnalias(paint_properties.Effect()); effect;
        effect = SafeUnalias(effect->Parent())) {
