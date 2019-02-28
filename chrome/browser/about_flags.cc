@@ -3207,6 +3207,11 @@ const FeatureEntry kFeatureEntries[] = {
      kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kUIExperimentBoldUserTextOnSearchSuggestions)},
 
+    {"omnibox-ui-unbold-suggestion-text",
+     flag_descriptions::kOmniboxUIUnboldSuggestionTextName,
+     flag_descriptions::kOmniboxUIUnboldSuggestionTextDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kUIExperimentUnboldSuggestionText)},
+
     {"use-suggestions-even-if-few",
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureName,
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureDescription, kOsAll,

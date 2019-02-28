@@ -2819,6 +2819,11 @@
     "expiry_milestone": 80
   },
   {
+    "name": "omnibox-ui-unbold-suggestion-text",
+    "owners": [ "tommycli", "chrome-omnibox-team@google.com" ],
+    "expiry_milestone": 80
+  },
+  {
     "name": "only-new-password-form-parsing",
     "owners": [ "dvadym" ],
     "expiry_milestone": 76
