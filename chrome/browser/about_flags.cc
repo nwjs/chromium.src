@@ -3201,7 +3201,13 @@ const FeatureEntry kFeatureEntries[] = {
      kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kUIExperimentUseGenericSearchEngineIcon)},
 
-   {"use-suggestions-even-if-few",
+    {"omnibox-ui-bold-user-text-on-search-suggestions",
+     flag_descriptions::kOmniboxUIBoldUserTextOnSearchSuggestionsName,
+     flag_descriptions::kOmniboxUIBoldUserTextOnSearchSuggestionsDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kUIExperimentBoldUserTextOnSearchSuggestions)},
+
+    {"use-suggestions-even-if-few",
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureName,
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureDescription, kOsAll,
      FEATURE_VALUE_TYPE(suggestions::kUseSuggestionsEvenIfFewFeature)},
