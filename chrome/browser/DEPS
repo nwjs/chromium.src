@@ -260,4 +260,8 @@ specific_include_rules = {
   "browser_process_impl.cc": [
     "+ui/message_center/message_center.h",
   ],
+  # To share values of UMA enums between product code and tests.
+  "translate_manager_browsertest.cc": [
+    "+services/network/initiator_lock_compatibility.h",
+  ],
 }
