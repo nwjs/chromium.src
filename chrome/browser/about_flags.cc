@@ -3183,12 +3183,6 @@ const FeatureEntry kFeatureEntries[] = {
      kOsDesktop,
      FEATURE_VALUE_TYPE(omnibox::kUIExperimentBlueTitlesOnPageSuggestions)},
 
-    {"omnibox-ui-use-generic-search-engine-icon",
-     flag_descriptions::kOmniboxUIUseGenericSearchEngineIconName,
-     flag_descriptions::kOmniboxUIUseGenericSearchEngineIconDescription,
-     kOsDesktop,
-     FEATURE_VALUE_TYPE(omnibox::kUIExperimentUseGenericSearchEngineIcon)},
-
     {"omnibox-ui-show-suffix-on-all-search-suggestions",
      flag_descriptions::kOmniboxUIShowSuffixOnAllSearchSuggestionsName,
      flag_descriptions::kOmniboxUIShowSuffixOnAllSearchSuggestionsDescription,
@@ -3196,7 +3190,18 @@ const FeatureEntry kFeatureEntries[] = {
      FEATURE_VALUE_TYPE(
          omnibox::kUIExperimentShowSuffixOnAllSearchSuggestions)},
 
-    {"use-suggestions-even-if-few",
+    {"omnibox-ui-white-background-on-blur",
+     flag_descriptions::kOmniboxUIWhiteBackgroundOnBlurName,
+     flag_descriptions::kOmniboxUIWhiteBackgroundOnBlurDescription, kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kUIExperimentWhiteBackgroundOnBlur)},
+
+    {"omnibox-ui-use-generic-search-engine-icon",
+     flag_descriptions::kOmniboxUIUseGenericSearchEngineIconName,
+     flag_descriptions::kOmniboxUIUseGenericSearchEngineIconDescription,
+     kOsDesktop,
+     FEATURE_VALUE_TYPE(omnibox::kUIExperimentUseGenericSearchEngineIcon)},
+
+   {"use-suggestions-even-if-few",
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureName,
      flag_descriptions::kUseSuggestionsEvenIfFewFeatureDescription, kOsAll,
      FEATURE_VALUE_TYPE(suggestions::kUseSuggestionsEvenIfFewFeature)},

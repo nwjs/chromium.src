@@ -879,6 +879,9 @@ extern const char kOmniboxUISwapTitleAndUrlDescription[];
 extern const char kOmniboxUIUseGenericSearchEngineIconName[];
 extern const char kOmniboxUIUseGenericSearchEngineIconDescription[];
 
+extern const char kOmniboxUIWhiteBackgroundOnBlurName[];
+extern const char kOmniboxUIWhiteBackgroundOnBlurDescription[];
+
 extern const char kOmniboxVoiceSearchAlwaysVisibleName[];
 extern const char kOmniboxVoiceSearchAlwaysVisibleDescription[];
 

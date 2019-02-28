@@ -1451,6 +1451,11 @@ const char kOmniboxUIUseGenericSearchEngineIconDescription[] =
     "In the omnibox and NTP, shows a generic magnifying glass icon instead of  "
     "the Search Provider favicon.";
 
+const char kOmniboxUIWhiteBackgroundOnBlurName[] =
+    "Omnibox UI White Background On Blur";
+const char kOmniboxUIWhiteBackgroundOnBlurDescription[] =
+    "Set the omnibox background white when it's unfocused.";
+
 const char kOmniboxVoiceSearchAlwaysVisibleName[] =
     "Omnibox Voice Search Always Visible";
 const char kOmniboxVoiceSearchAlwaysVisibleDescription[] =
