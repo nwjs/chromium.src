@@ -857,6 +857,10 @@ void WizardController::OnEnrollmentDone() {
     chrome::AttemptRestart();
   }
 
+  // This populates post-OOBE shelf and UI.
+  session_manager::SessionManager::Get()->SetSessionState(
+      session_manager::SessionState::LOGIN_PRIMARY);
+
   // TODO(mnissler): Unify the logic for auto-login for Public Sessions and
   // Kiosk Apps and make this code cover both cases: http://crbug.com/234694.
   if (KioskAppManager::Get()->IsAutoLaunchEnabled())
