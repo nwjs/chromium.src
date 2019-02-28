@@ -4658,7 +4658,8 @@ class FileURLLoaderFactory : public network::mojom::URLLoaderFactory {
       return;
     }
     content::CreateFileURLLoader(request, std::move(loader), std::move(client),
-                                 /*observer=*/nullptr);
+                                 /*observer=*/nullptr,
+                                 /* allow_directory_listing */ true);
   }
 
   void Clone(network::mojom::URLLoaderFactoryRequest loader) override {
