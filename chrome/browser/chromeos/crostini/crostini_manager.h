@@ -61,6 +61,7 @@ enum class CrostiniResult {
   LIST_USB_FAILED,
   UNKNOWN_USB_DEVICE,
   UNKNOWN_ERROR,
+  NOT_ALLOWED,
 };
 
 enum class InstallLinuxPackageProgressStatus {
