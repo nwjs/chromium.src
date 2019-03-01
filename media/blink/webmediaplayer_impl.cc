@@ -2691,8 +2691,9 @@ void WebMediaPlayerImpl::StartPipeline() {
                      BindToCurrentLoop(base::BindOnce(
                          &WebMediaPlayerImpl::OnFirstFrame, AsWeakPtr()))));
 
-  if (renderer_factory_selector_->GetCurrentFactory()
-          ->GetRequiredMediaResourceType() == MediaResource::Type::URL) {
+  if (demuxer_found_hls_ ||
+      renderer_factory_selector_->GetCurrentFactory()
+              ->GetRequiredMediaResourceType() == MediaResource::Type::URL) {
     // MediaPlayerRendererClient factory is the only factory that a
     // MediaResource::Type::URL for the moment. This might no longer be true
     // when we remove WebMediaPlayerCast.
