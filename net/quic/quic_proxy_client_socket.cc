@@ -415,7 +415,7 @@ int QuicProxyClientSocket::DoReadReplyComplete(int result) {
       redirect_has_load_timing_info_ =
           GetLoadTimingInfo(&redirect_load_timing_info_);
       next_state_ = STATE_DISCONNECTED;
-      return ERR_HTTPS_PROXY_TUNNEL_RESPONSE;
+      return ERR_HTTPS_PROXY_TUNNEL_RESPONSE_REDIRECT;
 
     case 407:  // Proxy Authentication Required
       next_state_ = STATE_CONNECT_COMPLETE;

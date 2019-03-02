@@ -58,7 +58,7 @@ namespace net {
 // have SSL times.  One exception to this is when a proxy server itself returns
 // a redirect response.  In this case, the connect times treat the proxy as the
 // host.  The send and receive times will all be null, however.
-// See HttpNetworkTransaction::OnHttpsProxyTunnelResponse.
+// See HttpNetworkTransaction::OnHttpsProxyTunnelResponseRedirect.
 // TODO(mmenke):  Is this worth fixing?
 //
 struct NET_EXPORT LoadTimingInfo {
