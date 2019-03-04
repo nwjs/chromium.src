@@ -659,7 +659,7 @@
 <translation id="1970368523891847084">Accediste al modo de video</translation>
 <translation id="197288927597451399">Conservar</translation>
 <translation id="1974043046396539880">Puntos de distribución de la CRL</translation>
-<translation id="1974060860693918893">Avanzada</translation>
+<translation id="1974060860693918893">Configuración avanzada</translation>
 <translation id="1974821797477522211">Conectarse a una red</translation>
 <translation id="197560921582345123">Se puede editar</translation>
 <translation id="1975841812214822307">Eliminar…</translation>
@@ -1854,7 +1854,7 @@
 <translation id="3785071023202624850">{NUM_TABS,plural, =1{Silenciar pestaña}other{Silenciar pestañas}}</translation>
 <translation id="3785308913036335955">Mostrar acceso directo a las aplicaciones</translation>
 <translation id="3785727820640310185">Se guardaron contraseñas para este sitio</translation>
-<translation id="3786301125658655746">No estás conectado.</translation>
+<translation id="3786301125658655746">No tienes conexión.</translation>
 <translation id="3788401245189148511">Podría:</translation>
 <translation id="3789841737615482174">Instalar</translation>
 <translation id="379082410132524484">La tarjeta está vencida</translation>
