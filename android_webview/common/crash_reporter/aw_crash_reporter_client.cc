@@ -70,7 +70,7 @@ class AwCrashReporterClient : public ::crash_reporter::CrashReporterClient {
     *sanitize_stacks = true;
   }
 
-  unsigned int GetCrashDumpPercentageForWebView() override { return 100; }
+  unsigned int GetCrashDumpPercentageForWebView() override { return 1; }
 
   bool GetBrowserProcessType(std::string* ptype) override {
     *ptype = base::CommandLine::ForCurrentProcess()->HasSwitch(
