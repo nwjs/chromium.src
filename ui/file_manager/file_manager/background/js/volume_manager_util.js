@@ -97,7 +97,7 @@ volumeManagerUtil.createVolumeInfo = function(volumeMetadata) {
       break;
   }
 
-  console.debug(
+  console.warn(
       'Requesting file system: ' + volumeMetadata.volumeType + ' ' +
       volumeMetadata.volumeId);
   return util
@@ -145,7 +145,7 @@ volumeManagerUtil.createVolumeInfo = function(volumeMetadata) {
       .then(
           /** @param {!FileSystem} fileSystem */
           function(fileSystem) {
-            console.debug('File system obtained: ' + volumeMetadata.volumeId);
+            console.warn('File system obtained: ' + volumeMetadata.volumeId);
             if (volumeMetadata.volumeType ===
                 VolumeManagerCommon.VolumeType.DRIVE) {
               // After file system is mounted, we "read" drive grand root
