@@ -229,7 +229,6 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="4628757576491864469">Eszközök</translation>
 <translation id="4659419629803378708">ChromeVox bekapcsolva</translation>
 <translation id="4734965478015604180">Vízszintes</translation>
-<translation id="476166673298332917">Az eszköz rendszergazdája figyelheti a böngészési tevékenységét.</translation>
 <translation id="4774338217796918551">Térjen vissza holnap, ekkor: <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776917500594043016">A(z) <ph name="USER_EMAIL_ADDRESS" /> fiókhoz tartozó jelszó</translation>
 <translation id="4778095205580009397">A Google Segéd nem áll rendelkezésre bemutató munkamenetben.</translation>
@@ -331,6 +330,7 @@ Az összes felhasználónak ki kell jelentkeznie a folytatáshoz.</translation>
 <translation id="6528179044667508675">Ne zavarj</translation>
 <translation id="6537270692134705506">Képernyőkép rögzítése</translation>
 <translation id="6542521951477560771">Küldés ide: <ph name="RECEIVER_NAME" /></translation>
+<translation id="6574601967010742428">Lehetséges, hogy tevékenységeit megfigyelheti az eszköz adminisztrátora.</translation>
 <translation id="6585808820553845416">A munkamenet <ph name="SESSION_TIME_REMAINING" /> múlva véget ér.</translation>
 <translation id="6627638273713273709">Keresés+Shift+K</translation>
 <translation id="6650933572246256093">A(z) „<ph name="DEVICE_NAME" />” Bluetooth-eszköz engedélyt kér a párosításra. Kérjük, adja meg ezt a biztonsági kódot azon az eszközön: <ph name="PASSKEY" /></translation>

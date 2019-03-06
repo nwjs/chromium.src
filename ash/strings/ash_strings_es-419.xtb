@@ -229,7 +229,6 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="4628757576491864469">Dispositivos</translation>
 <translation id="4659419629803378708">Se habilitó ChromeVox</translation>
 <translation id="4734965478015604180">Horizontal</translation>
-<translation id="476166673298332917">El administrador tiene acceso a toda la actividad, incluidas las contraseñas y comunicaciones.</translation>
 <translation id="4774338217796918551">Regresa mañana a las <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776917500594043016">Contraseña para <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4778095205580009397">El Asistente de Google no está disponible en la sesión de demostración.</translation>
@@ -331,6 +330,7 @@ Todos los usuarios deben salir de sus cuentas para continuar.</translation>
 <translation id="6528179044667508675">No interrumpir</translation>
 <translation id="6537270692134705506">Captura total de pantalla</translation>
 <translation id="6542521951477560771">Transmitiendo a <ph name="RECEIVER_NAME" /></translation>
+<translation id="6574601967010742428">Es posible que el administrador del dispositivo supervise tu actividad.</translation>
 <translation id="6585808820553845416">La sesión terminará en <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Búsqueda+mayúscula+K</translation>
 <translation id="6650933572246256093">El dispositivo Bluetooth "<ph name="DEVICE_NAME" />" solicita permiso para sincronizarse. Ingresa la siguiente clave de contraseña en el dispositivo: <ph name="PASSKEY" />.</translation>

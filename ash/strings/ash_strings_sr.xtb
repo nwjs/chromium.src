@@ -228,7 +228,6 @@
 <translation id="4628757576491864469">Уређаји</translation>
 <translation id="4659419629803378708">ChromeVox је омогућен</translation>
 <translation id="4734965478015604180">Хоризонтално</translation>
-<translation id="476166673298332917">Администратор овог уређаја може да надгледа активности прегледања.</translation>
 <translation id="4774338217796918551">Вратите се сутра у <ph name="COME_BACK_TIME" />.</translation>
 <translation id="4776917500594043016">Лозинка за <ph name="USER_EMAIL_ADDRESS" /></translation>
 <translation id="4778095205580009397">Google помоћник није доступан у сесији демонстрације.</translation>
@@ -330,6 +329,7 @@
 <translation id="6528179044667508675">Не узнемиравај</translation>
 <translation id="6537270692134705506">Сними екран</translation>
 <translation id="6542521951477560771">Пребацује се на <ph name="RECEIVER_NAME" /></translation>
+<translation id="6574601967010742428">Администратор уређаја ће можда моћи да надгледа ваше активности.</translation>
 <translation id="6585808820553845416">Сесија се завршава за <ph name="SESSION_TIME_REMAINING" />.</translation>
 <translation id="6627638273713273709">Тастер за претрагу+Shift+K</translation>
 <translation id="6650933572246256093">Bluetooth уређај „<ph name="DEVICE_NAME" />“ жели дозволу за упаривање. Унесите ову шифру на том уређају: <ph name="PASSKEY" /></translation>
