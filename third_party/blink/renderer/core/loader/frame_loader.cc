@@ -730,6 +730,10 @@ bool FrameLoader::PrepareRequestForThisFrame(FrameLoadRequest& request) {
 
     if (frame_->Owner() && frame_->Owner()->GetSandboxFlags() & kSandboxOrigin)
       return false;
+
+    frame_->GetDocument()->ProcessJavaScriptUrl(
+        url, request.ShouldCheckMainWorldContentSecurityPolicy());
+    return false;
   }
 
   if (!request.OriginDocument()->GetSecurityOrigin()->CanDisplay(url)) {
@@ -962,12 +966,6 @@ void FrameLoader::StartNavigation(const FrameLoadRequest& passed_request,
   if (frame_->IsMainFrame() && origin_document &&
       frame_->GetPage() == origin_document->GetPage()) {
     LocalFrame::ConsumeTransientUserActivation(frame_);
-  }
-
-  if (url.ProtocolIsJavaScript()) {
-    frame_->GetDocument()->ProcessJavaScriptUrl(
-        url, request.ShouldCheckMainWorldContentSecurityPolicy());
-    return;
   }
 
   Client()->BeginNavigation(
