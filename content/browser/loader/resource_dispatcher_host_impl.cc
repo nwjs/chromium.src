@@ -119,6 +119,8 @@
 #include "url/third_party/mozilla/url_parse.h"
 #include "url/url_constants.h"
 
+#include "content/public/common/content_switches.h"
+
 // ----------------------------------------------------------------------------
 
 namespace content {
@@ -2110,7 +2112,8 @@ bool ResourceDispatcherHostImpl::ShouldServiceRequest(
   std::string origin_string;
   bool has_origin =
       headers.GetHeader("Origin", &origin_string) && origin_string != "null";
-  if (has_origin) {
+  bool disable_web_security = base::CommandLine::ForCurrentProcess()->HasSwitch(switches::kDisableWebSecurity);
+  if (has_origin && !disable_web_security) {
     GURL origin(origin_string);
     if (!policy->CanSetAsOriginHeader(child_id, origin)) {
       VLOG(1) << "Killed renderer for illegal origin: " << origin_string;
