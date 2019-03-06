@@ -4,6 +4,8 @@
 
 #import "chrome/browser/ui/views/frame/browser_frame_mac.h"
 
+#include "ui/display/display.h"
+
 #import "base/mac/foundation_util.h"
 #include "chrome/app/chrome_command_ids.h"
 #include "chrome/browser/apps/app_shim/extension_app_shim_handler_mac.h"
@@ -140,7 +142,7 @@ void BrowserFrameMac::InitNativeWidget(
     const views::Widget::InitParams& params) {
   views::NativeWidgetMac::InitNativeWidget(params);
 
-  [[GetNativeWindow().GetNativeNSWindow() contentView] setWantsLayer:YES];
+  [[GetNativeWindow().GetNativeNSWindow() contentView] setWantsLayer:!content::g_force_cpu_draw];
 }
 
 void BrowserFrameMac::PopulateCreateWindowParams(
@@ -165,6 +167,8 @@ void BrowserFrameMac::PopulateCreateWindowParams(
       params->window_title_hidden = true;
   } else {
     params->window_class = views_bridge_mac::mojom::WindowClass::kDefault;
+    if (widget_params.remove_standard_frame)
+      params->style_mask = NSBorderlessWindowMask;
   }
   params->animation_enabled = true;
 }

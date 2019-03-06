@@ -4,6 +4,26 @@
 
 #include "chrome/browser/ui/views/frame/browser_view.h"
 
+#include "chrome/browser/extensions/api/tabs/tabs_windows_api.h"
+#include "chrome/browser/extensions/api/tabs/windows_event_router.h"
+#include "chrome/browser/extensions/browser_extension_window_controller.h"
+#include "components/favicon/content/content_favicon_driver.h"
+#include "content/public/browser/render_widget_host.h"
+
+#if defined(OS_WIN)
+#include <shobjidl.h>
+#include <dwmapi.h>
+
+#include "base/win/windows_version.h"
+#include "ui/base/win/hidden_window.h"
+#include "ui/gfx/canvas.h"
+#include "ui/gfx/icon_util.h"
+#include "ui/gfx/font_list.h"
+#include "ui/gfx/platform_font.h"
+#include "ui/display/win/dpi.h"
+#include "ui/views/win/hwnd_util.h"
+#endif
+
 #include <stdint.h>
 
 #include <algorithm>
@@ -175,6 +195,9 @@
 #include "chrome/browser/ui/views/frame/browser_view_commands_mac.h"
 #endif
 
+#include "extensions/browser/app_window/app_window.h"
+#include "extensions/browser/app_window/app_window_registry.h"
+
 #if defined(USE_AURA)
 #include "chrome/browser/ui/views/theme_profile_key.h"
 #include "ui/aura/client/window_parenting_client.h"
@@ -202,6 +225,7 @@
 #include "chrome/browser/ui/views/sync/one_click_signin_dialog_view.h"
 #endif
 
+using extensions::DraggableRegion;
 using base::TimeDelta;
 using base::UserMetricsAction;
 using content::NativeWebKeyboardEvent;
@@ -246,6 +270,19 @@ void PaintDetachedBookmarkBar(gfx::Canvas* canvas,
       view->GetLocalBounds(), true);
 }
 
+SkRegion* RawDraggableRegionsToSkRegion(
+    const std::vector<DraggableRegion>& regions) {
+  SkRegion* sk_region = new SkRegion;
+  for (std::vector<DraggableRegion>::const_iterator iter = regions.begin();
+       iter != regions.end(); ++iter) {
+    const DraggableRegion& region = *iter;
+    sk_region->op(
+        region.bounds.x(), region.bounds.y(), region.bounds.right(),
+        region.bounds.bottom(),
+        region.draggable ? SkRegion::kUnion_Op : SkRegion::kDifference_Op);
+  }
+  return sk_region;
+}
 // Paints the background (including the theme image behind content area) for
 // the Bookmarks Bar when it is attached to the Toolbar into |bounds|.
 // |background_origin| is the origin to use for painting the theme image.
@@ -450,6 +487,92 @@ void BookmarkBarViewBackground::Paint(gfx::Canvas* canvas,
 // static
 const char BrowserView::kViewClassName[] = "BrowserView";
 
+void BrowserView::ForceClose() {
+  GetWidget()->Close(true);
+}
+bool BrowserView::NWCanClose(bool user_force) const {
+  return browser_->NWCanClose(user_force);
+}
+
+void BrowserView::UpdateDraggableRegions(
+    const std::vector<extensions::DraggableRegion>& regions) {
+  // Draggable region is not supported for non-frameless window.
+  if (!browser_->is_frameless())
+    return;
+
+  draggable_region_.reset(RawDraggableRegionsToSkRegion(regions));
+  //OnViewWasResized();
+}
+
+bool BrowserView::ShouldDescendIntoChildForEventHandling(
+    gfx::NativeView child,
+    const gfx::Point& location) {
+#if defined(USE_AURA)
+  WebContents* web_contents = GetActiveWebContents();
+  if (!web_contents)
+    return true;
+  if (child->Contains(web_contents->GetNativeView())) {
+    // App window should claim mouse events that fall within the draggable
+    // region.
+    return !draggable_region_.get() ||
+           !draggable_region_->contains(location.x(), location.y());
+  }
+#endif
+
+  return true;
+}
+
+void BrowserView::SetShowInTaskbar(bool show) {
+#if defined(OS_WIN)
+  views::Widget* widget = GetWidget()->GetTopLevelWidget();
+
+  if (show == false && base::win::GetVersion() < base::win::VERSION_VISTA) {
+    // Change the owner of native window. Only needed on Windows XP.
+    ::SetParent(views::HWNDForWidget(widget),
+                ui::GetHiddenWindow());
+  }
+
+  Microsoft::WRL::ComPtr<ITaskbarList3> taskbar;
+  HRESULT result = ::CoCreateInstance(CLSID_TaskbarList, nullptr,
+                                      CLSCTX_INPROC_SERVER, IID_PPV_ARGS(&taskbar));
+  if (FAILED(result)) {
+    VLOG(1) << "Failed creating a TaskbarList object: " << result;
+    return;
+  }
+
+  result = taskbar->HrInit();
+  if (FAILED(result)) {
+    LOG(ERROR) << "Failed initializing an ITaskbarList interface.";
+    return;
+  }
+
+  if (show)
+    result = taskbar->AddTab(views::HWNDForWidget(widget));
+  else
+    result = taskbar->DeleteTab(views::HWNDForWidget(widget));
+
+  if (FAILED(result)) {
+    LOG(ERROR) << "Failed to change the show in taskbar attribute";
+    return;
+  }
+#endif
+}
+
+SkRegion* BrowserView::GetDraggableRegion() {
+  return draggable_region_.get();
+}
+
+void BrowserView::SetAllVisible(bool visible) {
+  frame_->SetVisibleOnAllWorkspaces(visible);
+}
+
+void BrowserView::SetResizable(bool resizable) {
+  resizable_ = resizable;
+  GetWidget()->OnSizeConstraintsChanged();
+  frame_->non_client_view()->ResetWindowControls();
+  frame_->non_client_view()->Layout();
+}
+
 BrowserView::BrowserView() : views::ClientView(nullptr, nullptr) {}
 
 BrowserView::~BrowserView() {
@@ -501,8 +624,11 @@ BrowserView::~BrowserView() {
 }
 
 void BrowserView::Init(std::unique_ptr<Browser> browser) {
+  // type popup is for devtools window. that's what we want
+  CHECK(browser->is_type_popup()) << "opening browser window.";
   browser_ = std::move(browser);
   browser_->tab_strip_model()->AddObserver(this);
+  resizable_ = browser_->initial_resizable();
   immersive_mode_controller_.reset(chrome::CreateImmersiveModeController());
 }
 
@@ -702,7 +828,7 @@ void BrowserView::ShowInactive() {
 }
 
 void BrowserView::Hide() {
-  // Not implemented.
+  frame_->Hide();
 }
 
 bool BrowserView::IsVisible() const {
@@ -739,8 +865,7 @@ bool BrowserView::IsAlwaysOnTop() const {
 }
 
 void BrowserView::SetAlwaysOnTop(bool always_on_top) {
-  // Not implemented for browser windows.
-  NOTIMPLEMENTED();
+  frame_->SetAlwaysOnTop(always_on_top);
 }
 
 gfx::NativeWindow BrowserView::GetNativeWindow() const {
@@ -936,7 +1061,7 @@ void BrowserView::OnActiveTabChanged(content::WebContents* old_contents,
   // Update all the UI bits.
   UpdateTitleBar();
 
-  TranslateBubbleView::CloseCurrentBubble();
+  //TranslateBubbleView::CloseCurrentBubble();
 }
 
 void BrowserView::OnTabDetached(content::WebContents* contents,
@@ -1415,6 +1540,7 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
     return ShowTranslateBubbleResult::EDITABLE_FIELD_IS_ACTIVE;
   }
 
+#if 0
   translate::LanguageState& language_state =
       ChromeTranslateClient::FromWebContents(web_contents)->GetLanguageState();
   language_state.SetTranslateEnabled(true);
@@ -1424,6 +1550,7 @@ ShowTranslateBubbleResult BrowserView::ShowTranslateBubble(
 
   toolbar_->ShowTranslateBubble(web_contents, step, error_type,
                                 is_user_gesture);
+#endif
   return ShowTranslateBubbleResult::SUCCESS;
 }
 
@@ -1709,11 +1836,11 @@ bool BrowserView::GetAcceleratorForCommandId(
 // BrowserView, views::WidgetDelegate implementation:
 
 bool BrowserView::CanResize() const {
-  return true;
+  return resizable_;
 }
 
 bool BrowserView::CanMaximize() const {
-  return true;
+  return resizable_;
 }
 
 bool BrowserView::CanMinimize() const {
@@ -1957,6 +2084,37 @@ bool BrowserView::ShouldShowWindowTitle() const {
 }
 
 gfx::ImageSkia BrowserView::GetWindowAppIcon() {
+#if 1
+  if (browser_->is_devtools()) {
+    WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
+    DevToolsWindow* devtools_window =
+        DevToolsWindow::AsDevToolsWindow(contents);
+    if (devtools_window) {
+      WebContents* inspected_contents =
+          devtools_window->GetInspectedWebContents();
+      Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
+      if (browser && !browser->icon_override().IsEmpty())
+        return *browser->icon_override().ToImageSkia();
+      favicon::FaviconDriver* favicon_driver =
+          favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
+      gfx::Image app_icon;
+      if (favicon_driver)
+        app_icon = favicon_driver->GetFavicon();
+      if (!app_icon.IsEmpty())
+        return *app_icon.ToImageSkia();
+      Profile* profile =
+          Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry =
+          extensions::AppWindowRegistry::Get(profile);
+      if (registry) {
+        extensions::AppWindow* app_window =
+            registry->GetAppWindowForWebContents(inspected_contents);
+        if (app_window)
+          return app_window->custom_app_icon().AsImageSkia();
+      }
+    }
+  }
+#endif
   extensions::HostedAppBrowserController* app_controller =
       browser()->hosted_app_controller();
   return app_controller ? app_controller->GetWindowAppIcon() : GetWindowIcon();
@@ -1964,8 +2122,36 @@ gfx::ImageSkia BrowserView::GetWindowAppIcon() {
 
 gfx::ImageSkia BrowserView::GetWindowIcon() {
   // Use the default icon for devtools.
-  if (browser_->is_devtools())
+  if (browser_->is_devtools()) {
+    WebContents* contents = browser_->tab_strip_model()->GetActiveWebContents();
+    DevToolsWindow* devtools_window =
+        DevToolsWindow::AsDevToolsWindow(contents);
+    if (devtools_window) {
+      WebContents* inspected_contents =
+          devtools_window->GetInspectedWebContents();
+      Browser* browser = chrome::FindBrowserWithWebContents(inspected_contents);
+      if (browser && !browser->icon_override().IsEmpty())
+        return *browser->icon_override().ToImageSkia();
+      favicon::FaviconDriver* favicon_driver =
+          favicon::ContentFaviconDriver::FromWebContents(inspected_contents);
+      gfx::Image app_icon;
+      if (favicon_driver)
+        app_icon = favicon_driver->GetFavicon();
+      if (!app_icon.IsEmpty())
+        return *app_icon.ToImageSkia();
+      Profile* profile =
+          Profile::FromBrowserContext(contents->GetBrowserContext());
+      extensions::AppWindowRegistry* registry =
+          extensions::AppWindowRegistry::Get(profile);
+      if (registry) {
+        extensions::AppWindow* app_window =
+            registry->GetAppWindowForWebContents(inspected_contents);
+        if (app_window)
+          return app_window->custom_app_icon().AsImageSkia();
+      }
+    }
     return gfx::ImageSkia();
+  }
 
   // Hosted apps always show their app icon.
   extensions::HostedAppBrowserController* app_controller =
@@ -2025,6 +2211,7 @@ void BrowserView::SaveWindowPlacement(const gfx::Rect& bounds,
     WidgetDelegate::SaveWindowPlacement(bounds, show_state);
     chrome::SaveWindowPlacement(browser_.get(), bounds, show_state);
   }
+  NativeWindowChanged();
 }
 
 bool BrowserView::GetSavedWindowPlacement(
@@ -2086,6 +2273,13 @@ views::View* BrowserView::CreateOverlayView() {
   overlay_view_->SetEventTargeter(
       std::make_unique<views::ViewTargeter>(overlay_view_targeter_.get()));
   return overlay_view_;
+}
+
+void BrowserView::NativeWindowChanged() {
+  extensions::TabsWindowsAPI* tabs_window_api =
+    extensions::TabsWindowsAPI::Get(browser_->profile());
+  tabs_window_api->windows_event_router()->
+    OnWindowChanged(browser_ ? browser_->extension_window_controller() : nullptr);
 }
 
 void BrowserView::OnWidgetDestroying(views::Widget* widget) {
@@ -2185,6 +2379,10 @@ void BrowserView::OnWidgetMove() {
   LocationBarView* location_bar_view = GetLocationBarView();
   if (location_bar_view)
     location_bar_view->GetOmniboxView()->CloseOmniboxPopup();
+  extensions::TabsWindowsAPI* tabs_window_api =
+    extensions::TabsWindowsAPI::Get(browser_->profile());
+  tabs_window_api->windows_event_router()->
+    OnWindowMove(browser_ ? browser_->extension_window_controller() : nullptr);
 }
 
 views::Widget* BrowserView::GetWidget() {
@@ -2273,10 +2471,25 @@ int BrowserView::NonClientHitTest(const gfx::Point& point) {
   return GetBrowserViewLayout()->NonClientHitTest(point);
 }
 
+void BrowserView::SetMinimumSize(gfx::Size size) {
+  minimum_size_ = size;
+  GetWidget()->OnSizeConstraintsChanged();
+}
+
+void BrowserView::SetMaximumSize(gfx::Size size) {
+  maximum_size_ = size;
+  GetWidget()->OnSizeConstraintsChanged();
+}
+
 gfx::Size BrowserView::GetMinimumSize() const {
+  if (!minimum_size_.IsEmpty())
+    return minimum_size_;
   return GetBrowserViewLayout()->GetMinimumSize(this);
 }
 
+gfx::Size BrowserView::GetMaximumSize() const {
+  return maximum_size_;
+}
 ///////////////////////////////////////////////////////////////////////////////
 // BrowserView, views::View overrides:
 
@@ -2474,7 +2687,7 @@ void BrowserView::InitViews() {
   if (!toolbar_button_provider_)
     SetToolbarButtonProvider(toolbar_);
 
-  contents_web_view_ = new ContentsWebView(browser_->profile());
+  contents_web_view_ = new ContentsWebView(browser_->profile(), browser_->is_transparent());
   contents_web_view_->set_id(VIEW_ID_TAB_CONTAINER);
   contents_web_view_->SetEmbedFullscreenWidgetMode(true);
 
@@ -2486,8 +2699,10 @@ void BrowserView::InitViews() {
   devtools_web_view_->SetVisible(false);
 
   contents_container_ = new views::View();
-  contents_container_->SetBackground(views::CreateSolidBackground(
-      GetThemeProvider()->GetColor(ThemeProperties::COLOR_CONTROL_BACKGROUND)));
+  if (browser_->is_transparent())
+    contents_container_->SetBackground(views::CreateSolidBackground(SK_ColorTRANSPARENT));
+  else
+    contents_container_->SetBackground(views::CreateSolidBackground(GetThemeProvider()->GetColor(ThemeProperties::COLOR_CONTROL_BACKGROUND)));
   contents_container_->AddChildView(devtools_web_view_);
   contents_container_->AddChildView(contents_web_view_);
   contents_container_->SetLayoutManager(std::make_unique<ContentsLayoutManager>(
@@ -2498,7 +2713,7 @@ void BrowserView::InitViews() {
   infobar_container_ = new InfoBarContainerView(this);
   AddChildView(infobar_container_);
 
-  InitStatusBubble();
+  //InitStatusBubble();
 
   // Create do-nothing view for the sake of controlling the z-order of the find
   // bar widget.

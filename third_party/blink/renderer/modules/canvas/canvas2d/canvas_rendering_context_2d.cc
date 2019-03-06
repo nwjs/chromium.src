@@ -33,6 +33,8 @@
 
 #include "third_party/blink/renderer/modules/canvas/canvas2d/canvas_rendering_context_2d.h"
 
+#include "third_party/blink/renderer/core/frame/local_frame.h"
+
 #include "third_party/blink/public/platform/platform.h"
 #include "third_party/blink/public/platform/task_type.h"
 #include "third_party/blink/public/platform/web_scroll_into_view_params.h"
@@ -616,6 +618,8 @@ void CanvasRenderingContext2D::ResourceElementChanged() {
 }
 
 bool CanvasRenderingContext2D::OriginClean() const {
+  if (canvas()->GetDocument().GetFrame() && canvas()->GetDocument().GetFrame()->isNodeJS())
+    return true;
   return Host()->OriginClean();
 }
 

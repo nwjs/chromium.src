@@ -40,6 +40,8 @@ class RenderWidgetHostNSViewBridgeOwner
  private:
   void OnConnectionError() { delete this; }
 
+  content::RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() override { return nullptr; }
+
   std::unique_ptr<InputEvent> TranslateEvent(
       const blink::WebInputEvent& web_event) {
     return std::make_unique<InputEvent>(web_event, ui::LatencyInfo());

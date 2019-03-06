@@ -54,6 +54,7 @@ class InterfaceProvider;
 
 namespace blink {
 
+class DOMArrayBuffer;
 class ConsoleMessage;
 class ExceptionState;
 class FetchClientSettingsObjectSnapshot;
@@ -106,6 +107,7 @@ class CORE_EXPORT WorkerGlobalScope
   DEFINE_ATTRIBUTE_EVENT_LISTENER(unhandledrejection, kUnhandledrejection);
 
   // WorkerUtils
+  ScriptValue importNWBin(ScriptState* state, DOMArrayBuffer* buffer);
   virtual void importScripts(const Vector<String>& urls, ExceptionState&);
 
   // ExecutionContext

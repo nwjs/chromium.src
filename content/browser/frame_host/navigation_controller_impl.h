@@ -35,6 +35,7 @@ struct LoadCommittedDetails;
 
 class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
  public:
+  void set_history_initiator(RenderFrameHostImpl* frame_host) { history_initiator_ = frame_host; }
   NavigationControllerImpl(
       NavigationControllerDelegate* delegate,
       BrowserContext* browser_context);
@@ -241,7 +242,7 @@ class CONTENT_EXPORT NavigationControllerImpl : public NavigationController {
 
  private:
   friend class RestoreHelper;
-
+  RenderFrameHostImpl* history_initiator_;
   FRIEND_TEST_ALL_PREFIXES(NavigationControllerTest,
                            PurgeScreenshot);
   FRIEND_TEST_ALL_PREFIXES(TimeSmoother, Basic);

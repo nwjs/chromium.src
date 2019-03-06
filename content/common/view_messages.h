@@ -270,9 +270,10 @@ IPC_MESSAGE_ROUTED2(ViewHostMsg_AppCacheAccessed,
 
 // Used to go to the session history entry at the given offset (ie, -1 will
 // return the "back" item).
-IPC_MESSAGE_ROUTED2(ViewHostMsg_GoToEntryAtOffset,
+IPC_MESSAGE_ROUTED3(ViewHostMsg_GoToEntryAtOffset,
                     int /* offset (from current) of history item to get */,
-                    bool /* has_user_gesture */)
+                    bool /* has_user_gesture */,
+                    int /* frame id*/)
 
 // Notifies that the preferred size of the content changed.
 IPC_MESSAGE_ROUTED1(ViewHostMsg_DidContentsPreferredSizeChange,

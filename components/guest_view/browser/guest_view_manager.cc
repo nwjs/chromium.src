@@ -468,10 +468,9 @@ bool GuestViewManager::CanEmbedderAccessInstanceID(
 
   // The embedder is trying to access a guest with a negative or zero
   // instance ID.
-  if (guest_instance_id <= kInstanceIDNone) {
-    bad_access_key.Set("Nonpositive");
-    return false;
-  }
+  if (guest_instance_id <= kInstanceIDNone)
+    return true; // the 'alert' case will fail when keeps clicking
+                 // 'detach' otherwise
 
   // The embedder is trying to access an instance ID that has not yet been
   // allocated by GuestViewManager. This could cause instance ID
@@ -496,6 +495,7 @@ bool GuestViewManager::CanEmbedderAccessInstanceID(
 
   // MimeHandlerViewGuests (PDF) may be embedded in a cross-process frame.
   // Other than MimeHandlerViewGuest, all other guest types are only permitted
+#if 0
   // to run in the main frame or its local subframes.
   const int allowed_embedder_render_process_id =
       guest_view->CanBeEmbeddedInsideCrossProcessFrames()
@@ -509,7 +509,7 @@ bool GuestViewManager::CanEmbedderAccessInstanceID(
     bad_access_key.Set("Bad embedder process");
     return false;
   }
-
+#endif
   return true;
 }
 

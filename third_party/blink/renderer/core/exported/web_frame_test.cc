@@ -7366,7 +7366,7 @@ class TestNewWindowWebViewClient
                       WebNavigationPolicy,
                       bool,
                       WebSandboxFlags,
-                      const SessionStorageNamespaceId&) override {
+                      const SessionStorageNamespaceId&, WebString*) override {
     EXPECT_TRUE(false);
     return nullptr;
   }

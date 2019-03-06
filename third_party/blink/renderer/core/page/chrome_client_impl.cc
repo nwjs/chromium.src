@@ -263,7 +263,7 @@ Page* ChromeClientImpl::CreateWindowDelegate(
     const WebWindowFeatures& features,
     NavigationPolicy navigation_policy,
     SandboxFlags sandbox_flags,
-    const SessionStorageNamespaceId& session_storage_namespace_id) {
+    const SessionStorageNamespaceId& session_storage_namespace_id, WebString* manifest) {
   if (!web_view_->Client())
     return nullptr;
 
@@ -281,7 +281,7 @@ Page* ChromeClientImpl::CreateWindowDelegate(
           static_cast<WebNavigationPolicy>(navigation_policy),
           r.GetShouldSetOpener() == kNeverSetOpener,
           static_cast<WebSandboxFlags>(sandbox_flags),
-          session_storage_namespace_id));
+          session_storage_namespace_id, manifest));
   if (!new_view)
     return nullptr;
   return new_view->GetPage();

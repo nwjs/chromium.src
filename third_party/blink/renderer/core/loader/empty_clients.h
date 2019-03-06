@@ -138,7 +138,7 @@ class CORE_EXPORT EmptyChromeClient : public ChromeClient {
                              const WebWindowFeatures&,
                              NavigationPolicy,
                              SandboxFlags,
-                             const SessionStorageNamespaceId&) override {
+                             const SessionStorageNamespaceId&, WebString*) override {
     return nullptr;
   }
 

@@ -12,6 +12,8 @@
 #include <string>
 #include <vector>
 
+#include "ui/gfx/image/image.h"
+
 #include "base/compiler_specific.h"
 #include "base/gtest_prod_util.h"
 #include "base/macros.h"
@@ -101,6 +103,9 @@ namespace web_modal {
 class WebContentsModalDialogHost;
 }
 
+namespace nw {
+  class Menu;
+}
 namespace viz {
 class SurfaceId;
 }
@@ -141,6 +146,7 @@ class Browser : public TabStripModelObserver,
     FEATURE_BOOKMARKBAR = 16,
     FEATURE_INFOBAR = 32,
     FEATURE_DOWNLOADSHELF = 64,
+    FEATURE_NW_FRAMELESS = 128
   };
 
   // The context for a download blocked notification from
@@ -166,6 +172,7 @@ class Browser : public TabStripModelObserver,
                  bool user_gesture,
                  bool in_tab_dragging);
     CreateParams(const CreateParams& other);
+    ~CreateParams();
 
     static CreateParams CreateForApp(const std::string& app_name,
                                      bool trusted_source,
@@ -175,6 +182,14 @@ class Browser : public TabStripModelObserver,
 
     static CreateParams CreateForDevTools(Profile* profile);
 
+    bool frameless = false;
+    bool alpha_enabled = false;
+    bool always_on_top = false;
+    bool all_visible = false;
+    bool resizable = true;
+    bool show_in_taskbar = true;
+    std::string title;
+    gfx::Image icon;
     // The browser type.
     Type type;
 
@@ -226,8 +241,11 @@ class Browser : public TabStripModelObserver,
 
   // Constructors, Creation, Showing //////////////////////////////////////////
 
+  nw::Menu* nw_menu_;
   explicit Browser(const CreateParams& params);
   ~Browser() override;
+
+  bool NWCanClose(bool user_force = false);
 
   // Set overrides for the initial window bounds and maximized state.
   void set_override_bounds(const gfx::Rect& bounds) {
@@ -237,6 +255,15 @@ class Browser : public TabStripModelObserver,
   void set_initial_show_state(ui::WindowShowState initial_show_state) {
     initial_show_state_ = initial_show_state;
   }
+
+  void set_title_override(const std::string& title) { title_override_ = title; }
+
+  bool initial_ontop() const { return initial_ontop_; }
+  bool initial_allvisible() const { return initial_allvisible_; }
+  bool initial_resizable() const { return initial_resizable_; }
+  bool initial_showintaskbar() const { return initial_showintaskbar_; }
+  gfx::Image icon_override() const { return icon_override_; }
+
   // Return true if the initial window bounds have been overridden.
   bool bounds_overridden() const {
     return !override_bounds_.IsEmpty();
@@ -256,6 +283,10 @@ class Browser : public TabStripModelObserver,
   Type type() const { return type_; }
   const std::string& app_name() const { return app_name_; }
   bool is_trusted_source() const { return is_trusted_source_; }
+  bool is_frameless() const { return frameless_; }
+  bool is_transparent() const {
+    return alpha_enabled_;
+  }
   Profile* profile() const { return profile_; }
   gfx::Rect override_bounds() const { return override_bounds_; }
   const std::string& initial_workspace() const { return initial_workspace_; }
@@ -639,7 +670,7 @@ class Browser : public TabStripModelObserver,
                           int opener_render_frame_id,
                           const std::string& frame_name,
                           const GURL& target_url,
-                          content::WebContents* new_contents) override;
+                          content::WebContents* new_contents, const base::string16& nw_window_manifest) override;
   void PortalWebContentsCreated(
       content::WebContents* portal_web_contents) override;
   void RendererUnresponsive(
@@ -917,6 +948,8 @@ class Browser : public TabStripModelObserver,
 
   PrefChangeRegistrar profile_pref_registrar_;
 
+  bool frameless_;
+  bool alpha_enabled_;
   // This Browser's type.
   const Type type_;
 
@@ -982,6 +1015,13 @@ class Browser : public TabStripModelObserver,
   gfx::Rect override_bounds_;
   ui::WindowShowState initial_show_state_;
   const std::string initial_workspace_;
+
+  bool initial_ontop_;
+  bool initial_allvisible_;
+  bool initial_resizable_;
+  bool initial_showintaskbar_;
+  std::string title_override_;
+  gfx::Image icon_override_;
 
   // Tracks when this browser is being created by session restore.
   bool is_session_restore_;

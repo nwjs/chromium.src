@@ -54,6 +54,19 @@ AllowTransparencyAttribute.prototype.handleMutation = function(oldValue,
                                        this.getValue());
 };
 
+function AllowNWAttribute(view) {
+  $Function.call(
+    GuestViewAttributes.BooleanAttribute,
+    this, WebViewConstants.ATTRIBUTE_ALLOWNW, view);
+}
+
+AllowNWAttribute.prototype.__proto__ =
+    GuestViewAttributes.BooleanAttribute.prototype;
+
+AllowNWAttribute.prototype.handleMutation = function(oldValue,
+                                                               newValue) {
+};
+
 // -----------------------------------------------------------------------------
 // AutosizeDimensionAttribute object.
 
@@ -259,6 +272,7 @@ SrcAttribute.prototype.parse = function() {
 };
 
 var WebViewAttributes = {
+  AllowNWAttribute: AllowNWAttribute,
   AllowScalingAttribute: AllowScalingAttribute,
   AllowTransparencyAttribute: AllowTransparencyAttribute,
   AutosizeDimensionAttribute: AutosizeDimensionAttribute,

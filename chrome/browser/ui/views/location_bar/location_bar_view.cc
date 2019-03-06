@@ -235,6 +235,7 @@ void LocationBarView::Init() {
         command_updater(), browser_, this, font_list);
     page_action_icons_.push_back(save_credit_card_icon_view_);
   }
+#if 0
   translate_icon_view_ = new TranslateIconView(command_updater(), this);
   page_action_icons_.push_back(translate_icon_view_);
   if (browser_) {
@@ -242,6 +243,7 @@ void LocationBarView::Init() {
         command_updater(), browser_, this, font_list);
     page_action_icons_.push_back(local_card_migration_icon_view_);
   }
+#endif
 
 #if defined(OS_CHROMEOS)
   if (browser_)
@@ -389,7 +391,7 @@ gfx::Size LocationBarView::CalculatePreferredSize() const {
 
   // Compute width of omnibox-trailing content.
   int trailing_width =
-      IncrementalMinimumWidth(translate_icon_view_) +
+    //IncrementalMinimumWidth(translate_icon_view_) +
       IncrementalMinimumWidth(page_action_icon_container_view_);
   if (star_view_)
     trailing_width += IncrementalMinimumWidth(star_view_);
@@ -513,7 +515,7 @@ void LocationBarView::Layout() {
   if (intent_picker_view_)
     add_trailing_decoration(intent_picker_view_);
 #endif
-  add_trailing_decoration(translate_icon_view_);
+  //add_trailing_decoration(translate_icon_view_);
   if (save_credit_card_icon_view_)
     add_trailing_decoration(save_credit_card_icon_view_);
   if (local_card_migration_icon_view_)

@@ -40,7 +40,7 @@ PaintWorkletGlobalScopeProxy::PaintWorkletGlobalScopeProxy(
   ProvideContentSettingsClientToWorker(
       worker_clients, frame->Client()->CreateWorkerContentSettingsClient());
 
-  auto creation_params = std::make_unique<GlobalScopeCreationParams>(
+  auto creation_params = std::make_unique<GlobalScopeCreationParams>(false, std::string(),
       document->Url(), mojom::ScriptType::kModule, document->UserAgent(),
       frame->Client()->CreateWorkerFetchContext(),
       document->GetContentSecurityPolicy()->Headers(),

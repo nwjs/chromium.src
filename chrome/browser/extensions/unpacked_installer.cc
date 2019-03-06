@@ -112,12 +112,12 @@ bool UnpackedInstaller::LoadFromCommandLine(const base::FilePath& path_in,
 
   extension_path_ =
       base::MakeAbsoluteFilePath(path_util::ResolveHomeDirectory(path_in));
-
+#if 0
   if (!IsLoadingUnpackedAllowed()) {
     ReportExtensionLoadError(kUnpackedExtensionsBlacklistedError);
     return false;
   }
-
+#endif
   std::string error;
   if (!LoadExtension(Manifest::COMMAND_LINE, GetFlags(), &error)) {
     ReportExtensionLoadError(error);

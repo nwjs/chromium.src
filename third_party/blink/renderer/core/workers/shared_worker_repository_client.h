@@ -55,7 +55,7 @@ class CORE_EXPORT SharedWorkerRepositoryClient {
                        MessagePortChannel,
                        const KURL&,
                        mojom::blink::BlobURLTokenPtr,
-                       const String& name) = 0;
+                       const String& name, bool) = 0;
 
   virtual void DocumentDetached(Document*) = 0;
 

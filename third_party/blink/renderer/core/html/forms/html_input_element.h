@@ -273,6 +273,11 @@ class CORE_EXPORT HTMLInputElement
   static Vector<String> FilesFromFileInputFormControlState(
       const FormControlState&);
 
+  const AtomicString& nwworkingdir() const;
+  void setNwworkingdir(const AtomicString& value);
+  String nwsaveas() const;
+  void setNwsaveas(const String& value);
+
   bool MatchesReadOnlyPseudoClass() const final;
   bool MatchesReadWritePseudoClass() const final;
   void setRangeText(const String& replacement, ExceptionState&) final;

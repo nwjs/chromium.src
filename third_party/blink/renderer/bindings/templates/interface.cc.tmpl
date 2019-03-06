@@ -1128,6 +1128,7 @@ v8::Local<v8::Object> {{v8_class}}::FindInstanceInPrototypeChain(
   v8::{{interface_name}}::Contents v8_contents = v8buffer->Externalize();
   WTF::ArrayBufferContents::DataHandle data(v8_contents.Data(),
                                             v8_contents.ByteLength(),
+                                            v8_contents.AllocationMode() == v8::ArrayBuffer::Allocator::AllocationMode::kNodeJS,
                                             v8_contents.Deleter(),
                                             v8_contents.DeleterData());
   WTF::ArrayBufferContents contents(std::move(data), WTF::ArrayBufferContents::k{% if interface_name == 'ArrayBuffer' %}Not{% endif %}Shared);

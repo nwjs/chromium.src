@@ -171,6 +171,7 @@ class CONTENT_EXPORT RenderFrameHostImpl
   using AXTreeSnapshotCallback =
       base::OnceCallback<void(const ui::AXTreeUpdate&)>;
 
+  bool in_window_creation_;
   // An accessibility reset is only allowed to prevent very rare corner cases
   // or race conditions where the browser and renderer get out of sync. If
   // this happens more than this many times, kill the renderer.
@@ -194,9 +195,14 @@ class CONTENT_EXPORT RenderFrameHostImpl
 
   ~RenderFrameHostImpl() override;
 
+  base::WeakPtr<RenderFrameHostImpl> GetWeakPtr() {
+    return weak_ptr_factory_.GetWeakPtr();
+  }
   // RenderFrameHost
   int GetRoutingID() override;
   ui::AXTreeID GetAXTreeID() override;
+  bool nodejs() override;
+  bool context_created() override;
   SiteInstanceImpl* GetSiteInstance() override;
   RenderProcessHost* GetProcess() override;
   RenderWidgetHostView* GetView() override;
@@ -1032,6 +1038,9 @@ class CONTENT_EXPORT RenderFrameHostImpl
   void UpdateUserGestureCarryoverInfo() override;
 #endif
 
+  void SetNodeJS(bool node) override;
+  void SetContextCreated(bool created) override;
+
   // Registers Mojo interfaces that this frame host makes available.
   void RegisterMojoInterfaces();
 
@@ -1420,6 +1429,8 @@ class CONTENT_EXPORT RenderFrameHostImpl
   // TODO(creis): Use this for main frames as well when RVH goes away.
   bool render_frame_created_;
 
+  bool nodejs_;
+  bool context_created_;
   // When the last BeforeUnload message was sent.
   base::TimeTicks send_before_unload_start_time_;
 

@@ -134,6 +134,8 @@ class OpaqueBrowserFrameViewLayout : public views::LayoutManager {
   // Called explicitly from OpaqueBrowserFrameView so we can't group it with
   // the other overrides.
   gfx::Size GetMinimumSize(const views::View* host) const override;
+  gfx::Size GetMaximumSize(const views::View* host) const;
+  gfx::Size GetMinimumSizeHelper(const views::View* host, bool max) const;
 
  protected:
   // Whether a specific button should be inserted on the leading or trailing

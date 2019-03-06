@@ -47,6 +47,7 @@ class CORE_EXPORT FileList final : public ScriptWrappable {
 
   bool IsEmpty() const { return files_.IsEmpty(); }
   void clear() { files_.clear(); }
+  void append(File* file) { Append(file); }
   void Append(File* file) { files_.push_back(file); }
   Vector<base::FilePath> PathsForUserVisibleFiles() const;
 

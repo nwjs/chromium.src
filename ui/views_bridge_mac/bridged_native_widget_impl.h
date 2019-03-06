@@ -129,6 +129,8 @@ class VIEWS_EXPORT BridgedNativeWidgetImpl
   // being reordered in (or out of) the screen list.
   void OnVisibilityChanged();
 
+  void OnWindowWillStartLiveResize();
+
   // Called by the NSWindowDelegate when the system control tint changes.
   void OnSystemControlTintChanged();
 
@@ -206,6 +208,9 @@ class VIEWS_EXPORT BridgedNativeWidgetImpl
   void SetVisibleOnAllSpaces(bool always_visible) override;
   void SetFullscreen(bool fullscreen) override;
   void SetMiniaturized(bool miniaturized) override;
+  void SetMaximized(bool maximized) override;
+  bool IsMaximized(bool* maximized) override;
+  void IsMaximized(IsMaximizedCallback callback) override;
   void SetSizeConstraints(const gfx::Size& min_size,
                           const gfx::Size& max_size,
                           bool is_resizable,
@@ -290,6 +295,8 @@ class VIEWS_EXPORT BridgedNativeWidgetImpl
   // The size of the content area of the window most recently sent to |host_|
   // (and its compositor).
   gfx::Size content_dip_size_;
+
+  NSRect bounds_before_maximize_;
 
   // The size of the frame most recently *received from* the compositor. Note
   // that during resize (and showing new windows), this will lag behind

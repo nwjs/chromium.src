@@ -104,7 +104,7 @@ Page* ChromeClient::CreateWindow(
     const WebWindowFeatures& features,
     NavigationPolicy navigation_policy,
     SandboxFlags sandbox_flags,
-    const SessionStorageNamespaceId& session_storage_namespace_id) {
+    const SessionStorageNamespaceId& session_storage_namespace_id, WebString* manifest) {
 // Popups during page unloading is a feature being put behind a policy and
 // needing an easily-mergeable change. See https://crbug.com/936080 .
 #if 0
@@ -115,7 +115,7 @@ Page* ChromeClient::CreateWindow(
 #endif
 
   return CreateWindowDelegate(frame, r, features, navigation_policy,
-                              sandbox_flags, session_storage_namespace_id);
+                              sandbox_flags, session_storage_namespace_id, manifest);
 }
 
 template <typename Delegate>

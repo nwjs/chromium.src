@@ -118,6 +118,7 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(
     BrowserView* browser_view,
     OpaqueBrowserFrameViewLayout* layout)
     : BrowserNonClientFrameView(frame, browser_view),
+      frameless_(frame->frameless()),
       layout_(layout),
       minimize_button_(nullptr),
       maximize_button_(nullptr),
@@ -127,12 +128,13 @@ OpaqueBrowserFrameView::OpaqueBrowserFrameView(
       window_title_(nullptr),
       frame_background_(new views::FrameBackground()) {
   layout_->set_delegate(this);
-  SetLayoutManager(std::unique_ptr<views::LayoutManager>(layout_));
-
   // This must be initialised before the call to GetFrameColor().
   platform_observer_.reset(OpaqueBrowserFrameViewPlatformSpecific::Create(
       this, layout_,
       ThemeServiceFactory::GetForProfile(browser_view->browser()->profile())));
+  if (frameless_)
+    return;
+  SetLayoutManager(std::unique_ptr<views::LayoutManager>(layout_));
 
   minimize_button_ = InitWindowCaptionButton(IDR_MINIMIZE,
                                              IDR_MINIMIZE_H,
@@ -219,15 +221,29 @@ gfx::Size OpaqueBrowserFrameView::GetMinimumSize() const {
   return layout_->GetMinimumSize(this);
 }
 
+gfx::Size OpaqueBrowserFrameView::GetMaximumSize() const {
+  return layout_->GetMaximumSize(this);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 // OpaqueBrowserFrameView, views::NonClientFrameView implementation:
 
 gfx::Rect OpaqueBrowserFrameView::GetBoundsForClientView() const {
+  if (frameless_)
+    return bounds();
   return layout_->client_view_bounds();
 }
 
 gfx::Rect OpaqueBrowserFrameView::GetWindowBoundsForClientBounds(
     const gfx::Rect& client_bounds) const {
+  if (frameless_) {
+    gfx::Rect window_bounds = client_bounds;
+    if (window_bounds.IsEmpty()) {
+      window_bounds.set_width(1);
+      window_bounds.set_height(1);
+    }
+    return window_bounds;
+  }
   return layout_->GetWindowBoundsForClientBounds(client_bounds);
 }
 
@@ -238,6 +254,10 @@ int OpaqueBrowserFrameView::NonClientHitTest(const gfx::Point& point) {
 
   if (!bounds().Contains(point))
     return HTNOWHERE;
+
+  SkRegion* draggable_region = browser_view()->GetDraggableRegion();
+  if (draggable_region && draggable_region->contains(point.x(), point.y()))
+    return HTCAPTION;
 
   int frame_component = frame()->client_view()->NonClientHitTest(point);
 
@@ -299,10 +319,17 @@ void OpaqueBrowserFrameView::GetWindowMask(const gfx::Size& size,
 }
 
 void OpaqueBrowserFrameView::ResetWindowControls() {
+  if (frameless_)
+    return;
   BrowserNonClientFrameView::ResetWindowControls();
-  restore_button_->SetState(views::Button::STATE_NORMAL);
   minimize_button_->SetState(views::Button::STATE_NORMAL);
-  maximize_button_->SetState(views::Button::STATE_NORMAL);
+  if (browser_view()->CanMaximize()) {
+    restore_button_->SetState(views::Button::STATE_NORMAL);
+    maximize_button_->SetState(views::Button::STATE_NORMAL);
+  } else {
+    restore_button_->SetState(views::Button::STATE_DISABLED);
+    maximize_button_->SetState(views::Button::STATE_DISABLED);
+  }
   // The close button isn't affected by this constraint.
 }
 
@@ -312,6 +339,8 @@ void OpaqueBrowserFrameView::UpdateWindowIcon() {
 }
 
 void OpaqueBrowserFrameView::UpdateWindowTitle() {
+  if (frameless_)
+    return;
   if (!frame()->IsFullscreen() && ShouldShowWindowTitle()) {
     Layout();
     window_title_->SchedulePaint();
@@ -417,6 +446,10 @@ gfx::Size OpaqueBrowserFrameView::GetBrowserViewMinimumSize() const {
   return browser_view()->GetMinimumSize();
 }
 
+gfx::Size OpaqueBrowserFrameView::GetBrowserViewMaximumSize() const {
+  return browser_view()->GetMaximumSize();
+}
+
 bool OpaqueBrowserFrameView::ShouldShowCaptionButtons() const {
   return ShouldShowWindowTitleBar();
 }
@@ -478,7 +511,7 @@ bool OpaqueBrowserFrameView::EverHasVisibleBackgroundTabShapes() const {
 // views::View:
 void OpaqueBrowserFrameView::OnPaint(gfx::Canvas* canvas) {
   TRACE_EVENT0("views.frame", "OpaqueBrowserFrameView::OnPaint");
-  if (frame()->IsFullscreen())
+  if (frame()->IsFullscreen() || frameless_)
     return;  // Nothing is visible, so don't bother to paint.
 
   SkColor frame_color = GetFrameColor();
@@ -632,7 +665,8 @@ bool OpaqueBrowserFrameView::ShouldShowWindowTitleBar() const {
   // Do not show the custom title bar if the system title bar option is enabled.
   if (!frame()->UseCustomFrame())
     return false;
-
+  if (frameless_)
+    return false;
   // Do not show caption buttons if the window manager is forcefully providing a
   // title bar (e.g., in Ubuntu Unity, if the window is maximized).
   if (!views::ViewsDelegate::GetInstance())

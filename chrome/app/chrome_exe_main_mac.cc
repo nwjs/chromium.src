@@ -86,7 +86,7 @@ __attribute__((visibility("default"))) int main(int argc, char* argv[]) {
            rel_path);
 
   void* library =
-      dlopen(framework_path.get(), RTLD_LAZY | RTLD_LOCAL | RTLD_FIRST);
+      dlopen(framework_path.get(), RTLD_LAZY | RTLD_FIRST);
   if (!library) {
     fprintf(stderr, "dlopen %s: %s\n", framework_path.get(), dlerror());
     abort();

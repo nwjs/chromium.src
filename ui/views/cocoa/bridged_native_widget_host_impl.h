@@ -197,6 +197,8 @@ class VIEWS_EXPORT BridgedNativeWidgetHostImpl
   bool IsWindowKey() const { return is_window_key_; }
   bool IsMouseCaptureActive() const { return is_mouse_capture_active_; }
 
+  bool IsMaximized() const;
+
   // Used by NativeWidgetPrivate::GetGlobalCapture.
   static NSView* GetGlobalCaptureView();
 

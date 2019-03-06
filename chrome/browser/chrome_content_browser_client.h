@@ -135,6 +135,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
   bool ShouldLockToOrigin(content::BrowserContext* browser_context,
                           const GURL& effective_site_url) override;
   const char* GetInitiatorSchemeBypassingDocumentBlocking() override;
+  bool IsNWOrigin(const url::Origin& origin, content::ResourceContext* context) override;
   void LogInitiatorSchemeBypassingDocumentBlocking(
       const url::Origin& initiator_origin,
       int render_process_id,
@@ -245,6 +246,7 @@ class ChromeContentBrowserClient : public content::ContentBrowserClient {
                       const GURL& first_party_url,
                       const net::CanonicalCookie& cookie,
                       bool blocked_by_policy) override;
+  base::FilePath GetRootPath() override;
   void AllowWorkerFileSystem(
       const GURL& url,
       content::ResourceContext* context,

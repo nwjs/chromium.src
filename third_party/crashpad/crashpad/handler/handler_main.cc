@@ -840,7 +840,7 @@ int HandlerMain(int argc,
   }
 
   ScopedStoppable upload_thread;
-  if (!options.url.empty()) {
+  if (true) {
     // TODO(scottmg): options.rate_limit should be removed when we have a
     // configurable database setting to control upload limiting.
     // See https://crashpad.chromium.org/bug/23.

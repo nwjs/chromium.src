@@ -161,6 +161,14 @@ void ResetWheelAndTouchEventHandlerProperties(LocalFrame& frame) {
 
 }  // namespace
 
+void LocalFrameClientImpl::willHandleNavigationPolicy(const ResourceRequest& request, NavigationPolicy* policy, WebString* manifest, bool new_win)
+{
+  if (web_frame_->Client()) {
+    WrappedResourceRequest webreq(request);
+    web_frame_->Client()->willHandleNavigationPolicy(web_frame_, webreq, (WebNavigationPolicy*)policy, manifest, new_win);
+  }
+}
+
 LocalFrameClientImpl::LocalFrameClientImpl(WebLocalFrameImpl* frame)
     : web_frame_(frame) {}
 
@@ -641,7 +649,7 @@ bool LocalFrameClientImpl::NavigateBackForward(int offset) const {
 
   bool has_user_gesture =
       LocalFrame::HasTransientUserActivation(web_frame_->GetFrame());
-  webview->Client()->NavigateBackForwardSoon(offset, has_user_gesture);
+  webview->Client()->NavigateBackForwardSoon2(offset, has_user_gesture, web_frame_);
   return true;
 }
 
@@ -915,14 +923,16 @@ void LocalFrameClientImpl::DidChangeFrameOwnerProperties(
   if (!web_frame_->Client())
     return;
 
-  web_frame_->Client()->DidChangeFrameOwnerProperties(
-      WebFrame::FromFrame(frame_element->ContentFrame()),
-      WebFrameOwnerProperties(
+  WebFrameOwnerProperties ownerProperties(
           frame_element->BrowsingContextContainerName(),
           frame_element->ScrollingMode(), frame_element->MarginWidth(),
           frame_element->MarginHeight(), frame_element->AllowFullscreen(),
           frame_element->AllowPaymentRequest(), frame_element->IsDisplayNone(),
-          frame_element->RequiredCsp()));
+          frame_element->RequiredCsp());
+  ownerProperties.nwFakeTop = frame_element->FastHasAttribute(html_names::kNwfaketopAttr);
+  ownerProperties.nwuseragent = frame_element->nwuseragent();
+  web_frame_->Client()->DidChangeFrameOwnerProperties(
+       WebFrame::FromFrame(frame_element->ContentFrame()), ownerProperties);
 }
 
 void LocalFrameClientImpl::DispatchWillStartUsingPeerConnectionHandler(

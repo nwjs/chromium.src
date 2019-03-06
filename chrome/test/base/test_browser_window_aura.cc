@@ -40,6 +40,14 @@ gfx::NativeWindow TestBrowserWindowAura::GetNativeWindow() const {
   return native_window_.get();
 }
 
+void TestBrowserWindowAura::UpdateDraggableRegions(
+    const std::vector<extensions::DraggableRegion>& regions) {
+}
+
+SkRegion* TestBrowserWindowAura::GetDraggableRegion() {
+  return nullptr;
+}
+
 void TestBrowserWindowAura::Show() {
   native_window_->Show();
 }

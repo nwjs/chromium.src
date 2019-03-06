@@ -99,9 +99,19 @@ gfx::Rect OpaqueBrowserFrameViewLayout::GetBoundsForTabStrip(
                    tabstrip_preferred_size.height());
 }
 
+gfx::Size OpaqueBrowserFrameViewLayout::GetMaximumSize(
+         const views::View* host) const {
+  return GetMinimumSizeHelper(host, true);
+}
 gfx::Size OpaqueBrowserFrameViewLayout::GetMinimumSize(
-    const views::View* host) const {
-  gfx::Size min_size = delegate_->GetBrowserViewMinimumSize();
+         const views::View* host) const {
+  return GetMinimumSizeHelper(host, false);
+}
+gfx::Size OpaqueBrowserFrameViewLayout::GetMinimumSizeHelper(
+         const views::View* host, bool max) const {
+  gfx::Size min_size = max? delegate_->GetBrowserViewMaximumSize() : delegate_->GetBrowserViewMinimumSize();
+  if (max && min_size.IsEmpty())
+    return min_size;
   int border_thickness = FrameBorderThickness(false);
   min_size.Enlarge(2 * border_thickness,
                    NonClientTopHeight(false) + border_thickness);

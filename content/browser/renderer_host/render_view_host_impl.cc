@@ -347,6 +347,7 @@ bool RenderViewHostImpl::CreateRenderView(
   }
   params->session_storage_namespace_id =
       delegate_->GetSessionStorageNamespace(instance_.get())->id();
+  params->skip_blocking_parser = delegate_->GetSkipBlockingParser();
   // Ensure the RenderView sets its opener correctly.
   params->opener_frame_route_id = opener_frame_route_id;
   params->replicated_frame_state = replicated_frame_state;

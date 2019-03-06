@@ -28,6 +28,7 @@ class RenderWidgetHostNSViewClient;
 
 struct EditCommand;
 struct NativeWebKeyboardEvent;
+class RenderWidgetHostViewMac;
 
 // An interface through which the NSView for a RenderWidgetHostViewMac is to
 // communicate with the RenderWidgetHostViewMac (potentially in another
@@ -46,6 +47,8 @@ class RenderWidgetHostNSViewClientHelper {
 
   // Return the currently focused accessibility element.
   virtual id GetFocusedBrowserAccessibilityElement() = 0;
+  virtual RenderWidgetHostViewMac* GetRenderWidgetHostViewMac() = 0;
+
 
   // Forward a keyboard event to the RenderWidgetHost that is currently handling
   // the key-down event.

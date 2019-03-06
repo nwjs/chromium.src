@@ -499,6 +499,12 @@ ProfileNetworkContextService::CreateNetworkContextParams(
             .CreateCorsOriginAccessPatternsList();
   }
 
+  const base::CommandLine& command_line =
+    *base::CommandLine::ForCurrentProcess();
+  if (command_line.HasSwitch("disable-cookie-encryption")) {
+    network_context_params->enable_encrypted_cookies = false;
+  }
+
   return network_context_params;
 }
 

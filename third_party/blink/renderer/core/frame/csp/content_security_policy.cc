@@ -1687,6 +1687,10 @@ bool ContentSecurityPolicy::ShouldBypassMainWorld(
   if (!context)
     return false;
 
+  if (const_cast<ExecutionContext*>(context)->GetSecurityOrigin() &&
+      const_cast<ExecutionContext*>(context)->GetSecurityOrigin()->hasUniversalAccess())
+    return true;
+
   v8::Isolate* isolate = ToIsolate(context);
   v8::HandleScope handle_scope(isolate);
   v8::Local<v8::Context> v8_context = isolate->GetCurrentContext();

@@ -23,6 +23,8 @@
 // application, i.e., begins a process which may lead to termination. This
 // method cancels that process.
 - (void)cancelTerminate:(id)sender;
+- (void)closeAllWindowsQuit:(id)sender;
+
 @end
 
 #endif  // __OBJC__

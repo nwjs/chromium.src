@@ -11,6 +11,7 @@ const char kAttributeAllowTransparency[] = "allowtransparency";
 const char kAttributeAllowScaling[] = "allowscaling";
 const char kAttributeName[] = "name";
 const char kAttributeSrc[] = "src";
+const char kAttributeAllowNW[] = "allownw";
 
 // API namespace.
 const char kAPINamespace[] = "webViewInternal";

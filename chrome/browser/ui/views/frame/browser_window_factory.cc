@@ -23,8 +23,9 @@ BrowserWindow* BrowserWindow::CreateBrowserWindow(
   // Create the view and the frame. The frame will attach itself via the view
   // so we don't need to do anything with the pointer.
   BrowserView* view = new BrowserView();
+  bool frameless = browser->is_frameless();
   view->Init(std::move(browser));
-  (new BrowserFrame(view))->InitBrowserFrame();
+  (new BrowserFrame(view, frameless))->InitBrowserFrame();
   view->GetWidget()->non_client_view()->SetAccessibleName(
       l10n_util::GetStringUTF16(IDS_PRODUCT_NAME));
 

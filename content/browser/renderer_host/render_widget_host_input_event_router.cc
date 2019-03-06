@@ -6,6 +6,9 @@
 
 #include <algorithm>
 #include <deque>
+
+#include "content/public/browser/render_frame_host.h"
+
 #include <vector>
 
 #include "base/debug/crash_logging.h"
@@ -1741,8 +1744,13 @@ void RenderWidgetHostInputEventRouter::SetCursor(const WebCursor& cursor) {
   last_device_scale_factor_ =
       last_mouse_move_root_view_->current_device_scale_factor();
   if (auto* cursor_manager = last_mouse_move_root_view_->GetCursorManager()) {
-    for (auto it : owner_map_)
+    for (auto it : owner_map_) {
+      if (touch_emulator_ && touch_emulator_->rfh_limit()) {
+        if (touch_emulator_->rfh_limit()->GetView() != it.second)
+          continue;
+      }
       cursor_manager->UpdateCursor(it.second, cursor);
+    }
   }
 }
 

@@ -110,7 +110,7 @@ ThreadPoolThread* ThreadPool::CreateNewThread() {
 
   // WebWorkerFetchContext is provided later in
   // ThreadedMessagingProxyBase::InitializeWorkerThread().
-  proxy->StartWorker(std::make_unique<GlobalScopeCreationParams>(
+  proxy->StartWorker(std::make_unique<GlobalScopeCreationParams>(false, std::string(),
       context->Url(), mojom::ScriptType::kClassic, context->UserAgent(),
       nullptr /* web_worker_fetch_context */,
       context->GetContentSecurityPolicy()->Headers(),

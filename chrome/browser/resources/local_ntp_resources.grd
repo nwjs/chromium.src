@@ -27,9 +27,9 @@
       <include name="IDR_MOST_VISITED_SINGLE_CSS" file="local_ntp\most_visited_single.css" type="BINDATA" />
       <include name="IDR_MOST_VISITED_SINGLE_JS" file="local_ntp\most_visited_single.js" type="BINDATA" />
       <include name="IDR_MOST_VISITED_UTIL_JS" file="local_ntp\most_visited_util.js" type="BINDATA" flattenhtml="true" />
-      <include name="IDR_CUSTOM_LINKS_EDIT_HTML" file="local_ntp\custom_links_edit.html" type="BINDATA" />
-      <include name="IDR_CUSTOM_LINKS_EDIT_CSS" file="local_ntp\custom_links_edit.css" type="BINDATA" />
-      <include name="IDR_CUSTOM_LINKS_EDIT_JS" file="local_ntp\custom_links_edit.js" type="BINDATA" />
+      <include name="IDR_CUSTOM_LINKS_EDIT_HTML" file="empty.html" type="BINDATA" />
+      <include name="IDR_CUSTOM_LINKS_EDIT_CSS" file="empty.css" type="BINDATA" />
+      <include name="IDR_CUSTOM_LINKS_EDIT_JS" file="empty.js" type="BINDATA" />
       <include name="IDR_CUSTOM_LINKS_ADD_SVG" file="local_ntp\icons\add_link.svg" type="BINDATA" />
       <include name="IDR_CUSTOM_LINKS_EDIT_MENU_SVG" file="local_ntp\icons\edit_menu.svg" type="BINDATA" />
     </includes>

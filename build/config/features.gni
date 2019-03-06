@@ -26,7 +26,7 @@ declare_args() {
   #
   # Note: this flag is used by WebRTC which is DEPSed into Chrome. Moving it
   # out of //build will require using the build_overrides directory.
-  proprietary_codecs = is_chrome_branded || is_chromecast
+  proprietary_codecs = true
 
   # Variable safe_browsing is used to control the build time configuration for
   # safe browsing feature. Safe browsing can be compiled in 3 different levels:
@@ -37,7 +37,7 @@ declare_args() {
   } else if (is_android) {
     safe_browsing_mode = 2
   } else {
-    safe_browsing_mode = 1
+    safe_browsing_mode = 0
   }
 
   # Set to true make a build that disables activation of field trial tests

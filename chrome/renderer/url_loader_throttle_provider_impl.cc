@@ -167,8 +167,10 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
 
   std::vector<std::unique_ptr<content::URLLoaderThrottle>> throttles;
 
+#if 1
   bool network_service_enabled =
       base::FeatureList::IsEnabled(network::features::kNetworkService);
+#endif
   // Some throttles have already been added in the browser for frame resources.
   // Don't add them for frame requests.
   bool is_frame_resource = content::IsResourceTypeFrame(resource_type);
@@ -176,6 +178,7 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
   DCHECK(!is_frame_resource ||
          type_ == content::URLLoaderThrottleProviderType::kFrame);
 
+#if 0
   if (data_reduction_proxy_manager_) {
     throttles.push_back(
         std::make_unique<
@@ -193,7 +196,7 @@ URLLoaderThrottleProviderImpl::CreateThrottles(
         std::make_unique<safe_browsing::RendererURLLoaderThrottle>(
             safe_browsing_.get(), render_frame_id));
   }
-
+#endif
   if (type_ == content::URLLoaderThrottleProviderType::kFrame &&
       !is_frame_resource) {
     content::RenderFrame* render_frame =

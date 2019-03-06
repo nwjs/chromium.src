@@ -137,6 +137,9 @@ std::unique_ptr<MessagePump> MessageLoop::CreateMessagePumpForType(Type type) {
     return std::make_unique<MessagePumpForUI>();
 #endif
 
+  if (type == MessageLoop::TYPE_NODE)
+    return std::unique_ptr<MessagePump>(new MessagePumpUV());
+
   DCHECK_EQ(MessageLoop::TYPE_DEFAULT, type);
 #if defined(OS_IOS)
   // On iOS, a native runloop is always required to pump system work.

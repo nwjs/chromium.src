@@ -29,6 +29,18 @@ class PrintPreviewUI;
 namespace base {
 class DictionaryValue;
 class RefCountedMemory;
+class ListValue;
+}
+
+namespace chrome {
+  void PrintersToValues(const printing::PrinterList& printer_list,
+                      base::ListValue* printers);
+  void NWPrintSetCustomPrinting(bool value);
+  bool NWPrintGetCustomPrinting();
+  void NWPrintSetDefaultPrinter(const std::string& printer_name);
+  void NWPrintSetPDFPath(const base::FilePath& path);
+  const base::FilePath& NWPrintGetPDFPath();
+  void NWPrintSetOptions(const base::DictionaryValue* dict);
 }
 
 namespace content {

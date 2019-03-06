@@ -155,7 +155,7 @@ class CORE_EXPORT ChromeClient
                      const WebWindowFeatures&,
                      NavigationPolicy,
                      SandboxFlags,
-                     const SessionStorageNamespaceId&);
+                     const SessionStorageNamespaceId&, WebString* manifest = nullptr);
   virtual void Show(NavigationPolicy) = 0;
 
   // All the parameters should be in viewport space. That is, if an event
@@ -389,7 +389,7 @@ class CORE_EXPORT ChromeClient
                                      const WebWindowFeatures&,
                                      NavigationPolicy,
                                      SandboxFlags,
-                                     const SessionStorageNamespaceId&) = 0;
+                                     const SessionStorageNamespaceId&, WebString*) = 0;
 
  private:
   bool CanOpenUIElementIfDuringPageDismissal(Frame& main_frame,
