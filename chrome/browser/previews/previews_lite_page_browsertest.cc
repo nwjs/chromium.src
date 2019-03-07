@@ -123,12 +123,9 @@ class PreviewsLitePageServerBrowserTest : public InProcessBrowserTest {
                            data_reduction_proxy::DummyBase64Config());
     cmd->AppendSwitchASCII("force-effective-connection-type", "Slow-2G");
     cmd->AppendSwitchASCII("force-variation-ids", "42");
-    // Resolve all localhost subdomains to plain localhost so that Chrome's Test
-    // DNS resolver doesn't get upset.
-    cmd->AppendSwitchASCII("host-rules",
-                           "MAP *.localhost 127.0.0.1,"
-                           "MAP *.127.0.0.1 127.0.0.1,"
-                           "MAP *.litepages.googlezip.net 127.0.0.1");
+    cmd->AppendSwitchASCII("host-rules", "MAP * 127.0.0.1");
+    cmd->AppendSwitch("enable-data-reduction-proxy-force-pingback");
+    cmd->AppendSwitch("ignore-litepage-redirect-optimization-blacklist");
   }
 
   void SetUp() override {
@@ -1408,10 +1405,8 @@ class PreviewsLitePageServerDataSaverBrowserTest
     // triggering, and causing the test to flake.
     cmd->AppendSwitch(previews::switches::kIgnorePreviewsBlacklist);
     cmd->AppendSwitchASCII("force-effective-connection-type", "Slow-2G");
-    // Resolve all localhost subdomains to plain localhost so that Chrome's Test
-    // DNS resolver doesn't get upset.
-    cmd->AppendSwitchASCII(
-        "host-rules", "MAP *.localhost 127.0.0.1, MAP *.127.0.0.1 127.0.0.1");
+    cmd->AppendSwitchASCII("host-rules", "MAP * 127.0.0.1");
+    cmd->AppendSwitch("ignore-litepage-redirect-optimization-blacklist");
   }
 };
 
@@ -1439,10 +1434,8 @@ class PreviewsLitePageServerNoDataSaverHeaderBrowserTest
     cmd->AppendSwitch(previews::switches::kIgnorePreviewsBlacklist);
     cmd->AppendSwitch("enable-spdy-proxy-auth");
     cmd->AppendSwitchASCII("force-effective-connection-type", "Slow-2G");
-    // Resolve all localhost subdomains to plain localhost so that Chrome's Test
-    // DNS resolver doesn't get upset.
-    cmd->AppendSwitchASCII(
-        "host-rules", "MAP *.localhost 127.0.0.1, MAP *.127.0.0.1 127.0.0.1");
+    cmd->AppendSwitchASCII("host-rules", "MAP * 127.0.0.1");
+    cmd->AppendSwitch("ignore-litepage-redirect-optimization-blacklist");
   }
 };
 
@@ -1535,10 +1528,8 @@ class PreviewsLitePageNotificationDSDisabledBrowserTest
     // triggering, and causing the test to flake.
     cmd->AppendSwitch(previews::switches::kIgnorePreviewsBlacklist);
     cmd->AppendSwitchASCII("force-effective-connection-type", "Slow-2G");
-    // Resolve all localhost subdomains to plain localhost so that Chrome's Test
-    // DNS resolver doesn't get upset.
-    cmd->AppendSwitchASCII(
-        "host-rules", "MAP *.localhost 127.0.0.1, MAP *.127.0.0.1 127.0.0.1");
+    cmd->AppendSwitchASCII("host-rules", "MAP * 127.0.0.1");
+    cmd->AppendSwitch("ignore-litepage-redirect-optimization-blacklist");
   }
 };
 
