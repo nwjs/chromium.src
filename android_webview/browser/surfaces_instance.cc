@@ -24,6 +24,7 @@
 #include "components/viz/service/frame_sinks/frame_sink_manager_impl.h"
 #include "ui/gfx/geometry/rect.h"
 #include "ui/gfx/geometry/size.h"
+#include "ui/gfx/presentation_feedback.h"
 #include "ui/gfx/transform.h"
 
 namespace android_webview {
@@ -172,6 +173,8 @@ void SurfacesInstance::DrawAndSwap(const gfx::Size& viewport,
   display_->Resize(viewport);
   display_->DrawAndSwap();
   display_->DidReceiveSwapBuffersAck();
+  display_->DidReceivePresentationFeedback(gfx::PresentationFeedback(
+      base::TimeTicks::Now(), base::TimeDelta(), 0 /* flags */));
 }
 
 void SurfacesInstance::AddChildId(const viz::SurfaceId& child_id) {
